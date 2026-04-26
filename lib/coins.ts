@@ -1,5 +1,5 @@
 import {
-  doc, updateDoc, increment, collection, addDoc, getDoc, setDoc, serverTimestamp,
+  doc, updateDoc, increment, getDoc, setDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 

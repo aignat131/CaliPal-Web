@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
     try {
       await sendPasswordResetEmail(auth, email)
       setResendDone(true)
-    } catch (_) {
+    } catch {
       // silent
     }
   }
