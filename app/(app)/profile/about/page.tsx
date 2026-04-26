@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Heart, Github, Globe } from 'lucide-react'
+import { ArrowLeft, Heart, Code2, Globe } from 'lucide-react'
 
 export default function AboutPage() {
   const router = useRouter()
@@ -29,7 +29,7 @@ export default function AboutPage() {
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           <Row icon={<Globe size={16} />} label="Versiune" value="1.0.0" />
           <Row icon={<Heart size={16} />} label="Realizat cu" value="Next.js · Firebase · MediaPipe" />
-          <Row icon={<Github size={16} />} label="Platformă" value="Cloudflare Pages" />
+          <Row icon={<Code2 size={16} />} label="Platformă" value="Vercel" />
         </div>
 
         <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
