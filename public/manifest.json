@@ -1,0 +1,38 @@
+{
+  "name": "CaliPal",
+  "short_name": "CaliPal",
+  "description": "Calisthenics & Street Workout",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#0D2E2B",
+  "theme_color": "#1ED75F",
+  "orientation": "portrait",
+  "categories": ["fitness", "health", "sports"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Antrenament",
+      "url": "/workout",
+      "description": "Începe un antrenament"
+    },
+    {
+      "name": "Hartă",
+      "url": "/map",
+      "description": "Găsește parcuri"
+    }
+  ]
+}

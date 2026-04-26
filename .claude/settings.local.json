@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --app --eslint --import-alias \"@/*\" --turbopack --yes)",
+      "Read(//e/Web_Apps/**)",
+      "Bash(npx create-next-app@15 calipal-web --typescript --tailwind --app --eslint --import-alias \"@/*\" --turbopack --yes)",
+      "Bash(cp:*)",
+      "Bash(cp -r \"C:/Temp/calipal-web/app\" \"E:/Web_Apps/CaliPal-Web/app\")",
+      "Bash(cp -r \"C:/Temp/calipal-web/public\" \"E:/Web_Apps/CaliPal-Web/public\")",
+      "Bash(npm install:*)",
+      "Bash(rm:*)",
+      "Bash(npx shadcn@latest init --defaults)",
+      "Bash(npx shadcn@latest add button card dialog sheet tabs input avatar badge --yes)",
+      "Bash(npx tsc:*)",
+      "Bash(npx next:*)",
+      "Bash(powershell -Command ':*)",
+      "Bash(npx firebase-tools:*)",
+      "Bash(npm run:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(firebase projects:list)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}
