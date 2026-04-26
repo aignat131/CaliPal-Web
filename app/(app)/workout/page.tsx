@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   collection, query, orderBy, limit, onSnapshot,
-  addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, startAfter, getDocs, deleteDoc,
+  addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, deleteDoc,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -387,9 +387,6 @@ export default function WorkoutPage() {
           seconds={seconds}
           note={note}
           onNoteChange={setNote}
-          onAddSet={addSet}
-          onRemoveSet={removeSet}
-          onUpdateSet={updateSet}
           onReplaceExerciseSets={replaceExerciseSets}
           onAddMore={() => setShowPicker(true)}
           onFinish={finishWorkout}
@@ -637,15 +634,12 @@ function ExercisePicker({
 
 function ActiveWorkout({
   exercises, seconds, note, onNoteChange,
-  onAddSet, onRemoveSet, onUpdateSet, onReplaceExerciseSets, onAddMore, onFinish, onCancel,
+  onReplaceExerciseSets, onAddMore, onFinish, onCancel,
 }: {
   exercises: WorkoutExercise[]
   seconds: number
   note: string
   onNoteChange: (v: string) => void
-  onAddSet: (ei: number) => void
-  onRemoveSet: (ei: number, si: number) => void
-  onUpdateSet: (ei: number, si: number, field: 'reps' | 'durationSeconds', value: number) => void
   onReplaceExerciseSets: (ei: number, sets: WorkoutSet[]) => void
   onAddMore: () => void
   onFinish: () => void
@@ -692,7 +686,7 @@ function ActiveWorkout({
         {exercises.length === 0 && (
           <div className="text-center py-10">
             <p className="text-sm text-white/35 mb-2">Niciun exercițiu adăugat.</p>
-            <p className="text-xs text-white/25">Apasă „Adaugă exercițiu" pentru a începe.</p>
+            <p className="text-xs text-white/25">Apasă &ldquo;Adaugă exercițiu&rdquo; pentru a începe.</p>
           </div>
         )}
         {exercises.map((ex, ei) => (
