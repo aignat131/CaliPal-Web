@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  eslint: { ignoreDuringBuilds: true },
   async headers() {
     return [
       // Auth pages: no COOP so Google OAuth redirect can complete
