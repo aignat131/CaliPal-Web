@@ -107,7 +107,7 @@ export default function CommunityPage() {
 
   // Load provocari lazily when tab 2 is opened
   useEffect(() => {
-    if (tab !== 2 || loadedProv || joinedIds.size === 0 || !user) return
+    if (tab !== 2 || loadedProv || !user) return
     setLoadedProv(true)
     const communityMap = new Map(communities.map(c => [c.id, c.name]))
 
@@ -177,21 +177,24 @@ export default function CommunityPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-black text-white">Comunitate</h1>
-          {tab === 0 && (
-            <Link href="/community/create">
-              <button className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center">
-                <Plus size={18} className="text-black" strokeWidth={2.5} />
+          <div className="flex items-center gap-2">
+            {isSuperAdmin && (
+              <button
+                onClick={() => { changeTab(2); setShowAddChallenge(true) }}
+                className="flex items-center gap-1.5 h-9 px-3 rounded-full border border-yellow-400/40 text-yellow-400 text-xs font-bold hover:bg-yellow-400/10 transition-colors"
+                title="Adaugă provocare (super admin)"
+              >
+                <Trophy size={13} /> Provocare
               </button>
-            </Link>
-          )}
-          {tab === 2 && isSuperAdmin && (
-            <button
-              onClick={() => setShowAddChallenge(true)}
-              className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center"
-            >
-              <Plus size={18} className="text-black" strokeWidth={2.5} />
-            </button>
-          )}
+            )}
+            {tab === 0 && (
+              <Link href="/community/create">
+                <button className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center">
+                  <Plus size={18} className="text-black" strokeWidth={2.5} />
+                </button>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Tabs */}
