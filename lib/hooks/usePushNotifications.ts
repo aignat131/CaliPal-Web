@@ -45,6 +45,7 @@ async function saveFcmToken(uid: string) {
 
     const { getMessaging, getToken } = await import('firebase/messaging')
     const { app } = await import('@/lib/firebase/config')
+    if (!app) return
     const messaging = getMessaging(app)
 
     const token = await getToken(messaging, {
