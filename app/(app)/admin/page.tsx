@@ -8,12 +8,12 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import type { ParkDoc, CommunityDoc, WeeklyChallenge, ParkRequest } from '@/types'
-import { ArrowLeft, Plus, Trash2, Pencil, Check, X, MapPin, Trophy, Users, Shield, ChevronDown, ChevronUp } from 'lucide-react'
+import type { ParkDoc, CommunityDoc, WeeklyChallenge, ParkRequest, ParkCommunityRequest, VerificationRequest } from '@/types'
+import { ArrowLeft, Plus, Trash2, Pencil, Check, X, MapPin, Trophy, Users, Shield, ChevronDown, ChevronUp, BadgeCheck } from 'lucide-react'
 
 const SUPERADMIN = 'aignat131@gmail.com'
 
-type AdminTab = 'parks' | 'challenges' | 'communities'
+type AdminTab = 'parks' | 'challenges' | 'communities' | 'park_requests' | 'verifications'
 
 export default function AdminPage() {
   const { user } = useAuth()
@@ -45,15 +45,17 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/10 mb-5">
+        <div className="flex flex-wrap gap-1 border-b border-white/10 mb-5 pb-1">
           {([
-            ['parks', 'Parcuri', <MapPin key="p" size={13} />],
-            ['challenges', 'Provocări', <Trophy key="c" size={13} />],
-            ['communities', 'Comunități', <Users key="u" size={13} />],
+            ['parks', 'Parcuri', <MapPin key="p" size={12} />],
+            ['challenges', 'Provocări', <Trophy key="c" size={12} />],
+            ['communities', 'Comunități', <Users key="u" size={12} />],
+            ['park_requests', 'Cereri Parc', <MapPin key="pr" size={12} />],
+            ['verifications', 'Verificări', <BadgeCheck key="v" size={12} />],
           ] as [AdminTab, string, React.ReactNode][]).map(([t, label, icon]) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
-                tab === t ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/40'
+              className={`h-8 px-3 rounded-full text-[11px] font-bold flex items-center gap-1 transition-colors ${
+                tab === t ? 'bg-brand-green text-black' : 'bg-white/8 text-white/50'
               }`}>
               {icon}{label}
             </button>
@@ -63,6 +65,8 @@ export default function AdminPage() {
         {tab === 'parks' && <ParksTab />}
         {tab === 'challenges' && <ChallengesTab />}
         {tab === 'communities' && <CommunitiesTab />}
+        {tab === 'park_requests' && <ParkCommunityRequestsTab />}
+        {tab === 'verifications' && <VerificationsTab />}
       </div>
     </div>
   )
@@ -437,6 +441,128 @@ function ChallengeForm({ challenge, onClose }: { challenge: WeeklyChallenge | nu
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Park Community Requests Tab ───────────────────────────────────────────────
+
+function ParkCommunityRequestsTab() {
+  const [requests, setRequests] = useState<ParkCommunityRequest[]>([])
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, 'park_community_requests'), where('status', '==', 'PENDING'), orderBy('createdAt', 'desc')),
+      snap => setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkCommunityRequest))
+    )
+    return unsub
+  }, [])
+
+  async function approve(req: ParkCommunityRequest) {
+    await updateDoc(doc(db, 'parks', req.parkId), { communityId: req.communityId })
+    await deleteDoc(doc(db, 'park_community_requests', req.id))
+  }
+
+  async function reject(id: string) {
+    await deleteDoc(doc(db, 'park_community_requests', id))
+  }
+
+  if (requests.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-12 text-center">
+        <MapPin size={32} className="text-white/15" />
+        <p className="text-sm text-white/35">Nicio cerere de asociere în așteptare.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {requests.map(req => (
+        <div key={req.id} className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <p className="text-sm font-bold text-white mb-0.5">{req.parkName}</p>
+          <p className="text-xs text-brand-green mb-0.5">→ {req.communityName}</p>
+          <p className="text-[11px] text-white/40">de {req.requestedByName}</p>
+          {req.createdAt && (
+            <p className="text-[10px] text-white/25 mt-0.5">
+              {req.createdAt.toDate?.()?.toLocaleDateString('ro') ?? ''}
+            </p>
+          )}
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => reject(req.id)}
+              className="flex-1 h-8 rounded-xl border border-red-500/40 text-xs font-bold text-red-400 flex items-center justify-center gap-1">
+              <X size={12} /> Respinge
+            </button>
+            <button onClick={() => approve(req)}
+              className="flex-1 h-8 rounded-xl bg-brand-green text-black text-xs font-bold flex items-center justify-center gap-1">
+              <Check size={12} /> Aprobă
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Verifications Tab ─────────────────────────────────────────────────────────
+
+function VerificationsTab() {
+  const [requests, setRequests] = useState<VerificationRequest[]>([])
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, 'verification_requests'), where('status', '==', 'PENDING'), orderBy('createdAt', 'desc')),
+      snap => setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() }) as VerificationRequest))
+    )
+    return unsub
+  }, [])
+
+  async function approve(req: VerificationRequest) {
+    await updateDoc(doc(db, 'communities', req.communityId), {
+      verified: true,
+      verifiedAt: serverTimestamp(),
+    })
+    await deleteDoc(doc(db, 'verification_requests', req.id))
+  }
+
+  async function reject(id: string) {
+    await deleteDoc(doc(db, 'verification_requests', id))
+  }
+
+  if (requests.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-12 text-center">
+        <BadgeCheck size={32} className="text-white/15" />
+        <p className="text-sm text-white/35">Nicio cerere de verificare în așteptare.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {requests.map(req => (
+        <div key={req.id} className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <p className="text-sm font-bold text-white mb-0.5">{req.communityName}</p>
+          <p className="text-[11px] text-white/40 mb-1">de {req.requestedByName}</p>
+          <p className="text-xs text-white/60 leading-relaxed">{req.reason}</p>
+          {req.createdAt && (
+            <p className="text-[10px] text-white/25 mt-1">
+              {req.createdAt.toDate?.()?.toLocaleDateString('ro') ?? ''}
+            </p>
+          )}
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => reject(req.id)}
+              className="flex-1 h-8 rounded-xl border border-red-500/40 text-xs font-bold text-red-400 flex items-center justify-center gap-1">
+              <X size={12} /> Respinge
+            </button>
+            <button onClick={() => approve(req)}
+              className="flex-1 h-8 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1"
+              style={{ backgroundColor: '#3B82F6' }}>
+              <BadgeCheck size={12} /> Verifică
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

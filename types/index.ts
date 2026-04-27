@@ -32,6 +32,8 @@ export interface CommunityDoc {
   memberCount: number
   isPublic: boolean
   imageUrl: string
+  verified?: boolean
+  verifiedAt?: Timestamp | null
   createdAt: Timestamp | null
 }
 
@@ -269,6 +271,29 @@ export interface AppNotification {
 }
 
 // ── Park Requests ─────────────────────────────────────────────────────────────
+
+export interface ParkCommunityRequest {
+  id: string
+  parkId: string
+  parkName: string
+  communityId: string
+  communityName: string
+  requestedByUid: string
+  requestedByName: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  createdAt: Timestamp | null
+}
+
+export interface VerificationRequest {
+  id: string
+  communityId: string
+  communityName: string
+  requestedByUid: string
+  requestedByName: string
+  reason: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  createdAt: Timestamp | null
+}
 
 // ── Community Posts ───────────────────────────────────────────────────────────
 

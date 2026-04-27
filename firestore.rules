@@ -204,5 +204,19 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isSuperAdmin();
     }
+
+    // ── Park-community association requests ───────────────────────────────────
+    match /park_community_requests/{reqId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // ── Community verification requests ───────────────────────────────────────
+    match /verification_requests/{reqId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isSuperAdmin();
+    }
   }
 }

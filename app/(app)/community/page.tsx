@@ -174,13 +174,6 @@ export default function CommunityPage() {
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="max-w-lg mx-auto px-4 pt-5 pb-6">
-        {/* DEBUG — remove after fix */}
-        {user && (
-          <p className="text-[10px] text-white/30 mb-2 break-all">
-            email: {user.email ?? 'null'} | isAdmin: {String(isSuperAdmin)}
-          </p>
-        )}
-
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-black text-white">Comunitate</h1>
@@ -499,7 +492,13 @@ function CommunityCard({
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-white text-[15px] leading-tight">{community.name}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="font-bold text-white text-[15px] leading-tight">{community.name}</p>
+            {community.verified && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
+            )}
+          </div>
           {community.description && (
             <p className="text-xs text-white/50 mt-0.5 line-clamp-2">{community.description}</p>
           )}

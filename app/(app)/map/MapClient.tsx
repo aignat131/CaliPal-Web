@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import {
   collection, onSnapshot, doc, setDoc, deleteDoc,
-  serverTimestamp, getDoc,
+  serverTimestamp, getDoc, getDocs, query, where, addDoc,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useTheme } from '@/lib/hooks/useTheme'
-import type { ParkDoc, ParkPresenceMember, CommunityDoc, LocationSharingMode } from '@/types'
+import type { ParkDoc, ParkPresenceMember, CommunityDoc, LocationSharingMode, ParkCommunityRequest, PlannedTraining } from '@/types'
 import { MapPin, X, Navigation, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -25,6 +25,20 @@ function makeParkIcon(hasComm: boolean, activeCount: number) {
   const ring = activeCount > 0
     ? `<circle cx="20" cy="20" r="16" fill="none" stroke="${color}" stroke-width="2" opacity="0.5" class="pulse-ring"/>`
     : ''
+  const glowDefs = hasComm ? `
+    <defs>
+      <radialGradient id="g" cx="50%" cy="40%" r="60%">
+        <stop offset="0%" stop-color="#2EF070"/>
+        <stop offset="100%" stop-color="#1ED75F"/>
+      </radialGradient>
+      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>` : ''
+  const pinFill = hasComm ? 'url(#g)' : color
+  const pinFilter = hasComm ? 'filter="url(#glow)"' : ''
+  const strokeW = hasComm ? '2' : '1.5'
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
       <style>
@@ -34,10 +48,11 @@ function makeParkIcon(hasComm: boolean, activeCount: number) {
           100% { r: 26; opacity: 0; }
         }
       </style>
+      ${glowDefs}
       ${ring}
       <ellipse cx="20" cy="43" rx="5" ry="2.5" fill="rgba(0,0,0,0.25)"/>
       <path d="M20 4 C11 4 5 11 5 19 C5 29 20 43 20 43 C20 43 35 29 35 19 C35 11 29 4 20 4Z"
-        fill="${color}" stroke="white" stroke-width="1.5"/>
+        fill="${pinFill}" stroke="white" stroke-width="${strokeW}" ${pinFilter}/>
       <circle cx="20" cy="19" r="6" fill="white" opacity="0.9"/>
       ${activeCount > 0
         ? `<text x="20" y="23" text-anchor="middle" font-size="8" font-weight="bold" fill="${color}">${activeCount}</text>`
@@ -196,6 +211,10 @@ export default function MapClient() {
   const [liveLocations, setLiveLocations] = useState<Record<string, string>>({})
   const [showParkRequest, setShowParkRequest] = useState(false)
   const [locationSharingMode, setLocationSharingMode] = useState<LocationSharingMode>('EVERYWHERE')
+  const [showParkCommModal, setShowParkCommModal] = useState(false)
+  const [parkPendingReq, setParkPendingReq] = useState<ParkCommunityRequest | null>(null)
+  const [todayTraining, setTodayTraining] = useState<PlannedTraining | null>(null)
+  const [userAdminCommunities, setUserAdminCommunities] = useState<CommunityDoc[]>([])
   const watchIdRef = useRef<number | null>(null)
 
   // Permission sheet state
@@ -295,6 +314,23 @@ export default function MapClient() {
     }
   }, [user, startSharing])
 
+  // Load communities where the current user is ADMIN
+  useEffect(() => {
+    if (!user) return
+    getDoc(doc(db, 'users', user.uid)).then(async snap => {
+      const ids: string[] = snap.data()?.joinedCommunityIds ?? []
+      const results = await Promise.all(
+        ids.map(id => getDoc(doc(db, 'communities', id)).then(s => s.exists() ? { id: s.id, ...s.data() } as CommunityDoc : null))
+      )
+      const adminComms: CommunityDoc[] = []
+      await Promise.all(results.filter(Boolean).map(async c => {
+        const mem = await getDoc(doc(db, 'communities', c!.id, 'members', user.uid))
+        if (mem.exists() && mem.data().role === 'ADMIN') adminComms.push(c!)
+      }))
+      setUserAdminCommunities(adminComms)
+    })
+  }, [user])
+
   // Load parks
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'parks'), snap => {
@@ -340,28 +376,50 @@ export default function MapClient() {
     }
   }, [user, stopSharing])
 
-  // Park selection: load community doc + live presence
+  // Park selection: load community doc + live presence + today's training + pending request
   useEffect(() => {
     if (!selectedPark) {
       setParkCommunity(null)
       setParkPresenceMembers([])
+      setTodayTraining(null)
+      setParkPendingReq(null)
       return
     }
     if (!selectedPark.communityId) {
       setParkCommunity(null)
       setParkPresenceMembers([])
+      setTodayTraining(null)
+      // Check for pending community request on this park
+      if (user) {
+        getDocs(query(
+          collection(db, 'park_community_requests'),
+          where('parkId', '==', selectedPark.id),
+          where('status', '==', 'PENDING')
+        )).then(snap => {
+          setParkPendingReq(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() } as ParkCommunityRequest)
+        })
+      }
       return
     }
+    setParkPendingReq(null)
     getDoc(doc(db, 'communities', selectedPark.communityId)).then(snap => {
       if (snap.exists()) setParkCommunity({ id: snap.id, ...snap.data() } as CommunityDoc)
       else setParkCommunity(null)
+    })
+    // Load today's training
+    const today = new Date().toISOString().slice(0, 10)
+    getDocs(query(
+      collection(db, 'communities', selectedPark.communityId, 'trainings'),
+      where('date', '==', today)
+    )).then(snap => {
+      setTodayTraining(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() } as PlannedTraining)
     })
     const unsub = onSnapshot(
       collection(db, 'park_presence', selectedPark.communityId, 'active_members'),
       snap => setParkPresenceMembers(snap.docs.map(d => d.data() as ParkPresenceMember))
     )
     return unsub
-  }, [selectedPark])
+  }, [selectedPark, user])
 
   // Filter + search
   const filteredParks = parks.filter(p => {
@@ -527,7 +585,14 @@ export default function MapClient() {
           community={parkCommunity}
           members={parkPresenceMembers}
           liveLocations={liveLocations}
-          onClose={() => setSelectedPark(null)}
+          onClose={() => { setSelectedPark(null); setShowParkCommModal(false) }}
+          uid={user?.uid ?? null}
+          todayTraining={todayTraining}
+          parkPendingReq={parkPendingReq}
+          userAdminCommunities={userAdminCommunities}
+          showParkCommModal={showParkCommModal}
+          setShowParkCommModal={setShowParkCommModal}
+          onPendingReqSet={req => setParkPendingReq(req)}
         />
       )}
     </div>
@@ -538,17 +603,26 @@ export default function MapClient() {
 
 function ParkBottomSheet({
   park, community, members, liveLocations, onClose,
+  uid, todayTraining, parkPendingReq, userAdminCommunities,
+  showParkCommModal, setShowParkCommModal, onPendingReqSet,
 }: {
   park: ParkDoc
   community: CommunityDoc | null
   members: ParkPresenceMember[]
   liveLocations: Record<string, string>
   onClose: () => void
+  uid: string | null
+  todayTraining: PlannedTraining | null
+  parkPendingReq: ParkCommunityRequest | null
+  userAdminCommunities: CommunityDoc[]
+  showParkCommModal: boolean
+  setShowParkCommModal: (v: boolean) => void
+  onPendingReqSet: (req: ParkCommunityRequest) => void
 }) {
   const { theme } = useTheme()
   return (
     <div
-      className="absolute bottom-0 left-0 right-0 z-[2000] rounded-t-3xl px-4 pt-4 pb-6 max-h-[60vh] overflow-y-auto"
+      className="absolute bottom-0 left-0 right-0 z-[2000] rounded-t-3xl px-4 pt-4 pb-6 max-h-[70vh] overflow-y-auto"
       style={{
         backgroundColor: 'var(--app-surface)',
         boxShadow: theme === 'light' ? '0 -4px 24px rgba(0,0,0,0.15)' : '0 -4px 24px rgba(0,0,0,0.5)',
@@ -578,33 +652,75 @@ function ParkBottomSheet({
       ) : null}
 
       {community ? (
-        <Link href={`/community/${community.id}`}>
-          <div
-            className="flex items-center gap-3 p-3 rounded-2xl mb-3 border border-brand-green/30"
-            style={{ backgroundColor: '#1ED75F15' }}
-          >
+        <div className="mb-3">
+          <Link href={`/community/${community.id}`}>
             <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: '#1ED75F22' }}
+              className="flex items-center gap-3 p-3 rounded-2xl border border-brand-green/30"
+              style={{ backgroundColor: '#1ED75F15' }}
             >
-              <span className="text-base font-black text-brand-green">
-                {community.name.charAt(0)}
-              </span>
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: '#1ED75F22' }}
+              >
+                <span className="text-base font-black text-brand-green">
+                  {community.name.charAt(0)}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-bold text-white truncate">{community.name}</p>
+                  {community.verified && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: '#3B82F625', color: '#3B82F6' }}>✓</span>
+                  )}
+                </div>
+                <p className="text-xs text-white/45">{community.memberCount} membri</p>
+              </div>
+              <ChevronRight size={16} className="text-brand-green flex-shrink-0" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white truncate">{community.name}</p>
-              <p className="text-xs text-white/45">{community.memberCount} membri</p>
+          </Link>
+
+          {/* Today's training */}
+          {todayTraining && (
+            <div className="mt-2 p-3 rounded-xl border border-brand-green/20" style={{ backgroundColor: '#0D3D2820' }}>
+              <p className="text-[9px] font-bold text-brand-green/70 tracking-widest mb-1">ANTRENAMENT AZI</p>
+              <p className="text-sm font-bold text-white leading-tight">{todayTraining.name}</p>
+              <p className="text-xs text-white/50 mt-0.5">
+                {todayTraining.timeStart}{todayTraining.timeEnd ? `–${todayTraining.timeEnd}` : ''}
+                {todayTraining.location ? ` · ${todayTraining.location}` : ''}
+              </p>
+              {(() => {
+                const going = Object.values(todayTraining.rsvps ?? {}).filter(s => s === 'GOING').length
+                return going > 0 ? (
+                  <p className="text-xs text-brand-green mt-0.5">{going} {going === 1 ? 'merge' : 'merg'}</p>
+                ) : null
+              })()}
             </div>
-            <ChevronRight size={16} className="text-brand-green flex-shrink-0" />
-          </div>
-        </Link>
+          )}
+        </div>
       ) : (
-        <div
-          className="flex items-center gap-2 p-3 rounded-2xl mb-3 border border-white/10"
-          style={{ backgroundColor: 'var(--app-bg)' }}
-        >
-          <MapPin size={14} className="text-white/30" />
-          <p className="text-xs text-white/40">Nicio comunitate asociată acestui parc</p>
+        <div className="mb-3">
+          {parkPendingReq ? (
+            <div className="flex items-center gap-2 p-3 rounded-2xl border border-yellow-400/25"
+              style={{ backgroundColor: '#F9731610' }}>
+              <span className="text-sm">⏳</span>
+              <p className="text-xs text-yellow-400 font-semibold">Cerere în așteptare</p>
+            </div>
+          ) : uid ? (
+            <button
+              onClick={() => setShowParkCommModal(true)}
+              className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl border border-brand-green/30 text-brand-green text-sm font-bold hover:bg-brand-green/10 transition-colors"
+              style={{ backgroundColor: '#1ED75F08' }}
+            >
+              <span className="text-base">＋</span> Propune comunitate
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 p-3 rounded-2xl border border-white/10"
+              style={{ backgroundColor: 'var(--app-bg)' }}>
+              <MapPin size={14} className="text-white/30" />
+              <p className="text-xs text-white/40">Nicio comunitate asociată acestui parc</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -624,6 +740,146 @@ function ParkBottomSheet({
           </div>
         </div>
       )}
+
+      {/* Park Community Modal */}
+      {showParkCommModal && uid && (
+        <ParkCommunityModal
+          park={park}
+          uid={uid}
+          userAdminCommunities={userAdminCommunities}
+          onClose={() => setShowParkCommModal(false)}
+          onSubmitted={req => { onPendingReqSet(req); setShowParkCommModal(false) }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Park Community Modal ──────────────────────────────────────────────────────
+
+function ParkCommunityModal({
+  park, uid, userAdminCommunities, onClose, onSubmitted,
+}: {
+  park: ParkDoc
+  uid: string
+  userAdminCommunities: CommunityDoc[]
+  onClose: () => void
+  onSubmitted: (req: ParkCommunityRequest) => void
+}) {
+  const [alreadyRequested, setAlreadyRequested] = useState(false)
+  const [selectedCommunityId, setSelectedCommunityId] = useState(userAdminCommunities[0]?.id ?? '')
+  const [submitting, setSubmitting] = useState(false)
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    getDocs(query(
+      collection(db, 'park_community_requests'),
+      where('requestedByUid', '==', uid),
+      where('status', '==', 'PENDING')
+    )).then(snap => {
+      const todayReq = snap.docs.find(d => {
+        const ts = d.data().createdAt?.toDate?.()
+        return ts && ts.toISOString().slice(0, 10) === today
+      })
+      setAlreadyRequested(!!todayReq)
+      setChecking(false)
+    })
+  }, [uid])
+
+  async function submit() {
+    if (!selectedCommunityId || submitting) return
+    const community = userAdminCommunities.find(c => c.id === selectedCommunityId)
+    if (!community) return
+    setSubmitting(true)
+    try {
+      const docRef = await addDoc(collection(db, 'park_community_requests'), {
+        parkId: park.id,
+        parkName: park.name,
+        communityId: community.id,
+        communityName: community.name,
+        requestedByUid: uid,
+        requestedByName: '',
+        status: 'PENDING',
+        createdAt: serverTimestamp(),
+      })
+      const req: ParkCommunityRequest = {
+        id: docRef.id,
+        parkId: park.id,
+        parkName: park.name,
+        communityId: community.id,
+        communityName: community.name,
+        requestedByUid: uid,
+        requestedByName: '',
+        status: 'PENDING',
+        createdAt: null,
+      }
+      onSubmitted(req)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/60"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-lg rounded-t-3xl px-5 pt-4 pb-8"
+        style={{ backgroundColor: 'var(--app-surface)' }}>
+        <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm font-black text-white">Asociază comunitate</p>
+          <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
+            <X size={13} className="text-white/60" />
+          </button>
+        </div>
+        <p className="text-xs text-white/50 mb-4">{park.name}</p>
+
+        {checking ? (
+          <div className="flex justify-center py-6">
+            <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : alreadyRequested ? (
+          <div className="p-3 rounded-xl border border-yellow-400/25 text-xs text-yellow-400"
+            style={{ backgroundColor: '#F9731610' }}>
+            Ai deja o cerere astăzi. Poți trimite o nouă cerere mâine.
+          </div>
+        ) : userAdminCommunities.length === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-white/50 mb-3">Nu ești admin în nicio comunitate.</p>
+            <Link href="/community/create">
+              <button className="h-9 px-4 rounded-full bg-brand-green text-black text-xs font-bold">
+                Creează o comunitate
+              </button>
+            </Link>
+          </div>
+        ) : (
+          <div>
+            <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2">SELECTEAZĂ COMUNITATEA</p>
+            <div className="flex flex-col gap-2 mb-4">
+              {userAdminCommunities.map(c => (
+                <button key={c.id}
+                  onClick={() => setSelectedCommunityId(c.id)}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-colors text-left ${
+                    selectedCommunityId === c.id
+                      ? 'border-brand-green/50 bg-brand-green/10'
+                      : 'border-white/10 bg-white/4'
+                  }`}>
+                  <div className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: selectedCommunityId === c.id ? '#1ED75F' : '#ffffff30' }} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{c.name}</p>
+                    <p className="text-xs text-white/40">{c.memberCount} membri</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button onClick={submit} disabled={submitting || !selectedCommunityId}
+              className="w-full h-11 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-40">
+              {submitting ? '...' : 'Trimite cererea'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
