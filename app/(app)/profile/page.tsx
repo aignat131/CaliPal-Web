@@ -198,7 +198,7 @@ export default function ProfilePage() {
 
         {/* Name + badge */}
         <div className="mb-4">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             {!profile && !user?.displayName
               ? <div className="h-6 w-28 rounded-lg bg-white/8 animate-pulse" />
               : <span className="text-[17px] font-black text-white">{displayName}</span>
@@ -210,6 +210,12 @@ export default function ProfilePage() {
               }}>
               {profile?.isCoach ? '⭐ Master Coach' : '⚔️ Începător'}
             </span>
+            {user?.email === 'aignat131@gmail.com' && (
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                style={{ backgroundColor: '#FFB80022', color: '#FFB800', border: '1px solid #FFB80040' }}>
+                👑 Super Admin
+              </span>
+            )}
           </div>
           <p className="text-sm text-white/50">{email}</p>
           {profile?.bio && <p className="text-sm text-white/80 mt-1 leading-relaxed">{profile.bio}</p>}
