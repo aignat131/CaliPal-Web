@@ -692,8 +692,8 @@ function ActiveWorkout({
         {exercises.map((ex, ei) => (
           <div key={`${ex.name}-${ei}`} className="rounded-2xl p-4 mb-3" style={{ backgroundColor: 'var(--app-surface)' }}>
             <div
-              className="flex items-center justify-between mb-2 cursor-pointer"
-              onClick={() => openExPopup(ei, ex.sets)}
+              className="flex items-center justify-between mb-2 cursor-pointer select-none"
+              onPointerDown={() => openExPopup(ei, ex.sets)}
             >
               <div>
                 <p className="font-bold text-white text-sm">{ex.name}</p>

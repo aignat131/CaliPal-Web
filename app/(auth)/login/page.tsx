@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   AuthError,
 } from 'firebase/auth'
 import { auth, googleProvider } from '@/lib/firebase/auth'
@@ -51,7 +52,18 @@ export default function LoginPage() {
     return valid
   }
 
+  useEffect(() => {
+    if (!auth) return
+    getRedirectResult(auth).then(async result => {
+      if (result?.user) {
+        await ensureUserDoc(result.user)
+        router.replace('/home')
+      }
+    }).catch(e => setErrorMessage(authErrorMessage(e as AuthError)))
+  }, [])
+
   async function handleLogin() {
+    if (!auth) { setErrorMessage('Firebase nu este configurat.'); return }
     if (!validate()) return
     setLoading(true)
     try {
@@ -66,16 +78,10 @@ export default function LoginPage() {
   }
 
   async function handleGoogle() {
+    if (!auth) { setErrorMessage('Firebase nu este configurat.'); return }
     setLoading(true)
     setErrorMessage('')
-    try {
-      const result = await signInWithPopup(auth, googleProvider)
-      await ensureUserDoc(result.user)
-      router.replace('/home')
-    } catch (e) {
-      setErrorMessage(authErrorMessage(e as AuthError))
-      setLoading(false)
-    }
+    await signInWithRedirect(auth, googleProvider)
   }
 
   return (

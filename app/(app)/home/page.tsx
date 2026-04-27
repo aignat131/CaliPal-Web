@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs,
+  collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, updateDoc,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
-import type { UserDoc, CommunityPost, CommunityDoc, WeeklyChallenge, UserChallengeProgress } from '@/types'
-import { Dumbbell, Users, Flame, Bell, Trophy, Star, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import type { UserDoc, CommunityPost, CommunityDoc, WeeklyChallenge, UserChallengeProgress, PlannedTraining } from '@/types'
+import { Users, Flame, Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 
 function timeAgo(ts: { toDate?: () => Date } | null | undefined): string {
@@ -33,6 +33,7 @@ export default function HomePage() {
   const [dismissedPush, setDismissedPush] = useState(false)
   const [showStreakCalendar, setShowStreakCalendar] = useState(false)
   const [workoutDates, setWorkoutDates] = useState<Set<string>>(new Set())
+  const [latestFavTraining, setLatestFavTraining] = useState<PlannedTraining | null>(null)
 
   // Live user doc
   useEffect(() => {
@@ -55,6 +56,24 @@ export default function HomePage() {
       setWorkoutDates(dates)
     })
   }, [user, showStreakCalendar])
+
+  // Latest training from favorite community
+  useEffect(() => {
+    const favId = userDoc?.favoriteCommunityId
+    if (!favId) { setLatestFavTraining(null); return }
+    const unsub = onSnapshot(
+      query(collection(db, 'communities', favId, 'trainings'), orderBy('date', 'desc'), limit(1)),
+      snap => {
+        if (!snap.empty) {
+          setLatestFavTraining({ id: snap.docs[0].id, ...snap.docs[0].data() } as PlannedTraining)
+        } else {
+          setLatestFavTraining(null)
+        }
+      },
+      () => setLatestFavTraining(null)
+    )
+    return unsub
+  }, [userDoc?.favoriteCommunityId])
 
   // Weekly challenge
   useEffect(() => {
@@ -171,12 +190,14 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-2 mb-5">
-          <StatCard label="Antrenamente" value={totalWorkouts} icon={<Dumbbell size={16} className="text-brand-green" />} />
-          <StatCard label="Monede" value={coins} icon={<span className="text-base">🪙</span>} />
-          <StatCard label="Streak" value={streak} icon={<Flame size={16} style={{ color: '#FF6B2B' }} />} />
-        </div>
+        {/* Latest training from favorite community */}
+        {latestFavTraining && userDoc?.favoriteCommunityId && user && (
+          <FavTrainingCard
+            training={latestFavTraining}
+            favId={userDoc.favoriteCommunityId}
+            uid={user.uid}
+          />
+        )}
 
         {/* Weekly challenge */}
         {challenge && (
@@ -310,6 +331,60 @@ function ChallengeCard({ challenge, progress }: { challenge: WeeklyChallenge; pr
       </div>
       <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: done ? '#1ED75F' : '#3B82F6' }} />
+      </div>
+    </div>
+  )
+}
+
+function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; favId: string; uid: string }) {
+  const myRsvp = training.rsvps?.[uid] ?? null
+
+  async function setRsvp(value: 'GOING' | 'MAYBE' | 'NOT_GOING') {
+    await updateDoc(doc(db, 'communities', favId, 'trainings', training.id), {
+      [`rsvps.${uid}`]: value,
+    })
+  }
+
+  const exercisePreview = training.exercises.slice(0, 2).map(e => e.name).join(', ')
+    + (training.exercises.length > 2 ? ` +${training.exercises.length - 2}` : '')
+
+  return (
+    <div className="rounded-2xl p-4 mb-5" style={{ backgroundColor: 'var(--app-surface)' }}>
+      <div className="flex items-start justify-between mb-1">
+        <p className="font-black text-white text-[15px] leading-tight flex-1 pr-2">{training.name}</p>
+        <span className="text-[11px] text-white/40 flex-shrink-0">{training.date}</span>
+      </div>
+      {exercisePreview && (
+        <p className="text-xs text-white/40 mb-3">{exercisePreview}</p>
+      )}
+      <div className="flex gap-2">
+        <button
+          onPointerDown={() => setRsvp('GOING')}
+          className="flex-1 h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-bold transition-colors"
+          style={myRsvp === 'GOING'
+            ? { backgroundColor: '#1ED75F', color: '#000' }
+            : { backgroundColor: '#1ED75F18', color: '#1ED75F' }}
+        >
+          <Check size={13} /> Merg
+        </button>
+        <button
+          onPointerDown={() => setRsvp('MAYBE')}
+          className="flex-1 h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-bold transition-colors"
+          style={myRsvp === 'MAYBE'
+            ? { backgroundColor: '#F59E0B', color: '#000' }
+            : { backgroundColor: '#F59E0B18', color: '#F59E0B' }}
+        >
+          <HelpCircle size={13} /> Poate
+        </button>
+        <button
+          onPointerDown={() => setRsvp('NOT_GOING')}
+          className="flex-1 h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-bold transition-colors"
+          style={myRsvp === 'NOT_GOING'
+            ? { backgroundColor: '#EF4444', color: '#fff' }
+            : { backgroundColor: '#EF444418', color: '#EF4444' }}
+        >
+          <X size={13} /> Nu merg
+        </button>
       </div>
     </div>
   )
