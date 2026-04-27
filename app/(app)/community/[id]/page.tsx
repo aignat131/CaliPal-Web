@@ -50,7 +50,13 @@ export default function CommunityDetailPage() {
   const [trainings, setTrainings] = useState<PlannedTraining[]>([])
   const [isMember, setIsMember] = useState(false)
   const [myRole, setMyRole] = useState<MemberRole>('MEMBER')
-  const [tab, setTab] = useState(0)
+  const [tab, setTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem(`comm_detail_tab_${params.id}`)
+      if (saved !== null) return parseInt(saved)
+    }
+    return 2 // default: Membri
+  })
   const [loading, setLoading] = useState(true)
   const [postText, setPostText] = useState('')
   const [posting, setPosting] = useState(false)
@@ -118,8 +124,24 @@ export default function CommunityDetailPage() {
   }, [user])
 
   useEffect(() => {
+    sessionStorage.setItem(`comm_detail_tab_${id}`, String(tab))
     if (tab === 2) loadSocialStatus()
-  }, [tab, loadSocialStatus])
+  }, [tab, id, loadSocialStatus])
+
+  // Auto-delete expired trainings (staff/superAdmin only)
+  useEffect(() => {
+    if (!trainings.length) return
+    const canDelete = isSuperAdmin || myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER'
+    if (!canDelete) return
+    const now = new Date()
+    trainings.forEach(t => {
+      if (!t.date || !t.timeEnd) return
+      const end = new Date(`${t.date}T${t.timeEnd}`)
+      if (end < now) {
+        deleteDoc(doc(db, 'communities', id, 'trainings', t.id)).catch(() => {})
+      }
+    })
+  }, [trainings, isSuperAdmin, myRole, id])
 
   async function addPost() {
     if (!user || !postText.trim() || posting) return
@@ -292,14 +314,22 @@ export default function CommunityDetailPage() {
                   <p className="text-sm text-white/35">Niciun antrenament planificat.</p>
                 </div>
               )
-              : trainings.map(t => (
+              : [...trainings]
+                  .sort((a, b) => {
+                    if (a.official && !b.official) return -1
+                    if (!a.official && b.official) return 1
+                    return a.date.localeCompare(b.date)
+                  })
+                  .map(t => (
                 <TrainingCard
                   key={t.id}
                   training={t}
                   myUid={user?.uid ?? ''}
                   canLoad={isMember && (t.exercises?.length ?? 0) > 0}
+                  canDelete={isSuperAdmin || myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER'}
                   onRsvp={status => rsvp(t.id, status)}
                   onLoad={() => loadTraining(t)}
+                  onDelete={() => deleteDoc(doc(db, 'communities', id, 'trainings', t.id))}
                 />
               ))}
           </div>
@@ -412,111 +442,121 @@ export default function CommunityDetailPage() {
 
 // ── Training Card ─────────────────────────────────────────────────────────────
 
-function TrainingCard({ training, myUid, canLoad, onRsvp, onLoad }: {
+function TrainingCard({ training, myUid, canLoad, canDelete, onRsvp, onLoad, onDelete }: {
   training: PlannedTraining
   myUid: string
   canLoad: boolean
+  canDelete: boolean
   onRsvp: (s: 'GOING' | 'NOT_GOING' | 'MAYBE') => void
   onLoad: () => void
+  onDelete: () => void
 }) {
   const myStatus = training.rsvps?.[myUid]
   const goingCount = Object.values(training.rsvps ?? {}).filter(s => s === 'GOING').length
   const maybeCount = Object.values(training.rsvps ?? {}).filter(s => s === 'MAYBE').length
 
+  const officialStyle = training.official ? {
+    backgroundColor: '#0D3D28',
+    border: '1.5px solid #1ED75F60',
+    boxShadow: '0 0 18px 0 #1ED75F18, inset 0 1px 0 #1ED75F20',
+  } : { backgroundColor: 'var(--app-surface)' }
+
   return (
-    <div
-      className={`rounded-2xl p-4 mb-3 ${training.official ? 'border border-brand-green/50' : ''}`}
-      style={{ backgroundColor: training.official ? 'color-mix(in srgb, #1ED75F 6%, var(--app-surface))' : 'var(--app-surface)' }}
-    >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <p className="font-black text-white text-sm">{training.name}</p>
+    <div className="rounded-2xl mb-3" style={officialStyle}>
+      <div className={training.official ? 'p-5' : 'p-4'}>
+        {/* Header */}
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1 min-w-0">
             {training.official && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-green/20 text-brand-green">Oficial ⭐</span>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full tracking-widest"
+                  style={{ backgroundColor: '#1ED75F22', color: '#1ED75F', border: '1px solid #1ED75F40' }}>
+                  ⭐ OFICIAL
+                </span>
+              </div>
+            )}
+            <p className={`font-black text-white ${training.official ? 'text-base' : 'text-sm'}`}>{training.name}</p>
+            {training.authorName && (
+              <p className="text-[10px] text-white/35 mt-0.5">de {training.authorName}</p>
             )}
           </div>
-          {training.authorName && (
-            <p className="text-[10px] text-white/35">de {training.authorName}</p>
+          {canDelete && (
+            <button onClick={onDelete} className="ml-2 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-red-400/50 hover:text-red-400 hover:bg-red-400/10 transition-colors">
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Meta */}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2.5">
+          {training.date && (
+            <div className="flex items-center gap-1 text-xs text-white/50">
+              <Calendar size={11} />
+              <span>{formatTrainingDate(training.date)}</span>
+            </div>
+          )}
+          {(training.timeStart || training.timeEnd) && (
+            <div className="flex items-center gap-1 text-xs text-white/50">
+              <Clock size={11} />
+              <span>{training.timeStart}{training.timeEnd ? ` – ${training.timeEnd}` : ''}</span>
+            </div>
+          )}
+          {training.location && (
+            <div className="flex items-center gap-1 text-xs text-white/50">
+              <MapPin size={11} />
+              <span>{training.location}</span>
+            </div>
+          )}
+        </div>
+
+        {training.description && (
+          <p className="text-xs text-white/50 mb-2.5 leading-relaxed">{training.description}</p>
+        )}
+
+        {/* Exercises */}
+        {(training.exercises?.length ?? 0) > 0 && (
+          <div className="mb-3 p-2.5 rounded-xl bg-white/5 border border-white/8">
+            <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1.5">EXERCIȚII</p>
+            <div className="flex flex-col gap-1">
+              {training.exercises.map((ex, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-white/80">{ex.name}</span>
+                  <span className="text-xs text-white/40">{ex.sets}×{ex.repsPerSet}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* RSVP count */}
+        <div className="flex gap-3 text-xs text-white/40 mb-2.5">
+          <span>✅ {goingCount} merg</span>
+          <span>🤔 {maybeCount} poate</span>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          {(['GOING', 'MAYBE', 'NOT_GOING'] as const).map(status => (
+            <button key={status}
+              onClick={() => onRsvp(status)}
+              className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors border ${
+                myStatus === status
+                  ? 'bg-brand-green text-black border-brand-green'
+                  : 'border-white/15 text-white/50 hover:bg-white/8'
+              }`}>
+              {status === 'GOING' ? 'Merg' : status === 'MAYBE' ? 'Poate' : 'Nu merg'}
+            </button>
+          ))}
+          {canLoad && (
+            <button
+              onClick={onLoad}
+              className="h-8 px-3 rounded-lg text-xs font-bold bg-brand-green text-black flex items-center gap-1 flex-shrink-0"
+            >
+              <Dumbbell size={12} /> Încarcă
+            </button>
           )}
         </div>
       </div>
-
-      {/* Meta */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2.5">
-        {training.date && (
-          <div className="flex items-center gap-1 text-xs text-white/50">
-            <Calendar size={11} />
-            <span>{formatTrainingDate(training.date)}</span>
-          </div>
-        )}
-        {(training.timeStart || training.timeEnd) && (
-          <div className="flex items-center gap-1 text-xs text-white/50">
-            <Clock size={11} />
-            <span>{training.timeStart}{training.timeEnd ? ` – ${training.timeEnd}` : ''}</span>
-          </div>
-        )}
-        {training.location && (
-          <div className="flex items-center gap-1 text-xs text-white/50">
-            <MapPin size={11} />
-            <span>{training.location}</span>
-          </div>
-        )}
-      </div>
-
-      {training.description && (
-        <p className="text-xs text-white/50 mb-2.5 leading-relaxed">{training.description}</p>
-      )}
-
-      {/* Exercises */}
-      {(training.exercises?.length ?? 0) > 0 && (
-        <div className="mb-3 p-2.5 rounded-xl bg-white/5 border border-white/8">
-          <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1.5">EXERCIȚII</p>
-          <div className="flex flex-col gap-1">
-            {training.exercises.map((ex, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-white/80">{ex.name}</span>
-                <span className="text-xs text-white/40">{ex.sets}×{ex.repsPerSet}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* RSVP count */}
-      <div className="flex gap-3 text-xs text-white/40 mb-2.5">
-        <span>✅ {goingCount} merg</span>
-        <span>🤔 {maybeCount} poate</span>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        {(['GOING', 'MAYBE', 'NOT_GOING'] as const).map(status => (
-          <button key={status}
-            onClick={() => onRsvp(status)}
-            className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors border ${
-              myStatus === status
-                ? 'bg-brand-green text-black border-brand-green'
-                : 'border-white/15 text-white/50 hover:bg-white/8'
-            }`}>
-            {status === 'GOING' ? 'Merg' : status === 'MAYBE' ? 'Poate' : 'Nu merg'}
-          </button>
-        ))}
-        {canLoad && (
-          <button
-            onClick={onLoad}
-            className="h-8 px-3 rounded-lg text-xs font-bold bg-brand-green text-black flex items-center gap-1 flex-shrink-0"
-          >
-            <Dumbbell size={12} /> Încarcă
-          </button>
-        )}
-      </div>
-      {training.official && (
-        <div className="flex justify-end mt-2">
-          <span className="text-[10px] font-bold text-brand-green opacity-60">oficial</span>
-        </div>
-      )}
     </div>
   )
 }

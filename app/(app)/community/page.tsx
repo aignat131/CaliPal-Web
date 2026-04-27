@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, doc,
   updateDoc, setDoc, arrayUnion, increment, serverTimestamp,
@@ -28,7 +27,13 @@ export default function CommunityPage() {
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [joiningId, setJoiningId] = useState<string | null>(null)
-  const [tab, setTab] = useState(0)
+  const [tab, setTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('comm_listing_tab')
+      if (saved !== null) return parseInt(saved)
+    }
+    return 0
+  })
   const [favoriteCommunityId, setFavoriteCommunityId] = useState<string | null>(null)
 
   // Evenimente state
@@ -41,14 +46,12 @@ export default function CommunityPage() {
   const [loadedProv, setLoadedProv] = useState(false)
   const [showAddChallenge, setShowAddChallenge] = useState(false)
 
-  const searchParams = useSearchParams()
   const isSuperAdmin = user?.email === SUPERADMIN
 
-  // Initialize tab from URL param
-  useEffect(() => {
-    const t = parseInt(searchParams.get('tab') ?? '0')
-    if (t >= 0 && t <= 2) setTab(t)
-  }, [searchParams])
+  function changeTab(t: number) {
+    setTab(t)
+    sessionStorage.setItem('comm_listing_tab', String(t))
+  }
 
   useEffect(() => {
     const q = query(collection(db, 'communities'), orderBy('memberCount', 'desc'))
@@ -198,7 +201,7 @@ export default function CommunityPage() {
             { label: 'Evenimente', Icon: Calendar },
             { label: 'Provocari', Icon: Trophy },
           ].map(({ label, Icon }, i) => (
-            <button key={i} onClick={() => setTab(i)}
+            <button key={i} onClick={() => changeTab(i)}
               className={`flex-1 py-2.5 text-xs font-bold transition-colors flex flex-col items-center gap-0.5 ${
                 tab === i ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/40'
               }`}>

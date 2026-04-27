@@ -271,7 +271,7 @@ export default function HomePage() {
               </Link>
             )}
             {commChallenge && userDoc?.favoriteCommunityId && (
-              <Link href={`/community?tab=2`}>
+              <Link href="/community">
                 <ChallengeCard
                   label="PROVOCARE COMUNITATE"
                   title={commChallenge.title}
