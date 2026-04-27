@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   collection, query, orderBy, limit, onSnapshot,
-  addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, deleteDoc,
+  addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, getDocs, deleteDoc, setDoc,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WeeklyChallenge, UserChallengeProgress } from '@/types'
+import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
 import { awardCoins, checkWorkoutMilestones } from '@/lib/coins'
 import { Plus, Trash2, ChevronDown, ChevronUp, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star } from 'lucide-react'
 import Link from 'next/link'
@@ -286,6 +286,36 @@ export default function WorkoutPage() {
       if (newStreak === 3) earned += await awardCoins(user.uid, 'STREAK_3')
       if (newStreak === 7) earned += await awardCoins(user.uid, 'STREAK_7')
       if (newStreak === 30) earned += await awardCoins(user.uid, 'STREAK_30')
+
+      // Update community challenge progress
+      try {
+        const joinedIds: string[] = userData?.joinedCommunityIds ?? []
+        const exerciseReps: Record<string, number> = {}
+        for (const ex of exercises) {
+          const reps = ex.sets.reduce((sum, s) => sum + (s.reps ?? 0), 0)
+          exerciseReps[ex.name] = (exerciseReps[ex.name] ?? 0) + reps
+        }
+        await Promise.all(joinedIds.map(async cid => {
+          const cSnap = await getDocs(collection(db, 'communities', cid, 'challenges'))
+          await Promise.all(cSnap.docs.map(async cd => {
+            const challenge = { id: cd.id, ...cd.data() } as CommunityChallenge
+            const repsForEx = exerciseReps[challenge.exerciseName] ?? 0
+            if (repsForEx === 0) return
+            const progressRef = doc(db, 'users', user.uid, 'community_challenge_progress', challenge.id)
+            const ps = await getDoc(progressRef)
+            const current = ps.exists() ? (ps.data().currentReps ?? 0) : 0
+            const newReps = current + repsForEx
+            const completed = newReps >= challenge.targetReps
+            await setDoc(progressRef, {
+              challengeId: challenge.id,
+              communityId: cid,
+              currentReps: newReps,
+              completed,
+              completedAt: completed && !ps.data()?.completed ? serverTimestamp() : (ps.exists() ? ps.data().completedAt ?? null : null),
+            })
+          }))
+        }))
+      } catch { /* non-critical — community challenge progress update failed silently */ }
 
     } catch (e) {
       console.error(e)

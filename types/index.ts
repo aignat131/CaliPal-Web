@@ -172,6 +172,27 @@ export interface UserChallengeProgress {
   completedAt: Timestamp | null
 }
 
+// ── Community Challenges ──────────────────────────────────────────────────────
+
+export interface CommunityChallenge {
+  id: string
+  title: string
+  exerciseName: string
+  targetReps: number
+  coinsReward: number
+  communityId: string
+  createdAt: Timestamp | null
+  endsAt: Timestamp | null
+}
+
+export interface UserCommunityChallengeProgress {
+  challengeId: string
+  communityId: string
+  currentReps: number
+  completed: boolean
+  completedAt: Timestamp | null
+}
+
 // ── Skills ────────────────────────────────────────────────────────────────────
 
 export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'ELITE'

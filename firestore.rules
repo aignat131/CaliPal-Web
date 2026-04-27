@@ -46,6 +46,9 @@ service cloud.firestore {
       match /challenge_progress/{challengeId} {
         allow read, write: if isOwner(uid);
       }
+      match /community_challenge_progress/{challengeId} {
+        allow read, write: if isOwner(uid);
+      }
       // Friends subcollection — any auth user can read; owner or the friend themselves can write
       match /friends/{friendId} {
         allow read: if isAuth();
@@ -116,6 +119,12 @@ service cloud.firestore {
         allow create, delete: if isCommunityStaff(communityId) || isSuperAdmin();
         // Members can update only their own RSVP field; staff can update anything
         allow update: if isCommunityMember(communityId) || isSuperAdmin();
+      }
+
+      match /challenges/{challengeId} {
+        allow read: if isAuth();
+        allow create: if isSuperAdmin() || isCommunityStaff(communityId);
+        allow update, delete: if isSuperAdmin() || isCommunityAdmin(communityId);
       }
     }
 

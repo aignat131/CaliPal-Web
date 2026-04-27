@@ -8,28 +8,22 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
-import type { UserDoc, CommunityPost, CommunityDoc, WeeklyChallenge, UserChallengeProgress, PlannedTraining } from '@/types'
-import { Users, Flame, Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle } from 'lucide-react'
+import type {
+  UserDoc, CommunityDoc, WeeklyChallenge, UserChallengeProgress,
+  PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress,
+} from '@/types'
+import { Flame, Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
-
-function timeAgo(ts: { toDate?: () => Date } | null | undefined): string {
-  if (!ts) return ''
-  const date = ts.toDate ? ts.toDate() : new Date()
-  const diff = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (diff < 60) return 'acum'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-  return `${Math.floor(diff / 86400)}z`
-}
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth()
   const { status: pushStatus, requestPermission } = usePushNotifications(user?.uid)
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null)
-  const [recentPosts, setRecentPosts] = useState<(CommunityPost & { communityName: string })[]>([])
   const [joinedCommunities, setJoinedCommunities] = useState<CommunityDoc[]>([])
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
   const [challengeProgress, setChallengeProgress] = useState<UserChallengeProgress | null>(null)
+  const [commChallenge, setCommChallenge] = useState<CommunityChallenge | null>(null)
+  const [commChallengeProgress, setCommChallengeProgress] = useState<UserCommunityChallengeProgress | null>(null)
   const [dismissedPush, setDismissedPush] = useState(false)
   const [showStreakCalendar, setShowStreakCalendar] = useState(false)
   const [workoutDates, setWorkoutDates] = useState<Set<string>>(new Set())
@@ -57,23 +51,36 @@ export default function HomePage() {
     })
   }, [user, showStreakCalendar])
 
-  // Latest training from favorite community
+  // Latest training + community challenge from favorite community
   useEffect(() => {
     const favId = userDoc?.favoriteCommunityId
-    if (!favId) { setLatestFavTraining(null); return }
-    const unsub = onSnapshot(
+    if (!favId) { setLatestFavTraining(null); setCommChallenge(null); return }
+
+    const unsubTraining = onSnapshot(
       query(collection(db, 'communities', favId, 'trainings'), orderBy('date', 'desc'), limit(1)),
       snap => {
-        if (!snap.empty) {
-          setLatestFavTraining({ id: snap.docs[0].id, ...snap.docs[0].data() } as PlannedTraining)
-        } else {
-          setLatestFavTraining(null)
-        }
+        setLatestFavTraining(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() } as PlannedTraining)
       },
       () => setLatestFavTraining(null)
     )
-    return unsub
-  }, [userDoc?.favoriteCommunityId])
+
+    const unsubChallenge = onSnapshot(
+      query(collection(db, 'communities', favId, 'challenges'), orderBy('endsAt', 'desc'), limit(1)),
+      snap => {
+        if (snap.empty) { setCommChallenge(null); return }
+        const c = { id: snap.docs[0].id, ...snap.docs[0].data() } as CommunityChallenge
+        setCommChallenge(c)
+        if (user) {
+          getDoc(doc(db, 'users', user.uid, 'community_challenge_progress', c.id)).then(ps => {
+            setCommChallengeProgress(ps.exists() ? ps.data() as UserCommunityChallengeProgress : null)
+          })
+        }
+      },
+      () => setCommChallenge(null)
+    )
+
+    return () => { unsubTraining(); unsubChallenge() }
+  }, [userDoc?.favoriteCommunityId, user])
 
   // Weekly challenge
   useEffect(() => {
@@ -93,11 +100,10 @@ export default function HomePage() {
     return unsub
   }, [user])
 
-  // Joined communities + their recent posts
+  // Joined communities
   useEffect(() => {
     if (!userDoc?.joinedCommunityIds?.length) return
     const ids = userDoc.joinedCommunityIds.slice(0, 10)
-
     Promise.all(
       ids.map(id =>
         getDoc(doc(db, 'communities', id)).then(snap =>
@@ -105,24 +111,6 @@ export default function HomePage() {
         )
       )
     ).then(results => setJoinedCommunities(results.filter(Boolean) as CommunityDoc[]))
-
-    const unsubs = ids.map(cid =>
-      onSnapshot(
-        query(collection(db, 'communities', cid, 'posts'), orderBy('createdAt', 'desc'), limit(3)),
-        snap => {
-          setRecentPosts(prev => {
-            const newPosts = snap.docs.map(d => ({
-              id: d.id, ...d.data(), communityName: '',
-            } as CommunityPost & { communityName: string }))
-            const filtered = prev.filter(p => !snap.docs.find(d => d.id === p.id) && p.communityName !== cid)
-            return [...filtered, ...newPosts]
-              .sort((a, b) => (b.createdAt?.toDate?.()?.getTime() ?? 0) - (a.createdAt?.toDate?.()?.getTime() ?? 0))
-              .slice(0, 10)
-          })
-        }
-      )
-    )
-    return () => unsubs.forEach(u => u())
   }, [userDoc?.joinedCommunityIds])
 
   const storedName = userDoc?.displayName
@@ -132,7 +120,6 @@ export default function HomePage() {
   const firstName = displayName.split(' ')[0]
   const streak = userDoc?.currentStreak ?? 0
   const coins = userDoc?.coins ?? 0
-  const totalWorkouts = userDoc?.totalWorkouts ?? 0
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Bună dimineața' : hour < 18 ? 'Bună ziua' : 'Bună seara'
@@ -151,7 +138,23 @@ export default function HomePage() {
         />
       )}
 
-      <div className="max-w-lg mx-auto px-4 pt-5 pb-8">
+      {/* Top bar */}
+      <div className="sticky top-0 z-10 flex items-center justify-between px-4 h-12 border-b border-white/8"
+        style={{ backgroundColor: 'var(--app-bg)' }}>
+        <p className="text-[13px] font-black text-white tracking-wide">Acasă</p>
+        <div className="flex items-center gap-3">
+          {coins > 0 && (
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: '#FFB80015', border: '1px solid #FFB80030' }}>
+              <span className="text-xs">🪙</span>
+              <span className="text-xs font-bold text-yellow-400">{coins}</span>
+            </div>
+          )}
+          {user && <NotificationBell uid={user.uid} />}
+        </div>
+      </div>
+
+      <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
 
         {/* Push notification banner */}
         {showPushBanner && (
@@ -175,19 +178,16 @@ export default function HomePage() {
               : <h1 className="text-2xl font-black text-white leading-tight">{firstName} 👋</h1>
             }
           </div>
-          <div className="flex items-center gap-2">
-            {streak > 0 && (
-              <button
-                onClick={() => setShowStreakCalendar(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full active:opacity-70 transition-opacity"
-                style={{ backgroundColor: '#FF6B2B22', border: '1px solid #FF6B2B44' }}
-              >
-                <Flame size={14} style={{ color: '#FF6B2B' }} />
-                <span className="text-sm font-bold" style={{ color: '#FF6B2B' }}>{streak}</span>
-              </button>
-            )}
-            {user && <NotificationBell uid={user.uid} />}
-          </div>
+          {streak > 0 && (
+            <button
+              onClick={() => setShowStreakCalendar(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full active:opacity-70 transition-opacity"
+              style={{ backgroundColor: '#FF6B2B22', border: '1px solid #FF6B2B44' }}
+            >
+              <Flame size={14} style={{ color: '#FF6B2B' }} />
+              <span className="text-sm font-bold" style={{ color: '#FF6B2B' }}>{streak}</span>
+            </button>
+          )}
         </div>
 
         {/* Latest training from favorite community */}
@@ -198,23 +198,6 @@ export default function HomePage() {
             uid={user.uid}
           />
         )}
-
-        {/* Weekly challenge */}
-        {challenge && (
-          <div className="mb-5">
-            <Link href="/workout">
-              <ChallengeCard challenge={challenge} progress={challengeProgress} />
-            </Link>
-          </div>
-        )}
-
-        {/* Quick actions */}
-        <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">ACȚIUNI RAPIDE</p>
-        <div className="grid grid-cols-3 gap-2 mb-6">
-          <QuickAction href="/workout" icon="💪" label="Antrenament" color="#1ED75F22" />
-          <QuickAction href="/community" icon="👥" label="Comunitate" color="#3B82F622" />
-          <QuickAction href="/map" icon="🗺️" label="Hartă" color="#F59E0B22" />
-        </div>
 
         {/* Favorite community */}
         {userDoc?.favoriteCommunityId && (() => {
@@ -270,42 +253,45 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Recent activity feed */}
+        {/* Challenges section (replaces recent activity) */}
         <div>
-          <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">ACTIVITATE RECENTĂ</p>
-          {recentPosts.length === 0 ? (
-            <div className="rounded-2xl p-6 flex flex-col items-center gap-3 text-center"
-              style={{ backgroundColor: 'var(--app-surface)' }}>
-              <Users size={32} className="text-white/20" />
-              <p className="text-sm text-white/50 font-medium">Nicio activitate încă</p>
-              <p className="text-xs text-white/30">Alătură-te unei comunități pentru a vedea postările membrilor.</p>
-              <Link href="/community">
-                <button className="mt-1 h-9 px-4 rounded-full bg-brand-green text-black text-xs font-bold">
-                  Explorează comunități
-                </button>
+          <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">PROVOCĂRI</p>
+          <div className="flex flex-col gap-3">
+            {challenge && (
+              <Link href="/workout">
+                <ChallengeCard
+                  label="PROVOCARE SĂPTĂMÂNALĂ"
+                  title={challenge.title}
+                  exerciseName={challenge.exerciseName}
+                  targetReps={challenge.targetReps}
+                  coinsReward={challenge.coinsReward}
+                  current={challengeProgress?.currentReps ?? 0}
+                  completed={challengeProgress?.completed ?? false}
+                />
               </Link>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {recentPosts.slice(0, 5).map(post => (
-                <div key={post.id} className="rounded-2xl p-3.5" style={{ backgroundColor: 'var(--app-surface)' }}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: '#1ED75F33' }}>
-                        <span className="text-xs font-black text-brand-green">
-                          {post.authorName.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <span className="text-xs font-bold text-white">{post.authorName}</span>
-                    </div>
-                    <span className="text-[10px] text-white/30">{timeAgo(post.createdAt)}</span>
-                  </div>
-                  <p className="text-sm text-white/80 leading-relaxed line-clamp-3">{post.content}</p>
-                </div>
-              ))}
-            </div>
-          )}
+            )}
+            {commChallenge && userDoc?.favoriteCommunityId && (
+              <Link href={`/community?tab=2`}>
+                <ChallengeCard
+                  label="PROVOCARE COMUNITATE"
+                  title={commChallenge.title}
+                  exerciseName={commChallenge.exerciseName}
+                  targetReps={commChallenge.targetReps}
+                  coinsReward={commChallenge.coinsReward}
+                  current={commChallengeProgress?.currentReps ?? 0}
+                  completed={commChallengeProgress?.completed ?? false}
+                  accent="#F97316"
+                />
+              </Link>
+            )}
+            {!challenge && !commChallenge && (
+              <div className="rounded-2xl p-6 flex flex-col items-center gap-2 text-center"
+                style={{ backgroundColor: 'var(--app-surface)' }}>
+                <Trophy size={28} className="text-white/20" />
+                <p className="text-sm text-white/40">Nicio provocare activă momentan.</p>
+              </div>
+            )}
+          </div>
         </div>
 
       </div>
@@ -313,24 +299,34 @@ export default function HomePage() {
   )
 }
 
-function ChallengeCard({ challenge, progress }: { challenge: WeeklyChallenge; progress: UserChallengeProgress | null }) {
-  const current = progress?.currentReps ?? 0
-  const pct = Math.min(100, Math.round((current / challenge.targetReps) * 100))
-  const done = progress?.completed ?? false
+function ChallengeCard({
+  label, title, exerciseName, targetReps, coinsReward, current, completed, accent = '#3B82F6',
+}: {
+  label: string
+  title: string
+  exerciseName: string
+  targetReps: number
+  coinsReward: number
+  current: number
+  completed: boolean
+  accent?: string
+}) {
+  const pct = Math.min(100, Math.round((current / targetReps) * 100))
   return (
     <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
       <div className="flex items-center gap-2 mb-2">
         <Trophy size={14} className="text-yellow-400" />
-        <p className="text-xs font-bold text-white/45 tracking-widest">PROVOCARE SĂPTĂMÂNALĂ</p>
-        {done && <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/20 text-brand-green">FINALIZAT ✓</span>}
+        <p className="text-xs font-bold text-white/45 tracking-widest">{label}</p>
+        {completed && <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/20 text-brand-green">FINALIZAT ✓</span>}
       </div>
-      <p className="font-black text-white text-sm mb-0.5">{challenge.title}</p>
+      <p className="font-black text-white text-sm mb-0.5">{title}</p>
       <div className="flex items-center justify-between text-xs text-white/40 mb-1.5">
-        <span>{current} / {challenge.targetReps} {challenge.exerciseName}</span>
-        <span>🪙 +{challenge.coinsReward}</span>
+        <span>{current} / {targetReps} {exerciseName}</span>
+        <span>🪙 +{coinsReward}</span>
       </div>
       <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: done ? '#1ED75F' : '#3B82F6' }} />
+        <div className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, backgroundColor: completed ? '#1ED75F' : accent }} />
       </div>
     </div>
   )
@@ -338,6 +334,9 @@ function ChallengeCard({ challenge, progress }: { challenge: WeeklyChallenge; pr
 
 function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; favId: string; uid: string }) {
   const myRsvp = training.rsvps?.[uid] ?? null
+  const goingCount = training.rsvps
+    ? Object.values(training.rsvps).filter(v => v === 'GOING').length
+    : 0
 
   async function setRsvp(value: 'GOING' | 'MAYBE' | 'NOT_GOING') {
     await updateDoc(doc(db, 'communities', favId, 'trainings', training.id), {
@@ -345,18 +344,39 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
     })
   }
 
-  const exercisePreview = training.exercises.slice(0, 2).map(e => e.name).join(', ')
-    + (training.exercises.length > 2 ? ` +${training.exercises.length - 2}` : '')
-
   return (
     <div className="rounded-2xl p-4 mb-5" style={{ backgroundColor: 'var(--app-surface)' }}>
-      <div className="flex items-start justify-between mb-1">
+      <div className="flex items-start justify-between mb-2">
         <p className="font-black text-white text-[15px] leading-tight flex-1 pr-2">{training.name}</p>
         <span className="text-[11px] text-white/40 flex-shrink-0">{training.date}</span>
       </div>
-      {exercisePreview && (
-        <p className="text-xs text-white/40 mb-3">{exercisePreview}</p>
-      )}
+
+      {/* Meta row */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2">
+        {(training.timeStart || training.timeEnd) && (
+          <span className="flex items-center gap-1 text-xs text-white/50">
+            <Clock size={11} className="text-white/35" />
+            {training.timeStart}{training.timeEnd ? `–${training.timeEnd}` : ''}
+          </span>
+        )}
+        {training.location && (
+          <span className="flex items-center gap-1 text-xs text-white/50">
+            <MapPin size={11} className="text-white/35" />
+            {training.location}
+          </span>
+        )}
+        {goingCount > 0 && (
+          <span className="flex items-center gap-1 text-xs text-white/50">
+            <Users size={11} className="text-white/35" />
+            {goingCount} {goingCount === 1 ? 'merge' : 'merg'}
+          </span>
+        )}
+      </div>
+
+      {training.description ? (
+        <p className="text-xs text-white/40 mb-3 line-clamp-2">{training.description}</p>
+      ) : null}
+
       <div className="flex gap-2">
         <button
           onPointerDown={() => setRsvp('GOING')}
@@ -390,18 +410,6 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
   )
 }
 
-function StatCard({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl p-3 flex flex-col gap-1" style={{ backgroundColor: 'var(--app-surface)' }}>
-      <div className="flex items-center gap-1.5">
-        {icon}
-        <span className="text-[10px] font-bold text-white/40 uppercase tracking-wide">{label}</span>
-      </div>
-      <span className="text-xl font-black text-white">{value}</span>
-    </div>
-  )
-}
-
 // ── Streak Calendar ────────────────────────────────────────────────────────────
 
 function StreakCalendar({ streak, workoutDates, onClose }: {
@@ -421,9 +429,7 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
 
   const monthName = viewDate.toLocaleDateString('ro', { month: 'long', year: 'numeric' })
 
-  // First day of month and total days
-  const firstDow = new Date(year, month, 1).getDay() // 0=Sun
-  // Convert to Mon-first (0=Mon ... 6=Sun)
+  const firstDow = new Date(year, month, 1).getDay()
   const firstOffset = (firstDow + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
 
@@ -433,24 +439,14 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
     if (next <= today) setViewDate(next)
   }
 
-  const isToday = (day: number) => {
-    const d = new Date(year, month, day)
-    return d.toDateString() === today.toDateString()
-  }
-
-  const isTrained = (day: number) => {
-    const d = new Date(year, month, day)
-    return workoutDates.has(d.toDateString())
-  }
-
+  const isToday = (day: number) => new Date(year, month, day).toDateString() === today.toDateString()
+  const isTrained = (day: number) => workoutDates.has(new Date(year, month, day).toDateString())
   const isFuture = (day: number) => new Date(year, month, day) > today
 
-  // Build grid cells (blanks + days)
   const cells: (number | null)[] = [
     ...Array(firstOffset).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ]
-  // Pad to complete last row
   while (cells.length % 7 !== 0) cells.push(null)
 
   const canGoNext = new Date(year, month + 1, 1) <= today
@@ -462,7 +458,6 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
         style={{ backgroundColor: 'var(--app-surface)' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-base font-black text-white">Streak activ</p>
@@ -473,7 +468,6 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
           </button>
         </div>
 
-        {/* Month navigation */}
         <div className="flex items-center justify-between mb-3">
           <button onClick={prevMonth} className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
             <ChevronLeft size={16} className="text-white/60" />
@@ -485,14 +479,12 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
           </button>
         </div>
 
-        {/* Day labels */}
         <div className="grid grid-cols-7 mb-1">
           {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
             <div key={i} className="text-center text-[10px] font-bold text-white/30 py-1">{d}</div>
           ))}
         </div>
 
-        {/* Calendar grid */}
         <div className="grid grid-cols-7 gap-y-1">
           {cells.map((day, i) => {
             if (!day) return <div key={`blank-${i}`} />
@@ -503,14 +495,8 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
               <div key={day} className="flex flex-col items-center py-0.5">
                 {trained
                   ? <span className="text-lg leading-none">🔥</span>
-                  : <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
-                      todayCell ? 'border border-brand-green' : ''
-                    }`}>
-                      <span className={`text-xs font-semibold ${
-                        future ? 'text-white/15'
-                        : todayCell ? 'text-brand-green font-black'
-                        : 'text-white/40'
-                      }`}>{day}</span>
+                  : <div className={`w-7 h-7 rounded-full flex items-center justify-center ${todayCell ? 'border border-brand-green' : ''}`}>
+                      <span className={`text-xs font-semibold ${future ? 'text-white/15' : todayCell ? 'text-brand-green font-black' : 'text-white/40'}`}>{day}</span>
                     </div>
                 }
               </div>
@@ -518,7 +504,6 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
           })}
         </div>
 
-        {/* Legend */}
         <div className="flex items-center gap-4 mt-4 justify-center">
           <div className="flex items-center gap-1.5">
             <span className="text-sm">🔥</span>
@@ -531,17 +516,5 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
         </div>
       </div>
     </div>
-  )
-}
-
-function QuickAction({ href, icon, label, color }: { href: string; icon: string; label: string; color: string }) {
-  return (
-    <Link href={href}>
-      <div className="rounded-2xl p-3 flex flex-col items-center gap-2"
-        style={{ backgroundColor: color, border: '1px solid rgba(255,255,255,0.08)' }}>
-        <span className="text-2xl">{icon}</span>
-        <span className="text-[11px] font-bold text-white/70 text-center">{label}</span>
-      </div>
-    </Link>
   )
 }
