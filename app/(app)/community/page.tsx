@@ -174,6 +174,13 @@ export default function CommunityPage() {
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="max-w-lg mx-auto px-4 pt-5 pb-6">
+        {/* DEBUG — remove after fix */}
+        {user && (
+          <p className="text-[10px] text-white/30 mb-2 break-all">
+            email: {user.email ?? 'null'} | isAdmin: {String(isSuperAdmin)}
+          </p>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-black text-white">Comunitate</h1>
