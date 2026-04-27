@@ -1,4 +1,4 @@
-import { initializeApp, getApps } from 'firebase/app'
+import { initializeApp, getApps, getApp } from 'firebase/app'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -9,4 +9,7 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
+// Only initialize Firebase when a valid API key is present (not during SSR/build without env vars)
+export const app = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
+  ? (getApps().length === 0 ? initializeApp(firebaseConfig) : getApp())
+  : null

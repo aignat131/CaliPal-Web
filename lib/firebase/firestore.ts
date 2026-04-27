@@ -12,7 +12,8 @@ import type { User } from 'firebase/auth'
 import { app } from './config'
 import type { UserDoc } from '@/types'
 
-export const db = getFirestore(app)
+// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+export const db = app ? getFirestore(app) : null as unknown as ReturnType<typeof getFirestore>
 
 /** Create user document on first sign-up. Safe to call multiple times. Also fixes incorrect displayNames. */
 export async function ensureUserDoc(user: User): Promise<void> {
