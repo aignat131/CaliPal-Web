@@ -10,7 +10,9 @@ service cloud.firestore {
       return isAuth() && request.auth.uid == uid;
     }
     function isSuperAdmin() {
-      return isAuth() && request.auth.token.email == 'aignat131@gmail.com';
+      // Use UID (immutable) instead of email (can change).
+      // Replace the placeholder with your real UID from Firebase Console → Authentication.
+      return isAuth() && request.auth.uid == 'YOUR_SUPERADMIN_UID';
     }
     function getCommunityMember(communityId) {
       return get(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid));
@@ -203,6 +205,23 @@ service cloud.firestore {
     match /weekly_challenges/{challengeId} {
       allow read: if true;
       allow write: if isSuperAdmin();
+    }
+
+    // ── Park requests (user-submitted park addition requests) ─────────────────
+    match /park_requests/{reqId} {
+      allow read: if isSuperAdmin();
+      allow create: if isAuth() && request.resource.data.requestedByUid == request.auth.uid;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // ── Form check requests (coach video review) ──────────────────────────────
+    match /form_check_requests/{reqId} {
+      allow read: if isAuth() && (
+        request.auth.uid == resource.data.userId || isSuperAdmin()
+      );
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin() || request.auth.uid == resource.data.userId;
     }
 
     // ── Park-community association requests ───────────────────────────────────

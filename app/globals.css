@@ -137,10 +137,33 @@
   }
 }
 
+/* ── Micro-animations ────────────────────────────────────────────────────── */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  20%       { transform: rotate(-14deg); }
+  40%       { transform: rotate(12deg); }
+  60%       { transform: rotate(-8deg); }
+  80%       { transform: rotate(5deg); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.92); opacity: 0.7; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.animate-wiggle {
+  animation: wiggle 0.55s ease-in-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.15s ease-out forwards;
+}
+
 /* ── App theme CSS variables ─────────────────────────────────────────────── */
 :root {
   --app-bg: #0D2E2B;
   --app-surface: #164742;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .light {

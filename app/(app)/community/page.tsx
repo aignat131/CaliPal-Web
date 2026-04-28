@@ -10,7 +10,7 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { CommunityDoc, PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress } from '@/types'
-import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check } from 'lucide-react'
+import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search } from 'lucide-react'
 
 function formatDate(iso: string): string {
   if (!iso) return ''
@@ -33,6 +33,7 @@ export default function CommunityPage() {
     return 0
   })
   const [favoriteCommunityId, setFavoriteCommunityId] = useState<string | null>(null)
+  const [citySearch, setCitySearch] = useState('')
 
   // Evenimente state
   const [eventi, setEventi] = useState<(PlannedTraining & { communityId: string; communityName: string })[]>([])
@@ -204,21 +205,76 @@ export default function CommunityPage() {
         {tab === 0 && (
           loading
             ? <div className="flex justify-center py-12"><div className="w-7 h-7 border-2 border-brand-green border-t-transparent rounded-full animate-spin" /></div>
-            : (
-              <div className="flex flex-col gap-3">
-                {communities.map(c => (
-                  <CommunityCard
-                    key={c.id}
-                    community={c}
-                    isMember={joinedIds.has(c.id)}
-                    joining={joiningId === c.id}
-                    isFavorite={favoriteCommunityId === c.id}
-                    onJoin={() => joinCommunity(c)}
-                    onToggleFavorite={() => toggleFavorite(c.id)}
-                  />
-                ))}
-              </div>
-            )
+            : (() => {
+                const cityLower = citySearch.toLowerCase().trim()
+                const allFiltered = cityLower
+                  ? communities.filter(c => c.location?.toLowerCase().includes(cityLower))
+                  : communities
+                const myCommunities = allFiltered.filter(c => joinedIds.has(c.id))
+                const discover = allFiltered.filter(c => !joinedIds.has(c.id)).slice(0, 5)
+
+                return (
+                  <div>
+                    {/* City search */}
+                    <div className="relative mb-4">
+                      <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                      <input
+                        value={citySearch}
+                        onChange={e => setCitySearch(e.target.value)}
+                        placeholder="Caută după oraș..."
+                        className="w-full h-10 pl-9 pr-3 rounded-xl text-sm text-white placeholder:text-white/35 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50 transition-colors"
+                      />
+                    </div>
+
+                    {/* My communities */}
+                    {myCommunities.length > 0 && (
+                      <div className="mb-5">
+                        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">COMUNITĂȚILE MELE</p>
+                        <div className="flex flex-col gap-3">
+                          {myCommunities.map(c => (
+                            <CommunityCard
+                              key={c.id}
+                              community={c}
+                              isMember
+                              joining={false}
+                              isFavorite={favoriteCommunityId === c.id}
+                              onJoin={() => {}}
+                              onToggleFavorite={() => toggleFavorite(c.id)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Discover section */}
+                    {discover.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">DESCOPERĂ</p>
+                        <div className="flex flex-col gap-3">
+                          {discover.map(c => (
+                            <CommunityCard
+                              key={c.id}
+                              community={c}
+                              isMember={false}
+                              joining={joiningId === c.id}
+                              isFavorite={false}
+                              onJoin={() => joinCommunity(c)}
+                              onToggleFavorite={() => {}}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {allFiltered.length === 0 && (
+                      <div className="flex flex-col items-center gap-3 py-12 text-center">
+                        <Search size={32} className="text-white/20" />
+                        <p className="text-sm text-white/40">Nicio comunitate în "{citySearch}".</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()
         )}
 
         {/* ── Evenimente tab ── */}

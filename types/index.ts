@@ -16,6 +16,7 @@ export interface UserDoc {
   assessmentCompleted: boolean
   joinedCommunityIds: string[]
   favoriteCommunityId?: string
+  favoriteExercises?: string[]
   locationSharingMode?: LocationSharingMode
   createdAt: Timestamp | null
 }
@@ -198,12 +199,14 @@ export interface UserCommunityChallengeProgress {
 // ── Skills ────────────────────────────────────────────────────────────────────
 
 export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'ELITE'
+export type SkillCategory = 'STRENGTH' | 'MOBILITY' | 'CARDIO'
 
 export interface SkillDef {
   id: string
   name: string
   description: string
   level: SkillLevel
+  category: SkillCategory
   icon: string
   coinsReward: number
   requirements: string[] // ids of prerequisite skills

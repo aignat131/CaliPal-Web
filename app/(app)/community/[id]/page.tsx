@@ -17,7 +17,7 @@ import { ROLE_LABELS, conversationId } from '@/types'
 import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
-  Heart, MessageCircle, MoreVertical, User,
+  Heart, MessageCircle, MoreVertical, User, Trophy,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -255,73 +255,84 @@ export default function CommunityDetailPage() {
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-white/8">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
-            <ArrowLeft size={18} className="text-white/80" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-black text-white text-base truncate">{community?.name ?? '...'}</p>
-              {community?.verified && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: '#3B82F622', color: '#3B82F6', border: '1px solid #3B82F640' }}>
-                  ✓ Verificat
-                </span>
-              )}
+      {community?.imageUrl ? (
+        /* ── Cover image header ── */
+        <div className="border-b border-white/8">
+          <div className="relative overflow-hidden" style={{ height: 140 }}>
+            <img src={community.imageUrl} alt="" className="w-full h-full object-cover" />
+            <div className="absolute inset-0"
+              style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, var(--app-bg) 100%)' }} />
+            <button
+              onClick={() => router.back()}
+              className="absolute top-3 left-3 w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+            >
+              <ArrowLeft size={18} className="text-white" />
+            </button>
+            {community.verified && (
+              <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: 'rgba(59,130,246,0.3)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.4)' }}>
+                ✓ Verificat
+              </span>
+            )}
+            <div className="absolute bottom-3 left-4 right-4">
+              <p className="font-black text-white text-base leading-tight drop-shadow">{community.name}</p>
+              <p className="text-xs text-white/65">{community.memberCount ?? 0} membri · {isMember ? 'Membru' : 'Vizitator'}</p>
             </div>
-            <p className="text-xs text-white/45">{community?.memberCount ?? 0} membri · {isMember ? 'Membru' : 'Vizitator'}</p>
           </div>
-          {community?.imageUrl && (
-            <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
-              <img src={community.imageUrl} alt="" className="w-full h-full object-cover" />
+          {myRole === 'ADMIN' && community && !community.verified && (
+            <div className="px-4 pb-3 pt-2">
+              <VerifyArea
+                verifySent={verifySent}
+                verifyReqPending={verifyReqPending}
+                showVerifyForm={showVerifyForm}
+                verifyReason={verifyReason}
+                verifySaving={verifySaving}
+                onShowForm={() => setShowVerifyForm(true)}
+                onHideForm={() => setShowVerifyForm(false)}
+                onChangeReason={setVerifyReason}
+                onSubmit={submitVerifyRequest}
+              />
             </div>
           )}
         </div>
-
-        {/* Verification request area (ADMIN only, not yet verified) */}
-        {myRole === 'ADMIN' && community && !community.verified && (
-          <div className="mt-2.5">
-            {verifySent ? (
-              <span className="text-[11px] text-brand-green font-semibold">Cerere trimisă ✓</span>
-            ) : verifyReqPending ? (
-              <span className="text-[11px] px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: '#F9731618', color: '#F97316', border: '1px solid #F9731630' }}>
-                ⏳ Verificare în așteptare...
-              </span>
-            ) : !showVerifyForm ? (
-              <button
-                onClick={() => setShowVerifyForm(true)}
-                className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors"
-              >
-                Solicită verificare
-              </button>
-            ) : (
-              <div className="p-3 rounded-xl border border-blue-500/30 mt-1" style={{ backgroundColor: '#1e3a5f22' }}>
-                <p className="text-xs font-bold text-white/70 mb-1.5">De ce merită această comunitate verificarea?</p>
-                <textarea
-                  value={verifyReason}
-                  onChange={e => setVerifyReason(e.target.value)}
-                  placeholder="Descrie comunitatea și activitatea ei..."
-                  rows={3}
-                  className="w-full rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 resize-none focus:border-blue-500/50"
-                />
-                <div className="flex gap-2 mt-2">
-                  <button onClick={() => setShowVerifyForm(false)}
-                    className="flex-1 h-8 rounded-lg border border-white/15 text-xs text-white/60">
-                    Anulează
-                  </button>
-                  <button onClick={submitVerifyRequest} disabled={verifySaving || !verifyReason.trim()}
-                    className="flex-1 h-8 rounded-lg text-xs font-bold disabled:opacity-40"
-                    style={{ backgroundColor: '#3B82F6', color: 'white' }}>
-                    {verifySaving ? '...' : 'Trimite'}
-                  </button>
-                </div>
+      ) : (
+        /* ── Plain text header (no image) ── */
+        <div className="px-4 pt-4 pb-3 border-b border-white/8">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
+              <ArrowLeft size={18} className="text-white/80" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-black text-white text-base truncate">{community?.name ?? '...'}</p>
+                {community?.verified && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: '#3B82F622', color: '#3B82F6', border: '1px solid #3B82F640' }}>
+                    ✓ Verificat
+                  </span>
+                )}
               </div>
-            )}
+              <p className="text-xs text-white/45">{community?.memberCount ?? 0} membri · {isMember ? 'Membru' : 'Vizitator'}</p>
+            </div>
           </div>
-        )}
-      </div>
+          {myRole === 'ADMIN' && community && !community.verified && (
+            <div className="mt-2.5">
+              <VerifyArea
+                verifySent={verifySent}
+                verifyReqPending={verifyReqPending}
+                showVerifyForm={showVerifyForm}
+                verifyReason={verifyReason}
+                verifySaving={verifySaving}
+                onShowForm={() => setShowVerifyForm(true)}
+                onHideForm={() => setShowVerifyForm(false)}
+                onChangeReason={setVerifyReason}
+                onSubmit={submitVerifyRequest}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b border-white/10">
@@ -329,6 +340,7 @@ export default function CommunityDetailPage() {
           { label: 'Feed', Icon: MessageSquare },
           { label: 'Antrenamente', Icon: Dumbbell },
           { label: 'Membri', Icon: Users },
+          { label: 'Clasament', Icon: Trophy },
         ].map(({ label, Icon }, i) => (
           <button key={i} onClick={() => setTab(i)}
             className={`flex-1 py-3 text-xs font-bold transition-colors flex flex-col items-center gap-0.5 ${
@@ -423,7 +435,7 @@ export default function CommunityDetailPage() {
           </div>
         )}
 
-        {/* ── Membri + Clasament ── */}
+        {/* ── Membri ── */}
         {tab === 2 && (
           <div className="flex flex-col gap-2">
             <p className="text-[10px] font-bold text-white/35 tracking-widest mb-1">{members.length} MEMBRI</p>
@@ -520,6 +532,52 @@ export default function CommunityDetailPage() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* ── Clasament ── */}
+        {tab === 3 && (
+          <div className="flex flex-col gap-2">
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-1">CLASAMENT PUNCTE</p>
+            {[...members]
+              .sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+              .map((m, idx) => {
+                const isMe = m.userId === user?.uid
+                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null
+                const roleColor = ROLE_COLORS[m.role as MemberRole] ?? '#1ED75F'
+                return (
+                  <div
+                    key={m.userId}
+                    className={`flex items-center gap-3 px-3 py-3 rounded-2xl ${isMe ? 'border border-brand-green/35' : ''}`}
+                    style={{ backgroundColor: isMe ? '#1ED75F0E' : 'var(--app-surface)' }}
+                  >
+                    <div className="w-7 text-center flex-shrink-0">
+                      {medal
+                        ? <span className="text-lg leading-none">{medal}</span>
+                        : <span className="text-sm font-bold text-white/30">{idx + 1}</span>}
+                    </div>
+                    <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${roleColor}22`, border: `2px solid ${roleColor}` }}>
+                      {m.photoUrl
+                        ? <img src={m.photoUrl} alt="" className="w-full h-full object-cover" />
+                        : <span className="text-sm font-black" style={{ color: roleColor }}>{m.displayName.charAt(0).toUpperCase()}</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold truncate ${isMe ? 'text-brand-green' : 'text-white'}`}>
+                        {m.displayName}
+                        {isMe && <span className="text-[9px] font-normal text-white/30 ml-1">TU</span>}
+                      </p>
+                      <span className="text-[10px] font-semibold" style={{ color: roleColor }}>
+                        {ROLE_LABELS[m.role as MemberRole]}
+                      </span>
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-sm font-black text-brand-green">{m.points ?? 0}</p>
+                      <p className="text-[10px] text-white/30">puncte</p>
+                    </div>
+                  </div>
+                )
+              })}
           </div>
         )}
 
@@ -870,6 +928,62 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Verify Area ───────────────────────────────────────────────────────────────
+
+function VerifyArea({
+  verifySent, verifyReqPending, showVerifyForm, verifyReason, verifySaving,
+  onShowForm, onHideForm, onChangeReason, onSubmit,
+}: {
+  verifySent: boolean
+  verifyReqPending: boolean
+  showVerifyForm: boolean
+  verifyReason: string
+  verifySaving: boolean
+  onShowForm: () => void
+  onHideForm: () => void
+  onChangeReason: (v: string) => void
+  onSubmit: () => void
+}) {
+  if (verifySent) return <span className="text-[11px] text-brand-green font-semibold">Cerere trimisă ✓</span>
+  if (verifyReqPending) return (
+    <span className="text-[11px] px-2 py-0.5 rounded-full"
+      style={{ backgroundColor: '#F9731618', color: '#F97316', border: '1px solid #F9731630' }}>
+      ⏳ Verificare în așteptare...
+    </span>
+  )
+  if (!showVerifyForm) return (
+    <button
+      onClick={onShowForm}
+      className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors"
+    >
+      Solicită verificare
+    </button>
+  )
+  return (
+    <div className="p-3 rounded-xl border border-blue-500/30" style={{ backgroundColor: '#1e3a5f22' }}>
+      <p className="text-xs font-bold text-white/70 mb-1.5">De ce merită această comunitate verificarea?</p>
+      <textarea
+        value={verifyReason}
+        onChange={e => onChangeReason(e.target.value)}
+        placeholder="Descrie comunitatea și activitatea ei..."
+        rows={3}
+        className="w-full rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 resize-none focus:border-blue-500/50"
+      />
+      <div className="flex gap-2 mt-2">
+        <button onClick={onHideForm}
+          className="flex-1 h-8 rounded-lg border border-white/15 text-xs text-white/60">
+          Anulează
+        </button>
+        <button onClick={onSubmit} disabled={verifySaving || !verifyReason.trim()}
+          className="flex-1 h-8 rounded-lg text-xs font-bold disabled:opacity-40"
+          style={{ backgroundColor: '#3B82F6', color: 'white' }}>
+          {verifySaving ? '...' : 'Trimite'}
+        </button>
+      </div>
     </div>
   )
 }

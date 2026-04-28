@@ -20,7 +20,9 @@
       "Bash(firebase deploy:*)",
       "Bash(firebase projects:list)",
       "Bash(xargs grep:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(sed \"s/.*collection\\(db, '//\")",
+      "Bash(sed \"s/'.*$//\")"
     ]
   }
 }

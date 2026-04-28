@@ -117,6 +117,38 @@ const QUESTIONS: Question[] = [
       { threshold: 4, skillIds: ['handstand', 'muscle_up', 'tuck_front_lever', 'front_lever', 'tuck_planche', 'one_arm_pullup'] },
     ],
   },
+  {
+    id: 'upper_strength',
+    text: 'Exerciții de forță avansate — ce poți face?',
+    subtext: 'Selectează cel mai avansat nivel atins',
+    options: [
+      { label: 'Niciuna', value: 0 },
+      { label: 'Da, diamond push-up-uri (10+)', value: 1 },
+      { label: 'Da, muscle-up la bară', value: 2 },
+      { label: 'Da, ambele', value: 3 },
+    ],
+    skillsToUnlock: [
+      { threshold: 1, skillIds: ['diamond_pushup'] },
+      { threshold: 2, skillIds: ['muscle_up'] },
+      { threshold: 3, skillIds: ['diamond_pushup', 'muscle_up'] },
+    ],
+  },
+  {
+    id: 'mobility_cardio',
+    text: 'Mobilitate și condiție fizică',
+    subtext: 'Selectează tot ce se aplică (nivelul cel mai avansat)',
+    options: [
+      { label: 'Niciuna', value: 0 },
+      { label: 'Pot alerga 5 km continuu', value: 1 },
+      { label: 'Pot face spagatul complet', value: 2 },
+      { label: 'Ambele — alergare 5 km și spagat', value: 3 },
+    ],
+    skillsToUnlock: [
+      { threshold: 1, skillIds: ['jogging_5k'] },
+      { threshold: 2, skillIds: ['full_split'] },
+      { threshold: 3, skillIds: ['jogging_5k', 'full_split'] },
+    ],
+  },
 ]
 
 function computeLevel(answers: Record<string, number>): string {

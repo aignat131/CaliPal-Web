@@ -59,10 +59,15 @@ function notifRoute(notif: AppNotification): string | null {
 export function NotificationBell({ uid }: { uid: string }) {
   const [unread, setUnread] = useState(0)
   const [open, setOpen] = useState(false)
+  const [wiggleKey, setWiggleKey] = useState(0)
+  const prevUnread = useRef(0)
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'notifications', uid, 'items'), snap => {
-      setUnread(snap.docs.filter(d => !d.data().isRead).length)
+      const count = snap.docs.filter(d => !d.data().isRead).length
+      if (count > prevUnread.current) setWiggleKey(k => k + 1)
+      prevUnread.current = count
+      setUnread(count)
     })
     return unsub
   }, [uid])
@@ -79,7 +84,11 @@ export function NotificationBell({ uid }: { uid: string }) {
         className="relative w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/8 transition-colors"
         style={{ backgroundColor: 'var(--app-surface)' }}
       >
-        <Bell size={18} className="text-white/70" />
+        <Bell
+          key={wiggleKey}
+          size={18}
+          className={`text-white/70 ${wiggleKey > 0 ? 'animate-wiggle' : ''}`}
+        />
         {unread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-brand-green text-black text-[9px] font-black flex items-center justify-center">
             {unread > 9 ? '9+' : unread}

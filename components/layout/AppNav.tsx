@@ -35,8 +35,11 @@ export default function AppNav() {
             >
               <Icon
                 size={22}
-                className="transition-colors"
-                style={{ color: active ? '#1ED75F' : inactiveColor }}
+                className="transition-all duration-200"
+                style={{
+                  color: active ? '#1ED75F' : inactiveColor,
+                  transform: active ? 'translateY(-2px)' : 'translateY(0)',
+                }}
                 strokeWidth={active ? 2.5 : 1.8}
               />
               <span

@@ -12,7 +12,7 @@ import type {
   UserDoc, CommunityDoc, WeeklyChallenge, UserChallengeProgress,
   PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress,
 } from '@/types'
-import { Flame, Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield } from 'lucide-react'
+import { Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 
 const SUPERADMIN = 'aignat131@gmail.com'
@@ -144,13 +144,6 @@ export default function HomePage() {
         style={{ backgroundColor: 'var(--app-bg)' }}>
         <p className="text-xl font-black text-white">Acasă</p>
         <div className="flex items-center gap-3">
-          {streak > 0 && (
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: '#FF6B2B15', border: '1px solid #FF6B2B30' }}>
-              <span className="text-xs">🔥</span>
-              <span className="text-xs font-bold" style={{ color: '#FF6B2B' }}>{streak}</span>
-            </div>
-          )}
           {user?.email === SUPERADMIN && (
             <Link href="/admin">
               <div className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -179,25 +172,59 @@ export default function HomePage() {
         )}
 
         {/* Greeting */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <p className="text-white/50 text-sm">{greeting},</p>
-            {authLoading || (!userDoc && !user?.displayName)
-              ? <div className="h-7 w-32 rounded-lg bg-white/8 animate-pulse" />
-              : <h1 className="text-2xl font-black text-white leading-tight">{firstName} 👋</h1>
-            }
+        <div className="mb-3">
+          <p className="text-white/50 text-sm">{greeting},</p>
+          {authLoading || (!userDoc && !user?.displayName)
+            ? <div className="h-7 w-32 rounded-lg bg-white/8 animate-pulse" />
+            : <h1 className="text-2xl font-black text-white leading-tight">{firstName} 👋</h1>
+          }
+        </div>
+
+        {/* Streak card */}
+        <button
+          onClick={() => setShowStreakCalendar(true)}
+          className="w-full rounded-2xl p-4 mb-5 flex items-center gap-4 active:scale-[0.98] transition-transform"
+          style={{ backgroundColor: '#FF6B2B12', border: '1px solid #FF6B2B28' }}
+        >
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: '#FF6B2B20' }}>
+            <span className={`text-3xl ${streak > 0 ? 'animate-pulse' : ''}`}>🔥</span>
+          </div>
+          <div className="flex-1 text-left">
+            {streak > 0 ? (
+              <>
+                <p className="text-4xl font-black leading-none" style={{ color: '#FF6B2B' }}>{streak}</p>
+                <p className="text-xs text-white/50 mt-0.5">zile consecutiv</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-black text-white/60">Niciun antrenament încă</p>
+                <p className="text-xs text-white/35 mt-0.5">Încearcă primul antrenament!</p>
+              </>
+            )}
           </div>
           {streak > 0 && (
-            <button
-              onClick={() => setShowStreakCalendar(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full active:opacity-70 transition-opacity"
-              style={{ backgroundColor: '#FF6B2B22', border: '1px solid #FF6B2B44' }}
-            >
-              <Flame size={14} style={{ color: '#FF6B2B' }} />
-              <span className="text-sm font-bold" style={{ color: '#FF6B2B' }}>{streak}</span>
-            </button>
+            <div className="flex-shrink-0">
+              <span className="text-[10px] text-white/25">Serie activă</span>
+            </div>
           )}
-        </div>
+        </button>
+
+        {/* Assessment banner for new users */}
+        {userDoc && userDoc.assessmentCompleted === false && (
+          <div className="rounded-2xl p-4 mb-4 border border-brand-green/30"
+            style={{ backgroundColor: '#1ED75F08' }}>
+            <p className="font-black text-white text-sm">Completează evaluarea inițială 🎯</p>
+            <p className="text-xs text-white/60 mt-1">
+              Descoperă-ți nivelul și deblochează skill-uri personalizate. Durează 2 minute.
+            </p>
+            <Link href="/profile/assessment">
+              <button className="mt-3 h-9 px-5 rounded-xl bg-brand-green text-black text-sm font-bold">
+                Începe evaluarea
+              </button>
+            </Link>
+          </div>
+        )}
 
         {/* Latest training from favorite community */}
         {latestFavTraining && userDoc?.favoriteCommunityId && user && (
