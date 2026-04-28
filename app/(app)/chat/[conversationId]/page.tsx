@@ -26,9 +26,11 @@ export default function ChatDetailPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const conversationId = params.conversationId as string
-  const otherUserId = searchParams.get('otherUserId') ?? ''
-  const otherName = searchParams.get('otherName') ?? 'Utilizator'
+  const otherUserIdParam = searchParams.get('otherUserId') ?? ''
+  const otherNameParam = searchParams.get('otherName') ?? ''
 
+  const [otherUserId, setOtherUserId] = useState(otherUserIdParam)
+  const [otherName, setOtherName] = useState(otherNameParam || 'Utilizator')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [otherPhoto, setOtherPhoto] = useState('')
   const [text, setText] = useState('')
@@ -36,13 +38,29 @@ export default function ChatDetailPage() {
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // Load other user photo
+  // When navigating from a notification (no URL params), derive other user from conversation doc
   useEffect(() => {
-    if (!otherUserId) return
+    if (!user) return
+    if (otherUserIdParam) return // already have it from URL
+    getDoc(doc(db, 'conversations', conversationId)).then(snap => {
+      if (!snap.exists()) return
+      const data = snap.data() as ConversationDoc
+      const otherId = data.participantIds.find(id => id !== user.uid) ?? ''
+      if (otherId) {
+        setOtherUserId(otherId)
+        setOtherName(data.participantNames?.[otherId] || 'Utilizator')
+        setOtherPhoto(data.participantPhotos?.[otherId] || '')
+      }
+    })
+  }, [user, conversationId, otherUserIdParam])
+
+  // Load other user photo (when otherUserId comes from URL params)
+  useEffect(() => {
+    if (!otherUserId || !otherUserIdParam) return
     getDoc(doc(db, 'users', otherUserId)).then(snap => {
       if (snap.exists()) setOtherPhoto(snap.data().photoUrl ?? '')
     })
-  }, [otherUserId])
+  }, [otherUserId, otherUserIdParam])
 
   // Real-time messages
   useEffect(() => {

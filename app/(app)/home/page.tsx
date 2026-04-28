@@ -143,7 +143,16 @@ export default function HomePage() {
       <div className="sticky top-0 z-10 flex items-center justify-between px-4 h-12 border-b border-white/8"
         style={{ backgroundColor: 'var(--app-bg)' }}>
         <p className="text-xl font-black text-white">Acasă</p>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Streak icon */}
+          <button
+            onClick={() => setShowStreakCalendar(true)}
+            className="flex items-center gap-1 px-2.5 h-8 rounded-full transition-colors"
+            style={{ backgroundColor: '#FF6B2B18', border: '1px solid #FF6B2B30' }}
+          >
+            <span className={`text-base leading-none ${streak > 0 ? 'animate-pulse' : ''}`}>🔥</span>
+            {streak > 0 && <span className="text-xs font-black" style={{ color: '#FF6B2B' }}>{streak}</span>}
+          </button>
           {user?.email === SUPERADMIN && (
             <Link href="/admin">
               <div className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -179,36 +188,6 @@ export default function HomePage() {
             : <h1 className="text-2xl font-black text-white leading-tight">{firstName} 👋</h1>
           }
         </div>
-
-        {/* Streak card */}
-        <button
-          onClick={() => setShowStreakCalendar(true)}
-          className="w-full rounded-2xl p-4 mb-5 flex items-center gap-4 active:scale-[0.98] transition-transform"
-          style={{ backgroundColor: '#FF6B2B12', border: '1px solid #FF6B2B28' }}
-        >
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: '#FF6B2B20' }}>
-            <span className={`text-3xl ${streak > 0 ? 'animate-pulse' : ''}`}>🔥</span>
-          </div>
-          <div className="flex-1 text-left">
-            {streak > 0 ? (
-              <>
-                <p className="text-4xl font-black leading-none" style={{ color: '#FF6B2B' }}>{streak}</p>
-                <p className="text-xs text-white/50 mt-0.5">zile consecutiv</p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-black text-white/60">Niciun antrenament încă</p>
-                <p className="text-xs text-white/35 mt-0.5">Încearcă primul antrenament!</p>
-              </>
-            )}
-          </div>
-          {streak > 0 && (
-            <div className="flex-shrink-0">
-              <span className="text-[10px] text-white/25">Serie activă</span>
-            </div>
-          )}
-        </button>
 
         {/* Assessment banner for new users */}
         {userDoc && userDoc.assessmentCompleted === false && (

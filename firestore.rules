@@ -10,9 +10,7 @@ service cloud.firestore {
       return isAuth() && request.auth.uid == uid;
     }
     function isSuperAdmin() {
-      // Use UID (immutable) instead of email (can change).
-      // Replace the placeholder with your real UID from Firebase Console → Authentication.
-      return isAuth() && request.auth.uid == 'YOUR_SUPERADMIN_UID';
+      return isAuth() && request.auth.token.email == 'aignat131@gmail.com';
     }
     function getCommunityMember(communityId) {
       return get(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid));

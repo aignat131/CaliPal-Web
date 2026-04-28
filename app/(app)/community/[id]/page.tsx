@@ -17,7 +17,7 @@ import { ROLE_LABELS, conversationId } from '@/types'
 import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
-  Heart, MessageCircle, MoreVertical, User, Trophy,
+  Heart, MessageCircle, MoreVertical, User,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -340,7 +340,6 @@ export default function CommunityDetailPage() {
           { label: 'Feed', Icon: MessageSquare },
           { label: 'Antrenamente', Icon: Dumbbell },
           { label: 'Membri', Icon: Users },
-          { label: 'Clasament', Icon: Trophy },
         ].map(({ label, Icon }, i) => (
           <button key={i} onClick={() => setTab(i)}
             className={`flex-1 py-3 text-xs font-bold transition-colors flex flex-col items-center gap-0.5 ${
@@ -535,51 +534,6 @@ export default function CommunityDetailPage() {
           </div>
         )}
 
-        {/* ── Clasament ── */}
-        {tab === 3 && (
-          <div className="flex flex-col gap-2">
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-1">CLASAMENT PUNCTE</p>
-            {[...members]
-              .sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
-              .map((m, idx) => {
-                const isMe = m.userId === user?.uid
-                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null
-                const roleColor = ROLE_COLORS[m.role as MemberRole] ?? '#1ED75F'
-                return (
-                  <div
-                    key={m.userId}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-2xl ${isMe ? 'border border-brand-green/35' : ''}`}
-                    style={{ backgroundColor: isMe ? '#1ED75F0E' : 'var(--app-surface)' }}
-                  >
-                    <div className="w-7 text-center flex-shrink-0">
-                      {medal
-                        ? <span className="text-lg leading-none">{medal}</span>
-                        : <span className="text-sm font-bold text-white/30">{idx + 1}</span>}
-                    </div>
-                    <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: `${roleColor}22`, border: `2px solid ${roleColor}` }}>
-                      {m.photoUrl
-                        ? <img src={m.photoUrl} alt="" className="w-full h-full object-cover" />
-                        : <span className="text-sm font-black" style={{ color: roleColor }}>{m.displayName.charAt(0).toUpperCase()}</span>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold truncate ${isMe ? 'text-brand-green' : 'text-white'}`}>
-                        {m.displayName}
-                        {isMe && <span className="text-[9px] font-normal text-white/30 ml-1">TU</span>}
-                      </p>
-                      <span className="text-[10px] font-semibold" style={{ color: roleColor }}>
-                        {ROLE_LABELS[m.role as MemberRole]}
-                      </span>
-                    </div>
-                    <div className="flex-shrink-0 text-right">
-                      <p className="text-sm font-black text-brand-green">{m.points ?? 0}</p>
-                      <p className="text-[10px] text-white/30">puncte</p>
-                    </div>
-                  </div>
-                )
-              })}
-          </div>
-        )}
 
       </div>
     </div>

@@ -22,7 +22,8 @@
       "Bash(xargs grep:*)",
       "Bash(ls:*)",
       "Bash(sed \"s/.*collection\\(db, '//\")",
-      "Bash(sed \"s/'.*$//\")"
+      "Bash(sed \"s/'.*$//\")",
+      "Bash(npx firebase:*)"
     ]
   }
 }

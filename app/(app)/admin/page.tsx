@@ -639,10 +639,13 @@ function ParkCommunityRequestsTab() {
     const unsub = onSnapshot(
       query(
         collection(db, 'park_community_requests'),
-        where('status', 'in', ['PENDING', 'NEW']),
-        orderBy('createdAt', 'desc')
+        where('status', 'in', ['PENDING', 'NEW'])
       ),
-      snap => setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkCommunityRequest))
+      snap => {
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkCommunityRequest)
+        items.sort((a, b) => (b.createdAt?.toDate?.()?.getTime() ?? 0) - (a.createdAt?.toDate?.()?.getTime() ?? 0))
+        setRequests(items)
+      }
     )
     return unsub
   }, [])
