@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { createNotification } from '@/lib/firebase/notifications'
 import type { ParkDoc, CommunityDoc, WeeklyChallenge, CommunityChallenge, ParkRequest, ParkCommunityRequest, VerificationRequest } from '@/types'
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, MapPin, Trophy, Users, Shield, ChevronDown, ChevronUp, BadgeCheck } from 'lucide-react'
 
@@ -91,7 +92,8 @@ function ParksTab() {
 
   useEffect(() => {
     const u1 = onSnapshot(collection(db, 'parks'), snap => {
-      setParks(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkDoc))
+      setParks(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkDoc)
+        .sort((a, b) => (a.city || '').localeCompare(b.city || '', 'ro')))
     })
     const u2 = onSnapshot(query(collection(db, 'communities'), orderBy('memberCount', 'desc')), snap => {
       setCommunities(snap.docs.map(d => ({ id: d.id, ...d.data() }) as CommunityDoc))
@@ -123,6 +125,12 @@ function ParksTab() {
       createdAt: serverTimestamp(),
     })
     await deleteDoc(doc(db, 'park_requests', req.id))
+    await createNotification(
+      req.requestedByUid, 'PARK_CREATED',
+      'Parc aprobat! 🎉',
+      `Parcul "${req.name}" pe care l-ai solicitat a fost adăugat pe hartă.`,
+      parkRef.id
+    )
   }
 
   async function rejectParkRequest(id: string) {
@@ -644,6 +652,19 @@ function ParkCommunityRequestsTab() {
     await updateDoc(doc(db, 'parks', req.parkId), { communityId: req.communityId })
     if (req.status === 'NEW') {
       await updateDoc(doc(db, 'communities', req.communityId), { verified: true, verifiedAt: serverTimestamp() })
+      await createNotification(
+        req.requestedByUid, 'COMMUNITY_REQUEST_APPROVED',
+        'Comunitate aprobată! ✅',
+        `Comunitatea "${req.communityName}" a fost aprobată și asociată parcului "${req.parkName}". A primit și badge-ul verificat!`,
+        req.communityId
+      )
+    } else {
+      await createNotification(
+        req.requestedByUid, 'COMMUNITY_REQUEST_APPROVED',
+        'Cerere aprobată! ✅',
+        `Comunitatea "${req.communityName}" a fost asociată parcului "${req.parkName}".`,
+        req.communityId
+      )
     }
     await deleteDoc(doc(db, 'park_community_requests', req.id))
   }
@@ -654,6 +675,11 @@ function ParkCommunityRequestsTab() {
       if (!confirm(`Respingi și ștergi comunitatea "${req.communityName}"?`)) return
       await updateDoc(doc(db, 'parks', req.parkId), { communityId: null })
       await deleteDoc(doc(db, 'communities', req.communityId))
+      await createNotification(
+        req.requestedByUid, 'COMMUNITY_REQUEST_REJECTED',
+        'Cerere respinsă',
+        `Cererea pentru comunitatea "${req.communityName}" la parcul "${req.parkName}" a fost respinsă de administrator.`
+      )
     }
     await deleteDoc(doc(db, 'park_community_requests', req.id))
   }
@@ -779,6 +805,24 @@ function CommunitiesTab() {
     return unsub
   }, [])
 
+  async function deleteCommunity(c: CommunityDoc) {
+    if (!confirm(`Ștergi comunitatea "${c.name}"? Creatorul va fi notificat.`)) return
+    // Unlink from any park that has this community
+    const parkSnap = await getDocs(query(collection(db, 'parks'), where('communityId', '==', c.id)))
+    await Promise.all(parkSnap.docs.map(d => updateDoc(doc(db, 'parks', d.id), { communityId: null })))
+    // Notify creator
+    if (c.creatorId) {
+      await createNotification(
+        c.creatorId, 'COMMUNITY_DELETED',
+        'Comunitate ștearsă',
+        `Ne pare rău, comunitatea "${c.name}" a fost ștearsă de administrator.`,
+        c.id
+      )
+    }
+    await deleteDoc(doc(db, 'communities', c.id))
+    setCommunities(prev => prev.filter(x => x.id !== c.id))
+  }
+
   async function loadMembers(communityId: string) {
     if (members[communityId]) { setExpandedId(expandedId === communityId ? null : communityId); return }
     const snap = await getDocs(collection(db, 'communities', communityId, 'members'))
@@ -803,17 +847,23 @@ function CommunitiesTab() {
     <div className="flex flex-col gap-2">
       {communities.map(c => (
         <div key={c.id} className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--app-surface)' }}>
-          <button onClick={() => loadMembers(c.id)} className="w-full flex items-center gap-3 p-3.5 text-left">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: '#1ED75F22' }}>
-              <span className="font-black text-brand-green text-sm">{c.name.charAt(0)}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white truncate">{c.name}</p>
-              <p className="text-xs text-white/40">{c.memberCount} membri</p>
-            </div>
-            <span className="text-white/30 text-xs">{expandedId === c.id ? '▲' : '▼'}</span>
-          </button>
+          <div className="flex items-center">
+            <button onClick={() => loadMembers(c.id)} className="flex-1 flex items-center gap-3 p-3.5 text-left">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: '#1ED75F22' }}>
+                <span className="font-black text-brand-green text-sm">{c.name.charAt(0)}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white truncate">{c.name}</p>
+                <p className="text-xs text-white/40">{c.memberCount} membri</p>
+              </div>
+              <span className="text-white/30 text-xs">{expandedId === c.id ? '▲' : '▼'}</span>
+            </button>
+            <button onClick={() => deleteCommunity(c)}
+              className="w-9 h-9 flex items-center justify-center mr-2 rounded-full bg-red-500/15 flex-shrink-0">
+              <Trash2 size={14} className="text-red-400" />
+            </button>
+          </div>
 
           {expandedId === c.id && members[c.id] && (
             <div className="border-t border-white/8 px-3 pb-3">

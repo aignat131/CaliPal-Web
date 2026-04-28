@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { createNotification } from '@/lib/firebase/notifications'
 import type { FriendRequest, FriendEntry } from '@/types'
 import { ArrowLeft, Check, X, UserMinus, Search } from 'lucide-react'
 
@@ -66,6 +67,12 @@ export default function FriendsPage() {
       // Increment both friendCounts
       await updateDoc(doc(db, 'users', user.uid), { friendCount: increment(1) })
       await updateDoc(doc(db, 'users', req.fromUid), { friendCount: increment(1) })
+      // Notify sender
+      await createNotification(req.fromUid, 'FRIEND_REQUEST_ACCEPTED',
+        'Cerere acceptată! 🎉',
+        `${user.displayName || 'Cineva'} ți-a acceptat cererea de prietenie.`,
+        user.uid
+      )
     } finally {
       setLoadingUids(s => { const n = new Set(s); n.delete(req.fromUid); return n })
     }
@@ -113,6 +120,11 @@ export default function FriendsPage() {
       status: 'PENDING',
       sentAt: serverTimestamp(),
     })
+    await createNotification(toUid, 'FRIEND_REQUEST',
+      'Cerere de prietenie',
+      `${user.displayName || 'Cineva'} ți-a trimis o cerere de prietenie.`,
+      user.uid
+    )
     setSearchResult(null)
     setSearchEmail('')
   }

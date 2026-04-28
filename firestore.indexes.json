@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "park_community_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "parkId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "park_requests",
       "queryScope": "COLLECTION",
       "fields": [

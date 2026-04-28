@@ -6,7 +6,7 @@ import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { markAllRead, deleteNotification } from '@/lib/firebase/notifications'
 import type { AppNotification } from '@/types'
-import { X, Bell, MessageSquare, UserPlus, UserCheck, Dumbbell, MapPin, Trash2 } from 'lucide-react'
+import { X, Bell, MessageSquare, UserPlus, UserCheck, Dumbbell, MapPin, Trash2, Users } from 'lucide-react'
 
 function timeAgo(ts: { toDate?: () => Date } | null | undefined): string {
   if (!ts) return ''
@@ -26,6 +26,9 @@ function notifIcon(type: AppNotification['type']) {
     case 'FRIEND_AT_YOUR_PARK': return <MapPin size={16} className="text-brand-green" />
     case 'PARK_CREATED':
     case 'PARK_REQUEST': return <MapPin size={16} className="text-yellow-400" />
+    case 'COMMUNITY_REQUEST_APPROVED': return <Users size={16} className="text-brand-green" />
+    case 'COMMUNITY_REQUEST_REJECTED': return <Users size={16} className="text-red-400" />
+    case 'COMMUNITY_DELETED': return <Users size={16} className="text-red-400" />
     case 'TRAINING_STARTED':
     case 'TRAINING_UPDATED':
     case 'TRAINING_DELETED':
@@ -44,6 +47,9 @@ function notifRoute(notif: AppNotification): string | null {
     case 'TRAINING_UPDATED':
     case 'OFFICIAL_TRAINING_POSTED': return notif.relatedId ? `/community/${notif.relatedId}` : '/community'
     case 'PARK_CREATED': return '/map'
+    case 'COMMUNITY_REQUEST_APPROVED': return notif.relatedId ? `/community/${notif.relatedId}` : '/map'
+    case 'COMMUNITY_REQUEST_REJECTED': return '/map'
+    case 'COMMUNITY_DELETED': return '/map'
     default: return null
   }
 }

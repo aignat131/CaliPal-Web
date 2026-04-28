@@ -9,6 +9,7 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
+import { createNotification } from '@/lib/firebase/notifications'
 import type { UserDoc, WorkoutDoc } from '@/types'
 import { conversationId } from '@/types'
 import { SKILLS, SKILL_LEVEL_COLORS } from '@/lib/skills'
@@ -129,6 +130,11 @@ export default function UserProfilePage() {
         status: 'PENDING',
         sentAt: serverTimestamp(),
       })
+      await createNotification(uid, 'FRIEND_REQUEST',
+        'Cerere de prietenie',
+        `${myName || 'Cineva'} ți-a trimis o cerere de prietenie.`,
+        user.uid
+      )
       setFriendStatus('sent')
     } catch (e: unknown) {
       setFriendError(e instanceof Error ? e.message : 'Eroare necunoscută')
@@ -168,6 +174,11 @@ export default function UserProfilePage() {
       deleteDoc(doc(db, 'friend_requests', reqId)),
       updateDoc(doc(db, 'users', user.uid), { friendCount: increment(1) }),
       updateDoc(doc(db, 'users', uid), { friendCount: increment(1) }),
+      createNotification(uid, 'FRIEND_REQUEST_ACCEPTED',
+        'Cerere acceptată! 🎉',
+        `${myName || 'Cineva'} și-a acceptat cererea ta de prietenie.`,
+        user.uid
+      ),
     ])
     setFriendLoading(false)
   }

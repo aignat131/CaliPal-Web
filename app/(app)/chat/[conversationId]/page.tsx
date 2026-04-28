@@ -9,6 +9,7 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
+import { createNotification } from '@/lib/firebase/notifications'
 import type { ChatMessage, ConversationDoc } from '@/types'
 import { ArrowLeft, Send } from 'lucide-react'
 
@@ -112,6 +113,12 @@ export default function ChatDetailPage() {
         timestamp: serverTimestamp(),
         isRead: false,
       })
+      // Notify recipient (only if they haven't read yet — unreadCount > 0 means they're not in the chat)
+      await createNotification(otherUserId, 'NEW_MESSAGE',
+        myName || 'Mesaj nou',
+        content.length > 60 ? content.slice(0, 57) + '...' : content,
+        conversationId
+      )
     } finally {
       setSending(false)
     }

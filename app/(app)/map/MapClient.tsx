@@ -314,18 +314,27 @@ export default function MapClient() {
     }
   }, [user, startSharing])
 
-  // Load communities where the current user is ADMIN
+  // Load communities where the current user is ADMIN (from joinedCommunityIds + createdByUid for Android compat)
   useEffect(() => {
     if (!user) return
     getDoc(doc(db, 'users', user.uid)).then(async snap => {
       const ids: string[] = snap.data()?.joinedCommunityIds ?? []
-      const results = await Promise.all(
+      const joinedResults = await Promise.all(
         ids.map(id => getDoc(doc(db, 'communities', id)).then(s => s.exists() ? { id: s.id, ...s.data() } as CommunityDoc : null))
       )
+      // Also fetch communities created by this user (Android may not update joinedCommunityIds)
+      const createdSnap = await getDocs(query(collection(db, 'communities'), where('creatorId', '==', user.uid)))
+      const createdComms = createdSnap.docs.map(d => ({ id: d.id, ...d.data() }) as CommunityDoc)
+      // Merge and deduplicate
+      const allComms = [...joinedResults.filter(Boolean) as CommunityDoc[]]
+      for (const c of createdComms) {
+        if (!allComms.find(x => x.id === c.id)) allComms.push(c)
+      }
+      // Filter to ADMIN role
       const adminComms: CommunityDoc[] = []
-      await Promise.all(results.filter(Boolean).map(async c => {
-        const mem = await getDoc(doc(db, 'communities', c!.id, 'members', user.uid))
-        if (mem.exists() && mem.data().role === 'ADMIN') adminComms.push(c!)
+      await Promise.all(allComms.map(async c => {
+        const mem = await getDoc(doc(db, 'communities', c.id, 'members', user.uid))
+        if (mem.exists() && mem.data().role === 'ADMIN') adminComms.push(c)
       }))
       setUserAdminCommunities(adminComms)
     })
@@ -389,12 +398,12 @@ export default function MapClient() {
       setParkCommunity(null)
       setParkPresenceMembers([])
       setTodayTraining(null)
-      // Check for pending community request on this park
+      // Check for pending community request on this park (PENDING = associate existing, NEW = created from map)
       if (user) {
         getDocs(query(
           collection(db, 'park_community_requests'),
           where('parkId', '==', selectedPark.id),
-          where('status', '==', 'PENDING')
+          where('status', 'in', ['PENDING', 'NEW'])
         )).then(snap => {
           setParkPendingReq(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() } as ParkCommunityRequest)
         })
@@ -406,14 +415,14 @@ export default function MapClient() {
       if (snap.exists()) setParkCommunity({ id: snap.id, ...snap.data() } as CommunityDoc)
       else setParkCommunity(null)
     })
-    // Load today's training
+    // Load today's training (silently fail for non-members — rule requires isCommunityMember)
     const today = new Date().toISOString().slice(0, 10)
     getDocs(query(
       collection(db, 'communities', selectedPark.communityId, 'trainings'),
       where('date', '==', today)
     )).then(snap => {
       setTodayTraining(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() } as PlannedTraining)
-    })
+    }).catch(() => setTodayTraining(null))
     const unsub = onSnapshot(
       collection(db, 'park_presence', selectedPark.communityId, 'active_members'),
       snap => setParkPresenceMembers(snap.docs.map(d => d.data() as ParkPresenceMember))
@@ -425,7 +434,7 @@ export default function MapClient() {
   const filteredParks = parks.filter(p => {
     if (filter === 'community' && !p.communityId) return false
     if (filter === 'nocommunity' && p.communityId) return false
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !p.city?.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
 
@@ -448,7 +457,7 @@ export default function MapClient() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Caută parc..."
+            placeholder="Caută parc sau oraș..."
             className="w-full h-10 rounded-xl px-4 text-sm outline-none backdrop-blur-sm focus:border-brand-green/50 transition-colors"
             style={{
               backgroundColor: theme === 'light' ? 'rgba(255,255,255,0.92)' : 'rgba(13,46,43,0.92)',
