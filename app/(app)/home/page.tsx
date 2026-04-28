@@ -12,8 +12,10 @@ import type {
   UserDoc, CommunityDoc, WeeklyChallenge, UserChallengeProgress,
   PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress,
 } from '@/types'
-import { Flame, Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users } from 'lucide-react'
+import { Flame, Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
+
+const SUPERADMIN = 'aignat131@gmail.com'
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth()
@@ -149,6 +151,14 @@ export default function HomePage() {
               <span className="text-xs">🪙</span>
               <span className="text-xs font-bold text-yellow-400">{coins}</span>
             </div>
+          )}
+          {user?.email === SUPERADMIN && (
+            <Link href="/admin">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: '#FF000020', border: '1px solid #FF000040' }}>
+                <Shield size={14} className="text-red-400" />
+              </div>
+            </Link>
           )}
           {user && <NotificationBell uid={user.uid} />}
         </div>
