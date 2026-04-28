@@ -121,7 +121,6 @@ export default function HomePage() {
     : (user?.displayName || storedName || 'Utilizator')
   const firstName = displayName.split(' ')[0]
   const streak = userDoc?.currentStreak ?? 0
-  const coins = userDoc?.coins ?? 0
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Bună dimineața' : hour < 18 ? 'Bună ziua' : 'Bună seara'
@@ -143,13 +142,13 @@ export default function HomePage() {
       {/* Top bar */}
       <div className="sticky top-0 z-10 flex items-center justify-between px-4 h-12 border-b border-white/8"
         style={{ backgroundColor: 'var(--app-bg)' }}>
-        <p className="text-[13px] font-black text-white tracking-wide">Acasă</p>
+        <p className="text-xl font-black text-white">Acasă</p>
         <div className="flex items-center gap-3">
-          {coins > 0 && (
+          {streak > 0 && (
             <div className="flex items-center gap-1 px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: '#FFB80015', border: '1px solid #FFB80030' }}>
-              <span className="text-xs">🪙</span>
-              <span className="text-xs font-bold text-yellow-400">{coins}</span>
+              style={{ backgroundColor: '#FF6B2B15', border: '1px solid #FF6B2B30' }}>
+              <span className="text-xs">🔥</span>
+              <span className="text-xs font-bold" style={{ color: '#FF6B2B' }}>{streak}</span>
             </div>
           )}
           {user?.email === SUPERADMIN && (

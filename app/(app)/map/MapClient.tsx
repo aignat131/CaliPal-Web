@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import {
   collection, onSnapshot, doc, setDoc, deleteDoc,
-  serverTimestamp, getDoc, getDocs, query, where, addDoc,
+  serverTimestamp, getDoc, getDocs, query, where, addDoc, updateDoc, arrayUnion,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -587,12 +587,14 @@ export default function MapClient() {
           liveLocations={liveLocations}
           onClose={() => { setSelectedPark(null); setShowParkCommModal(false) }}
           uid={user?.uid ?? null}
+          userName={user?.displayName ?? ''}
           todayTraining={todayTraining}
           parkPendingReq={parkPendingReq}
           userAdminCommunities={userAdminCommunities}
           showParkCommModal={showParkCommModal}
           setShowParkCommModal={setShowParkCommModal}
           onPendingReqSet={req => setParkPendingReq(req)}
+          onCommunityCreated={comm => setParkCommunity(comm)}
         />
       )}
     </div>
@@ -603,8 +605,8 @@ export default function MapClient() {
 
 function ParkBottomSheet({
   park, community, members, liveLocations, onClose,
-  uid, todayTraining, parkPendingReq, userAdminCommunities,
-  showParkCommModal, setShowParkCommModal, onPendingReqSet,
+  uid, userName, todayTraining, parkPendingReq, userAdminCommunities,
+  showParkCommModal, setShowParkCommModal, onPendingReqSet, onCommunityCreated,
 }: {
   park: ParkDoc
   community: CommunityDoc | null
@@ -612,14 +614,18 @@ function ParkBottomSheet({
   liveLocations: Record<string, string>
   onClose: () => void
   uid: string | null
+  userName: string
   todayTraining: PlannedTraining | null
   parkPendingReq: ParkCommunityRequest | null
   userAdminCommunities: CommunityDoc[]
   showParkCommModal: boolean
   setShowParkCommModal: (v: boolean) => void
   onPendingReqSet: (req: ParkCommunityRequest) => void
+  onCommunityCreated: (comm: CommunityDoc) => void
 }) {
   const { theme } = useTheme()
+  const [showCommChoice, setShowCommChoice] = useState(false)
+  const [showCreateCommForm, setShowCreateCommForm] = useState(false)
   return (
     <div
       className="absolute bottom-0 left-0 right-0 z-[2000] rounded-t-3xl px-4 pt-4 pb-6 max-h-[70vh] overflow-y-auto"
@@ -707,13 +713,41 @@ function ParkBottomSheet({
               <p className="text-xs text-yellow-400 font-semibold">Cerere în așteptare</p>
             </div>
           ) : uid ? (
-            <button
-              onClick={() => setShowParkCommModal(true)}
-              className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl border border-brand-green/30 text-brand-green text-sm font-bold hover:bg-brand-green/10 transition-colors"
-              style={{ backgroundColor: '#1ED75F08' }}
-            >
-              <span className="text-base">＋</span> Propune comunitate
-            </button>
+            showCommChoice ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-[10px] font-bold text-white/35 tracking-widest px-1">ADAUGĂ COMUNITATE</p>
+                <button
+                  onClick={() => { setShowCommChoice(false); setShowCreateCommForm(true) }}
+                  className="w-full flex items-center gap-3 p-3 rounded-2xl border border-brand-green/30 text-left hover:bg-brand-green/10 transition-colors"
+                  style={{ backgroundColor: '#1ED75F08' }}
+                >
+                  <span className="text-xl">🏗️</span>
+                  <div>
+                    <p className="text-sm font-bold text-white">Creează comunitate nouă</p>
+                    <p className="text-xs text-white/45">Pornește o comunitate pentru acest parc</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { setShowCommChoice(false); setShowParkCommModal(true) }}
+                  className="w-full flex items-center gap-3 p-3 rounded-2xl border border-white/15 text-left hover:bg-white/5 transition-colors"
+                >
+                  <span className="text-xl">🔗</span>
+                  <div>
+                    <p className="text-sm font-bold text-white">Asociază comunitate existentă</p>
+                    <p className="text-xs text-white/45">Leagă o comunitate pe care o administrezi</p>
+                  </div>
+                </button>
+                <button onClick={() => setShowCommChoice(false)} className="text-xs text-white/35 text-center py-1">Anulează</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowCommChoice(true)}
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl border border-brand-green/30 text-brand-green text-sm font-bold hover:bg-brand-green/10 transition-colors"
+                style={{ backgroundColor: '#1ED75F08' }}
+              >
+                <span className="text-base">＋</span> Adaugă comunitate
+              </button>
+            )
           ) : (
             <div className="flex items-center gap-2 p-3 rounded-2xl border border-white/10"
               style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -741,7 +775,7 @@ function ParkBottomSheet({
         </div>
       )}
 
-      {/* Park Community Modal */}
+      {/* Associate existing community modal */}
       {showParkCommModal && uid && (
         <ParkCommunityModal
           park={park}
@@ -749,6 +783,17 @@ function ParkBottomSheet({
           userAdminCommunities={userAdminCommunities}
           onClose={() => setShowParkCommModal(false)}
           onSubmitted={req => { onPendingReqSet(req); setShowParkCommModal(false) }}
+        />
+      )}
+
+      {/* Create new community for this park */}
+      {showCreateCommForm && uid && (
+        <CreateCommunityForParkModal
+          park={park}
+          uid={uid}
+          userName={userName}
+          onClose={() => setShowCreateCommForm(false)}
+          onCreated={comm => { onCommunityCreated(comm); setShowCreateCommForm(false) }}
         />
       )}
     </div>
@@ -879,6 +924,130 @@ function ParkCommunityModal({
             </button>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── Create Community For Park Modal ──────────────────────────────────────────
+
+function CreateCommunityForParkModal({
+  park, uid, userName, onClose, onCreated,
+}: {
+  park: ParkDoc
+  uid: string
+  userName: string
+  onClose: () => void
+  onCreated: (comm: CommunityDoc) => void
+}) {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [isPublic, setIsPublic] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const inputCls = "w-full h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50 transition-colors"
+
+  async function create() {
+    if (!name.trim() || saving) return
+    setSaving(true)
+    try {
+      const commRef = await addDoc(collection(db, 'communities'), {
+        name: name.trim(),
+        description: description.trim(),
+        location: park.address ? `${park.address}${park.city ? ', ' + park.city : ''}` : park.name,
+        latitude: park.latitude,
+        longitude: park.longitude,
+        creatorId: uid,
+        creatorName: userName,
+        memberCount: 1,
+        isPublic,
+        imageUrl: '',
+        verified: false,
+        createdAt: serverTimestamp(),
+      })
+      // Add creator as ADMIN member
+      await setDoc(doc(db, 'communities', commRef.id, 'members', uid), {
+        userId: uid,
+        displayName: userName,
+        role: 'ADMIN',
+        level: 1,
+        points: 0,
+        photoUrl: '',
+        joinedAt: serverTimestamp(),
+      })
+      // Link park to community immediately
+      await updateDoc(doc(db, 'parks', park.id), { communityId: commRef.id })
+      // Add to user's joined communities
+      await updateDoc(doc(db, 'users', uid), { joinedCommunityIds: arrayUnion(commRef.id) })
+      // Create review request for admin (status NEW)
+      await addDoc(collection(db, 'park_community_requests'), {
+        parkId: park.id,
+        parkName: park.name,
+        communityId: commRef.id,
+        communityName: name.trim(),
+        requestedByUid: uid,
+        requestedByName: userName,
+        status: 'NEW',
+        createdAt: serverTimestamp(),
+      })
+      const newComm: CommunityDoc = {
+        id: commRef.id,
+        name: name.trim(),
+        description: description.trim(),
+        location: park.address ?? park.name,
+        latitude: park.latitude,
+        longitude: park.longitude,
+        creatorId: uid,
+        creatorName: userName,
+        memberCount: 1,
+        isPublic,
+        imageUrl: '',
+        verified: false,
+        createdAt: null,
+      }
+      onCreated(newComm)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/60"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-lg rounded-t-3xl px-5 pt-4 pb-8"
+        style={{ backgroundColor: 'var(--app-surface)' }}>
+        <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-black text-white">Comunitate nouă</p>
+          <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
+            <X size={13} className="text-white/60" />
+          </button>
+        </div>
+        <p className="text-xs text-white/40 mb-4">Parc: {park.name}</p>
+        <div className="flex flex-col gap-2.5">
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Numele comunității *" className={inputCls} />
+          <textarea value={description} onChange={e => setDescription(e.target.value)}
+            placeholder="Descriere (opțional)"
+            rows={2}
+            className="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50 transition-colors resize-none" />
+          <button onClick={() => setIsPublic(p => !p)}
+            className="flex items-center gap-2 p-3 rounded-xl border border-white/12">
+            <div className={`w-8 h-5 rounded-full transition-colors relative ${isPublic ? 'bg-brand-green' : 'bg-white/20'}`}>
+              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${isPublic ? 'left-3.5' : 'left-0.5'}`} />
+            </div>
+            <span className="text-sm text-white/70">{isPublic ? 'Publică' : 'Privată'}</span>
+          </button>
+          <p className="text-[11px] text-white/35 px-1">
+            Comunitatea va fi asociată parcului imediat și vizibilă tuturor. Administratorul va putea verifica cererea.
+          </p>
+          <div className="flex gap-2 mt-1">
+            <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-white/15 text-sm text-white/60">Anulează</button>
+            <button onClick={create} disabled={saving || !name.trim()}
+              className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-40">
+              {saving ? '...' : 'Creează și asociază'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -280,7 +280,7 @@ export interface ParkCommunityRequest {
   communityName: string
   requestedByUid: string
   requestedByName: string
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEW'
   createdAt: Timestamp | null
 }
 

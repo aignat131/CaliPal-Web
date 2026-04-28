@@ -5,14 +5,12 @@ import Link from 'next/link'
 import {
   collection, query, orderBy, onSnapshot, doc,
   updateDoc, setDoc, arrayUnion, increment, serverTimestamp,
-  getDocs, where, getDoc, addDoc, Timestamp,
+  getDocs, where, getDoc,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { CommunityDoc, PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress } from '@/types'
-import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, X } from 'lucide-react'
-
-const SUPERADMIN = 'aignat131@gmail.com'
+import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check } from 'lucide-react'
 
 function formatDate(iso: string): string {
   if (!iso) return ''
@@ -44,9 +42,6 @@ export default function CommunityPage() {
   const [provChallenges, setProvChallenges] = useState<(CommunityChallenge & { communityName: string })[]>([])
   const [provProgress, setProvProgress] = useState<Record<string, UserCommunityChallengeProgress>>({})
   const [loadedProv, setLoadedProv] = useState(false)
-  const [showAddChallenge, setShowAddChallenge] = useState(false)
-
-  const isSuperAdmin = user?.email === SUPERADMIN
 
   function changeTab(t: number) {
     setTab(t)
@@ -178,15 +173,6 @@ export default function CommunityPage() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-black text-white">Comunitate</h1>
           <div className="flex items-center gap-2">
-            {isSuperAdmin && (
-              <button
-                onClick={() => { changeTab(2); setShowAddChallenge(true) }}
-                className="flex items-center gap-1.5 h-9 px-3 rounded-full border border-yellow-400/40 text-yellow-400 text-xs font-bold hover:bg-yellow-400/10 transition-colors"
-                title="Adaugă provocare (super admin)"
-              >
-                <Trophy size={13} /> Provocare
-              </button>
-            )}
             {tab === 0 && (
               <Link href="/community/create">
                 <button className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center">
@@ -258,26 +244,12 @@ export default function CommunityPage() {
         {/* ── Provocari tab ── */}
         {tab === 2 && (
           <div>
-            {showAddChallenge && isSuperAdmin && (
-              <AddChallengeForm
-                communities={communities.filter(c => joinedIds.has(c.id))}
-                onClose={() => { setShowAddChallenge(false); setLoadedProv(false) }}
-              />
-            )}
             {!loadedProv ? (
               <div className="flex justify-center py-12"><div className="w-7 h-7 border-2 border-brand-green border-t-transparent rounded-full animate-spin" /></div>
             ) : provChallenges.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12 text-center">
                 <Trophy size={32} className="text-white/20" />
                 <p className="text-sm text-white/40">Nicio provocare activă în comunitățile tale.</p>
-                {isSuperAdmin && (
-                  <button
-                    onClick={() => setShowAddChallenge(true)}
-                    className="mt-2 h-9 px-4 rounded-full bg-brand-green text-black text-xs font-bold"
-                  >
-                    Adaugă provocare
-                  </button>
-                )}
               </div>
             ) : (
               <div className="flex flex-col gap-3">
@@ -346,128 +318,6 @@ function EventCard({ event }: { event: PlannedTraining & { communityId: string; 
         </div>
       </div>
     </Link>
-  )
-}
-
-function AddChallengeForm({
-  communities,
-  onClose,
-}: {
-  communities: CommunityDoc[]
-  onClose: () => void
-}) {
-  const defaultEnd = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
-  const [selectedCommunity, setSelectedCommunity] = useState(communities[0]?.id ?? '')
-  const [title, setTitle] = useState('')
-  const [exerciseName, setExerciseName] = useState('')
-  const [targetReps, setTargetReps] = useState('100')
-  const [coinsReward, setCoinsReward] = useState('50')
-  const [endsAt, setEndsAt] = useState(defaultEnd)
-  const [saving, setSaving] = useState(false)
-
-  async function save() {
-    if (!title.trim() || !exerciseName.trim() || !selectedCommunity) return
-    setSaving(true)
-    try {
-      await addDoc(collection(db, 'communities', selectedCommunity, 'challenges'), {
-        title: title.trim(),
-        exerciseName: exerciseName.trim(),
-        targetReps: parseInt(targetReps) || 100,
-        coinsReward: parseInt(coinsReward) || 50,
-        communityId: selectedCommunity,
-        endsAt: Timestamp.fromDate(new Date(endsAt)),
-        createdAt: serverTimestamp(),
-      })
-      onClose()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="rounded-2xl p-4 mb-4 border border-brand-green/30" style={{ backgroundColor: 'var(--app-surface)' }}>
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-black text-white">Adaugă provocare</p>
-        <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
-          <X size={13} className="text-white/60" />
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-2.5">
-        <div>
-          <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1">COMUNITATE</p>
-          <select
-            value={selectedCommunity}
-            onChange={e => setSelectedCommunity(e.target.value)}
-            className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-white/7"
-            style={{ backgroundColor: 'var(--app-surface)' }}
-          >
-            {communities.map(c => (
-              <option key={c.id} value={c.id} style={{ backgroundColor: '#0D2E2B' }}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1">TITLU</p>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="ex. 100 Tracțiuni"
-            className="w-full h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7"
-          />
-        </div>
-
-        <div>
-          <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1">EXERCIȚIU</p>
-          <input
-            value={exerciseName}
-            onChange={e => setExerciseName(e.target.value)}
-            placeholder="ex. Tracțiuni"
-            className="w-full h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1">TARGET REPS</p>
-            <input
-              type="number"
-              value={targetReps}
-              onChange={e => setTargetReps(e.target.value)}
-              className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-white/7"
-            />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1">MONEDE</p>
-            <input
-              type="number"
-              value={coinsReward}
-              onChange={e => setCoinsReward(e.target.value)}
-              className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-white/7"
-            />
-          </div>
-        </div>
-
-        <div>
-          <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1">DATA LIMITĂ</p>
-          <input
-            type="date"
-            value={endsAt}
-            onChange={e => setEndsAt(e.target.value)}
-            className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-white/7"
-          />
-        </div>
-
-        <button
-          onClick={save}
-          disabled={saving || !title.trim() || !exerciseName.trim()}
-          className="w-full h-11 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-50 mt-1"
-        >
-          {saving ? '...' : 'Salvează'}
-        </button>
-      </div>
-    </div>
   )
 }
 
