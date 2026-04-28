@@ -13,6 +13,13 @@ import { ArrowLeft, Plus, Trash2, Pencil, Check, X, MapPin, Trophy, Users, Shiel
 
 const SUPERADMIN = 'aignat131@gmail.com'
 
+const EXERCISES = [
+  'Tracțiuni', 'Flotări', 'Genuflexiuni', 'Dips', 'Muscle-up',
+  'L-sit', 'Planche lean', 'Front lever', 'Back lever',
+  'Dragon flag', 'Human flag', 'Burpees', 'Abdomene', 'Pistol squat',
+  'Altul...',
+]
+
 type AdminTab = 'parks' | 'challenges' | 'communities' | 'park_requests' | 'verifications'
 
 export default function AdminPage() {
@@ -457,20 +464,22 @@ function CommunityChallengeForm({
   const [selectedCommunity, setSelectedCommunity] = useState(communities[0]?.id ?? '')
   const [title, setTitle] = useState('')
   const [exerciseName, setExerciseName] = useState('')
+  const [customExercise, setCustomExercise] = useState('')
   const [targetReps, setTargetReps] = useState('100')
   const [coinsReward, setCoinsReward] = useState('50')
   const [endsAt, setEndsAt] = useState(defaultEnd)
   const [saving, setSaving] = useState(false)
 
   const inputCls = "w-full h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50"
+  const finalExercise = exerciseName === 'Altul...' ? customExercise.trim() : exerciseName
 
   async function save() {
-    if (!title.trim() || !exerciseName.trim() || !selectedCommunity) return
+    if (!title.trim() || !selectedCommunity) return
     setSaving(true)
     try {
       const ref = await addDoc(collection(db, 'communities', selectedCommunity, 'challenges'), {
         title: title.trim(),
-        exerciseName: exerciseName.trim(),
+        exerciseName: finalExercise,
         targetReps: parseInt(targetReps) || 100,
         coinsReward: parseInt(coinsReward) || 50,
         communityId: selectedCommunity,
@@ -481,7 +490,7 @@ function CommunityChallengeForm({
       onSaved({
         id: ref.id,
         title: title.trim(),
-        exerciseName: exerciseName.trim(),
+        exerciseName: finalExercise,
         targetReps: parseInt(targetReps) || 100,
         coinsReward: parseInt(coinsReward) || 50,
         communityId: selectedCommunity,
@@ -508,7 +517,14 @@ function CommunityChallengeForm({
           {communities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Titlu *" className={inputCls} />
-        <input value={exerciseName} onChange={e => setExerciseName(e.target.value)} placeholder="Exercițiu (ex: Tracțiuni) *" className={inputCls} />
+        <select value={exerciseName} onChange={e => { setExerciseName(e.target.value); if (e.target.value !== 'Altul...') setCustomExercise('') }}
+          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[#0D2E2B]">
+          <option value="">— Fără exercițiu specific —</option>
+          {EXERCISES.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+        </select>
+        {exerciseName === 'Altul...' && (
+          <input value={customExercise} onChange={e => setCustomExercise(e.target.value)} placeholder="Numele exercițiului" className={inputCls} />
+        )}
         <div className="flex gap-2">
           <input value={targetReps} onChange={e => setTargetReps(e.target.value)} placeholder="Repetări" className={`${inputCls} flex-1`} type="number" />
           <input value={coinsReward} onChange={e => setCoinsReward(e.target.value)} placeholder="Monede" className={`${inputCls} flex-1`} type="number" />
@@ -516,7 +532,7 @@ function CommunityChallengeForm({
         <input value={endsAt} onChange={e => setEndsAt(e.target.value)} type="date" className={inputCls} style={{ colorScheme: 'dark' }} />
         <div className="flex gap-2 mt-1">
           <button onClick={onClose} className="flex-1 h-9 rounded-xl border border-white/15 text-sm text-white/60">Anulează</button>
-          <button onClick={save} disabled={saving || !title.trim() || !exerciseName.trim() || !selectedCommunity}
+          <button onClick={save} disabled={saving || !title.trim() || !selectedCommunity}
             className="flex-1 h-9 rounded-xl bg-brand-green text-black text-sm font-bold disabled:opacity-40">
             {saving ? '...' : 'Salvează'}
           </button>
@@ -529,7 +545,10 @@ function CommunityChallengeForm({
 function ChallengeForm({ challenge, onClose }: { challenge: WeeklyChallenge | null; onClose: () => void }) {
   const [title, setTitle] = useState(challenge?.title ?? '')
   const [description, setDescription] = useState(challenge?.description ?? '')
-  const [exerciseName, setExerciseName] = useState(challenge?.exerciseName ?? '')
+  const existingEx = challenge?.exerciseName ?? ''
+  const isKnown = EXERCISES.includes(existingEx) || existingEx === ''
+  const [exerciseName, setExerciseName] = useState(isKnown ? existingEx : 'Altul...')
+  const [customExercise, setCustomExercise] = useState(isKnown ? '' : existingEx)
   const [targetReps, setTargetReps] = useState(String(challenge?.targetReps ?? '100'))
   const [coinsReward, setCoinsReward] = useState(String(challenge?.coinsReward ?? '50'))
   const [endsAt, setEndsAt] = useState(() => {
@@ -543,15 +562,16 @@ function ChallengeForm({ challenge, onClose }: { challenge: WeeklyChallenge | nu
   const [saving, setSaving] = useState(false)
 
   const inputCls = "w-full h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50"
+  const finalExercise = exerciseName === 'Altul...' ? customExercise.trim() : exerciseName
 
   async function save() {
-    if (!title.trim() || !exerciseName.trim()) return
+    if (!title.trim()) return
     setSaving(true)
     try {
       const data = {
         title: title.trim(),
         description: description.trim(),
-        exerciseName: exerciseName.trim(),
+        exerciseName: finalExercise,
         targetReps: parseInt(targetReps) || 100,
         coinsReward: parseInt(coinsReward) || 50,
         endsAt: new Date(endsAt),
@@ -573,7 +593,14 @@ function ChallengeForm({ challenge, onClose }: { challenge: WeeklyChallenge | nu
       <div className="flex flex-col gap-2">
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Titlu *" className={inputCls} />
         <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Descriere" className={inputCls} />
-        <input value={exerciseName} onChange={e => setExerciseName(e.target.value)} placeholder="Exercițiu (ex: Tracțiuni) *" className={inputCls} />
+        <select value={exerciseName} onChange={e => { setExerciseName(e.target.value); if (e.target.value !== 'Altul...') setCustomExercise('') }}
+          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[#0D2E2B]">
+          <option value="">— Fără exercițiu specific —</option>
+          {EXERCISES.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+        </select>
+        {exerciseName === 'Altul...' && (
+          <input value={customExercise} onChange={e => setCustomExercise(e.target.value)} placeholder="Numele exercițiului" className={inputCls} />
+        )}
         <div className="flex gap-2">
           <input value={targetReps} onChange={e => setTargetReps(e.target.value)} placeholder="Repetări țintă" className={`${inputCls} flex-1`} type="number" />
           <input value={coinsReward} onChange={e => setCoinsReward(e.target.value)} placeholder="Monede" className={`${inputCls} flex-1`} type="number" />
@@ -585,7 +612,7 @@ function ChallengeForm({ challenge, onClose }: { challenge: WeeklyChallenge | nu
         </div>
         <div className="flex gap-2 mt-1">
           <button onClick={onClose} className="flex-1 h-9 rounded-xl border border-white/15 text-sm text-white/60">Anulează</button>
-          <button onClick={save} disabled={saving || !title.trim() || !exerciseName.trim()}
+          <button onClick={save} disabled={saving || !title.trim()}
             className="flex-1 h-9 rounded-xl bg-brand-green text-black text-sm font-bold disabled:opacity-40">
             {saving ? '...' : 'Salvează'}
           </button>
@@ -601,50 +628,34 @@ function ParkCommunityRequestsTab() {
   const [requests, setRequests] = useState<ParkCommunityRequest[]>([])
 
   useEffect(() => {
-    // Listen for both PENDING (associate existing) and NEW (created from map) requests
-    const u1 = onSnapshot(
-      query(collection(db, 'park_community_requests'), where('status', '==', 'PENDING'), orderBy('createdAt', 'desc')),
-      snap => {
-        const pending = snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkCommunityRequest)
-        setRequests(prev => {
-          const newIds = new Set(pending.map(r => r.id))
-          return [...pending, ...prev.filter(r => !newIds.has(r.id) && r.status !== 'PENDING')]
-        })
-      }
+    const unsub = onSnapshot(
+      query(
+        collection(db, 'park_community_requests'),
+        where('status', 'in', ['PENDING', 'NEW']),
+        orderBy('createdAt', 'desc')
+      ),
+      snap => setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkCommunityRequest))
     )
-    const u2 = onSnapshot(
-      query(collection(db, 'park_community_requests'), where('status', '==', 'NEW'), orderBy('createdAt', 'desc')),
-      snap => {
-        const newReqs = snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkCommunityRequest)
-        setRequests(prev => {
-          const newIds = new Set(newReqs.map(r => r.id))
-          return [...newReqs, ...prev.filter(r => !newIds.has(r.id) && r.status !== 'NEW')]
-        })
-      }
-    )
-    return () => { u1(); u2() }
+    return unsub
   }, [])
 
-  // PENDING: community admin wants to associate existing community → admin approves (sets park.communityId)
+  // Approve: link park to community; if NEW also verify the community
   async function approve(req: ParkCommunityRequest) {
     await updateDoc(doc(db, 'parks', req.parkId), { communityId: req.communityId })
+    if (req.status === 'NEW') {
+      await updateDoc(doc(db, 'communities', req.communityId), { verified: true, verifiedAt: serverTimestamp() })
+    }
     await deleteDoc(doc(db, 'park_community_requests', req.id))
   }
 
-  // NEW: community already linked from map → admin can delete (unlink + delete community) or dismiss
-  async function deleteNew(req: ParkCommunityRequest) {
-    if (!confirm(`Ștergi comunitatea "${req.communityName}" și o dezasociezi de la parc?`)) return
-    await updateDoc(doc(db, 'parks', req.parkId), { communityId: null })
-    await deleteDoc(doc(db, 'communities', req.communityId))
+  // Reject: for NEW also delete the community; for PENDING just delete request
+  async function reject(req: ParkCommunityRequest) {
+    if (req.status === 'NEW') {
+      if (!confirm(`Respingi și ștergi comunitatea "${req.communityName}"?`)) return
+      await updateDoc(doc(db, 'parks', req.parkId), { communityId: null })
+      await deleteDoc(doc(db, 'communities', req.communityId))
+    }
     await deleteDoc(doc(db, 'park_community_requests', req.id))
-  }
-
-  async function dismissNew(id: string) {
-    await deleteDoc(doc(db, 'park_community_requests', id))
-  }
-
-  async function reject(id: string) {
-    await deleteDoc(doc(db, 'park_community_requests', id))
   }
 
   if (requests.length === 0) {
@@ -660,9 +671,12 @@ function ParkCommunityRequestsTab() {
     <div className="flex flex-col gap-3">
       {requests.map(req => (
         <div key={req.id} className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          {req.status === 'NEW' && (
-            <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-green/20 text-brand-green mb-1">NOUĂ</span>
-          )}
+          <div className="flex items-center gap-2 mb-1">
+            {req.status === 'NEW'
+              ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-green/20 text-brand-green">🏗️ COMUNITATE NOUĂ</span>
+              : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/50">🔗 ASOCIERE</span>
+            }
+          </div>
           <p className="text-sm font-bold text-white mb-0.5">{req.parkName}</p>
           <p className="text-xs text-brand-green mb-0.5">→ {req.communityName}</p>
           <p className="text-[11px] text-white/40">de {req.requestedByName}</p>
@@ -671,29 +685,16 @@ function ParkCommunityRequestsTab() {
               {req.createdAt.toDate?.()?.toLocaleDateString('ro') ?? ''}
             </p>
           )}
-          {req.status === 'NEW' ? (
-            <div className="flex gap-2 mt-3">
-              <button onClick={() => deleteNew(req)}
-                className="flex-1 h-8 rounded-xl border border-red-500/40 text-xs font-bold text-red-400 flex items-center justify-center gap-1">
-                <Trash2 size={12} /> Șterge comunitatea
-              </button>
-              <button onClick={() => dismissNew(req.id)}
-                className="flex-1 h-8 rounded-xl bg-brand-green text-black text-xs font-bold flex items-center justify-center gap-1">
-                <Check size={12} /> Ok, confirmă
-              </button>
-            </div>
-          ) : (
-            <div className="flex gap-2 mt-3">
-              <button onClick={() => reject(req.id)}
-                className="flex-1 h-8 rounded-xl border border-red-500/40 text-xs font-bold text-red-400 flex items-center justify-center gap-1">
-                <X size={12} /> Respinge
-              </button>
-              <button onClick={() => approve(req)}
-                className="flex-1 h-8 rounded-xl bg-brand-green text-black text-xs font-bold flex items-center justify-center gap-1">
-                <Check size={12} /> Aprobă
-              </button>
-            </div>
-          )}
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => reject(req)}
+              className="flex-1 h-8 rounded-xl border border-red-500/40 text-xs font-bold text-red-400 flex items-center justify-center gap-1">
+              <X size={12} /> Respinge
+            </button>
+            <button onClick={() => approve(req)}
+              className="flex-1 h-8 rounded-xl bg-brand-green text-black text-xs font-bold flex items-center justify-center gap-1">
+              <Check size={12} /> Aprobă
+            </button>
+          </div>
         </div>
       ))}
     </div>

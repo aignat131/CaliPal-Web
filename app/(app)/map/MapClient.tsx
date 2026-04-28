@@ -793,7 +793,7 @@ function ParkBottomSheet({
           uid={uid}
           userName={userName}
           onClose={() => setShowCreateCommForm(false)}
-          onCreated={comm => { onCommunityCreated(comm); setShowCreateCommForm(false) }}
+          onPending={req => { onPendingReqSet(req); setShowCreateCommForm(false) }}
         />
       )}
     </div>
@@ -932,25 +932,45 @@ function ParkCommunityModal({
 // ── Create Community For Park Modal ──────────────────────────────────────────
 
 function CreateCommunityForParkModal({
-  park, uid, userName, onClose, onCreated,
+  park, uid, userName, onClose, onPending,
 }: {
   park: ParkDoc
   uid: string
   userName: string
   onClose: () => void
-  onCreated: (comm: CommunityDoc) => void
+  onPending: (req: ParkCommunityRequest) => void
 }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isPublic, setIsPublic] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const inputCls = "w-full h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50 transition-colors"
 
   async function create() {
     if (!name.trim() || saving) return
     setSaving(true)
+    setError('')
     try {
+      // 3/day rate limit — fetch user's NEW requests, filter client-side by today
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+      const rateSnap = await getDocs(query(
+        collection(db, 'park_community_requests'),
+        where('requestedByUid', '==', uid),
+        where('status', '==', 'NEW')
+      ))
+      const todayCount = rateSnap.docs.filter(d => {
+        const ts = d.data().createdAt?.toDate?.()
+        return ts && ts >= todayStart
+      }).length
+      if (todayCount >= 3) {
+        setError('Ai atins limita de 3 cereri pe zi.')
+        setSaving(false)
+        return
+      }
+
       const commRef = await addDoc(collection(db, 'communities'), {
         name: name.trim(),
         description: description.trim(),
@@ -975,12 +995,10 @@ function CreateCommunityForParkModal({
         photoUrl: '',
         joinedAt: serverTimestamp(),
       })
-      // Link park to community immediately
-      await updateDoc(doc(db, 'parks', park.id), { communityId: commRef.id })
       // Add to user's joined communities
       await updateDoc(doc(db, 'users', uid), { joinedCommunityIds: arrayUnion(commRef.id) })
-      // Create review request for admin (status NEW)
-      await addDoc(collection(db, 'park_community_requests'), {
+      // Submit for admin review — park will be linked after approval
+      const reqRef = await addDoc(collection(db, 'park_community_requests'), {
         parkId: park.id,
         parkName: park.name,
         communityId: commRef.id,
@@ -990,22 +1008,18 @@ function CreateCommunityForParkModal({
         status: 'NEW',
         createdAt: serverTimestamp(),
       })
-      const newComm: CommunityDoc = {
-        id: commRef.id,
-        name: name.trim(),
-        description: description.trim(),
-        location: park.address ?? park.name,
-        latitude: park.latitude,
-        longitude: park.longitude,
-        creatorId: uid,
-        creatorName: userName,
-        memberCount: 1,
-        isPublic,
-        imageUrl: '',
-        verified: false,
+      const req: ParkCommunityRequest = {
+        id: reqRef.id,
+        parkId: park.id,
+        parkName: park.name,
+        communityId: commRef.id,
+        communityName: name.trim(),
+        requestedByUid: uid,
+        requestedByName: userName,
+        status: 'NEW',
         createdAt: null,
       }
-      onCreated(newComm)
+      onPending(req)
     } finally {
       setSaving(false)
     }
@@ -1038,13 +1052,14 @@ function CreateCommunityForParkModal({
             <span className="text-sm text-white/70">{isPublic ? 'Publică' : 'Privată'}</span>
           </button>
           <p className="text-[11px] text-white/35 px-1">
-            Comunitatea va fi asociată parcului imediat și vizibilă tuturor. Administratorul va putea verifica cererea.
+            Cererea va fi trimisă administratorului. Parcul va fi asociat și comunitatea verificată după aprobare.
           </p>
+          {error && <p className="text-xs text-red-400 px-1">{error}</p>}
           <div className="flex gap-2 mt-1">
             <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-white/15 text-sm text-white/60">Anulează</button>
             <button onClick={create} disabled={saving || !name.trim()}
               className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-40">
-              {saving ? '...' : 'Creează și asociază'}
+              {saving ? '...' : 'Trimite cererea'}
             </button>
           </div>
         </div>
