@@ -91,7 +91,10 @@ service cloud.firestore {
         allow update: if isAuth() && (
           request.auth.uid == resource.data.authorId ||
           isCommunityStaff(communityId) ||
-          isSuperAdmin()
+          isSuperAdmin() ||
+          // Any member can increment commentsCount when adding a comment
+          (isCommunityMember(communityId) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentsCount']))
         );
         allow delete: if isAuth() && (
           request.auth.uid == resource.data.authorId ||
@@ -116,7 +119,7 @@ service cloud.firestore {
       }
 
       match /trainings/{trainingId} {
-        allow read: if isCommunityMember(communityId);
+        allow read: if isAuth();
         allow create, delete: if isCommunityStaff(communityId) || isSuperAdmin();
         // Members can update only their own RSVP field; staff can update anything
         allow update: if isCommunityMember(communityId) || isSuperAdmin();

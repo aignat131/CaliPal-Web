@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // Profile photos — owner writes, any auth user reads
+    match /profile_photos/{uid}/{allPaths=**} {
+      allow read: if isAuth();
+      allow write: if isOwner(uid);
+    }
+
+    // Community photos — any auth user writes (admin-gated client-side), all can read
+    match /community_photos/{communityId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    // Workout photos — owner writes and reads, any auth user can read
+    match /workout_photos/{uid}/{allPaths=**} {
+      allow read: if isAuth();
+      allow write: if isOwner(uid);
+    }
+  }
+}
