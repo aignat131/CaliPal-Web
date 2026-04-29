@@ -65,6 +65,8 @@ export interface CommunityPost {
   content: string
   likesCount: number
   commentsCount: number
+  photoUrl?: string
+  feeling?: number   // 1–5
   createdAt: Timestamp | null
 }
 

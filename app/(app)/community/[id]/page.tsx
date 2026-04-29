@@ -1068,8 +1068,10 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
     })
   }, [showComments, post.id, communityId])
 
+  const isOwnPost = post.authorId === myUid
+
   async function toggleLike() {
-    if (!myUid) return
+    if (!myUid || isOwnPost) return
     const likeRef = doc(db, 'communities', communityId, 'posts', post.id, 'likes', myUid)
     if (liked) {
       setLiked(false)
@@ -1090,6 +1092,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
         collection(db, 'communities', communityId, 'posts', post.id, 'comments'),
         { authorId: myUid, authorName: myName, text: commentText.trim(), createdAt: serverTimestamp() }
       )
+      await updateDoc(doc(db, 'communities', communityId, 'posts', post.id), { commentsCount: increment(1) })
       setCommentText('')
     } finally { setCommenting(false) }
   }
@@ -1123,16 +1126,29 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
 
       <p className="text-sm text-white/80 leading-relaxed mb-3">{post.content}</p>
 
+      {post.photoUrl && (
+        <div className="mb-3 rounded-xl overflow-hidden">
+          <img src={post.photoUrl} alt="" className="w-full object-cover max-h-72" />
+        </div>
+      )}
+
       <div className="flex items-center gap-4">
-        <button onClick={toggleLike}
-          className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${liked ? 'text-red-400' : 'text-white/40 hover:text-white/60'}`}>
-          <Heart size={14} fill={liked ? 'currentColor' : 'none'} />
+        <button
+          onClick={isOwnPost ? undefined : toggleLike}
+          disabled={isOwnPost}
+          className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
+            isOwnPost ? 'text-white/20 cursor-default' : liked ? 'text-red-400' : 'text-white/40 hover:text-white/60'
+          }`}
+        >
+          <Heart size={14} fill={liked && !isOwnPost ? 'currentColor' : 'none'} />
           {likeCount > 0 && <span>{likeCount}</span>}
         </button>
         <button onClick={() => setShowComments(v => !v)}
           className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${showComments ? 'text-brand-green' : 'text-white/40 hover:text-white/60'}`}>
           <MessageCircle size={14} />
-          {comments.length > 0 && <span>{comments.length}</span>}
+          {(showComments ? comments.length : (post.commentsCount ?? 0)) > 0 && (
+            <span>{showComments ? comments.length : post.commentsCount}</span>
+          )}
         </button>
       </div>
 

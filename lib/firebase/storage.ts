@@ -15,3 +15,9 @@ export async function uploadCommunityPhoto(communityId: string, file: File): Pro
   await uploadBytes(storageRef, file)
   return getDownloadURL(storageRef)
 }
+
+export async function uploadWorkoutPhoto(userId: string, timestamp: number, file: File): Promise<string> {
+  const storageRef = ref(storage, `workout_photos/${userId}/${timestamp}.jpg`)
+  await uploadBytes(storageRef, file)
+  return getDownloadURL(storageRef)
+}
