@@ -231,11 +231,22 @@ export default function WorkoutPage() {
     const totalReps = totalRepsInWorkout(finalExercises)
     let earned = 0
 
+    // Firestore rejects `undefined` values — strip optional set fields that weren't set
+    const serializedExercises = finalExercises.map(ex => ({
+      ...ex,
+      sets: ex.sets.map(s => {
+        const set: Record<string, number> = {}
+        if (s.reps !== undefined) set.reps = s.reps
+        if (s.durationSeconds !== undefined) set.durationSeconds = s.durationSeconds
+        return set
+      }),
+    }))
+
     try {
       // Save workout
       await addDoc(collection(db, 'users', user.uid, 'workouts'), {
         userId: user.uid,
-        exercises: finalExercises,
+        exercises: serializedExercises,
         durationSeconds: finalSeconds,
         totalReps,
         coinsEarned: 10,

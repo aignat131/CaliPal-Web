@@ -152,12 +152,13 @@ export default function CommunityDetailPage() {
   }, [id])
 
   useEffect(() => {
+    if (!user) return
     const q = query(collection(db, 'communities', id, 'trainings'), orderBy('createdAt', 'desc'))
     return onSnapshot(q,
       snap => { setTrainings(snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)) },
       () => { /* non-members can't read trainings — silently ignore */ }
     )
-  }, [id])
+  }, [id, user])
 
   // Load friend/pending status for member tab
   const loadSocialStatus = useCallback(async () => {
