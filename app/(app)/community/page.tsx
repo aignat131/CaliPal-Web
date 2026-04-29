@@ -82,23 +82,19 @@ export default function CommunityPage() {
     return unsub
   }, [user])
 
-  // Auto-redirect: if user has 1 community or a favorite, go directly there
-  // (Skip if user explicitly navigated back via the back button in [id]/page)
+  // Auto-redirect: only on INITIAL load — never after a join action
+  // If user navigated back from [id] page, sessionStorage flag prevents re-redirect
   useEffect(() => {
     if (!userDocLoaded || redirectedRef.current) return
-    const skip = typeof window !== 'undefined' && sessionStorage.getItem('skip_community_redirect')
+    redirectedRef.current = true // lock — only runs once ever
+
+    const skip = sessionStorage.getItem('skip_community_redirect')
     if (skip) { sessionStorage.removeItem('skip_community_redirect'); return }
 
-    if (favoriteCommunityId) {
-      redirectedRef.current = true
-      router.push(`/community/${favoriteCommunityId}`)
-      return
-    }
-    if (joinedIds.size === 1) {
-      redirectedRef.current = true
-      router.push(`/community/${[...joinedIds][0]}`)
-    }
-  }, [userDocLoaded, favoriteCommunityId, joinedIds, router])
+    if (favoriteCommunityId) { router.push(`/community/${favoriteCommunityId}`); return }
+    if (joinedIds.size === 1) { router.push(`/community/${[...joinedIds][0]}`) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userDocLoaded]) // intentionally only on first load
 
   // Load evenimente lazily when tab 1 is opened
   useEffect(() => {

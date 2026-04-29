@@ -264,6 +264,7 @@ export type NotificationType =
   | 'PARK_REQUEST'
   | 'PARK_CREATED'
   | 'OFFICIAL_TRAINING_POSTED'
+  | 'COMMUNITY_REMOVED'
 
 export interface AppNotification {
   id: string

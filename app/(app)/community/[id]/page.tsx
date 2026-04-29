@@ -11,6 +11,7 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
+import { createNotification } from '@/lib/firebase/notifications'
 import type {
   CommunityDoc, CommunityMember, CommunityPost,
   PlannedTraining, MemberRole, PostComment,
@@ -19,7 +20,7 @@ import { ROLE_LABELS, conversationId } from '@/types'
 import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
-  Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut,
+  Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut, UserX,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -81,26 +82,35 @@ export default function CommunityDetailPage() {
   const [joining, setJoining] = useState(false)
   const [showJoinNotif, setShowJoinNotif] = useState(false)
 
+  // Kick confirmation
+  const [kickTarget, setKickTarget] = useState<CommunityMember | null>(null)
+  const [kicking, setKicking] = useState(false)
+
   const isSuperAdmin = user?.email === SUPERADMIN
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'communities', id), snap => {
-      if (snap.exists()) setCommunity({ id: snap.id, ...snap.data() } as CommunityDoc)
-      setLoading(false)
-    })
+    const unsub = onSnapshot(
+      doc(db, 'communities', id),
+      snap => { if (snap.exists()) setCommunity({ id: snap.id, ...snap.data() } as CommunityDoc); setLoading(false) },
+      () => setLoading(false)
+    )
     return unsub
   }, [id])
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'communities', id, 'members'), snap => {
-      const list = snap.docs.map(d => d.data() as CommunityMember)
-      setMembers(list)
-      if (user) {
-        const me = list.find(m => m.userId === user.uid)
-        setIsMember(!!me)
-        setMyRole((me?.role as MemberRole) ?? 'MEMBER')
-      }
-    })
+    const unsub = onSnapshot(
+      collection(db, 'communities', id, 'members'),
+      snap => {
+        const list = snap.docs.map(d => d.data() as CommunityMember)
+        setMembers(list)
+        if (user) {
+          const me = list.find(m => m.userId === user.uid)
+          setIsMember(!!me)
+          setMyRole((me?.role as MemberRole) ?? 'MEMBER')
+        }
+      },
+      () => { /* permission denied — user is not a member */ }
+    )
     return unsub
   }, [id, user])
 
@@ -202,10 +212,36 @@ export default function CommunityDetailPage() {
       const updates: Record<string, unknown> = { joinedCommunityIds: arrayRemove(id) }
       if (userSnap.data()?.favoriteCommunityId === id) updates.favoriteCommunityId = ''
       await updateDoc(userRef, updates)
-      router.replace('/community')
+      sessionStorage.setItem('skip_community_redirect', '1')
+      router.push('/community')
     } finally {
       setLeaving(false)
       setShowCommunityMenu(false)
+    }
+  }
+
+  async function kickMember(member: CommunityMember) {
+    if (!user || kicking) return
+    setKicking(true)
+    try {
+      await deleteDoc(doc(db, 'communities', id, 'members', member.userId))
+      await updateDoc(doc(db, 'communities', id), { memberCount: increment(-1) })
+      const memberUserRef = doc(db, 'users', member.userId)
+      const memberUserSnap = await getDoc(memberUserRef)
+      const updates: Record<string, unknown> = { joinedCommunityIds: arrayRemove(id) }
+      if (memberUserSnap.data()?.favoriteCommunityId === id) updates.favoriteCommunityId = ''
+      await updateDoc(memberUserRef, updates)
+      await createNotification(
+        member.userId,
+        'COMMUNITY_REMOVED',
+        'Ai fost eliminat din comunitate',
+        `Ne pare rău, dar ai fost eliminat din "${community?.name ?? 'comunitate'}". Poți explora alte comunități.`,
+        id,
+      )
+    } finally {
+      setKicking(false)
+      setKickTarget(null)
+      setOpenMenuId(null)
     }
   }
 
@@ -318,6 +354,43 @@ export default function CommunityDetailPage() {
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+
+      {/* Kick confirmation dialog */}
+      {kickTarget && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 px-6"
+          onClick={() => setKickTarget(null)}>
+          <div
+            className="w-full max-w-sm rounded-3xl p-6"
+            style={{ backgroundColor: 'var(--app-surface)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center text-center gap-2 mb-5">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1"
+                style={{ backgroundColor: '#EF444418' }}>
+                <UserX size={22} className="text-red-400" />
+              </div>
+              <p className="font-black text-white text-base">Elimini {kickTarget.displayName}?</p>
+              <p className="text-sm text-white/50 leading-relaxed">
+                Utilizatorul va fi eliminat din comunitate și va primi o notificare.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setKickTarget(null)}
+                className="flex-1 h-11 rounded-2xl border border-white/15 text-sm text-white/60 font-semibold">
+                Anulează
+              </button>
+              <button
+                onClick={() => kickMember(kickTarget)}
+                disabled={kicking}
+                className="flex-1 h-11 rounded-2xl text-sm font-black text-white disabled:opacity-50"
+                style={{ backgroundColor: '#EF4444' }}
+              >
+                {kicking ? '...' : 'Elimină'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Join Notification Modal */}
       {showJoinNotif && community && (
@@ -670,6 +743,15 @@ export default function CommunityDetailPage() {
                                 <div className="px-3 py-2.5 text-sm text-white/40 flex items-center gap-2">
                                   <Clock size={14} /> Cerere trimisă
                                 </div>
+                              )}
+                              {/* Kick — admin only, not for other admins */}
+                              {(isSuperAdmin || myRole === 'ADMIN') && m.role !== 'ADMIN' && (
+                                <button
+                                  onClick={() => { setKickTarget(m); setOpenMenuId(null) }}
+                                  className="w-full px-3 py-2.5 text-sm text-red-400 hover:bg-red-400/10 flex items-center gap-2 text-left border-t border-white/8"
+                                >
+                                  <UserX size={14} /> Elimină din comunitate
+                                </button>
                               )}
                             </>
                           )}
