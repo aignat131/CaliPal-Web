@@ -106,9 +106,10 @@ export default function CommunityDetailPage() {
 
   useEffect(() => {
     const q = query(collection(db, 'communities', id, 'posts'), orderBy('createdAt', 'desc'))
-    return onSnapshot(q, snap => {
-      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() }) as CommunityPost))
-    })
+    return onSnapshot(q,
+      snap => { setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() }) as CommunityPost)) },
+      () => { /* non-members can't read posts — silently ignore */ }
+    )
   }, [id])
 
   useEffect(() => {
@@ -149,7 +150,7 @@ export default function CommunityDetailPage() {
       collection(db, 'verification_requests'),
       where('communityId', '==', id),
       where('status', '==', 'PENDING')
-    )).then(snap => setVerifyReqPending(!snap.empty))
+    )).then(snap => setVerifyReqPending(!snap.empty)).catch(() => {})
   }, [id])
 
   // Auto-delete expired trainings (staff/superAdmin only)
@@ -339,7 +340,7 @@ export default function CommunityDetailPage() {
             <div className="absolute inset-0"
               style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, var(--app-bg) 100%)' }} />
             <button
-              onClick={() => router.back()}
+              onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }}
               className="absolute top-3 left-3 w-9 h-9 rounded-full flex items-center justify-center"
               style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
             >
@@ -402,7 +403,7 @@ export default function CommunityDetailPage() {
         /* ── Plain text header (no image) ── */
         <div className="px-4 pt-4 pb-3 border-b border-white/8">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
+            <button onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
               <ArrowLeft size={18} className="text-white/80" />
             </button>
             <div className="flex-1 min-w-0">

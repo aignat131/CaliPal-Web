@@ -11,8 +11,9 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
-import type { CommunityDoc, PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress } from '@/types'
-import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search, Bell, X } from 'lucide-react'
+import type { CommunityDoc, CommunityMember, PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress } from '@/types'
+import { ROLE_LABELS } from '@/types'
+import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search, Bell, X, ArrowRight } from 'lucide-react'
 
 function formatDate(iso: string): string {
   if (!iso) return ''
@@ -40,6 +41,9 @@ export default function CommunityPage() {
   const [citySearch, setCitySearch] = useState('')
   const [userDocLoaded, setUserDocLoaded] = useState(false)
   const redirectedRef = useRef(false)
+
+  // Members preview popup (for non-members)
+  const [previewCommunity, setPreviewCommunity] = useState<CommunityDoc | null>(null)
 
   // Join notification popup
   const [joinedCommunityName, setJoinedCommunityName] = useState<string | null>(null)
@@ -78,17 +82,21 @@ export default function CommunityPage() {
     return unsub
   }, [user])
 
-  // Auto-redirect if user is in exactly 1 community or has a favorite
+  // Auto-redirect: if user has 1 community or a favorite, go directly there
+  // (Skip if user explicitly navigated back via the back button in [id]/page)
   useEffect(() => {
     if (!userDocLoaded || redirectedRef.current) return
+    const skip = typeof window !== 'undefined' && sessionStorage.getItem('skip_community_redirect')
+    if (skip) { sessionStorage.removeItem('skip_community_redirect'); return }
+
     if (favoriteCommunityId) {
       redirectedRef.current = true
-      router.replace(`/community/${favoriteCommunityId}`)
+      router.push(`/community/${favoriteCommunityId}`)
       return
     }
     if (joinedIds.size === 1) {
       redirectedRef.current = true
-      router.replace(`/community/${[...joinedIds][0]}`)
+      router.push(`/community/${[...joinedIds][0]}`)
     }
   }, [userDocLoaded, favoriteCommunityId, joinedIds, router])
 
@@ -141,8 +149,7 @@ export default function CommunityPage() {
             id: d.id,
             ...d.data(),
             communityName: communityMap.get(cid) ?? '',
-          } as CommunityChallenge & { communityName: string })
-          )
+          } as CommunityChallenge & { communityName: string }))
         } catch {
           return []
         }
@@ -150,7 +157,6 @@ export default function CommunityPage() {
     ).then(async results => {
       const all = results.flat()
       setProvChallenges(all)
-      // Load progress for each challenge
       const progressEntries = await Promise.all(
         all.map(c =>
           getDoc(doc(db, 'users', user.uid, 'community_challenge_progress', c.id))
@@ -163,7 +169,8 @@ export default function CommunityPage() {
     })
   }, [tab, loadedProv, joinedIds, communities, user])
 
-  async function toggleFavorite(communityId: string) {
+  async function toggleFavorite(e: React.MouseEvent, communityId: string) {
+    e.stopPropagation()
     if (!user) return
     const newFav = favoriteCommunityId === communityId ? null : communityId
     await updateDoc(doc(db, 'users', user.uid), { favoriteCommunityId: newFav ?? '' })
@@ -186,6 +193,7 @@ export default function CommunityPage() {
       await updateDoc(doc(db, 'users', user.uid), {
         joinedCommunityIds: arrayUnion(community.id),
       })
+      setPreviewCommunity(null)
       setJoinedCommunityName(community.name)
     } finally {
       setJoiningId(null)
@@ -194,6 +202,16 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+
+      {/* Members preview popup (non-members) */}
+      {previewCommunity && (
+        <MembersPreviewModal
+          community={previewCommunity}
+          joining={joiningId === previewCommunity.id}
+          onJoin={() => joinCommunity(previewCommunity)}
+          onClose={() => setPreviewCommunity(null)}
+        />
+      )}
 
       {/* Join notification popup */}
       {joinedCommunityName && (
@@ -270,14 +288,11 @@ export default function CommunityPage() {
                         <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">COMUNITĂȚILE MELE</p>
                         <div className="flex flex-col gap-3">
                           {myCommunities.map(c => (
-                            <CommunityCard
+                            <MemberCommunityCard
                               key={c.id}
                               community={c}
-                              isMember
-                              joining={false}
                               isFavorite={favoriteCommunityId === c.id}
-                              onJoin={() => {}}
-                              onToggleFavorite={() => toggleFavorite(c.id)}
+                              onToggleFavorite={e => toggleFavorite(e, c.id)}
                             />
                           ))}
                         </div>
@@ -290,14 +305,10 @@ export default function CommunityPage() {
                         <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">DESCOPERĂ</p>
                         <div className="flex flex-col gap-3">
                           {discover.map(c => (
-                            <CommunityCard
+                            <DiscoverCommunityCard
                               key={c.id}
                               community={c}
-                              isMember={false}
-                              joining={joiningId === c.id}
-                              isFavorite={false}
-                              onJoin={() => joinCommunity(c)}
-                              onToggleFavorite={() => {}}
+                              onPreview={() => setPreviewCommunity(c)}
                             />
                           ))}
                         </div>
@@ -375,6 +386,244 @@ export default function CommunityPage() {
             )}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── Member community card (clickable → navigate) ──────────────────────────────
+
+function MemberCommunityCard({
+  community, isFavorite, onToggleFavorite,
+}: {
+  community: CommunityDoc
+  isFavorite: boolean
+  onToggleFavorite: (e: React.MouseEvent) => void
+}) {
+  return (
+    <Link href={`/community/${community.id}`}>
+      <div className="rounded-2xl p-4 active:opacity-80 transition-opacity" style={{ backgroundColor: 'var(--app-surface)' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: '#1ED75F22' }}>
+            {community.imageUrl
+              ? <img src={community.imageUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+              : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="font-bold text-white text-[15px] leading-tight">{community.name}</p>
+              {community.verified && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
+              )}
+            </div>
+            {community.description && (
+              <p className="text-xs text-white/50 mt-0.5 line-clamp-1">{community.description}</p>
+            )}
+            <div className="flex items-center gap-3 mt-1">
+              <span className="flex items-center gap-1 text-xs text-white/40">
+                <Users size={11} />
+                {community.memberCount} membri
+              </span>
+              {community.location && (
+                <span className="flex items-center gap-1 text-xs text-white/40">
+                  <MapPin size={11} />
+                  {community.location}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button onClick={onToggleFavorite}
+              className="w-8 h-8 rounded-lg flex items-center justify-center border border-white/15 hover:bg-white/8 transition-colors"
+              title={isFavorite ? 'Elimină favorit' : 'Marchează favorit'}>
+              <Star size={14} fill={isFavorite ? '#FFB800' : 'none'} className={isFavorite ? 'text-yellow-400' : 'text-white/40'} />
+            </button>
+            <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center">
+              <ArrowRight size={14} className="text-white/50" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+// ── Discover community card (clickable → opens preview popup) ─────────────────
+
+function DiscoverCommunityCard({
+  community, onPreview,
+}: {
+  community: CommunityDoc
+  onPreview: () => void
+}) {
+  return (
+    <button onClick={onPreview} className="w-full text-left">
+      <div className="rounded-2xl p-4 active:opacity-80 transition-opacity border border-white/5" style={{ backgroundColor: 'var(--app-surface)' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: '#1ED75F22' }}>
+            {community.imageUrl
+              ? <img src={community.imageUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+              : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="font-bold text-white text-[15px] leading-tight">{community.name}</p>
+              {community.verified && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
+              )}
+            </div>
+            {community.description && (
+              <p className="text-xs text-white/50 mt-0.5 line-clamp-1">{community.description}</p>
+            )}
+            <div className="flex items-center gap-3 mt-1">
+              <span className="flex items-center gap-1 text-xs text-white/40">
+                <Users size={11} />
+                {community.memberCount} membri
+              </span>
+              {community.location && (
+                <span className="flex items-center gap-1 text-xs text-white/40">
+                  <MapPin size={11} />
+                  {community.location}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-shrink-0">
+            <div className="h-8 px-3 rounded-lg text-xs font-bold flex items-center"
+              style={{ backgroundColor: '#1ED75F18', color: '#1ED75F' }}>
+              Intru
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  )
+}
+
+// ── Members Preview Modal (for non-members) ───────────────────────────────────
+
+function MembersPreviewModal({
+  community, joining, onJoin, onClose,
+}: {
+  community: CommunityDoc
+  joining: boolean
+  onJoin: () => void
+  onClose: () => void
+}) {
+  const [members, setMembers] = useState<CommunityMember[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(true)
+
+  useEffect(() => {
+    getDocs(collection(db, 'communities', community.id, 'members'))
+      .then(snap => {
+        const list = snap.docs.map(d => d.data() as CommunityMember)
+        list.sort((a, b) => {
+          const order = ['ADMIN', 'MODERATOR', 'TRAINER', 'MEMBER']
+          return order.indexOf(a.role) - order.indexOf(b.role)
+        })
+        setMembers(list)
+      })
+      .catch(() => { /* permission denied — show empty */ })
+      .finally(() => setLoadingMembers(false))
+  }, [community.id])
+
+  const ROLE_COLORS: Record<string, string> = {
+    ADMIN: '#FFB800', MODERATOR: '#3B82F6', TRAINER: '#F97316', MEMBER: '#1ED75F',
+  }
+
+  return (
+    <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/70" onClick={onClose}>
+      <div
+        className="w-full max-w-sm rounded-t-3xl flex flex-col"
+        style={{ backgroundColor: 'var(--app-surface)', maxHeight: '75vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-white/20" />
+        </div>
+
+        {/* Community header */}
+        <div className="px-5 pt-2 pb-4 border-b border-white/8">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: '#1ED75F22' }}>
+              {community.imageUrl
+                ? <img src={community.imageUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+                : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="font-black text-white text-sm truncate">{community.name}</p>
+                {community.verified && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
+                )}
+              </div>
+              <p className="text-xs text-white/45 mt-0.5">{community.memberCount} membri · {community.location}</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
+              <X size={14} className="text-white/50" />
+            </button>
+          </div>
+          {community.description && (
+            <p className="text-xs text-white/50 mt-2 leading-relaxed">{community.description}</p>
+          )}
+        </div>
+
+        {/* Members list */}
+        <div className="flex-1 overflow-y-auto px-5 py-3">
+          <p className="text-[10px] font-bold text-white/30 tracking-widest mb-2">MEMBRI</p>
+          {loadingMembers ? (
+            <div className="flex justify-center py-6">
+              <div className="w-5 h-5 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : members.length === 0 ? (
+            <p className="text-xs text-white/30 text-center py-4">{community.memberCount} membri</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {members.map(m => {
+                const roleColor = ROLE_COLORS[m.role] ?? '#1ED75F'
+                return (
+                  <div key={m.userId} className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${roleColor}22`, border: `1.5px solid ${roleColor}` }}>
+                      {m.photoUrl
+                        ? <img src={m.photoUrl} alt={m.displayName} className="w-full h-full object-cover" />
+                        : <span className="text-xs font-black" style={{ color: roleColor }}>{m.displayName.charAt(0).toUpperCase()}</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{m.displayName}</p>
+                    </div>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
+                      style={{ backgroundColor: `${roleColor}18`, color: roleColor }}>
+                      {ROLE_LABELS[m.role as keyof typeof ROLE_LABELS]}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Join button */}
+        <div className="px-5 py-4 border-t border-white/8">
+          <button
+            onClick={onJoin}
+            disabled={joining}
+            className="w-full h-12 rounded-2xl bg-brand-green text-black font-black text-sm disabled:opacity-50"
+          >
+            {joining ? '...' : 'Intru în comunitate'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -464,80 +713,5 @@ function EventCard({ event }: { event: PlannedTraining & { communityId: string; 
         </div>
       </div>
     </Link>
-  )
-}
-
-function CommunityCard({
-  community, isMember, joining, isFavorite, onJoin, onToggleFavorite,
-}: {
-  community: CommunityDoc
-  isMember: boolean
-  joining: boolean
-  isFavorite: boolean
-  onJoin: () => void
-  onToggleFavorite: () => void
-}) {
-  return (
-    <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-      <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: '#1ED75F22' }}>
-          {community.imageUrl
-            ? <img src={community.imageUrl} alt="" className="w-full h-full object-cover rounded-xl" />
-            : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="font-bold text-white text-[15px] leading-tight">{community.name}</p>
-            {community.verified && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
-            )}
-          </div>
-          {community.description && (
-            <p className="text-xs text-white/50 mt-0.5 line-clamp-2">{community.description}</p>
-          )}
-          <div className="flex items-center gap-3 mt-1.5">
-            <span className="flex items-center gap-1 text-xs text-white/40">
-              <Users size={11} />
-              {community.memberCount} membri
-            </span>
-            {community.location && (
-              <span className="flex items-center gap-1 text-xs text-white/40">
-                <MapPin size={11} />
-                {community.location}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 flex-shrink-0">
-          <div className="flex items-center gap-1.5">
-            {isMember && (
-              <button onClick={onToggleFavorite}
-                className="w-8 h-8 rounded-lg flex items-center justify-center border border-white/15 hover:bg-white/8 transition-colors"
-                title={isFavorite ? 'Elimină favorit' : 'Marchează favorit'}>
-                <Star size={14} fill={isFavorite ? '#FFB800' : 'none'} className={isFavorite ? 'text-yellow-400' : 'text-white/40'} />
-              </button>
-            )}
-            <Link href={`/community/${community.id}`}>
-              <button className="h-8 px-3 rounded-lg text-xs font-bold border border-white/20 text-white/70 hover:bg-white/8 transition-colors">
-                {isMember ? 'Deschide' : 'Vizualizează'}
-              </button>
-            </Link>
-          </div>
-          {!isMember && (
-            <button
-              onClick={onJoin}
-              disabled={joining}
-              className="h-8 px-3 rounded-lg text-xs font-bold bg-brand-green text-black disabled:opacity-50"
-            >
-              {joining ? '...' : 'Intru'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
   )
 }
