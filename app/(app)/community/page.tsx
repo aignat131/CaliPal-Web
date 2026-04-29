@@ -15,11 +15,19 @@ import type { CommunityDoc, CommunityMember, PlannedTraining, CommunityChallenge
 import { ROLE_LABELS } from '@/types'
 import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search, Bell, X, ArrowRight } from 'lucide-react'
 
-function formatDate(iso: string): string {
-  if (!iso) return ''
+function formatDate(str: string | undefined): string {
+  if (!str) return ''
+  // Android format "dd/MM/yyyy HH:mm"
+  const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})/)
+  if (m) {
+    const [, dd, mm, yyyy] = m
+    try {
+      return new Date(`${yyyy}-${mm}-${dd}`).toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' })
+    } catch { return str }
+  }
   try {
-    return new Date(iso).toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' })
-  } catch { return iso }
+    return new Date(str).toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' })
+  } catch { return str }
 }
 
 export default function CommunityPage() {
@@ -124,7 +132,7 @@ export default function CommunityPage() {
         }
       })
     ).then(results => {
-      const all = results.flat().sort((a, b) => a.date.localeCompare(b.date))
+      const all = results.flat().sort((a, b) => (a.timeStart ?? a.date ?? '').localeCompare(b.timeStart ?? b.date ?? ''))
       setEventi(all)
     })
   }, [tab, loadedEventi, joinedIds, communities])
@@ -684,7 +692,7 @@ function EventCard({ event }: { event: PlannedTraining & { communityId: string; 
       <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="flex items-start justify-between mb-1.5">
           <p className="font-bold text-white text-[14px] leading-tight flex-1 pr-2">{event.name}</p>
-          <span className="text-[10px] text-brand-green font-bold flex-shrink-0">{formatDate(event.date)}</span>
+          <span className="text-[10px] text-brand-green font-bold flex-shrink-0">{formatDate(event.timeStart ?? event.date)}</span>
         </div>
         <p className="text-[11px] text-white/40 font-semibold mb-1.5">{event.communityName}</p>
         <div className="flex flex-wrap gap-x-3 gap-y-0.5">

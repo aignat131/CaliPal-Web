@@ -176,6 +176,12 @@ service cloud.firestore {
       );
     }
 
+    // ── Skill category definitions ────────────────────────────────────────────
+    match /skillCategories/{categoryId} {
+      allow read: if true;          // loaded on assessment start, even unauthenticated
+      allow write: if isSuperAdmin();
+    }
+
     // ── Parks ─────────────────────────────────────────────────────────────────
     match /parks/{parkId} {
       allow read: if true;

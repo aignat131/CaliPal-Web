@@ -2,251 +2,254 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { collection, onSnapshot, doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import type { SkillDef, SkillCategory } from '@/types'
-import { SKILLS, SKILL_LEVEL_ORDER } from '@/lib/skills'
-import { awardCoins, checkSkillMilestones } from '@/lib/coins'
+import { DEFAULT_SKILL_CATEGORIES } from '@/lib/skillCategories'
+import type {
+  BasicStrength, SkillsByCategory, SkillItem, SkillCategoryDef,
+  CalisthenicsLevel, PushupType, PullupType, CardioFrequency,
+} from '@/types'
 import { ArrowLeft } from 'lucide-react'
 
-const CATEGORIES: SkillCategory[] = ['STRENGTH', 'MOBILITY', 'CARDIO']
+// ── Level label helpers ───────────────────────────────────────────────────────
 
-const CATEGORY_LABELS: Record<SkillCategory, string> = {
-  STRENGTH: 'Forță',
-  MOBILITY: 'Mobilitate',
-  CARDIO: 'Cardio',
+const LEVEL_LABELS: Record<CalisthenicsLevel, string> = {
+  beginner:     '⚔️ Începător',
+  intermediate: '🔵 Intermediar',
+  advanced:     '🟣 Avansat',
+  elite:        '🏆 Elite',
+}
+const PUSHUP_LABELS: Record<PushupType, string> = {
+  none: '—', knee: 'Cu genunchii', regular: 'Normale',
+}
+const PULLUP_LABELS: Record<PullupType, string> = {
+  none: '—', australian: 'Australian', regular: 'Complete',
+}
+const CARDIO_LABELS: Record<CardioFrequency, string> = {
+  never: 'Niciodată', rarely: 'Rar', regular: 'Regulat', daily: 'Zilnic',
 }
 
-const LEVEL_TITLES = [
-  { min: 1, max: 2, label: 'Începător' },
-  { min: 3, max: 5, label: 'Antrenat' },
-  { min: 6, max: 9, label: 'Avansat' },
-  { min: 10, max: 14, label: 'Expert' },
-  { min: 15, max: Infinity, label: 'Elite' },
-]
+type SkillZone = 'NONE' | 'HAVE' | 'WANT'
 
-function getLevelTitle(level: number): string {
-  return LEVEL_TITLES.find(t => level >= t.min && level <= t.max)?.label ?? 'Elite'
+function getZone(assignments: SkillsByCategory, catId: string, skillId: string): SkillZone {
+  const cat = assignments[catId]
+  if (!cat) return 'NONE'
+  if (cat.have.some(s => s.id === skillId)) return 'HAVE'
+  if (cat.wantToLearn.some(s => s.id === skillId)) return 'WANT'
+  return 'NONE'
 }
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SkillsPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const [unlockedSkills, setUnlockedSkills] = useState<Set<string>>(new Set())
-  const [unlocking, setUnlocking] = useState<string | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState<SkillCategory>('STRENGTH')
-  const [coins, setCoins] = useState(0)
 
-  useEffect(() => {
-    if (!user) return
-    const unsub = onSnapshot(collection(db, 'users', user.uid, 'skills'), snap => {
-      setUnlockedSkills(new Set(snap.docs.map(d => d.id)))
-    })
-    return unsub
-  }, [user])
+  const [basicStrength, setBasicStrength] = useState<BasicStrength | null>(null)
+  const [assignments, setAssignments] = useState<SkillsByCategory>({})
+  const [assessmentCompleted, setAssessmentCompleted] = useState(false)
+  const [selectedCatId, setSelectedCatId] = useState<string>(DEFAULT_SKILL_CATEGORIES[0].id)
+  const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
     if (!user) return
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
-      if (snap.exists()) setCoins(snap.data().coins ?? 0)
+      if (!snap.exists()) return
+      const data = snap.data()
+      setAssessmentCompleted(data.assessmentCompleted ?? false)
+      setBasicStrength(data.basicStrength ?? null)
+      setAssignments(data.skillsByCategory ?? {})
     })
     return unsub
   }, [user])
 
-  async function markSkillDone(skill: SkillDef) {
-    if (!user || unlocking) return
-    setUnlocking(skill.id)
+  async function cycleSkill(cat: SkillCategoryDef, skill: SkillItem) {
+    if (!user || updating) return
+    setUpdating(true)
     try {
-      await setDoc(doc(db, 'users', user.uid, 'skills', skill.id), {
-        skillId: skill.id,
-        unlockedAt: serverTimestamp(),
+      const current = assignments[cat.id] ?? { have: [], wantToLearn: [] }
+      const inHave = current.have.some(s => s.id === skill.id)
+      const inWant = current.wantToLearn.some(s => s.id === skill.id)
+      let newHave: SkillItem[]
+      let newWant: SkillItem[]
+      if (!inHave && !inWant) {
+        newHave = [...current.have, skill]
+        newWant = current.wantToLearn
+      } else if (inHave) {
+        newHave = current.have.filter(s => s.id !== skill.id)
+        newWant = [...current.wantToLearn, skill]
+      } else {
+        newHave = current.have
+        newWant = current.wantToLearn.filter(s => s.id !== skill.id)
+      }
+      await updateDoc(doc(db, 'users', user.uid), {
+        [`skillsByCategory.${cat.id}.have`]:        newHave.map(s => ({ id: s.id, name: s.name })),
+        [`skillsByCategory.${cat.id}.wantToLearn`]: newWant.map(s => ({ id: s.id, name: s.name })),
       })
-      const newTotal = unlockedSkills.size + 1
-      await awardCoins(user.uid, 'SKILL_UNLOCKED', skill.coinsReward)
-      await checkSkillMilestones(user.uid, newTotal)
     } finally {
-      setUnlocking(null)
+      setUpdating(false)
     }
   }
 
-  const level = Math.floor(coins / 100) + 1
-  const xpInLevel = coins % 100
-  const levelTitle = getLevelTitle(level)
+  const totalHave = Object.values(assignments).reduce((sum, v) => sum + v.have.length, 0)
+  const totalWant = Object.values(assignments).reduce((sum, v) => sum + v.wantToLearn.length, 0)
 
-  const filteredSkills = SKILLS
-    .filter(s => s.category === selectedCategory)
-    .sort((a, b) => SKILL_LEVEL_ORDER[a.level] - SKILL_LEVEL_ORDER[b.level])
+  if (!assessmentCompleted) {
+    return (
+      <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center px-6 text-center" style={{ backgroundColor: 'var(--app-bg)' }}>
+        <p className="text-4xl mb-4">🏋️</p>
+        <h2 className="text-xl font-black text-white mb-2">Fă evaluarea mai întâi</h2>
+        <p className="text-white/50 text-sm mb-6 max-w-xs">
+          Completează evaluarea fizică pentru a vedea și gestiona skill-urile tale.
+        </p>
+        <button onClick={() => router.push('/profile/assessment')}
+          className="h-12 px-8 rounded-full bg-brand-green text-black font-bold">
+          Începe evaluarea →
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
-      <div className="max-w-lg mx-auto px-4 pt-5 pb-10">
+      <div className="max-w-sm mx-auto px-4 pt-5 pb-10">
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">
-          <button
-            onClick={() => router.back()}
-            className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center"
-          >
+          <button onClick={() => router.back()}
+            className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
             <ArrowLeft size={18} className="text-white/80" />
           </button>
-          <h1 className="text-lg font-black text-white">Skill Tree</h1>
+          <h1 className="text-lg font-black text-white">Skill-urile mele</h1>
         </div>
 
-        {/* XP Level Card */}
-        <div className="rounded-2xl p-4 mb-5 flex items-center gap-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          <div
-            className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: '#3B82F6' }}
-          >
-            <span className="text-xl font-black text-white">{level}</span>
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="font-black text-white text-sm">{levelTitle}</p>
-              <p className="text-xs text-white/35">Nivel {level}</p>
-            </div>
-            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{ width: `${xpInLevel}%`, backgroundColor: '#3B82F6' }}
+        {/* Basic strength summary card */}
+        {basicStrength && (
+          <div className="rounded-2xl p-4 mb-5" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <p className="text-xs font-bold text-white/40 tracking-widest mb-3">PROFIL FIZIC</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <StatItem label="Nivel" value={LEVEL_LABELS[basicStrength.level] ?? basicStrength.level} />
+              <StatItem label="Cardio" value={CARDIO_LABELS[basicStrength.cardio] ?? basicStrength.cardio} />
+              <StatItem
+                label="Flotări"
+                value={basicStrength.pushups.type === 'none'
+                  ? '—'
+                  : `${PUSHUP_LABELS[basicStrength.pushups.type]} × ${basicStrength.pushups.count}`}
               />
+              <StatItem
+                label="Tracțiuni"
+                value={basicStrength.pullups.type === 'none'
+                  ? '—'
+                  : `${PULLUP_LABELS[basicStrength.pullups.type]} × ${basicStrength.pullups.count}`}
+              />
+              <StatItem label="Squats" value={`${basicStrength.squats.count} rep`} />
             </div>
-            <p className="text-[10px] text-white/30 mt-1">{xpInLevel} / 100 XP • {coins} monede total</p>
+          </div>
+        )}
+
+        {/* Totals */}
+        <div className="flex gap-3 mb-5">
+          <div className="flex-1 rounded-xl p-3 text-center" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <p className="text-2xl font-black text-brand-green">{totalHave}</p>
+            <p className="text-xs text-white/50">stăpânite</p>
+          </div>
+          <div className="flex-1 rounded-xl p-3 text-center" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <p className="text-2xl font-black text-blue-400">{totalWant}</p>
+            <p className="text-xs text-white/50">de învățat</p>
           </div>
         </div>
 
         {/* Category tabs */}
-        <div className="flex gap-2 mb-6">
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`flex-1 h-9 rounded-full text-xs font-bold transition-colors ${
-                selectedCategory === cat
+        <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+          {DEFAULT_SKILL_CATEGORIES.map(cat => (
+            <button key={cat.id}
+              onClick={() => setSelectedCatId(cat.id)}
+              className={`shrink-0 px-4 h-8 rounded-full text-xs font-bold transition-colors ${
+                selectedCatId === cat.id
                   ? 'bg-brand-green text-black'
-                  : 'bg-white/8 text-white/60 border border-white/10'
-              }`}
-            >
-              {CATEGORY_LABELS[cat]}
+                  : 'bg-white/8 text-white/60 border border-white/12'
+              }`}>
+              {cat.name}
             </button>
           ))}
         </div>
 
-        {/* Vertical tree */}
-        <div>
-          {filteredSkills.map((skill, idx) => {
-            const isUnlocked = unlockedSkills.has(skill.id)
-            const prereqsMet = skill.requirements.every(r => unlockedSkills.has(r))
-            const isLocked = !isUnlocked && !prereqsMet
-            const isLast = idx === filteredSkills.length - 1
+        {/* Skill grid for selected category */}
+        {DEFAULT_SKILL_CATEGORIES.map(cat => {
+          if (cat.id !== selectedCatId) return null
+          const userCat = assignments[cat.id] ?? { have: [], wantToLearn: [] }
+          const customSkills: SkillItem[] = [
+            ...userCat.have.filter(s => s.id.startsWith('custom_')),
+            ...userCat.wantToLearn.filter(s => s.id.startsWith('custom_')),
+          ].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)
 
-            // Node visual state
-            let nodeBg: string
-            let nodeBorder: string
-            let lineColor: string
-            let lineDashed: boolean
+          const allSkills = [...cat.skills, ...customSkills]
 
-            if (isUnlocked) {
-              nodeBg = '#1ED75F'
-              nodeBorder = 'none'
-              lineColor = '#1ED75F'
-              lineDashed = false
-            } else if (prereqsMet) {
-              nodeBg = 'transparent'
-              nodeBorder = '2px solid #3B82F6'
-              lineColor = '#3B82F6'
-              lineDashed = false
-            } else {
-              nodeBg = 'rgba(255,255,255,0.08)'
-              nodeBorder = 'none'
-              lineColor = 'rgba(255,255,255,0.12)'
-              lineDashed = true
-            }
+          return (
+            <div key={cat.id}>
+              {/* Category question */}
+              <p className="text-xs text-white/40 mb-3">{cat.question}</p>
 
-            return (
-              <div key={skill.id} className="flex gap-3">
-                {/* Node column */}
-                <div className="flex flex-col items-center" style={{ width: 22, flexShrink: 0 }}>
-                  {/* Circle node */}
-                  <div
-                    className="w-5 h-5 rounded-full flex-shrink-0 z-10"
-                    style={{
-                      backgroundColor: nodeBg,
-                      border: nodeBorder,
-                      marginTop: 16,
-                    }}
-                  />
-                  {/* Vertical connector line */}
-                  {!isLast && (
-                    <div
-                      className="w-0.5 flex-1"
-                      style={{
-                        minHeight: 20,
-                        backgroundImage: lineDashed
-                          ? `repeating-linear-gradient(to bottom, ${lineColor} 0px, ${lineColor} 4px, transparent 4px, transparent 8px)`
-                          : 'none',
-                        backgroundColor: lineDashed ? 'transparent' : lineColor,
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Skill card */}
-                <div
-                  className="flex-1 rounded-2xl p-3.5 mb-3"
-                  style={{ backgroundColor: 'var(--app-surface)' }}
-                >
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                        <span className="text-sm font-bold text-white">
-                          {skill.icon} {skill.name}
-                        </span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                          style={{ backgroundColor: '#1ED75F18', color: '#1ED75F' }}>
-                          +{skill.coinsReward} 🪙
-                        </span>
-                      </div>
-                      <p className="text-xs text-white/45 leading-relaxed">{skill.description}</p>
-                      {isLocked && skill.requirements.length > 0 && (
-                        <p className="text-[10px] text-white/25 mt-1">
-                          🔒 Necesită:{' '}
-                          {skill.requirements
-                            .map(r => SKILLS.find(s => s.id === r)?.name)
-                            .filter(Boolean)
-                            .join(', ')}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Status */}
-                    <div className="flex-shrink-0 pt-0.5">
-                      {isUnlocked ? (
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: '#1ED75F' }}
-                        >
-                          <span className="text-black text-xs font-black">✓</span>
-                        </div>
-                      ) : prereqsMet ? (
-                        <button
-                          onClick={() => markSkillDone(skill)}
-                          disabled={unlocking === skill.id}
-                          className="h-8 px-3 rounded-full text-xs font-bold text-black bg-brand-green disabled:opacity-50 whitespace-nowrap"
-                        >
-                          {unlocking === skill.id ? '...' : '✓ Am reușit'}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
+              {/* Legend */}
+              <div className="flex gap-4 mb-4 text-xs text-white/50">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-brand-green inline-block" />
+                  Stăpânesc
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
+                  Vreau să învăț
+                </span>
               </div>
-            )
-          })}
+
+              <div className="flex flex-wrap gap-2">
+                {allSkills.map(skill => {
+                  const zone = getZone(assignments, cat.id, skill.id)
+                  return (
+                    <button key={skill.id}
+                      onClick={() => cycleSkill(cat, skill)}
+                      disabled={updating}
+                      className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-60 ${
+                        zone === 'HAVE'
+                          ? 'bg-brand-green text-black'
+                          : zone === 'WANT'
+                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                            : 'bg-white/8 text-white/60 border border-white/12 hover:bg-white/12'
+                      }`}>
+                      {skill.name}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <p className="text-xs text-white/30 mt-4">
+                Atinge un skill pentru a schimba statusul: niciuna → stăpânesc → vreau să învăț → niciuna
+              </p>
+            </div>
+          )
+        })}
+
+        {/* Re-assess link */}
+        <div className="mt-8 pt-4 border-t border-white/8">
+          <button onClick={() => router.push('/profile/assessment')}
+            className="w-full h-10 rounded-full border border-white/15 text-sm text-white/50 font-semibold">
+            Refă evaluarea
+          </button>
         </div>
 
       </div>
+    </div>
+  )
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function StatItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl px-3 py-2" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+      <p className="text-white/40 text-[10px] mb-0.5">{label}</p>
+      <p className="text-white font-semibold text-xs">{value}</p>
     </div>
   )
 }

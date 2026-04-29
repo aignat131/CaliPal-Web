@@ -33,11 +33,40 @@ const ROLE_COLORS: Record<MemberRole, string> = {
   MEMBER: '#1ED75F',
 }
 
-function formatTrainingDate(iso: string): string {
-  if (!iso) return ''
+/**
+ * Parse a training datetime string.
+ * Supports Android format "dd/MM/yyyy HH:mm" and ISO date "yyyy-MM-dd".
+ */
+function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null {
+  if (!str) return null
+  // Android format: "dd/MM/yyyy HH:mm"
+  const androidMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
+  if (androidMatch) {
+    const [, dd, mm, yyyy, hh, min] = androidMatch
+    return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`)
+  }
+  // Legacy web format: timeStart is time-only "HH:mm", fallbackDate is "yyyy-MM-dd"
+  if (fallbackDate && /^\d{2}:\d{2}$/.test(str)) {
+    return new Date(`${fallbackDate}T${str}`)
+  }
+  // Try direct parse
+  try { return new Date(str) } catch { return null }
+}
+
+function formatTrainingDate(timeStart: string, legacyDate?: string): string {
+  const d = parseTrainingDateTime(timeStart, legacyDate)
+  if (!d || isNaN(d.getTime())) return legacyDate ?? ''
   try {
-    return new Date(iso).toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' })
-  } catch { return iso }
+    return d.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' })
+  } catch { return '' }
+}
+
+/** Format "dd/MM/yyyy HH:mm" full-datetime string from a date + time inputs. */
+function toAndroidDateTime(date: string, time: string): string {
+  // date is "yyyy-MM-dd", time is "HH:mm"
+  if (!date || !time) return ''
+  const [yyyy, mm, dd] = date.split('-')
+  return `${dd}/${mm}/${yyyy} ${time}`
 }
 
 export default function CommunityDetailPage() {
@@ -123,7 +152,7 @@ export default function CommunityDetailPage() {
   }, [id])
 
   useEffect(() => {
-    const q = query(collection(db, 'communities', id, 'trainings'), orderBy('date', 'desc'))
+    const q = query(collection(db, 'communities', id, 'trainings'), orderBy('createdAt', 'desc'))
     return onSnapshot(q,
       snap => { setTrainings(snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)) },
       () => { /* non-members can't read trainings — silently ignore */ }
@@ -170,9 +199,9 @@ export default function CommunityDetailPage() {
     if (!canDelete) return
     const now = new Date()
     trainings.forEach(t => {
-      if (!t.date || !t.timeEnd) return
-      const end = new Date(`${t.date}T${t.timeEnd}`)
-      if (end < now) {
+      if (!t.timeEnd) return
+      const end = parseTrainingDateTime(t.timeEnd, t.date)
+      if (end && end < now) {
         deleteDoc(doc(db, 'communities', id, 'trainings', t.id)).catch(() => {})
       }
     })
@@ -637,7 +666,7 @@ export default function CommunityDetailPage() {
                   .sort((a, b) => {
                     if (a.official && !b.official) return -1
                     if (!a.official && b.official) return 1
-                    return a.date.localeCompare(b.date)
+                    return (a.timeStart ?? a.date ?? '').localeCompare(b.timeStart ?? b.date ?? '')
                   })
                   .map(t => (
                 <TrainingCard
@@ -871,16 +900,20 @@ function TrainingCard({ training, myUid, canLoad, canDelete, onRsvp, onLoad, onD
 
         {/* Meta */}
         <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2.5">
-          {training.date && (
+          {(training.timeStart || training.date) && (
             <div className="flex items-center gap-1 text-xs text-white/50">
               <Calendar size={11} />
-              <span>{formatTrainingDate(training.date)}</span>
+              <span>{formatTrainingDate(training.timeStart, training.date)}</span>
             </div>
           )}
           {(training.timeStart || training.timeEnd) && (
             <div className="flex items-center gap-1 text-xs text-white/50">
               <Clock size={11} />
-              <span>{training.timeStart}{training.timeEnd ? ` – ${training.timeEnd}` : ''}</span>
+              {/* Display only the time portion — handle both "HH:mm" and "dd/MM/yyyy HH:mm" */}
+              <span>
+                {training.timeStart?.slice(-5)}
+                {training.timeEnd ? ` – ${training.timeEnd.slice(-5)}` : ''}
+              </span>
             </div>
           )}
           {training.location && (
@@ -965,18 +998,19 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, onClose }: {
     setSaving(true)
     try {
       await addDoc(collection(db, 'communities', communityId, 'trainings'), {
-        name: name.trim(),
-        description: desc.trim(),
-        date,
-        timeStart: start,
-        timeEnd: end,
-        location: location.trim(),
-        exercises: [],
-        authorId: userId,
-        authorName: userName,
+        name:            name.trim(),
+        description:     desc.trim(),
+        timeStart:       toAndroidDateTime(date, start),
+        timeEnd:         toAndroidDateTime(date, end),
+        location:        location.trim(),
+        authorId:        userId,
+        authorName:      userName,
+        authorCoach:     isStaff,
+        authorAdmin:     false,
         official,
-        rsvps: userId ? { [userId]: 'GOING' } : {},
-        createdAt: serverTimestamp(),
+        reminderMinutes: 30,
+        rsvps:           userId ? { [userId]: 'GOING' } : {},
+        createdAt:       serverTimestamp(),
       })
       onClose()
     } finally { setSaving(false) }

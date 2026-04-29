@@ -80,16 +80,20 @@ export interface PlannedTraining {
   id: string
   name: string
   description: string
-  date: string          // ISO date e.g. "2025-05-20"
-  timeStart: string
-  timeEnd: string
+  timeStart: string     // full datetime "dd/MM/yyyy HH:mm"
+  timeEnd: string       // full datetime "dd/MM/yyyy HH:mm"
   location: string
   authorId: string
   authorName: string
+  authorCoach: boolean
+  authorAdmin: boolean
   official: boolean
+  reminderMinutes: number
   exercises: TrainingExercise[]
   rsvps: Record<string, 'GOING' | 'NOT_GOING' | 'MAYBE'>
   createdAt: Timestamp | null
+  // Legacy field — web-created trainings before the format change stored a separate date string
+  date?: string
 }
 
 export interface ConversationDoc {
@@ -200,6 +204,35 @@ export interface UserCommunityChallengeProgress {
 
 // ── Skills ────────────────────────────────────────────────────────────────────
 
+// Assessment / basic strength (matches Android BasicStrengthResult)
+export type CalisthenicsLevel = 'beginner' | 'intermediate' | 'advanced' | 'elite'
+export type PushupType        = 'none' | 'knee' | 'regular'
+export type PullupType        = 'none' | 'australian' | 'regular'
+export type CardioFrequency   = 'never' | 'rarely' | 'regular' | 'daily'
+
+export interface BasicStrength {
+  level:   CalisthenicsLevel
+  pushups: { type: PushupType;  count: number }
+  pullups: { type: PullupType;  count: number }
+  squats:  { count: number }
+  cardio:  CardioFrequency
+}
+
+// Skill items stored in Firestore (matches Android SkillItem)
+export interface SkillItem     { id: string; name: string }
+export interface UserSkillData { have: SkillItem[]; wantToLearn: SkillItem[] }
+export type SkillsByCategory   = Record<string, UserSkillData>  // key = categoryId
+
+// Skill category definitions loaded from Firestore skillCategories collection
+export interface SkillCategoryDef {
+  id:       string
+  name:     string
+  order:    number
+  question: string
+  skills:   SkillItem[]
+}
+
+// Legacy types — kept so old imports (lib/skills.ts) don't break
 export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'ELITE'
 export type SkillCategory = 'STRENGTH' | 'MOBILITY' | 'CARDIO'
 
@@ -211,8 +244,8 @@ export interface SkillDef {
   category: SkillCategory
   icon: string
   coinsReward: number
-  requirements: string[] // ids of prerequisite skills
-  maxRepsToUnlock?: number // min reps needed (from assessment)
+  requirements: string[]
+  maxRepsToUnlock?: number
 }
 
 export interface UnlockedSkill {
