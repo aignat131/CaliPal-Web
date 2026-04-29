@@ -5,10 +5,12 @@ import { useRouter, useParams } from 'next/navigation'
 import {
   doc, collection, onSnapshot, addDoc, deleteDoc,
   updateDoc, setDoc, serverTimestamp, getDoc, query, orderBy, getDocs, where,
+  increment, arrayRemove, arrayUnion,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
+import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import type {
   CommunityDoc, CommunityMember, CommunityPost,
   PlannedTraining, MemberRole, PostComment,
@@ -17,7 +19,7 @@ import { ROLE_LABELS, conversationId } from '@/types'
 import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
-  Heart, MessageCircle, MoreVertical, User,
+  Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -40,6 +42,7 @@ function formatTrainingDate(iso: string): string {
 export default function CommunityDetailPage() {
   const { user } = useAuth()
   const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
+  const { requestPermission } = usePushNotifications(user?.uid)
   const router = useRouter()
   const params = useParams()
   const id = params.id as string
@@ -69,6 +72,14 @@ export default function CommunityDetailPage() {
   const [verifyReason, setVerifyReason] = useState('')
   const [verifySaving, setVerifySaving] = useState(false)
   const [verifySent, setVerifySent] = useState(false)
+
+  // Three-dots community menu (leave)
+  const [showCommunityMenu, setShowCommunityMenu] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+
+  // Join state
+  const [joining, setJoining] = useState(false)
+  const [showJoinNotif, setShowJoinNotif] = useState(false)
 
   const isSuperAdmin = user?.email === SUPERADMIN
 
@@ -114,7 +125,6 @@ export default function CommunityDetailPage() {
     try {
       const [friendsSnap, sentSnap] = await Promise.all([
         getDocs(collection(db, 'users', user.uid, 'friends')),
-        // Single where clause — no composite index needed
         getDocs(query(collection(db, 'friend_requests'), where('fromUid', '==', user.uid))),
       ])
       setFriendIds(new Set(friendsSnap.docs.map(d => d.id)))
@@ -156,6 +166,47 @@ export default function CommunityDetailPage() {
       }
     })
   }, [trainings, isSuperAdmin, myRole, id])
+
+  async function joinCommunity() {
+    if (!user || joining) return
+    setJoining(true)
+    try {
+      await setDoc(doc(db, 'communities', id, 'members', user.uid), {
+        userId: user.uid,
+        displayName: user.displayName ?? '',
+        role: 'MEMBER',
+        level: 1,
+        points: 0,
+        photoUrl: user.photoURL ?? null,
+        joinedAt: serverTimestamp(),
+      })
+      await updateDoc(doc(db, 'communities', id), { memberCount: increment(1) })
+      await updateDoc(doc(db, 'users', user.uid), {
+        joinedCommunityIds: arrayUnion(id),
+      })
+      setShowJoinNotif(true)
+    } finally {
+      setJoining(false)
+    }
+  }
+
+  async function leaveCommunity() {
+    if (!user || leaving) return
+    setLeaving(true)
+    try {
+      await deleteDoc(doc(db, 'communities', id, 'members', user.uid))
+      await updateDoc(doc(db, 'communities', id), { memberCount: increment(-1) })
+      const userRef = doc(db, 'users', user.uid)
+      const userSnap = await getDoc(userRef)
+      const updates: Record<string, unknown> = { joinedCommunityIds: arrayRemove(id) }
+      if (userSnap.data()?.favoriteCommunityId === id) updates.favoriteCommunityId = ''
+      await updateDoc(userRef, updates)
+      router.replace('/community')
+    } finally {
+      setLeaving(false)
+      setShowCommunityMenu(false)
+    }
+  }
 
   async function addPost() {
     if (!user || !postText.trim() || posting) return
@@ -216,7 +267,7 @@ export default function CommunityDetailPage() {
       })
       setPendingIds(prev => new Set(prev).add(toMember.userId))
     } catch {
-      // Silently ignore — button stays as UserPlus, user can retry
+      // Silently ignore
     }
   }
 
@@ -252,8 +303,33 @@ export default function CommunityDetailPage() {
     return order.indexOf(a.role) - order.indexOf(b.role)
   })
 
+  // Tabs available to non-members: only Membri
+  const visibleTabs = isMember
+    ? [
+        { label: 'Feed', Icon: MessageSquare },
+        { label: 'Antrenamente', Icon: Dumbbell },
+        { label: 'Membri', Icon: Users },
+      ]
+    : [{ label: 'Membri', Icon: Users }]
+
+  // For non-members, always show tab index 0 (Membri)
+  const effectiveTab = isMember ? tab : 2
+
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+
+      {/* Join Notification Modal */}
+      {showJoinNotif && community && (
+        <JoinNotificationModal
+          communityName={community.name}
+          onRequestNotifications={async () => {
+            await requestPermission()
+            setShowJoinNotif(false)
+          }}
+          onDismiss={() => setShowJoinNotif(false)}
+        />
+      )}
+
       {/* Header */}
       {community?.imageUrl ? (
         /* ── Cover image header ── */
@@ -269,8 +345,34 @@ export default function CommunityDetailPage() {
             >
               <ArrowLeft size={18} className="text-white" />
             </button>
+            {/* Three-dots menu (members only) */}
+            {isMember && (
+              <div className="absolute top-3 right-3">
+                <button
+                  onClick={() => setShowCommunityMenu(v => !v)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+                >
+                  <MoreVertical size={18} className="text-white" />
+                </button>
+                {showCommunityMenu && (
+                  <div
+                    className="absolute right-0 top-10 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[180px]"
+                    style={{ backgroundColor: 'var(--app-bg)' }}
+                  >
+                    <button
+                      onClick={leaveCommunity}
+                      disabled={leaving}
+                      className="w-full px-4 py-3 text-sm text-red-400 hover:bg-white/8 flex items-center gap-2 text-left disabled:opacity-50"
+                    >
+                      <LogOut size={14} /> {leaving ? '...' : 'Ieși din comunitate'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             {community.verified && (
-              <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full"
+              <span className="absolute top-3 right-12 text-[10px] font-bold px-2 py-0.5 rounded-full"
                 style={{ backgroundColor: 'rgba(59,130,246,0.3)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.4)' }}>
                 ✓ Verificat
               </span>
@@ -315,6 +417,31 @@ export default function CommunityDetailPage() {
               </div>
               <p className="text-xs text-white/45">{community?.memberCount ?? 0} membri · {isMember ? 'Membru' : 'Vizitator'}</p>
             </div>
+            {/* Three-dots menu (members only) */}
+            {isMember && (
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={() => setShowCommunityMenu(v => !v)}
+                  className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center"
+                >
+                  <MoreVertical size={18} className="text-white/70" />
+                </button>
+                {showCommunityMenu && (
+                  <div
+                    className="absolute right-0 top-10 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[180px]"
+                    style={{ backgroundColor: 'var(--app-bg)' }}
+                  >
+                    <button
+                      onClick={leaveCommunity}
+                      disabled={leaving}
+                      className="w-full px-4 py-3 text-sm text-red-400 hover:bg-white/8 flex items-center gap-2 text-left disabled:opacity-50"
+                    >
+                      <LogOut size={14} /> {leaving ? '...' : 'Ieși din comunitate'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           {myRole === 'ADMIN' && community && !community.verified && (
             <div className="mt-2.5">
@@ -334,27 +461,46 @@ export default function CommunityDetailPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-white/10">
-        {[
-          { label: 'Feed', Icon: MessageSquare },
-          { label: 'Antrenamente', Icon: Dumbbell },
-          { label: 'Membri', Icon: Users },
-        ].map(({ label, Icon }, i) => (
-          <button key={i} onClick={() => setTab(i)}
-            className={`flex-1 py-3 text-xs font-bold transition-colors flex flex-col items-center gap-0.5 ${
-              tab === i ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/40'
-            }`}>
-            <Icon size={15} />
-            {label}
+      {/* Non-member join banner */}
+      {!isMember && !loading && (
+        <div className="mx-4 mt-3 mb-1 rounded-2xl p-4 flex items-center gap-3 border border-brand-green/25"
+          style={{ backgroundColor: '#1ED75F0A' }}>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-black text-white">Ești vizitator</p>
+            <p className="text-xs text-white/50 mt-0.5">Intră în comunitate pentru a accesa antrenamentele și feed-ul.</p>
+          </div>
+          <button
+            onClick={joinCommunity}
+            disabled={joining}
+            className="h-9 px-4 rounded-xl bg-brand-green text-black text-sm font-black flex-shrink-0 disabled:opacity-50"
+          >
+            {joining ? '...' : 'Intru'}
           </button>
-        ))}
+        </div>
+      )}
+
+      {/* Tabs — non-members only see Membri */}
+      <div className="flex border-b border-white/10 mt-3">
+        {visibleTabs.map(({ label, Icon }, i) => {
+          // For members: tab index matches. For non-members: only 1 tab (index 0 = Membri)
+          const tabIndex = isMember ? i : 2
+          const isActive = isMember ? tab === i : true
+          return (
+            <button key={label} onClick={() => isMember && setTab(tabIndex)}
+              className={`flex-1 py-3 text-xs font-bold transition-colors flex flex-col items-center gap-0.5 ${
+                isActive ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/40'
+              }`}>
+              <Icon size={15} />
+              {label}
+            </button>
+          )
+        })}
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-4">
 
         {/* ── Feed ── */}
-        {tab === 0 && (
+        {effectiveTab === 0 && (
           <div>
             {isMember && (
               <div className="flex gap-2 mb-4">
@@ -389,7 +535,7 @@ export default function CommunityDetailPage() {
         )}
 
         {/* ── Antrenamente ── */}
-        {tab === 1 && (
+        {effectiveTab === 1 && (
           <div>
             {isMember && (myRole === 'ADMIN' || myRole === 'TRAINER' || myRole === 'MODERATOR' || isSuperAdmin) && (
               <button onClick={() => setShowAddTraining(true)}
@@ -435,7 +581,7 @@ export default function CommunityDetailPage() {
         )}
 
         {/* ── Membri ── */}
-        {tab === 2 && (
+        {effectiveTab === 2 && (
           <div className="flex flex-col gap-2">
             <p className="text-[10px] font-bold text-white/35 tracking-widest mb-1">{members.length} MEMBRI</p>
             {sortedMembers.map(m => {
@@ -479,62 +625,115 @@ export default function CommunityDetailPage() {
                     {m.points ?? 0}<span className="text-[10px] font-normal text-white/30 ml-0.5">pts</span>
                   </span>
 
-                  {/* Three-dots menu (right side) */}
-                  <div className="relative flex-shrink-0">
-                    <button
-                      onClick={() => setOpenMenuId(openMenuId === m.userId ? null : m.userId)}
-                      className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white/70 rounded-full hover:bg-white/8"
-                    >
-                      <MoreVertical size={16} />
-                    </button>
-                    {openMenuId === m.userId && (
-                      <div
-                        className="absolute right-0 top-9 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[150px]"
-                        style={{ backgroundColor: 'var(--app-bg)' }}
+                  {/* Three-dots menu (right side) — only for members */}
+                  {isMember && (
+                    <div className="relative flex-shrink-0">
+                      <button
+                        onClick={() => setOpenMenuId(openMenuId === m.userId ? null : m.userId)}
+                        className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white/70 rounded-full hover:bg-white/8"
                       >
-                        <Link href={isMe ? '/profile' : `/profile/${m.userId}`} onClick={() => setOpenMenuId(null)}>
-                          <div className="px-3 py-2.5 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2">
-                            <User size={14} /> Vezi profil
-                          </div>
-                        </Link>
-                        {!isMe && (
-                          <>
-                            <button
-                              onClick={() => { goToChat(m.userId, m.displayName); setOpenMenuId(null) }}
-                              className="w-full px-3 py-2.5 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
-                            >
-                              <MessageSquare size={14} /> Mesaj
-                            </button>
-                            {!isFriend && !isPending && (
+                        <MoreVertical size={16} />
+                      </button>
+                      {openMenuId === m.userId && (
+                        <div
+                          className="absolute right-0 top-9 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[150px]"
+                          style={{ backgroundColor: 'var(--app-bg)' }}
+                        >
+                          <Link href={isMe ? '/profile' : `/profile/${m.userId}`} onClick={() => setOpenMenuId(null)}>
+                            <div className="px-3 py-2.5 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2">
+                              <User size={14} /> Vezi profil
+                            </div>
+                          </Link>
+                          {!isMe && (
+                            <>
                               <button
-                                onClick={() => { sendFriendRequest(m); setOpenMenuId(null) }}
+                                onClick={() => { goToChat(m.userId, m.displayName); setOpenMenuId(null) }}
                                 className="w-full px-3 py-2.5 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
                               >
-                                <UserPlus size={14} /> Adaugă prieten
+                                <MessageSquare size={14} /> Mesaj
                               </button>
-                            )}
-                            {isFriend && (
-                              <div className="px-3 py-2.5 text-sm text-brand-green flex items-center gap-2">
-                                <Check size={14} /> Prieten
-                              </div>
-                            )}
-                            {isPending && (
-                              <div className="px-3 py-2.5 text-sm text-white/40 flex items-center gap-2">
-                                <Clock size={14} /> Cerere trimisă
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                              {!isFriend && !isPending && (
+                                <button
+                                  onClick={() => { sendFriendRequest(m); setOpenMenuId(null) }}
+                                  className="w-full px-3 py-2.5 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
+                                >
+                                  <UserPlus size={14} /> Adaugă prieten
+                                </button>
+                              )}
+                              {isFriend && (
+                                <div className="px-3 py-2.5 text-sm text-brand-green flex items-center gap-2">
+                                  <Check size={14} /> Prieten
+                                </div>
+                              )}
+                              {isPending && (
+                                <div className="px-3 py-2.5 text-sm text-white/40 flex items-center gap-2">
+                                  <Clock size={14} /> Cerere trimisă
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
           </div>
         )}
 
+      </div>
+    </div>
+  )
+}
 
+// ── Join Notification Modal ───────────────────────────────────────────────────
+
+function JoinNotificationModal({
+  communityName, onRequestNotifications, onDismiss,
+}: {
+  communityName: string
+  onRequestNotifications: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/60" onClick={onDismiss}>
+      <div
+        className="w-full max-w-sm rounded-t-3xl p-6 pb-8"
+        style={{ backgroundColor: 'var(--app-surface)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-end mb-1">
+          <button onClick={onDismiss} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
+            <X size={13} className="text-white/50" />
+          </button>
+        </div>
+        <div className="flex flex-col items-center text-center gap-3 mb-6">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F30' }}>
+            <Bell size={24} className="text-brand-green" />
+          </div>
+          <div>
+            <p className="font-black text-white text-base">Ai intrat în {communityName}!</p>
+            <p className="text-sm text-white/55 mt-1.5 leading-relaxed">
+              Vrei să primești notificări despre antrenamente și noutăți din această comunitate?
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onRequestNotifications}
+            className="w-full h-12 rounded-2xl bg-brand-green text-black font-black text-sm"
+          >
+            Da, activează notificările
+          </button>
+          <button
+            onClick={onDismiss}
+            className="w-full h-10 rounded-2xl text-white/45 text-sm font-semibold"
+          >
+            Nu, mulțumesc
+          </button>
+        </div>
       </div>
     </div>
   )

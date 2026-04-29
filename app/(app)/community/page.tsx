@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, doc,
   updateDoc, setDoc, arrayUnion, increment, serverTimestamp,
@@ -9,8 +10,9 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import type { CommunityDoc, PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress } from '@/types'
-import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search } from 'lucide-react'
+import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search, Bell, X } from 'lucide-react'
 
 function formatDate(iso: string): string {
   if (!iso) return ''
@@ -21,6 +23,8 @@ function formatDate(iso: string): string {
 
 export default function CommunityPage() {
   const { user } = useAuth()
+  const router = useRouter()
+  const { requestPermission } = usePushNotifications(user?.uid)
   const [communities, setCommunities] = useState<CommunityDoc[]>([])
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -34,6 +38,11 @@ export default function CommunityPage() {
   })
   const [favoriteCommunityId, setFavoriteCommunityId] = useState<string | null>(null)
   const [citySearch, setCitySearch] = useState('')
+  const [userDocLoaded, setUserDocLoaded] = useState(false)
+  const redirectedRef = useRef(false)
+
+  // Join notification popup
+  const [joinedCommunityName, setJoinedCommunityName] = useState<string | null>(null)
 
   // Evenimente state
   const [eventi, setEventi] = useState<(PlannedTraining & { communityId: string; communityName: string })[]>([])
@@ -64,9 +73,24 @@ export default function CommunityPage() {
       const ids: string[] = snap.data()?.joinedCommunityIds ?? []
       setJoinedIds(new Set(ids))
       setFavoriteCommunityId(snap.data()?.favoriteCommunityId ?? null)
+      setUserDocLoaded(true)
     })
     return unsub
   }, [user])
+
+  // Auto-redirect if user is in exactly 1 community or has a favorite
+  useEffect(() => {
+    if (!userDocLoaded || redirectedRef.current) return
+    if (favoriteCommunityId) {
+      redirectedRef.current = true
+      router.replace(`/community/${favoriteCommunityId}`)
+      return
+    }
+    if (joinedIds.size === 1) {
+      redirectedRef.current = true
+      router.replace(`/community/${[...joinedIds][0]}`)
+    }
+  }, [userDocLoaded, favoriteCommunityId, joinedIds, router])
 
   // Load evenimente lazily when tab 1 is opened
   useEffect(() => {
@@ -162,6 +186,7 @@ export default function CommunityPage() {
       await updateDoc(doc(db, 'users', user.uid), {
         joinedCommunityIds: arrayUnion(community.id),
       })
+      setJoinedCommunityName(community.name)
     } finally {
       setJoiningId(null)
     }
@@ -169,6 +194,19 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+
+      {/* Join notification popup */}
+      {joinedCommunityName && (
+        <JoinNotificationModal
+          communityName={joinedCommunityName}
+          onRequestNotifications={async () => {
+            await requestPermission()
+            setJoinedCommunityName(null)
+          }}
+          onDismiss={() => setJoinedCommunityName(null)}
+        />
+      )}
+
       <div className="max-w-lg mx-auto px-4 pt-5 pb-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -337,6 +375,58 @@ export default function CommunityPage() {
             )}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── Join Notification Modal ───────────────────────────────────────────────────
+
+function JoinNotificationModal({
+  communityName, onRequestNotifications, onDismiss,
+}: {
+  communityName: string
+  onRequestNotifications: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/60" onClick={onDismiss}>
+      <div
+        className="w-full max-w-sm rounded-t-3xl p-6 pb-8"
+        style={{ backgroundColor: 'var(--app-surface)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex justify-end mb-1">
+          <button onClick={onDismiss} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
+            <X size={13} className="text-white/50" />
+          </button>
+        </div>
+        <div className="flex flex-col items-center text-center gap-3 mb-6">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F30' }}>
+            <Bell size={24} className="text-brand-green" />
+          </div>
+          <div>
+            <p className="font-black text-white text-base">Ai intrat în {communityName}!</p>
+            <p className="text-sm text-white/55 mt-1.5 leading-relaxed">
+              Vrei să primești notificări despre antrenamente și noutăți din această comunitate?
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onRequestNotifications}
+            className="w-full h-12 rounded-2xl bg-brand-green text-black font-black text-sm"
+          >
+            Da, activează notificările
+          </button>
+          <button
+            onClick={onDismiss}
+            className="w-full h-10 rounded-2xl text-white/45 text-sm font-semibold"
+          >
+            Nu, mulțumesc
+          </button>
+        </div>
       </div>
     </div>
   )

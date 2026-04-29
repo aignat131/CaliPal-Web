@@ -198,6 +198,31 @@ export default function HomePage() {
           }
         </div>
 
+        {/* Onboarding card for new users with no communities */}
+        {userDoc && !userDoc.joinedCommunityIds?.length && (
+          <div className="rounded-2xl p-5 mb-4 border border-brand-green/30"
+            style={{ background: 'linear-gradient(135deg, #1ED75F08 0%, #0D3D2808 100%)' }}>
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F30' }}>
+                <span className="text-2xl">🏋️</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-white text-sm leading-tight">Bun venit în CaliPal!</p>
+                <p className="text-xs text-white/55 mt-1 leading-relaxed">
+                  Alătură-te unei comunități din orașul tău și antrenează-te împreună cu alți pasionați de calistenie.
+                </p>
+                <Link href="/community">
+                  <button className="mt-3 h-9 px-4 rounded-xl bg-brand-green text-black text-xs font-black flex items-center gap-1.5">
+                    <Users size={13} />
+                    Explorează comunitățile
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Assessment banner for new users */}
         {userDoc && userDoc.assessmentCompleted === false && (
           <div className="rounded-2xl p-4 mb-4 border border-brand-green/30"
