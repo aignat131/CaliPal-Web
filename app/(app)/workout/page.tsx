@@ -12,42 +12,8 @@ import { awardCoins, checkWorkoutMilestones } from '@/lib/coins'
 import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star, Share2, Search } from 'lucide-react'
 import Link from 'next/link'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
-
-// ── Exercise catalogue ────────────────────────────────────────────────────────
-
-const EXERCISE_CATALOGUE: { category: string; exercises: string[] }[] = [
-  {
-    category: 'Trageri',
-    exercises: ['Tracțiuni', 'Chin-up', 'Australian Pull-up', 'Chest-to-Bar', 'Muscle-Up', 'One-Arm Pull-up'],
-  },
-  {
-    category: 'Împingeri',
-    exercises: ['Flotări', 'Diamond Push-up', 'Pike Push-up', 'Handstand Push-up', 'One-Arm Push-up', 'Dips', 'Ring Dip'],
-  },
-  {
-    category: 'Core',
-    exercises: ['L-Sit', 'Dragon Flag', 'Hollow Body Hold', 'Arch Body Hold', 'Leg Raises', 'Plank'],
-  },
-  {
-    category: 'Picioare',
-    exercises: ['Squaturi', 'Lunges', 'Pistol Squat', 'Box Jump', 'Calf Raise'],
-  },
-  {
-    category: 'Statice',
-    exercises: ['Front Lever', 'Back Lever', 'Planche', 'Tuck Planche', 'Handstand Hold', 'Dead Hang'],
-  },
-  {
-    category: 'Cardio',
-    exercises: ['Burpees', 'Mountain Climbers', 'Jumping Jacks', 'Sprint 100m'],
-  },
-]
-
-function getCategoryForExercise(name: string): string {
-  for (const { category, exercises } of EXERCISE_CATALOGUE) {
-    if (exercises.includes(name)) return category
-  }
-  return 'Altele'
-}
+import { useWorkout } from '@/lib/context/WorkoutContext'
+import { DEFAULT_EXERCISE_CATALOGUE, getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/exercise-catalogue'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -69,21 +35,29 @@ function totalRepsInWorkout(exercises: WorkoutExercise[]): number {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-type Screen = 'home' | 'picker' | 'active' | 'summary'
+type Screen = 'home' | 'active' | 'summary'
 
 export default function WorkoutPage() {
   const { user } = useAuth()
   const { profile } = useMyProfile()
   const [tab, setTab] = useState(0)
 
-  // Workout state
-  const [screen, setScreen] = useState<Screen>('home')
-  const [exercises, setExercises] = useState<WorkoutExercise[]>([])
-  const [seconds, setSeconds] = useState(0)
-  const [note, setNote] = useState('')
+  // Workout context (persists across navigation)
+  const {
+    isActive, seconds, exercises, note,
+    startWorkout: ctxStart, stopWorkout: ctxStop,
+    setExercises, setNote,
+  } = useWorkout()
+
+  // Local screen state — synced with context on mount
+  const [screen, setScreen] = useState<Screen>(() => isActive ? 'active' : 'home')
+
+  // Exercise catalogue from Firestore (falls back to default)
+  const [catalogue, setCatalogue] = useState<CatalogueEntry[]>(DEFAULT_EXERCISE_CATALOGUE)
+
+  // Summary after finishing
   const [lastWorkout, setLastWorkout] = useState<WorkoutDoc | null>(null)
   const [coinsEarned, setCoinsEarned] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // History
   const [history, setHistory] = useState<WorkoutDoc[]>([])
@@ -100,6 +74,25 @@ export default function WorkoutPage() {
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
   const [challengeProgress, setChallengeProgress] = useState<UserChallengeProgress | null>(null)
 
+  // Keep screen in sync if user navigates back while workout is active
+  useEffect(() => {
+    if (isActive && screen === 'home') setScreen('active')
+  }, [isActive]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load exercise catalogue from Firestore
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'exercise_catalogue'), snap => {
+      if (!snap.empty) {
+        setCatalogue(
+          snap.docs
+            .map(d => d.data() as CatalogueEntry)
+            .sort((a, b) => a.name.localeCompare(b.name, 'ro'))
+        )
+      }
+      // If empty, keep DEFAULT_EXERCISE_CATALOGUE as fallback
+    })
+    return unsub
+  }, [])
 
   // Pre-load community training if navigated from training card
   useEffect(() => {
@@ -115,16 +108,15 @@ export default function WorkoutPage() {
         .filter(e => e.name.trim())
         .map(e => ({
           name: e.name,
-          category: getCategoryForExercise(e.name),
+          category: getCategory(e.name, catalogue),
           sets: Array.from({ length: e.sets }, () => ({ reps: e.repsPerSet })),
         }))
       if (mapped.length > 0) {
-        setExercises(mapped)
-        setSeconds(0)
+        ctxStart(mapped)
         setScreen('active')
       }
     } catch { /* ignore malformed data */ }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load workout history
   useEffect(() => {
@@ -141,7 +133,7 @@ export default function WorkoutPage() {
     return unsub
   }, [user])
 
-  // Load weekly challenge
+  // Load weekly challenge + live progress
   useEffect(() => {
     if (!user) return
     const unsub = onSnapshot(
@@ -150,25 +142,50 @@ export default function WorkoutPage() {
         if (snap.docs.length > 0) {
           const c = { id: snap.docs[0].id, ...snap.docs[0].data() } as WeeklyChallenge
           setChallenge(c)
-          // Load progress
-          getDoc(doc(db, 'users', user.uid, 'challenge_progress', c.id)).then(ps => {
-            if (ps.exists()) setChallengeProgress(ps.data() as UserChallengeProgress)
-          })
+          // Live progress
+          return onSnapshot(
+            doc(db, 'users', user.uid, 'challenge_progress', c.id),
+            ps => {
+              if (ps.exists()) setChallengeProgress(ps.data() as UserChallengeProgress)
+              else setChallengeProgress(null)
+            }
+          )
         }
       }
     )
     return unsub
   }, [user])
 
-  // Timer
-  useEffect(() => {
-    if (screen === 'active') {
-      timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [screen])
+  // ── Exercise mutations (all go through context) ───────────────────────────
+
+  function replaceExerciseSets(ei: number, sets: WorkoutSet[]) {
+    setExercises(exercises.map((ex, i) => i === ei ? { ...ex, sets } : ex))
+  }
+
+  function addExercise(name: string, initialSet: WorkoutSet) {
+    const category = getCategory(name, catalogue)
+    setExercises([...exercises, { name, category, sets: [initialSet] }])
+  }
+
+  function removeExercise(idx: number) {
+    setExercises(exercises.filter((_, i) => i !== idx))
+  }
+
+  async function toggleFavorite(name: string) {
+    if (!user) return
+    const current: string[] = profile?.favoriteExercises ?? []
+    const next = current.includes(name)
+      ? current.filter(n => n !== name)
+      : [name, ...current].slice(0, 8)
+    await updateDoc(doc(db, 'users', user.uid), { favoriteExercises: next })
+  }
+
+  // ── Workout flow ──────────────────────────────────────────────────────────
+
+  function startWorkout() {
+    ctxStart([])
+    setScreen('active')
+  }
 
   async function submitFormCheckRequest() {
     if (!user || fcSubmitting) return
@@ -190,72 +207,29 @@ export default function WorkoutPage() {
     } finally { setFcSubmitting(false) }
   }
 
-  function startWorkout() {
-    setExercises([])
-    setSeconds(0)
-    setNote('')
-    setScreen('active')
-  }
-
-  function replaceExerciseSets(ei: number, sets: WorkoutSet[]) {
-    setExercises(prev => prev.map((ex, i) => i === ei ? { ...ex, sets } : ex))
-  }
-
-  function addExercise(name: string, initialSet: WorkoutSet) {
-    const category = getCategoryForExercise(name)
-    setExercises(prev => [...prev, { name, category, sets: [initialSet] }])
-  }
-
-  function removeExercise(idx: number) {
-    setExercises(prev => prev.filter((_, i) => i !== idx))
-  }
-
-  function addSet(exerciseIdx: number) {
-    setExercises(prev => prev.map((ex, i) =>
-      i === exerciseIdx ? { ...ex, sets: [...ex.sets, { reps: 10 }] } : ex
-    ))
-  }
-
-  function removeSet(exerciseIdx: number, setIdx: number) {
-    setExercises(prev => prev.map((ex, i) =>
-      i === exerciseIdx ? { ...ex, sets: ex.sets.filter((_, j) => j !== setIdx) } : ex
-    ))
-  }
-
-  function updateSet(exerciseIdx: number, setIdx: number, field: 'reps' | 'durationSeconds', value: number) {
-    setExercises(prev => prev.map((ex, i) =>
-      i === exerciseIdx
-        ? { ...ex, sets: ex.sets.map((s, j) => j === setIdx ? { ...s, [field]: value } : s) }
-        : ex
-    ))
-  }
-
-  async function toggleFavorite(name: string) {
-    if (!user) return
-    const current: string[] = profile?.favoriteExercises ?? []
-    const next = current.includes(name)
-      ? current.filter(n => n !== name)
-      : [name, ...current].slice(0, 8)
-    await updateDoc(doc(db, 'users', user.uid), { favoriteExercises: next })
-  }
-
   async function finishWorkout() {
     if (!user || exercises.length === 0) return
-    setScreen('summary')
-    if (timerRef.current) clearInterval(timerRef.current)
 
-    const totalReps = totalRepsInWorkout(exercises)
+    // Snapshot current state before clearing context
+    const finalExercises = exercises
+    const finalSeconds = seconds
+    const finalNote = note
+
+    setScreen('summary')
+    ctxStop()
+
+    const totalReps = totalRepsInWorkout(finalExercises)
     let earned = 0
 
     try {
       // Save workout
       await addDoc(collection(db, 'users', user.uid, 'workouts'), {
         userId: user.uid,
-        exercises,
-        durationSeconds: seconds,
+        exercises: finalExercises,
+        durationSeconds: finalSeconds,
         totalReps,
         coinsEarned: 10,
-        note: note.trim(),
+        note: finalNote.trim(),
         createdAt: serverTimestamp(),
       })
 
@@ -265,7 +239,6 @@ export default function WorkoutPage() {
       const userData = userSnap.data()
       const newTotal = (userData?.totalWorkouts ?? 0) + 1
 
-      // Check last workout date for streak
       const lastWorkoutDate: string | undefined = userData?.lastWorkoutDate
       const today = new Date().toDateString()
       const yesterday = new Date(Date.now() - 86400000).toDateString()
@@ -282,7 +255,7 @@ export default function WorkoutPage() {
         lastWorkoutDate: today,
       })
 
-      // Coins
+      // Base coins
       earned += await awardCoins(user.uid, 'COMPLETE_WORKOUT')
       await checkWorkoutMilestones(user.uid, newTotal)
 
@@ -291,27 +264,55 @@ export default function WorkoutPage() {
       if (newStreak === 7) earned += await awardCoins(user.uid, 'STREAK_7')
       if (newStreak === 30) earned += await awardCoins(user.uid, 'STREAK_30')
 
+      // Update weekly challenge progress
+      if (challenge) {
+        const exerciseReps: Record<string, number> = {}
+        for (const ex of finalExercises) {
+          const reps = ex.sets.reduce((sum, s) => sum + (s.reps ?? 0), 0)
+          if (reps > 0) exerciseReps[ex.name] = (exerciseReps[ex.name] ?? 0) + reps
+        }
+        const repsForChallenge = exerciseReps[challenge.exerciseName] ?? 0
+        if (repsForChallenge > 0) {
+          const progressRef = doc(db, 'users', user.uid, 'challenge_progress', challenge.id)
+          const current = challengeProgress?.currentReps ?? 0
+          const newReps = current + repsForChallenge
+          const completed = newReps >= challenge.targetReps
+          const wasCompleted = challengeProgress?.completed ?? false
+          await setDoc(progressRef, {
+            challengeId: challenge.id,
+            currentReps: newReps,
+            completed,
+            completedAt: completed && !wasCompleted ? serverTimestamp() : (challengeProgress?.completedAt ?? null),
+          })
+          // Award challenge coins on first completion
+          if (completed && !wasCompleted) {
+            await updateDoc(userRef, { coins: increment(challenge.coinsReward) })
+            earned += challenge.coinsReward
+          }
+        }
+      }
+
       // Update community challenge progress
       try {
         const joinedIds: string[] = userData?.joinedCommunityIds ?? []
         const exerciseReps: Record<string, number> = {}
-        for (const ex of exercises) {
+        for (const ex of finalExercises) {
           const reps = ex.sets.reduce((sum, s) => sum + (s.reps ?? 0), 0)
           exerciseReps[ex.name] = (exerciseReps[ex.name] ?? 0) + reps
         }
         await Promise.all(joinedIds.map(async cid => {
           const cSnap = await getDocs(collection(db, 'communities', cid, 'challenges'))
           await Promise.all(cSnap.docs.map(async cd => {
-            const challenge = { id: cd.id, ...cd.data() } as CommunityChallenge
-            const repsForEx = exerciseReps[challenge.exerciseName] ?? 0
+            const ch = { id: cd.id, ...cd.data() } as CommunityChallenge
+            const repsForEx = exerciseReps[ch.exerciseName] ?? 0
             if (repsForEx === 0) return
-            const progressRef = doc(db, 'users', user.uid, 'community_challenge_progress', challenge.id)
+            const progressRef = doc(db, 'users', user.uid, 'community_challenge_progress', ch.id)
             const ps = await getDoc(progressRef)
             const current = ps.exists() ? (ps.data().currentReps ?? 0) : 0
             const newReps = current + repsForEx
-            const completed = newReps >= challenge.targetReps
+            const completed = newReps >= ch.targetReps
             await setDoc(progressRef, {
-              challengeId: challenge.id,
+              challengeId: ch.id,
               communityId: cid,
               currentReps: newReps,
               completed,
@@ -319,7 +320,7 @@ export default function WorkoutPage() {
             })
           }))
         }))
-      } catch { /* non-critical — community challenge progress update failed silently */ }
+      } catch { /* non-critical */ }
 
     } catch (e) {
       console.error(e)
@@ -329,11 +330,11 @@ export default function WorkoutPage() {
     setLastWorkout({
       id: '',
       userId: user.uid,
-      exercises,
-      durationSeconds: seconds,
+      exercises: finalExercises,
+      durationSeconds: finalSeconds,
       totalReps,
       coinsEarned: earned,
-      note,
+      note: finalNote,
       createdAt: null,
     })
   }
@@ -361,7 +362,6 @@ export default function WorkoutPage() {
               <>
                 <p className="text-base font-black text-white mb-1">Analiză formă — Master Coach</p>
                 <p className="text-xs text-white/40 mb-4">Cost: 30 monede · Sold curent: {profile?.coins ?? 0} 🪙</p>
-
                 <div className="mb-3">
                   <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1.5">EXERCIȚIU</p>
                   <div className="flex gap-2 flex-wrap">
@@ -373,7 +373,6 @@ export default function WorkoutPage() {
                     ))}
                   </div>
                 </div>
-
                 <div className="mb-4">
                   <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1.5">NOTE (opțional)</p>
                   <textarea
@@ -384,11 +383,9 @@ export default function WorkoutPage() {
                     className="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/5 resize-none"
                   />
                 </div>
-
                 {(profile?.coins ?? 0) < 30 && (
                   <p className="text-xs text-red-400 mb-3">Monede insuficiente. Completează antrenamente pentru a câștiga monede.</p>
                 )}
-
                 <div className="flex gap-3">
                   <button onClick={() => setShowFormCheckRequest(false)}
                     className="flex-1 h-11 rounded-xl border border-white/20 text-sm text-white/70">Anulează</button>
@@ -424,18 +421,20 @@ export default function WorkoutPage() {
           exercises={exercises}
           seconds={seconds}
           note={note}
+          catalogue={catalogue}
           onNoteChange={setNote}
           onReplaceExerciseSets={replaceExerciseSets}
           onAddExercise={(name, set) => addExercise(name, set)}
+          onRemoveExercise={removeExercise}
           onFinish={finishWorkout}
-          onCancel={() => { setScreen('home'); setSeconds(0) }}
+          onCancel={() => { ctxStop(); setScreen('home') }}
           favorites={profile?.favoriteExercises ?? []}
           onToggleFavorite={toggleFavorite}
         />
       )}
 
-      {/* Main tabs (hidden during active/picker) */}
-      {(screen === 'home') && (
+      {/* Main tabs (hidden during active) */}
+      {screen === 'home' && (
         <div className="max-w-lg mx-auto px-4 pt-5 pb-8">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-black text-white">Antrenament</h1>
@@ -553,22 +552,25 @@ export default function WorkoutPage() {
 // ── Active Workout ─────────────────────────────────────────────────────────────
 
 function ActiveWorkout({
-  exercises, seconds, note, onNoteChange,
-  onReplaceExerciseSets, onAddExercise, onFinish, onCancel,
+  exercises, seconds, note, catalogue, onNoteChange,
+  onReplaceExerciseSets, onAddExercise, onRemoveExercise, onFinish, onCancel,
   favorites, onToggleFavorite,
 }: {
   exercises: WorkoutExercise[]
   seconds: number
   note: string
+  catalogue: CatalogueEntry[]
   onNoteChange: (v: string) => void
   onReplaceExerciseSets: (ei: number, sets: WorkoutSet[]) => void
   onAddExercise: (name: string, set: WorkoutSet) => void
+  onRemoveExercise: (idx: number) => void
   onFinish: () => void
   onCancel: () => void
   favorites: string[]
   onToggleFavorite: (name: string) => void
 }) {
   const [showCancel, setShowCancel] = useState(false)
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false)
 
   // Edit existing exercise sets popup
   const [popupExIdx, setPopupExIdx] = useState<number | null>(null)
@@ -581,28 +583,16 @@ function ActiveWorkout({
   // Log new exercise popup (shown on top of search sheet)
   const [logExercise, setLogExercise] = useState<string | null>(null)
   const [logReps, setLogReps] = useState(10)
-  const [logSecs, setLogSecs] = useState(0)
+  const [logSecs, setLogSecs] = useState(30)
 
   const totalReps = totalRepsInWorkout(exercises)
 
-  // Build filtered exercise list for search sheet
-  const allExercises = EXERCISE_CATALOGUE.flatMap(cat =>
-    cat.exercises.map(name => ({ name, category: cat.category }))
-  )
-  const filteredExercises = searchQuery.trim()
-    ? allExercises.filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : allExercises
+  // Build filtered exercise list
+  const filteredCatalogue = searchQuery.trim()
+    ? catalogue.filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : catalogue
 
-  // Group filtered results by category (or show flat when searching)
-  const grouped: { category: string; exercises: { name: string; category: string }[] }[] = []
-  if (searchQuery.trim()) {
-    grouped.push({ category: '', exercises: filteredExercises })
-  } else {
-    EXERCISE_CATALOGUE.forEach(cat => {
-      const exs = filteredExercises.filter(e => e.category === cat.category)
-      if (exs.length > 0) grouped.push({ category: cat.category, exercises: exs })
-    })
-  }
+  const grouped = groupByCategoryByCatalogue(filteredCatalogue)
 
   function openExPopup(ei: number, sets: WorkoutSet[]) {
     setPopupExIdx(ei)
@@ -617,17 +607,18 @@ function ActiveWorkout({
   }
 
   function openLogPopup(name: string) {
+    const metric = getMetric(name, catalogue)
     setLogExercise(name)
-    setLogReps(10)
-    setLogSecs(0)
+    setLogReps(metric === 'reps' ? 10 : 0)
+    setLogSecs(metric === 'seconds' ? 30 : 0)
   }
 
   function confirmLog() {
     if (!logExercise) return
-    const set: WorkoutSet = {}
-    if (logReps > 0) set.reps = logReps
-    if (logSecs > 0) set.durationSeconds = logSecs
-    if (!set.reps && !set.durationSeconds) set.reps = 0
+    const metric = getMetric(logExercise, catalogue)
+    const set: WorkoutSet = metric === 'reps'
+      ? { reps: logReps }
+      : { durationSeconds: logSecs }
     onAddExercise(logExercise, set)
     setLogExercise(null)
     setShowSearch(false)
@@ -635,75 +626,112 @@ function ActiveWorkout({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col relative" style={{ backgroundColor: 'var(--app-bg)' }}>
-      {/* Timer bar */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-white/8 flex-shrink-0">
-        <button onClick={() => setShowCancel(true)} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
-          <Square size={14} className="text-white/60" />
-        </button>
-        <div className="text-center">
-          <p className="text-2xl font-black text-brand-green tabular-nums">{formatDuration(seconds)}</p>
-          <p className="text-xs text-white/35">{totalReps} rep</p>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--app-bg)' }}>
+
+      {/* Timer bar — centered on desktop */}
+      <div className="flex-shrink-0 border-b border-white/8">
+        <div className="max-w-2xl mx-auto flex items-center justify-between px-4 pt-4 pb-3">
+          <button onClick={() => setShowCancel(true)} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
+            <Square size={14} className="text-white/60" />
+          </button>
+          <div className="text-center">
+            <p className="text-2xl font-black text-brand-green tabular-nums">{formatDuration(seconds)}</p>
+            <p className="text-xs text-white/35">{totalReps} rep</p>
+          </div>
+          <button
+            onClick={() => setShowFinishConfirm(true)}
+            disabled={exercises.length === 0}
+            className="h-9 px-4 rounded-full bg-brand-green text-black text-sm font-black disabled:opacity-40"
+          >
+            Finalizează
+          </button>
         </div>
-        <button
-          onClick={onFinish}
-          className="h-9 px-4 rounded-full bg-brand-green text-black text-sm font-black"
-        >
-          Finalizează
-        </button>
       </div>
 
-      {/* Exercises */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {exercises.length === 0 && (
-          <div className="text-center py-10">
-            <p className="text-sm text-white/35 mb-2">Niciun exercițiu adăugat.</p>
-            <p className="text-xs text-white/25">Caută un exercițiu pentru a începe.</p>
-          </div>
-        )}
-        {exercises.map((ex, ei) => (
-          <div key={`${ex.name}-${ei}`} className="rounded-2xl p-4 mb-3" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <div
-              className="flex items-center justify-between mb-2 cursor-pointer select-none"
-              onPointerDown={() => openExPopup(ei, ex.sets)}
-            >
-              <div>
-                <p className="font-bold text-white text-sm">{ex.name}</p>
-                <p className="text-xs text-white/40">{ex.category}</p>
-              </div>
-              <ChevronRight size={16} className="text-white/30" />
+      {/* Exercises — centered on desktop */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-4 py-4">
+          {exercises.length === 0 && (
+            <div className="text-center py-10">
+              <p className="text-sm text-white/35 mb-2">Niciun exercițiu adăugat.</p>
+              <p className="text-xs text-white/25">Caută un exercițiu pentru a începe.</p>
             </div>
-            <p className="text-xs text-white/50">
-              {ex.sets.length} set{ex.sets.length !== 1 ? 'uri' : ''} · {
-                ex.sets.map(s =>
-                  s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
-                ).join(', ')
-              }
-            </p>
-          </div>
-        ))}
+          )}
 
-        {/* Search exercise button */}
-        <button
-          onClick={() => setShowSearch(true)}
-          className="w-full h-11 rounded-2xl border border-dashed border-white/20 text-sm text-white/40 flex items-center justify-center gap-2 mb-3 hover:border-brand-green/40 hover:text-brand-green transition-colors"
-        >
-          <Search size={15} /> Caută exercițiu
-        </button>
+          {exercises.map((ex, ei) => (
+            <div key={`${ex.name}-${ei}`} className="rounded-2xl p-4 mb-3" style={{ backgroundColor: 'var(--app-surface)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                {/* Clickable area to edit sets */}
+                <div
+                  className="flex-1 flex items-center justify-between cursor-pointer select-none min-w-0"
+                  onPointerDown={() => openExPopup(ei, ex.sets)}
+                >
+                  <div className="min-w-0">
+                    <p className="font-bold text-white text-sm">{ex.name}</p>
+                    <p className="text-xs text-white/40">{ex.category}</p>
+                  </div>
+                  <ChevronRight size={16} className="text-white/30 flex-shrink-0 ml-2" />
+                </div>
+                {/* Delete button */}
+                <button
+                  onPointerDown={() => onRemoveExercise(ei)}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+              <p className="text-xs text-white/50">
+                {ex.sets.length} set{ex.sets.length !== 1 ? 'uri' : ''} · {
+                  ex.sets.map(s =>
+                    s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
+                  ).join(', ')
+                }
+              </p>
+            </div>
+          ))}
 
-        {/* Note */}
-        <textarea
-          value={note}
-          onChange={e => onNoteChange(e.target.value)}
-          placeholder="Notițe (opțional)..."
-          rows={2}
-          className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/10 bg-white/5 resize-none"
-        />
+          {/* Search exercise button */}
+          <button
+            onClick={() => setShowSearch(true)}
+            className="w-full h-11 rounded-2xl border border-dashed border-white/20 text-sm text-white/40 flex items-center justify-center gap-2 mb-3 hover:border-brand-green/40 hover:text-brand-green transition-colors"
+          >
+            <Search size={15} /> Caută exercițiu
+          </button>
+
+          {/* Note */}
+          <textarea
+            value={note}
+            onChange={e => onNoteChange(e.target.value)}
+            placeholder="Notițe (opțional)..."
+            rows={2}
+            className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/10 bg-white/5 resize-none"
+          />
+        </div>
       </div>
 
-      {/* Cancel dialog */}
+      {/* ── Finish confirm dialog ── */}
+      {showFinishConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-6 z-20">
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <p className="font-bold text-white text-base mb-1">Finalizezi antrenamentul?</p>
+            <p className="text-sm text-white/50 mb-5">
+              {exercises.length} exerciți{exercises.length === 1 ? 'u' : 'i'} · {formatDuration(seconds)} · {totalReps} rep
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowFinishConfirm(false)}
+                className="flex-1 h-11 rounded-xl border border-white/20 text-sm text-white/80">Continuă</button>
+              <button onClick={() => { setShowFinishConfirm(false); onFinish() }}
+                className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-bold">
+                Da, finalizează
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cancel dialog ── */}
       {showCancel && (
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center px-6 z-10">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-6 z-20">
           <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
             <p className="font-bold text-white text-base mb-1">Abandonezi antrenamentul?</p>
             <p className="text-sm text-white/50 mb-5">Progresul nu va fi salvat.</p>
@@ -715,78 +743,98 @@ function ActiveWorkout({
         </div>
       )}
 
-      {/* Edit existing exercise sets popup */}
-      {popupExIdx !== null && (
-        <div className="absolute inset-0 bg-black/70 flex items-end justify-center z-20">
-          <div className="w-full max-w-sm rounded-t-3xl pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-white/20" />
-            </div>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-white/8">
-              <div>
-                <p className="font-black text-white text-base">{exercises[popupExIdx].name}</p>
-                <p className="text-xs text-white/40">{exercises[popupExIdx].category}</p>
+      {/* ── Edit existing exercise sets popup ── */}
+      {popupExIdx !== null && (() => {
+        const metric = getMetric(exercises[popupExIdx].name, catalogue)
+        return (
+          <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-20">
+            <div className="w-full max-w-lg rounded-t-3xl pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-white/20" />
               </div>
-              <button onClick={() => setPopupExIdx(null)} className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
-                <X size={14} className="text-white/60" />
+              <div className="flex items-center justify-between px-5 py-3 border-b border-white/8">
+                <div>
+                  <p className="font-black text-white text-base">{exercises[popupExIdx].name}</p>
+                  <p className="text-xs text-white/40">{exercises[popupExIdx].category} · {metric === 'reps' ? 'Repetări' : 'Secunde'}</p>
+                </div>
+                <button onClick={() => setPopupExIdx(null)} className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
+                  <X size={14} className="text-white/60" />
+                </button>
+              </div>
+
+              {/* Column headers */}
+              <div className="flex items-center px-5 pt-3 pb-1 gap-3">
+                <span className="w-8 text-[10px] font-bold text-white/30 text-center">SET</span>
+                {metric === 'reps' && <span className="flex-1 text-[10px] font-bold text-white/30 text-center">REPETĂRI</span>}
+                {metric === 'seconds' && <span className="flex-1 text-[10px] font-bold text-white/30 text-center">SECUNDE</span>}
+                <span className="w-6" />
+              </div>
+
+              <div className="max-h-72 overflow-y-auto px-5">
+                {popupSets.map((set, si) => {
+                  const reps = set.reps ?? 0
+                  const secs = set.durationSeconds ?? 0
+                  return (
+                    <div key={si} className="flex items-center gap-3 py-2.5 border-b border-white/6">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: '#1ED75F22', border: '1.5px solid #1ED75F55' }}>
+                        <span className="text-xs font-black text-brand-green">{si + 1}</span>
+                      </div>
+
+                      {/* Reps stepper */}
+                      {metric === 'reps' && (
+                        <div className="flex-1 flex items-center justify-center gap-2">
+                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: Math.max(0, (s.reps ?? 0) - 1) } : s))}
+                            className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:bg-white/12 active:scale-95 transition-all text-lg font-bold">−</button>
+                          <span className="w-10 text-center text-xl font-black text-white tabular-nums">{reps}</span>
+                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: (s.reps ?? 0) + 1 } : s))}
+                            className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center text-black hover:opacity-90 active:scale-95 transition-all text-lg font-bold">+</button>
+                        </div>
+                      )}
+
+                      {/* Seconds stepper */}
+                      {metric === 'seconds' && (
+                        <div className="flex-1 flex items-center justify-center gap-2">
+                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: Math.max(0, (s.durationSeconds ?? 0) - 5) } : s))}
+                            className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:bg-white/12 active:scale-95 transition-all text-lg font-bold">−</button>
+                          <span className="w-12 text-center text-xl font-black text-white tabular-nums">{secs}s</span>
+                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: (s.durationSeconds ?? 0) + 5 } : s))}
+                            className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center text-black hover:opacity-90 active:scale-95 transition-all text-lg font-bold">+</button>
+                        </div>
+                      )}
+
+                      <button onClick={() => setPopupSets(prev => prev.filter((_, i) => i !== si))}
+                        disabled={popupSets.length <= 1}
+                        className="w-6 h-6 flex items-center justify-center text-white/20 hover:text-red-400 transition-colors disabled:opacity-0">
+                        <X size={13} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <button
+                onClick={() => setPopupSets(prev => {
+                  const last = prev[prev.length - 1] ?? {}
+                  return [...prev, { reps: last.reps, durationSeconds: last.durationSeconds }]
+                })}
+                className="flex items-center gap-1.5 text-xs text-brand-green font-semibold mx-5 mt-3">
+                <Plus size={13} /> Adaugă set
               </button>
-            </div>
-            <div className="flex items-center px-5 pt-3 pb-1 gap-3">
-              <span className="w-8 text-[10px] font-bold text-white/30 text-center">SET</span>
-              <span className="flex-1 text-[10px] font-bold text-white/30 text-center">REPETĂRI</span>
-              <span className="w-24 text-[10px] font-bold text-white/30 text-center">SECUNDE</span>
-              <span className="w-6" />
-            </div>
-            <div className="max-h-72 overflow-y-auto px-5">
-              {popupSets.map((set, si) => {
-                const reps = set.reps ?? 0
-                const secs = set.durationSeconds ?? 0
-                return (
-                  <div key={si} className="flex items-center gap-3 py-2.5 border-b border-white/6">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: '#1ED75F22', border: '1.5px solid #1ED75F55' }}>
-                      <span className="text-xs font-black text-brand-green">{si + 1}</span>
-                    </div>
-                    <div className="flex-1 flex items-center justify-center gap-2">
-                      <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: Math.max(0, (s.reps ?? 0) - 1) } : s))}
-                        className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:bg-white/12 active:scale-95 transition-all text-lg font-bold">−</button>
-                      <span className="w-8 text-center text-xl font-black text-white tabular-nums">{reps}</span>
-                      <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: (s.reps ?? 0) + 1 } : s))}
-                        className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center text-black hover:opacity-90 active:scale-95 transition-all text-lg font-bold">+</button>
-                    </div>
-                    <div className="w-24 flex items-center justify-center gap-1.5">
-                      <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: Math.max(0, (s.durationSeconds ?? 0) - 5) } : s))}
-                        className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center text-white/50 hover:bg-white/12 text-sm font-bold">−</button>
-                      <span className="w-8 text-center text-sm font-black text-white/80 tabular-nums">{secs}s</span>
-                      <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: (s.durationSeconds ?? 0) + 5 } : s))}
-                        className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center text-white/50 hover:bg-white/12 text-sm font-bold">+</button>
-                    </div>
-                    <button onClick={() => setPopupSets(prev => prev.filter((_, i) => i !== si))}
-                      disabled={popupSets.length <= 1}
-                      className="w-6 h-6 flex items-center justify-center text-white/20 hover:text-red-400 transition-colors disabled:opacity-0">
-                      <X size={13} />
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-            <button onClick={() => setPopupSets(prev => [...prev, { reps: prev[prev.length - 1]?.reps ?? 0 }])}
-              className="flex items-center gap-1.5 text-xs text-brand-green font-semibold mx-5 mt-3">
-              <Plus size={13} /> Adaugă set
-            </button>
-            <div className="px-5 mt-4">
-              <button onClick={savePopup} className="w-full h-12 rounded-2xl bg-brand-green text-black text-sm font-black">
-                Salvează
-              </button>
+              <div className="px-5 mt-4">
+                <button onClick={savePopup} className="w-full h-12 rounded-2xl bg-brand-green text-black text-sm font-black">
+                  Salvează
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
-      {/* ── Search sheet ── */}
+      {/* ── Search sheet (fixed to cover full viewport) ── */}
       {showSearch && (
-        <div className="absolute inset-0 bg-black/60 flex items-end justify-center z-30">
-          <div className="w-full max-w-sm rounded-t-3xl flex flex-col" style={{ backgroundColor: 'var(--app-surface)', maxHeight: '80vh' }}>
+        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-30">
+          <div className="w-full max-w-lg rounded-t-3xl flex flex-col" style={{ backgroundColor: 'var(--app-surface)', maxHeight: '88vh' }}>
             {/* Handle + header */}
             <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
               <div className="w-10 h-1 rounded-full bg-white/20" />
@@ -816,21 +864,29 @@ function ActiveWorkout({
               </div>
             </div>
 
-            {/* Exercise list */}
+            {/* Exercise list — scrollable, goes above everything */}
             <div className="flex-1 overflow-y-auto px-5 pb-6">
               {/* Favorites row (when not searching) */}
               {!searchQuery.trim() && favorites.length > 0 && (
                 <div className="mb-4">
                   <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">⭐ FAVORITE</p>
                   <div className="flex flex-col gap-1.5">
-                    {favorites.map(name => (
-                      <button key={name}
-                        onClick={() => openLogPopup(name)}
-                        className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left bg-white/5 border border-white/8 text-white/80 hover:bg-white/10 active:scale-[0.98] transition-all">
-                        <span>{name}</span>
-                        <ChevronRight size={14} className="text-white/30" />
-                      </button>
-                    ))}
+                    {favorites.map(name => {
+                      const metric = getMetric(name, catalogue)
+                      return (
+                        <button key={name}
+                          onClick={() => openLogPopup(name)}
+                          className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left bg-white/5 border border-white/8 text-white/80 hover:bg-white/10 active:scale-[0.98] transition-all">
+                          <span>{name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/40">
+                              {metric === 'reps' ? 'rep' : 'sec'}
+                            </span>
+                            <ChevronRight size={14} className="text-white/30" />
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -841,12 +897,17 @@ function ActiveWorkout({
                     <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 uppercase">{group.category}</p>
                   )}
                   <div className="flex flex-col gap-1.5">
-                    {group.exercises.map(({ name }) => (
+                    {group.exercises.map(({ name, metric }) => (
                       <button key={name}
                         onClick={() => openLogPopup(name)}
                         className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left bg-white/5 border border-white/8 text-white/80 hover:bg-white/10 active:scale-[0.98] transition-all">
                         <span>{name}</span>
-                        <ChevronRight size={14} className="text-white/30" />
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/40">
+                            {metric === 'reps' ? 'rep' : 'sec'}
+                          </span>
+                          <ChevronRight size={14} className="text-white/30" />
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -857,72 +918,81 @@ function ActiveWorkout({
         </div>
       )}
 
-      {/* ── Log exercise popup (reps/seconds) ── */}
-      {logExercise !== null && (
-        <div className="absolute inset-0 bg-black/70 flex items-end justify-center z-40">
-          <div className="w-full max-w-sm rounded-t-3xl pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-white/20" />
-            </div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-white/8">
-              <div>
-                <p className="font-black text-white text-base">{logExercise}</p>
-                <p className="text-xs text-white/40">{getCategoryForExercise(logExercise)}</p>
+      {/* ── Log exercise popup (reps or seconds only) ── */}
+      {logExercise !== null && (() => {
+        const metric = getMetric(logExercise, catalogue)
+        return (
+          <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-40">
+            <div className="w-full max-w-lg rounded-t-3xl pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-white/20" />
               </div>
-              <button onClick={() => setLogExercise(null)}
-                className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
-                <X size={14} className="text-white/60" />
-              </button>
-            </div>
 
-            <div className="px-5 pt-5 pb-2">
-              {/* Reps */}
-              <p className="text-[10px] font-bold text-white/40 tracking-widest mb-3 text-center">CÂT AI FĂCUT?</p>
-
-              <div className="mb-5">
-                <p className="text-xs text-white/50 text-center mb-2">Repetări</p>
-                <div className="flex items-center justify-center gap-5">
-                  <button
-                    onClick={() => setLogReps(r => Math.max(0, r - 1))}
-                    className="w-12 h-12 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-2xl font-bold active:scale-95 transition-transform"
-                  >−</button>
-                  <span className="w-16 text-center text-4xl font-black text-white tabular-nums">{logReps}</span>
-                  <button
-                    onClick={() => setLogReps(r => r + 1)}
-                    className="w-12 h-12 rounded-full bg-brand-green flex items-center justify-center text-black text-2xl font-bold active:scale-95 transition-transform"
-                  >+</button>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-white/8">
+                <div>
+                  <p className="font-black text-white text-base">{logExercise}</p>
+                  <p className="text-xs text-white/40">{getCategory(logExercise, catalogue)} · {metric === 'reps' ? 'Repetări' : 'Secunde'}</p>
                 </div>
+                <button onClick={() => setLogExercise(null)}
+                  className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
+                  <X size={14} className="text-white/60" />
+                </button>
               </div>
 
-              {/* Seconds */}
-              <div className="mb-6">
-                <p className="text-xs text-white/50 text-center mb-2">Secunde (opțional)</p>
-                <div className="flex items-center justify-center gap-5">
-                  <button
-                    onClick={() => setLogSecs(s => Math.max(0, s - 5))}
-                    className="w-12 h-12 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-2xl font-bold active:scale-95 transition-transform"
-                  >−</button>
-                  <span className="w-16 text-center text-4xl font-black text-white/80 tabular-nums">{logSecs}<span className="text-xl text-white/40">s</span></span>
-                  <button
-                    onClick={() => setLogSecs(s => s + 5)}
-                    className="w-12 h-12 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-2xl font-bold active:scale-95 transition-transform"
-                  >+</button>
-                </div>
-              </div>
+              <div className="px-5 pt-6 pb-2">
+                <p className="text-[10px] font-bold text-white/40 tracking-widest mb-5 text-center">CÂT AI FĂCUT?</p>
 
-              <button
-                onClick={confirmLog}
-                className="w-full h-13 rounded-2xl bg-brand-green text-black font-black text-base flex items-center justify-center gap-2"
-                style={{ height: 52 }}
-              >
-                <Check size={18} /> Adaugă exercițiu
-              </button>
+                {/* Reps input */}
+                {metric === 'reps' && (
+                  <div className="mb-6">
+                    <p className="text-xs text-white/50 text-center mb-3">Repetări</p>
+                    <div className="flex items-center justify-center gap-6">
+                      <button
+                        onClick={() => setLogReps(r => Math.max(0, r - 1))}
+                        className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform"
+                      >−</button>
+                      <span className="w-20 text-center text-5xl font-black text-white tabular-nums">{logReps}</span>
+                      <button
+                        onClick={() => setLogReps(r => r + 1)}
+                        className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform"
+                      >+</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Seconds input */}
+                {metric === 'seconds' && (
+                  <div className="mb-6">
+                    <p className="text-xs text-white/50 text-center mb-3">Secunde</p>
+                    <div className="flex items-center justify-center gap-6">
+                      <button
+                        onClick={() => setLogSecs(s => Math.max(0, s - 5))}
+                        className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform"
+                      >−</button>
+                      <span className="w-20 text-center text-5xl font-black text-white tabular-nums">
+                        {logSecs}<span className="text-2xl text-white/40">s</span>
+                      </span>
+                      <button
+                        onClick={() => setLogSecs(s => s + 5)}
+                        className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform"
+                      >+</button>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={confirmLog}
+                  className="w-full rounded-2xl bg-brand-green text-black font-black text-base flex items-center justify-center gap-2"
+                  style={{ height: 52 }}
+                >
+                  <Check size={18} /> Adaugă exercițiu
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
@@ -1022,7 +1092,11 @@ function WorkoutSummary({
           {workout.exercises.map((ex, i) => (
             <div key={i} className="flex justify-between text-sm py-1">
               <span className="text-white/70">{ex.name}</span>
-              <span className="text-white/50">{ex.sets.length} × {ex.sets[0]?.reps ?? 0} rep</span>
+              <span className="text-white/50">
+                {ex.sets[0]?.durationSeconds != null
+                  ? `${ex.sets.length} × ${ex.sets[0].durationSeconds}s`
+                  : `${ex.sets.length} × ${ex.sets[0]?.reps ?? 0} rep`}
+              </span>
             </div>
           ))}
         </div>
@@ -1042,7 +1116,7 @@ function WorkoutSummary({
 
       <button
         onClick={onDone}
-        className="w-full max-w-sm h-13 rounded-full font-bold text-black bg-brand-green"
+        className="w-full max-w-sm rounded-full font-bold text-black bg-brand-green"
         style={{ height: 52 }}
       >
         Înapoi la antrenamente
@@ -1119,7 +1193,7 @@ function ChallengeCard({
       </div>
       <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
         <div
-          className="h-full rounded-full transition-all"
+          className="h-full rounded-full transition-all duration-500"
           style={{ width: `${pct}%`, backgroundColor: done ? '#1ED75F' : '#3B82F6' }}
         />
       </div>

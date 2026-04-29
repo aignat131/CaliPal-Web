@@ -66,6 +66,7 @@ export default function HomePage() {
       () => setLatestFavTraining(null)
     )
 
+    let unsubCommProgress: (() => void) | null = null
     const unsubChallenge = onSnapshot(
       query(collection(db, 'communities', favId, 'challenges'), orderBy('endsAt', 'desc'), limit(1)),
       snap => {
@@ -73,33 +74,41 @@ export default function HomePage() {
         const c = { id: snap.docs[0].id, ...snap.docs[0].data() } as CommunityChallenge
         setCommChallenge(c)
         if (user) {
-          getDoc(doc(db, 'users', user.uid, 'community_challenge_progress', c.id)).then(ps => {
-            setCommChallengeProgress(ps.exists() ? ps.data() as UserCommunityChallengeProgress : null)
-          })
+          if (unsubCommProgress) unsubCommProgress()
+          unsubCommProgress = onSnapshot(
+            doc(db, 'users', user.uid, 'community_challenge_progress', c.id),
+            ps => setCommChallengeProgress(ps.exists() ? ps.data() as UserCommunityChallengeProgress : null)
+          )
         }
       },
       () => setCommChallenge(null)
     )
 
-    return () => { unsubTraining(); unsubChallenge() }
+    return () => { unsubTraining(); unsubChallenge(); if (unsubCommProgress) unsubCommProgress() }
   }, [userDoc?.favoriteCommunityId, user])
 
-  // Weekly challenge
+  // Weekly challenge + live progress
   useEffect(() => {
     if (!user) return
-    const unsub = onSnapshot(
+    let unsubProgress: (() => void) | null = null
+    const unsubChallenge = onSnapshot(
       query(collection(db, 'weekly_challenges'), orderBy('endsAt', 'desc'), limit(1)),
       snap => {
         if (!snap.empty) {
           const c = { id: snap.docs[0].id, ...snap.docs[0].data() } as WeeklyChallenge
           setChallenge(c)
-          getDoc(doc(db, 'users', user.uid, 'challenge_progress', c.id)).then(ps => {
-            if (ps.exists()) setChallengeProgress(ps.data() as UserChallengeProgress)
-          })
+          // Live progress so the bar updates as the user finishes workouts
+          if (unsubProgress) unsubProgress()
+          unsubProgress = onSnapshot(
+            doc(db, 'users', user.uid, 'challenge_progress', c.id),
+            ps => {
+              setChallengeProgress(ps.exists() ? (ps.data() as UserChallengeProgress) : null)
+            }
+          )
         }
       }
     )
-    return unsub
+    return () => { unsubChallenge(); if (unsubProgress) unsubProgress() }
   }, [user])
 
   // Joined communities
