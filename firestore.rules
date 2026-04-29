@@ -60,7 +60,7 @@ service cloud.firestore {
     // ── Coin tasks (one-time award guards) ────────────────────────────────────
     match /coin_tasks/{taskId} {
       // Documents have a `uid` field — filter queries by uid so rules can be validated
-      allow read: if isAuth() && resource.data.uid == request.auth.uid;
+      allow read: if isAuth() && (resource == null || resource.data.uid == request.auth.uid);
       allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
       allow update, delete: if false;
     }
