@@ -6,6 +6,7 @@ import type { WorkoutExercise } from '@/types'
 interface WorkoutContextValue {
   isActive: boolean
   seconds: number
+  startedAt: number | null
   exercises: WorkoutExercise[]
   note: string
   startWorkout: (exs?: WorkoutExercise[]) => void
@@ -19,6 +20,7 @@ const WorkoutContext = createContext<WorkoutContextValue | null>(null)
 export function WorkoutProvider({ children }: { children: ReactNode }) {
   const [isActive, setIsActive] = useState(false)
   const [seconds, setSeconds] = useState(0)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
   const [exercises, setExercisesState] = useState<WorkoutExercise[]>([])
   const [note, setNoteState] = useState('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -36,19 +38,21 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setExercisesState(exs)
     setNoteState('')
     setSeconds(0)
+    setStartedAt(Date.now())
     setIsActive(true)
   }, [])
 
   const stopWorkout = useCallback(() => {
     setIsActive(false)
     setSeconds(0)
+    setStartedAt(null)
     setExercisesState([])
     setNoteState('')
   }, [])
 
   return (
     <WorkoutContext.Provider value={{
-      isActive, seconds, exercises, note,
+      isActive, seconds, startedAt, exercises, note,
       startWorkout, stopWorkout,
       setExercises: setExercisesState,
       setNote: setNoteState,

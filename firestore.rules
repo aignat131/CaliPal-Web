@@ -209,6 +209,12 @@ service cloud.firestore {
       }
     }
 
+    // ── Exercise catalogue ────────────────────────────────────────────────────
+    match /exercise_catalogue/{exerciseId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
     // ── Weekly challenges ─────────────────────────────────────────────────────
     match /weekly_challenges/{challengeId} {
       allow read: if true;

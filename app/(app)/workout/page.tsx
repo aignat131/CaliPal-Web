@@ -9,10 +9,11 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
 import { awardCoins, checkWorkoutMilestones } from '@/lib/coins'
-import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star, Share2, Search } from 'lucide-react'
+import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star, Share2, Search, ImagePlus } from 'lucide-react'
 import Link from 'next/link'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
+import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
 import { DEFAULT_EXERCISE_CATALOGUE, getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/exercise-catalogue'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -44,7 +45,7 @@ export default function WorkoutPage() {
 
   // Workout context (persists across navigation)
   const {
-    isActive, seconds, exercises, note,
+    isActive, seconds, startedAt, exercises, note,
     startWorkout: ctxStart, stopWorkout: ctxStop,
     setExercises, setNote,
   } = useWorkout()
@@ -58,6 +59,7 @@ export default function WorkoutPage() {
   // Summary after finishing
   const [lastWorkout, setLastWorkout] = useState<WorkoutDoc | null>(null)
   const [coinsEarned, setCoinsEarned] = useState(0)
+  const [workoutStartedAt, setWorkoutStartedAt] = useState<number | null>(null)
 
   // History
   const [history, setHistory] = useState<WorkoutDoc[]>([])
@@ -81,16 +83,20 @@ export default function WorkoutPage() {
 
   // Load exercise catalogue from Firestore
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'exercise_catalogue'), snap => {
-      if (!snap.empty) {
-        setCatalogue(
-          snap.docs
-            .map(d => d.data() as CatalogueEntry)
-            .sort((a, b) => a.name.localeCompare(b.name, 'ro'))
-        )
-      }
-      // If empty, keep DEFAULT_EXERCISE_CATALOGUE as fallback
-    })
+    const unsub = onSnapshot(
+      collection(db, 'exercise_catalogue'),
+      snap => {
+        if (!snap.empty) {
+          setCatalogue(
+            snap.docs
+              .map(d => d.data() as CatalogueEntry)
+              .sort((a, b) => a.name.localeCompare(b.name, 'ro'))
+          )
+        }
+        // If empty, keep DEFAULT_EXERCISE_CATALOGUE as fallback
+      },
+      () => { /* permission denied — fall back to default catalogue */ }
+    )
     return unsub
   }, [])
 
@@ -214,7 +220,9 @@ export default function WorkoutPage() {
     const finalExercises = exercises
     const finalSeconds = seconds
     const finalNote = note
+    const capturedStartedAt = startedAt ?? Date.now() - seconds * 1000
 
+    setWorkoutStartedAt(capturedStartedAt)
     setScreen('summary')
     ctxStop()
 
@@ -423,6 +431,7 @@ export default function WorkoutPage() {
           userDisplayName={profile?.displayName ?? user?.displayName ?? ''}
           joinedCommunityIds={profile?.joinedCommunityIds ?? []}
           favoriteCommunityId={profile?.favoriteCommunityId}
+          startedAt={workoutStartedAt}
         />
       )}
 
@@ -1011,7 +1020,7 @@ function ActiveWorkout({
 // ── Workout Summary ────────────────────────────────────────────────────────────
 
 function WorkoutSummary({
-  workout, coinsEarned, onDone, userId, userDisplayName, joinedCommunityIds, favoriteCommunityId,
+  workout, coinsEarned, onDone, userId, userDisplayName, joinedCommunityIds, favoriteCommunityId, startedAt,
 }: {
   workout: WorkoutDoc
   coinsEarned: number
@@ -1020,6 +1029,7 @@ function WorkoutSummary({
   userDisplayName: string
   joinedCommunityIds: string[]
   favoriteCommunityId?: string | null
+  startedAt: number | null
 }) {
   const [description, setDescription] = useState(workout.note)
   const [showShare, setShowShare] = useState(false)
@@ -1028,6 +1038,21 @@ function WorkoutSummary({
   const [sharing, setSharing] = useState(false)
   const [shared, setShared] = useState(false)
   const [loadingComms, setLoadingComms] = useState(false)
+
+  // Photo
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoFile(file)
+    const reader = new FileReader()
+    reader.onloadend = () => setPhotoPreview(reader.result as string)
+    reader.readAsDataURL(file)
+  }
 
   async function openShare() {
     if (shared) return
@@ -1050,6 +1075,14 @@ function WorkoutSummary({
     if (!selectedCommId || sharing) return
     setSharing(true)
     try {
+      // Upload photo if one was selected
+      let photoUrl: string | null = null
+      if (photoFile) {
+        setUploadingPhoto(true)
+        photoUrl = await uploadWorkoutPhoto(userId, Date.now(), photoFile)
+        setUploadingPhoto(false)
+      }
+
       const memberSnap = await getDoc(doc(db, 'communities', selectedCommId, 'members', userId))
       const role = memberSnap.exists() ? memberSnap.data().role : 'MEMBER'
       const descLine = description.trim() ? `\n${description.trim()}` : ''
@@ -1071,12 +1104,14 @@ function WorkoutSummary({
         content,
         likesCount: 0,
         commentsCount: 0,
+        ...(photoUrl && { photoUrl }),
         createdAt: serverTimestamp(),
       })
       setShared(true)
       setShowShare(false)
     } finally {
       setSharing(false)
+      setUploadingPhoto(false)
     }
   }
 
@@ -1109,19 +1144,30 @@ function WorkoutSummary({
               <p className="text-xs text-white/40 mt-0.5">Monede 🪙</p>
             </div>
           </div>
+          {startedAt && (
+            <div className="mt-3 pt-3 border-t border-white/8 flex items-center justify-center gap-1.5">
+              <span className="text-xs text-white/35">
+                🕐 {new Date(startedAt).toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })}
+                {' – '}
+                {new Date(startedAt + workout.durationSeconds * 1000).toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Hevy-style exercise list */}
+        {/* Exercise list — horizontal set chips */}
         <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           {workout.exercises.map((ex, ei) => (
             <div key={ei} className={`px-4 py-3 ${ei > 0 ? 'border-t border-white/8' : ''}`}>
-              <p className="text-sm font-black text-white mb-2">{ex.name}</p>
-              <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-bold text-white">{ex.name}</p>
+                <span className="text-[11px] text-white/30">{ex.sets.length} set</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
                 {ex.sets.map((s, si) => (
-                  <div key={si} className="flex items-center gap-3 text-xs">
-                    <span className="w-12 font-semibold text-white/35">Set {si + 1}</span>
-                    <span className="w-px h-3 bg-white/15 flex-shrink-0" />
-                    <span className="text-white/70 font-semibold">
+                  <div key={si} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 bg-white/8">
+                    <span className="text-[10px] font-bold text-white/30">{si + 1}</span>
+                    <span className="text-xs font-bold text-white/75">
                       {s.durationSeconds != null ? `${s.durationSeconds}s` : `${s.reps ?? 0} rep`}
                     </span>
                   </div>
@@ -1131,14 +1177,35 @@ function WorkoutSummary({
           ))}
         </div>
 
-        {/* Description */}
+        {/* Description + photo */}
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
-          placeholder="Adaugă o descriere a antrenamentului..."
-          rows={3}
-          className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/10 bg-white/5 resize-none mb-4"
+          placeholder="Adaugă o descriere..."
+          rows={2}
+          className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/10 bg-white/5 resize-none mb-2"
         />
+
+        {/* Photo picker */}
+        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+        {photoPreview ? (
+          <div className="relative rounded-2xl overflow-hidden mb-4">
+            <img src={photoPreview} alt="" className="w-full object-cover max-h-52" />
+            <button
+              onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
+              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
+            >
+              <X size={13} className="text-white" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => photoInputRef.current?.click()}
+            className="w-full h-11 rounded-2xl border border-dashed border-white/20 flex items-center justify-center gap-2 text-white/40 text-sm mb-4"
+          >
+            <ImagePlus size={16} /> Adaugă o fotografie
+          </button>
+        )}
 
         {/* Share */}
         {joinedCommunityIds.length > 0 && !shared && (
