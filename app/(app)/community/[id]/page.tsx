@@ -153,9 +153,13 @@ export default function CommunityDetailPage() {
 
   useEffect(() => {
     if (!user) return
-    const q = query(collection(db, 'communities', id, 'trainings'), orderBy('createdAt', 'desc'))
-    return onSnapshot(q,
-      snap => { setTrainings(snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)) },
+    // No orderBy — sort client-side to avoid any composite-index dependency
+    return onSnapshot(collection(db, 'communities', id, 'trainings'),
+      snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
+        list.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+        setTrainings(list)
+      },
       () => { /* non-members can't read trainings — silently ignore */ }
     )
   }, [id, user])
@@ -674,6 +678,7 @@ export default function CommunityDetailPage() {
                   key={t.id}
                   training={t}
                   myUid={user?.uid ?? ''}
+                  members={members}
                   canLoad={isMember && (t.exercises?.length ?? 0) > 0}
                   canDelete={isSuperAdmin || myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER'}
                   onRsvp={status => rsvp(t.id, status)}
@@ -854,18 +859,46 @@ function JoinNotificationModal({
 
 // ── Training Card ─────────────────────────────────────────────────────────────
 
-function TrainingCard({ training, myUid, canLoad, canDelete, onRsvp, onLoad, onDelete }: {
+function MemberAvatar({ photoUrl, name, size = 28 }: { photoUrl?: string | null; name: string; size?: number }) {
+  const initials = name.trim().charAt(0).toUpperCase()
+  return (
+    <div
+      className="rounded-full border-2 overflow-hidden flex items-center justify-center flex-shrink-0 bg-white/20"
+      style={{ width: size, height: size, borderColor: 'var(--app-surface)' }}
+    >
+      {photoUrl
+        ? <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
+        : <span className="text-white font-bold" style={{ fontSize: size * 0.38 }}>{initials}</span>}
+    </div>
+  )
+}
+
+function TrainingCard({ training, myUid, members, canLoad, canDelete, onRsvp, onLoad, onDelete }: {
   training: PlannedTraining
   myUid: string
+  members: CommunityMember[]
   canLoad: boolean
   canDelete: boolean
   onRsvp: (s: 'GOING' | 'NOT_GOING' | 'MAYBE') => void
   onLoad: () => void
   onDelete: () => void
 }) {
+  const [showAllGoing, setShowAllGoing] = useState(false)
+
   const myStatus = training.rsvps?.[myUid]
-  const goingCount = Object.values(training.rsvps ?? {}).filter(s => s === 'GOING').length
-  const maybeCount = Object.values(training.rsvps ?? {}).filter(s => s === 'MAYBE').length
+  const rsvpEntries = Object.entries(training.rsvps ?? {})
+  const goingUids   = rsvpEntries.filter(([, s]) => s === 'GOING').map(([uid]) => uid)
+  const maybeUids   = rsvpEntries.filter(([, s]) => s === 'MAYBE').map(([uid]) => uid)
+
+  // Enrich GOING with member profile info
+  const goingMembers = goingUids.map(uid => {
+    const m = members.find(m => m.userId === uid)
+    return m ? { uid, name: m.displayName, photoUrl: m.photoUrl } : { uid, name: uid.slice(0, 6), photoUrl: null }
+  })
+
+  const PREVIEW = 3
+  const previewMembers = goingMembers.slice(0, PREVIEW)
+  const extra = goingMembers.length - PREVIEW
 
   const officialStyle = training.official ? {
     backgroundColor: '#0D3D28',
@@ -876,6 +909,7 @@ function TrainingCard({ training, myUid, canLoad, canDelete, onRsvp, onLoad, onD
   return (
     <div className="rounded-2xl mb-3" style={officialStyle}>
       <div className={training.official ? 'p-5' : 'p-4'}>
+
         {/* Header */}
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1 min-w-0">
@@ -910,7 +944,6 @@ function TrainingCard({ training, myUid, canLoad, canDelete, onRsvp, onLoad, onD
           {(training.timeStart || training.timeEnd) && (
             <div className="flex items-center gap-1 text-xs text-white/50">
               <Clock size={11} />
-              {/* Display only the time portion — handle both "HH:mm" and "dd/MM/yyyy HH:mm" */}
               <span>
                 {training.timeStart?.slice(-5)}
                 {training.timeEnd ? ` – ${training.timeEnd.slice(-5)}` : ''}
@@ -944,13 +977,72 @@ function TrainingCard({ training, myUid, canLoad, canDelete, onRsvp, onLoad, onD
           </div>
         )}
 
-        {/* RSVP count */}
-        <div className="flex gap-3 text-xs text-white/40 mb-2.5">
-          <span>✅ {goingCount} merg</span>
-          <span>🤔 {maybeCount} poate</span>
-        </div>
+        {/* ── Who's coming (WhatsApp-style) ── */}
+        {goingMembers.length > 0 && (
+          <div className="mb-3">
+            <button
+              className="flex items-center gap-2.5 w-full text-left"
+              onClick={() => setShowAllGoing(v => !v)}
+            >
+              {/* Overlapping avatars */}
+              <div className="flex items-center">
+                {previewMembers.map((m, i) => (
+                  <div key={m.uid} style={{ marginLeft: i > 0 ? -8 : 0 }}>
+                    <MemberAvatar photoUrl={m.photoUrl} name={m.name} size={26} />
+                  </div>
+                ))}
+                {extra > 0 && (
+                  <div
+                    className="rounded-full border-2 flex items-center justify-center bg-white/15 flex-shrink-0"
+                    style={{ width: 26, height: 26, marginLeft: -8, borderColor: 'var(--app-surface)' }}
+                  >
+                    <span className="text-[9px] font-bold text-white/80">+{extra}</span>
+                  </div>
+                )}
+              </div>
+              {/* Summary text */}
+              <span className="text-xs text-white/55 flex-1 min-w-0 truncate">
+                {goingMembers.slice(0, 2).map(m => m.name.split(' ')[0]).join(', ')}
+                {goingMembers.length > 2 ? ` și ${goingMembers.length - 2} alții merg` : ' merg'}
+              </span>
+              {maybeUids.length > 0 && (
+                <span className="text-[10px] text-white/30 flex-shrink-0">🤔 {maybeUids.length}</span>
+              )}
+              <span className="text-white/25 text-xs">{showAllGoing ? '▲' : '▼'}</span>
+            </button>
 
-        {/* Actions */}
+            {/* Expanded attendees list */}
+            {showAllGoing && (
+              <div className="mt-2 rounded-xl overflow-hidden border border-white/8">
+                {goingMembers.map((m, i) => (
+                  <div key={m.uid} className={`flex items-center gap-2.5 px-3 py-2 ${i > 0 ? 'border-t border-white/5' : ''}`}>
+                    <MemberAvatar photoUrl={m.photoUrl} name={m.name} size={24} />
+                    <span className="text-xs font-semibold text-white/75">{m.name}</span>
+                    {m.uid === myUid && <span className="text-[10px] text-brand-green ml-auto">Tu</span>}
+                  </div>
+                ))}
+                {maybeUids.map((uid, i) => {
+                  const m = members.find(mem => mem.userId === uid)
+                  if (!m) return null
+                  return (
+                    <div key={uid} className="flex items-center gap-2.5 px-3 py-2 border-t border-white/5">
+                      <MemberAvatar photoUrl={m.photoUrl} name={m.displayName} size={24} />
+                      <span className="text-xs font-semibold text-white/50">{m.displayName}</span>
+                      <span className="text-[10px] text-white/30 ml-auto">poate</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* No attendees yet */}
+        {goingMembers.length === 0 && (
+          <p className="text-xs text-white/25 mb-3">Nimeni nu a confirmat încă</p>
+        )}
+
+        {/* RSVP buttons */}
         <div className="flex gap-2">
           {(['GOING', 'MAYBE', 'NOT_GOING'] as const).map(status => (
             <button key={status}
@@ -964,14 +1056,12 @@ function TrainingCard({ training, myUid, canLoad, canDelete, onRsvp, onLoad, onD
             </button>
           ))}
           {canLoad && (
-            <button
-              onClick={onLoad}
-              className="h-8 px-3 rounded-lg text-xs font-bold bg-brand-green text-black flex items-center gap-1 flex-shrink-0"
-            >
+            <button onClick={onLoad} className="h-8 px-3 rounded-lg text-xs font-bold bg-brand-green text-black flex items-center gap-1 flex-shrink-0">
               <Dumbbell size={12} /> Încarcă
             </button>
           )}
         </div>
+
       </div>
     </div>
   )

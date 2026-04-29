@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, doc,
   updateDoc, setDoc, arrayUnion, increment, serverTimestamp,
-  getDocs, where, getDoc,
+  getDocs, getDoc,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -114,19 +114,28 @@ export default function CommunityPage() {
     Promise.all(
       [...joinedIds].map(async cid => {
         try {
-          const snap = await getDocs(
-            query(
-              collection(db, 'communities', cid, 'trainings'),
-              where('date', '>=', today),
-              orderBy('date', 'asc')
-            )
-          )
-          return snap.docs.map(d => ({
-            id: d.id,
-            ...d.data(),
-            communityId: cid,
-            communityName: communityMap.get(cid) ?? '',
-          } as PlannedTraining & { communityId: string; communityName: string }))
+          // Fetch all trainings and filter client-side (date field no longer
+          // exists in new docs — timeStart is now a full "dd/MM/yyyy HH:mm" string)
+          const snap = await getDocs(collection(db, 'communities', cid, 'trainings'))
+          const nowMs = Date.now()
+          return snap.docs
+            .map(d => ({
+              id: d.id,
+              ...d.data(),
+              communityId: cid,
+              communityName: communityMap.get(cid) ?? '',
+            } as PlannedTraining & { communityId: string; communityName: string }))
+            .filter(t => {
+              // Keep only future/ongoing trainings
+              const str = t.timeEnd || t.timeStart || t.date || ''
+              const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
+              if (m) {
+                const [, dd, mm, yyyy, hh, min] = m
+                return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`).getTime() >= nowMs
+              }
+              if (t.date) return t.date >= today
+              return true // legacy docs without dates — always show
+            })
         } catch {
           return []
         }

@@ -9,11 +9,10 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
 import { awardCoins, checkWorkoutMilestones } from '@/lib/coins'
-import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star, Share2, Search, ImagePlus } from 'lucide-react'
+import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star, Share2, Search } from 'lucide-react'
 import Link from 'next/link'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
-import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
 import { DEFAULT_EXERCISE_CATALOGUE, getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/exercise-catalogue'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -74,15 +73,6 @@ export default function WorkoutPage() {
   // Challenge
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
   const [challengeProgress, setChallengeProgress] = useState<UserChallengeProgress | null>(null)
-
-  // Post-workout feeling modal (Strava-style)
-  const [showFeelingModal, setShowFeelingModal] = useState(false)
-  const [workoutFeeling, setWorkoutFeeling] = useState(0)
-  const [feelingPhotoFile, setFeelingPhotoFile] = useState<File | null>(null)
-  const [feelingPhotoPreview, setFeelingPhotoPreview] = useState<string | null>(null)
-  const [workoutPhotoUrl, setWorkoutPhotoUrl] = useState<string | null>(null)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const feelingFileRef = useRef<HTMLInputElement>(null)
 
   // Keep screen in sync if user navigates back while workout is active
   useEffect(() => {
@@ -358,34 +348,6 @@ export default function WorkoutPage() {
       note: finalNote,
       createdAt: null,
     })
-    // Reset feeling state and show modal
-    setWorkoutFeeling(0)
-    setFeelingPhotoFile(null)
-    setFeelingPhotoPreview(null)
-    setWorkoutPhotoUrl(null)
-    setShowFeelingModal(true)
-  }
-
-  function handleFeelingPhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setFeelingPhotoFile(file)
-    const reader = new FileReader()
-    reader.onloadend = () => setFeelingPhotoPreview(reader.result as string)
-    reader.readAsDataURL(file)
-  }
-
-  async function confirmFeeling() {
-    if (feelingPhotoFile && user) {
-      setUploadingPhoto(true)
-      try {
-        const url = await uploadWorkoutPhoto(user.uid, Date.now(), feelingPhotoFile)
-        setWorkoutPhotoUrl(url)
-      } finally {
-        setUploadingPhoto(false)
-      }
-    }
-    setShowFeelingModal(false)
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -451,90 +413,6 @@ export default function WorkoutPage() {
         </div>
       )}
 
-      {/* Post-workout feeling modal */}
-      {showFeelingModal && screen === 'summary' && (() => {
-        const FEELINGS = [
-          { value: 1, emoji: '😩', label: 'Groaznic' },
-          { value: 2, emoji: '😕', label: 'Rău' },
-          { value: 3, emoji: '😐', label: 'OK' },
-          { value: 4, emoji: '😊', label: 'Bun' },
-          { value: 5, emoji: '🔥', label: 'Epic' },
-        ]
-        return (
-          <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70">
-            <div className="w-full max-w-sm rounded-t-3xl px-5 pt-4 pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
-              <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5" />
-              <p className="text-base font-black text-white text-center mb-1">Cum a fost antrenamentul?</p>
-              <p className="text-xs text-white/40 text-center mb-5">Evaluează sesiunea de azi</p>
-
-              <div className="flex justify-between px-1 mb-6">
-                {FEELINGS.map(f => (
-                  <button
-                    key={f.value}
-                    onClick={() => setWorkoutFeeling(f.value)}
-                    className="flex flex-col items-center gap-1.5"
-                  >
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all ${
-                      workoutFeeling === f.value
-                        ? 'bg-brand-green/20 ring-2 ring-brand-green scale-110'
-                        : 'bg-white/8'
-                    }`}>
-                      {f.emoji}
-                    </div>
-                    <span className={`text-[10px] font-semibold transition-colors ${
-                      workoutFeeling === f.value ? 'text-brand-green' : 'text-white/30'
-                    }`}>{f.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Photo picker */}
-              <input
-                ref={feelingFileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFeelingPhoto}
-              />
-              {feelingPhotoPreview ? (
-                <div className="relative mb-4 rounded-xl overflow-hidden">
-                  <img src={feelingPhotoPreview} alt="" className="w-full h-44 object-cover" />
-                  <button
-                    onClick={() => { setFeelingPhotoFile(null); setFeelingPhotoPreview(null) }}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
-                  >
-                    <X size={13} className="text-white" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => feelingFileRef.current?.click()}
-                  className="w-full h-10 rounded-xl border border-dashed border-white/20 flex items-center justify-center gap-2 text-white/40 text-xs font-semibold mb-4 hover:border-white/40 transition-colors"
-                >
-                  <ImagePlus size={14} /> Adaugă o fotografie
-                </button>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowFeelingModal(false)}
-                  className="flex-1 h-11 rounded-xl border border-white/20 text-sm text-white/60"
-                >
-                  Sari peste
-                </button>
-                <button
-                  onClick={confirmFeeling}
-                  disabled={uploadingPhoto}
-                  className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-50"
-                >
-                  {uploadingPhoto ? '...' : 'Salvează'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
       {/* Summary overlay */}
       {screen === 'summary' && lastWorkout && (
         <WorkoutSummary
@@ -545,8 +423,6 @@ export default function WorkoutPage() {
           userDisplayName={profile?.displayName ?? user?.displayName ?? ''}
           joinedCommunityIds={profile?.joinedCommunityIds ?? []}
           favoriteCommunityId={profile?.favoriteCommunityId}
-          workoutFeeling={workoutFeeling}
-          workoutPhotoUrl={workoutPhotoUrl}
         />
       )}
 
@@ -1134,13 +1010,8 @@ function ActiveWorkout({
 
 // ── Workout Summary ────────────────────────────────────────────────────────────
 
-const FEELING_LABELS: Record<number, string> = {
-  1: '😩 Groaznic', 2: '😕 Rău', 3: '😐 OK', 4: '😊 Bun', 5: '🔥 Epic',
-}
-
 function WorkoutSummary({
   workout, coinsEarned, onDone, userId, userDisplayName, joinedCommunityIds, favoriteCommunityId,
-  workoutFeeling, workoutPhotoUrl,
 }: {
   workout: WorkoutDoc
   coinsEarned: number
@@ -1149,9 +1020,8 @@ function WorkoutSummary({
   userDisplayName: string
   joinedCommunityIds: string[]
   favoriteCommunityId?: string | null
-  workoutFeeling: number
-  workoutPhotoUrl: string | null
 }) {
+  const [description, setDescription] = useState(workout.note)
   const [showShare, setShowShare] = useState(false)
   const [communities, setCommunities] = useState<{ id: string; name: string }[]>([])
   const [selectedCommId, setSelectedCommId] = useState(favoriteCommunityId ?? '')
@@ -1182,12 +1052,17 @@ function WorkoutSummary({
     try {
       const memberSnap = await getDoc(doc(db, 'communities', selectedCommId, 'members', userId))
       const role = memberSnap.exists() ? memberSnap.data().role : 'MEMBER'
-      const feelingLine = workoutFeeling > 0 ? `\nSenzație: ${FEELING_LABELS[workoutFeeling]}` : ''
+      const descLine = description.trim() ? `\n${description.trim()}` : ''
       const content = [
-        '💪 Antrenament finalizat!' + feelingLine,
+        '💪 Antrenament finalizat!' + descLine,
         `⏱ ${formatDuration(workout.durationSeconds)} · 🔁 ${workout.totalReps} rep`,
         '',
-        ...workout.exercises.map(e => `${e.name} · ${e.sets.length}×${e.sets[0]?.reps ?? 0} rep`),
+        ...workout.exercises.map(e => {
+          const setsSummary = e.sets.map((s, i) =>
+            s.durationSeconds != null ? `Set ${i + 1}  ${s.durationSeconds}s` : `Set ${i + 1}  ${s.reps ?? 0} rep`
+          ).join('\n')
+          return `${e.name}\n${setsSummary}`
+        }),
       ].join('\n')
       await addDoc(collection(db, 'communities', selectedCommId, 'posts'), {
         authorId: userId,
@@ -1196,8 +1071,6 @@ function WorkoutSummary({
         content,
         likesCount: 0,
         commentsCount: 0,
-        ...(workoutFeeling > 0 && { feeling: workoutFeeling }),
-        ...(workoutPhotoUrl && { photoUrl: workoutPhotoUrl }),
         createdAt: serverTimestamp(),
       })
       setShared(true)
@@ -1208,77 +1081,86 @@ function WorkoutSummary({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6" style={{ backgroundColor: 'var(--app-bg)' }}>
-      <div className="text-center mb-8">
-        <div className="w-20 h-20 rounded-full bg-brand-green flex items-center justify-center mx-auto mb-4">
-          <Check size={40} className="text-black" strokeWidth={3} />
-        </div>
-        <h2 className="text-2xl font-black text-white mb-1">Bravo! 💪</h2>
-        <p className="text-white/50 text-sm">Antrenament finalizat</p>
-      </div>
+    <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <div className="flex-1 max-w-sm mx-auto w-full px-4 py-8 flex flex-col">
 
-      <div className="w-full max-w-sm rounded-2xl p-5 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-xl font-black text-white">{formatDuration(workout.durationSeconds)}</p>
-            <p className="text-xs text-white/40 mt-0.5">Durată</p>
+        {/* Header */}
+        <div className="text-center mb-6">
+          <div className="w-20 h-20 rounded-full bg-brand-green flex items-center justify-center mx-auto mb-4">
+            <Check size={40} className="text-black" strokeWidth={3} />
           </div>
-          <div>
-            <p className="text-xl font-black text-white">{workout.totalReps}</p>
-            <p className="text-xs text-white/40 mt-0.5">Repetări</p>
-          </div>
-          <div>
-            <p className="text-xl font-black text-brand-green">+{coinsEarned}</p>
-            <p className="text-xs text-white/40 mt-0.5">Monede 🪙</p>
-          </div>
+          <h2 className="text-2xl font-black text-white mb-1">Bravo! 💪</h2>
+          <p className="text-white/50 text-sm">Antrenament finalizat</p>
         </div>
 
-        {workoutFeeling > 0 && (
-          <div className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-white/5 py-2">
-            <span className="text-lg">{FEELING_LABELS[workoutFeeling].split(' ')[0]}</span>
-            <span className="text-sm font-bold text-white/70">{FEELING_LABELS[workoutFeeling].split(' ')[1]}</span>
+        {/* Stats row */}
+        <div className="rounded-2xl p-5 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-xl font-black text-white">{formatDuration(workout.durationSeconds)}</p>
+              <p className="text-xs text-white/40 mt-0.5">Durată</p>
+            </div>
+            <div>
+              <p className="text-xl font-black text-white">{workout.totalReps}</p>
+              <p className="text-xs text-white/40 mt-0.5">Repetări</p>
+            </div>
+            <div>
+              <p className="text-xl font-black text-brand-green">+{coinsEarned}</p>
+              <p className="text-xs text-white/40 mt-0.5">Monede 🪙</p>
+            </div>
           </div>
-        )}
+        </div>
 
-        {workoutPhotoUrl && (
-          <div className="mt-3 rounded-xl overflow-hidden">
-            <img src={workoutPhotoUrl} alt="" className="w-full object-cover max-h-48" />
-          </div>
-        )}
-
-        <div className="mt-4 border-t border-white/10 pt-4">
-          {workout.exercises.map((ex, i) => (
-            <div key={i} className="flex justify-between text-sm py-1">
-              <span className="text-white/70">{ex.name}</span>
-              <span className="text-white/50">
-                {ex.sets[0]?.durationSeconds != null
-                  ? `${ex.sets.length} × ${ex.sets[0].durationSeconds}s`
-                  : `${ex.sets.length} × ${ex.sets[0]?.reps ?? 0} rep`}
-              </span>
+        {/* Hevy-style exercise list */}
+        <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          {workout.exercises.map((ex, ei) => (
+            <div key={ei} className={`px-4 py-3 ${ei > 0 ? 'border-t border-white/8' : ''}`}>
+              <p className="text-sm font-black text-white mb-2">{ex.name}</p>
+              <div className="flex flex-col gap-1">
+                {ex.sets.map((s, si) => (
+                  <div key={si} className="flex items-center gap-3 text-xs">
+                    <span className="w-12 font-semibold text-white/35">Set {si + 1}</span>
+                    <span className="w-px h-3 bg-white/15 flex-shrink-0" />
+                    <span className="text-white/70 font-semibold">
+                      {s.durationSeconds != null ? `${s.durationSeconds}s` : `${s.reps ?? 0} rep`}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
-      </div>
 
-      {joinedCommunityIds.length > 0 && !shared && (
+        {/* Description */}
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="Adaugă o descriere a antrenamentului..."
+          rows={3}
+          className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/10 bg-white/5 resize-none mb-4"
+        />
+
+        {/* Share */}
+        {joinedCommunityIds.length > 0 && !shared && (
+          <button
+            onClick={openShare}
+            className="w-full h-12 rounded-full font-bold border border-white/20 text-white/70 mb-3 flex items-center justify-center gap-2"
+          >
+            <Share2 size={16} /> Postează în comunitate
+          </button>
+        )}
+        {shared && (
+          <p className="text-xs text-brand-green text-center mb-3">✓ Postat în comunitate!</p>
+        )}
+
         <button
-          onClick={openShare}
-          className="w-full max-w-sm h-12 rounded-full font-bold border border-white/20 text-white/70 mb-3 flex items-center justify-center gap-2"
+          onClick={onDone}
+          className="w-full rounded-full font-bold text-black bg-brand-green"
+          style={{ height: 52 }}
         >
-          <Share2 size={16} /> Postează în comunitate
+          Înapoi la antrenamente
         </button>
-      )}
-      {shared && (
-        <p className="text-xs text-brand-green text-center mb-3">✓ Postat în comunitate!</p>
-      )}
-
-      <button
-        onClick={onDone}
-        className="w-full max-w-sm rounded-full font-bold text-black bg-brand-green"
-        style={{ height: 52 }}
-      >
-        Înapoi la antrenamente
-      </button>
+      </div>
 
       {showShare && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60">
