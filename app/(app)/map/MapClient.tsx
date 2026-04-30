@@ -56,7 +56,7 @@ function makeParkIcon(hasComm: boolean, activeCount: number) {
       <circle cx="20" cy="19" r="6" fill="white" opacity="0.9"/>
       ${activeCount > 0
         ? `<text x="20" y="23" text-anchor="middle" font-size="8" font-weight="bold" fill="${color}">${activeCount}</text>`
-        : `<path d="M17 19 L17 15 L20 13 L23 15 L23 19 M16 19 L24 19" stroke="${color}" stroke-width="1.5" fill="none" stroke-linecap="round"/>`}
+        : ''}
     </svg>`
   return L.divIcon({
     html: svg,
@@ -114,9 +114,26 @@ const MapCenterOnUser = memo(function MapCenterOnUser({ lat, lng }: { lat: numbe
   return null
 })
 
+// ── Fly to a searched location ────────────────────────────────────────────────
+
+const FlyToMap = memo(function FlyToMap({ target }: { target: [number, number] | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (target) map.flyTo(target, 14)
+  }, [target, map])
+  return null
+})
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Filter = 'all' | 'community' | 'nocommunity'
+
+type NominatimResult = {
+  place_id: number
+  display_name: string
+  lat: string
+  lon: string
+}
 
 // ── Location Permission Sheet ─────────────────────────────────────────────────
 
@@ -207,6 +224,10 @@ export default function MapClient() {
   const [myLng, setMyLng] = useState<number | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [search, setSearch] = useState('')
+  const [suggestions, setSuggestions] = useState<NominatimResult[]>([])
+  const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [sharing, setSharing] = useState(false)
   const [liveLocations, setLiveLocations] = useState<Record<string, string>>({})
   const [showParkRequest, setShowParkRequest] = useState(false)
@@ -454,17 +475,69 @@ export default function MapClient() {
       {/* Search + filter chips */}
       <div className="absolute top-0 left-0 right-0 z-[1000] px-3 pt-3 pb-2 pointer-events-none">
         <div className="pointer-events-auto">
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Caută parc sau oraș..."
-            className="w-full h-10 rounded-xl px-4 text-sm outline-none backdrop-blur-sm focus:border-brand-green/50 transition-colors"
-            style={{
-              backgroundColor: theme === 'light' ? 'rgba(255,255,255,0.92)' : 'rgba(13,46,43,0.92)',
-              border: '1px solid rgba(128,128,128,0.25)',
-              color: theme === 'light' ? '#0D1B1A' : '#fff',
-            }}
-          />
+          <div className="relative">
+            <input
+              value={search}
+              onChange={e => {
+                const q = e.target.value
+                setSearch(q)
+                setShowSuggestions(true)
+                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+                if (q.trim().length > 2) {
+                  searchDebounceRef.current = setTimeout(async () => {
+                    try {
+                      const res = await fetch(
+                        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&accept-language=ro`,
+                        { headers: { 'Accept-Language': 'ro' } }
+                      )
+                      const data: NominatimResult[] = await res.json()
+                      setSuggestions(data)
+                    } catch { /* ignore network errors */ }
+                  }, 350)
+                } else {
+                  setSuggestions([])
+                }
+              }}
+              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              placeholder="Caută parc sau oraș..."
+              className="w-full h-10 rounded-xl px-4 text-sm outline-none backdrop-blur-sm focus:border-brand-green/50 transition-colors"
+              style={{
+                backgroundColor: theme === 'light' ? 'rgba(255,255,255,0.92)' : 'rgba(13,46,43,0.92)',
+                border: '1px solid rgba(128,128,128,0.25)',
+                color: theme === 'light' ? '#0D1B1A' : '#fff',
+              }}
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <div
+                className="absolute top-11 left-0 right-0 rounded-xl overflow-hidden shadow-xl z-10"
+                style={{
+                  backgroundColor: theme === 'light' ? 'rgba(255,255,255,0.98)' : 'rgba(13,46,43,0.98)',
+                  border: '1px solid rgba(128,128,128,0.2)',
+                }}
+              >
+                {suggestions.map(s => (
+                  <button
+                    key={s.place_id}
+                    onMouseDown={() => {
+                      setFlyTarget([parseFloat(s.lat), parseFloat(s.lon)])
+                      setSearch(s.display_name.split(',')[0])
+                      setSuggestions([])
+                      setShowSuggestions(false)
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm border-b last:border-b-0 hover:bg-brand-green/10 transition-colors"
+                    style={{
+                      borderColor: 'rgba(128,128,128,0.12)',
+                      color: theme === 'light' ? '#0D1B1A' : '#fff',
+                    }}
+                  >
+                    <span className="font-semibold">{s.display_name.split(',')[0]}</span>
+                    <span className="text-xs opacity-50 ml-1">{s.display_name.split(',').slice(1, 3).join(',')}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
             {([
               ['all', 'Toate'],
@@ -507,6 +580,8 @@ export default function MapClient() {
             }
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           />
+
+          <FlyToMap target={flyTarget} />
 
           {filteredParks.map(park => {
             const activeCount = park.communityId
@@ -654,12 +729,23 @@ function ParkBottomSheet({
             </p>
           )}
         </div>
-        <button
-          onClick={onClose}
-          className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center ml-3 flex-shrink-0"
-        >
-          <X size={14} className="text-white/70" />
-        </button>
+        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${park.latitude},${park.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"
+            title="Direcții Google Maps"
+          >
+            <Navigation size={14} className="text-brand-green" />
+          </a>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"
+          >
+            <X size={14} className="text-white/70" />
+          </button>
+        </div>
       </div>
 
       {park.description ? (

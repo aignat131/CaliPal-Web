@@ -1249,7 +1249,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
         )}
       </div>
 
-      <p className="text-sm text-white/80 leading-relaxed mb-3">{post.content}</p>
+      <p className="text-sm text-white/80 leading-relaxed mb-3 whitespace-pre-line">{post.content}</p>
 
       {post.photoUrl && (
         <div className="mb-3 rounded-xl overflow-hidden">

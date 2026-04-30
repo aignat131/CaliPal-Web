@@ -36,7 +36,7 @@ function totalRepsInWorkout(exercises: WorkoutExercise[]): number {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-type Screen = 'home' | 'active' | 'summary'
+type Screen = 'home' | 'active' | 'postdetails' | 'summary'
 
 export default function WorkoutPage() {
   const { user } = useAuth()
@@ -60,6 +60,11 @@ export default function WorkoutPage() {
   const [lastWorkout, setLastWorkout] = useState<WorkoutDoc | null>(null)
   const [coinsEarned, setCoinsEarned] = useState(0)
   const [workoutStartedAt, setWorkoutStartedAt] = useState<number | null>(null)
+
+  // Captured workout state (held between postdetails and summary)
+  const [capturedExercises, setCapturedExercises] = useState<WorkoutExercise[]>([])
+  const [capturedSeconds, setCapturedSeconds] = useState(0)
+  const [summaryPhotoFile, setSummaryPhotoFile] = useState<File | null>(null)
 
   // History
   const [history, setHistory] = useState<WorkoutDoc[]>([])
@@ -213,18 +218,30 @@ export default function WorkoutPage() {
     } finally { setFcSubmitting(false) }
   }
 
-  async function finishWorkout() {
-    if (!user || exercises.length === 0) return
-
-    // Snapshot current state before clearing context
-    const finalExercises = exercises
-    const finalSeconds = seconds
-    const finalNote = note
-    const capturedStartedAt = startedAt ?? Date.now() - seconds * 1000
-
-    setWorkoutStartedAt(capturedStartedAt)
-    setScreen('summary')
+  // Step 1: snapshot context state, stop timer, show postdetails
+  function captureWorkout() {
+    if (exercises.length === 0) return
+    const snap = [...exercises]
+    const secs = seconds
+    const startAt = startedAt ?? Date.now() - seconds * 1000
+    setCapturedExercises(snap)
+    setCapturedSeconds(secs)
+    setWorkoutStartedAt(startAt)
     ctxStop()
+    setScreen('postdetails')
+  }
+
+  // Step 2: actually save to Firestore, called from PostWorkoutDetails
+  async function saveWorkout(photoFile: File | null, description: string) {
+    if (!user) return
+    setSummaryPhotoFile(photoFile)
+
+    const finalExercises = capturedExercises
+    const finalSeconds = capturedSeconds
+    const finalNote = description
+    const capturedStartedAt = workoutStartedAt ?? Date.now() - capturedSeconds * 1000
+
+    setScreen('summary')
 
     const totalReps = totalRepsInWorkout(finalExercises)
     let earned = 0
@@ -421,6 +438,15 @@ export default function WorkoutPage() {
         </div>
       )}
 
+      {/* Post-workout details (Strava-style: photo + description before summary) */}
+      {screen === 'postdetails' && (
+        <PostWorkoutDetails
+          exercises={capturedExercises}
+          seconds={capturedSeconds}
+          onSave={saveWorkout}
+        />
+      )}
+
       {/* Summary overlay */}
       {screen === 'summary' && lastWorkout && (
         <WorkoutSummary
@@ -432,6 +458,7 @@ export default function WorkoutPage() {
           joinedCommunityIds={profile?.joinedCommunityIds ?? []}
           favoriteCommunityId={profile?.favoriteCommunityId}
           startedAt={workoutStartedAt}
+          photoFile={summaryPhotoFile}
         />
       )}
 
@@ -446,7 +473,7 @@ export default function WorkoutPage() {
           onReplaceExerciseSets={replaceExerciseSets}
           onAddExercise={(name, set) => addExercise(name, set)}
           onRemoveExercise={removeExercise}
-          onFinish={finishWorkout}
+          onFinish={captureWorkout}
           onCancel={() => { ctxStop(); setScreen('home') }}
           favorites={profile?.favoriteExercises ?? []}
           onToggleFavorite={toggleFavorite}
@@ -1017,32 +1044,20 @@ function ActiveWorkout({
   )
 }
 
-// ── Workout Summary ────────────────────────────────────────────────────────────
+// ── Post-Workout Details (Strava-style) ──────────────────────────────────────
 
-function WorkoutSummary({
-  workout, coinsEarned, onDone, userId, userDisplayName, joinedCommunityIds, favoriteCommunityId, startedAt,
+function PostWorkoutDetails({
+  exercises,
+  seconds,
+  onSave,
 }: {
-  workout: WorkoutDoc
-  coinsEarned: number
-  onDone: () => void
-  userId: string
-  userDisplayName: string
-  joinedCommunityIds: string[]
-  favoriteCommunityId?: string | null
-  startedAt: number | null
+  exercises: WorkoutExercise[]
+  seconds: number
+  onSave: (photoFile: File | null, description: string) => void
 }) {
-  const [description, setDescription] = useState(workout.note)
-  const [showShare, setShowShare] = useState(false)
-  const [communities, setCommunities] = useState<{ id: string; name: string }[]>([])
-  const [selectedCommId, setSelectedCommId] = useState(favoriteCommunityId ?? '')
-  const [sharing, setSharing] = useState(false)
-  const [shared, setShared] = useState(false)
-  const [loadingComms, setLoadingComms] = useState(false)
-
-  // Photo
+  const [description, setDescription] = useState('')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1053,6 +1068,97 @@ function WorkoutSummary({
     reader.onloadend = () => setPhotoPreview(reader.result as string)
     reader.readAsDataURL(file)
   }
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-10 pb-8 flex flex-col">
+
+        {/* Header */}
+        <div className="text-center mb-6">
+          <div className="w-20 h-20 rounded-full bg-brand-green flex items-center justify-center mx-auto mb-4">
+            <Check size={40} className="text-black" strokeWidth={3} />
+          </div>
+          <h2 className="text-2xl font-black text-white mb-1">Bravo! 💪</h2>
+          <p className="text-sm text-white/50">
+            {formatDuration(seconds)} · {totalRepsInWorkout(exercises)} rep · {exercises.length} exerciți{exercises.length === 1 ? 'u' : 'i'}
+          </p>
+        </div>
+
+        {/* Photo picker */}
+        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+        {photoPreview ? (
+          <div className="relative rounded-2xl overflow-hidden mb-3">
+            <img src={photoPreview} alt="" className="w-full object-cover max-h-52" />
+            <button
+              onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
+              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
+            >
+              <X size={13} className="text-white" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => photoInputRef.current?.click()}
+            className="w-full h-28 rounded-2xl border-2 border-dashed border-white/15 flex flex-col items-center justify-center gap-2 text-white/35 mb-3 hover:border-brand-green/40 hover:text-brand-green/60 transition-colors"
+          >
+            <ImagePlus size={22} />
+            <span className="text-sm">Adaugă o fotografie</span>
+            <span className="text-xs opacity-60">opțional</span>
+          </button>
+        )}
+
+        {/* Description */}
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="Cum a fost antrenamentul? (opțional)"
+          rows={3}
+          className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/10 bg-white/5 resize-none mb-4"
+        />
+
+        {/* Actions */}
+        <button
+          onClick={() => onSave(photoFile, description)}
+          className="w-full rounded-full font-black text-black bg-brand-green mb-3"
+          style={{ height: 52 }}
+        >
+          Salvează antrenamentul
+        </button>
+        <button
+          onClick={() => onSave(null, '')}
+          className="w-full text-sm text-white/35 py-2"
+        >
+          Sari peste
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Workout Summary ────────────────────────────────────────────────────────────
+
+function WorkoutSummary({
+  workout, coinsEarned, onDone, userId, userDisplayName, joinedCommunityIds, favoriteCommunityId, startedAt,
+  photoFile,
+}: {
+  workout: WorkoutDoc
+  coinsEarned: number
+  onDone: () => void
+  userId: string
+  userDisplayName: string
+  joinedCommunityIds: string[]
+  favoriteCommunityId?: string | null
+  startedAt: number | null
+  photoFile?: File | null
+}) {
+  const description = workout.note
+  const [showShare, setShowShare] = useState(false)
+  const [communities, setCommunities] = useState<{ id: string; name: string }[]>([])
+  const [selectedCommId, setSelectedCommId] = useState(favoriteCommunityId ?? '')
+  const [sharing, setSharing] = useState(false)
+  const [shared, setShared] = useState(false)
+  const [loadingComms, setLoadingComms] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   async function openShare() {
     if (shared) return
@@ -1155,7 +1261,7 @@ function WorkoutSummary({
           )}
         </div>
 
-        {/* Exercise list — horizontal set chips */}
+        {/* Exercise list — sets stacked vertically */}
         <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           {workout.exercises.map((ex, ei) => (
             <div key={ei} className={`px-4 py-3 ${ei > 0 ? 'border-t border-white/8' : ''}`}>
@@ -1163,10 +1269,10 @@ function WorkoutSummary({
                 <p className="text-sm font-bold text-white">{ex.name}</p>
                 <span className="text-[11px] text-white/30">{ex.sets.length} set</span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-col gap-1">
                 {ex.sets.map((s, si) => (
-                  <div key={si} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 bg-white/8">
-                    <span className="text-[10px] font-bold text-white/30">{si + 1}</span>
+                  <div key={si} className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-white/30 w-10">Set {si + 1}</span>
                     <span className="text-xs font-bold text-white/75">
                       {s.durationSeconds != null ? `${s.durationSeconds}s` : `${s.reps ?? 0} rep`}
                     </span>
@@ -1177,34 +1283,16 @@ function WorkoutSummary({
           ))}
         </div>
 
-        {/* Description + photo */}
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          placeholder="Adaugă o descriere..."
-          rows={2}
-          className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/10 bg-white/5 resize-none mb-2"
-        />
+        {/* Description (read-only, from postdetails) */}
+        {description.trim() ? (
+          <p className="text-sm text-white/60 italic px-1 mb-3">&ldquo;{description.trim()}&rdquo;</p>
+        ) : null}
 
-        {/* Photo picker */}
-        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-        {photoPreview ? (
+        {/* Photo from postdetails */}
+        {photoFile && (
           <div className="relative rounded-2xl overflow-hidden mb-4">
-            <img src={photoPreview} alt="" className="w-full object-cover max-h-52" />
-            <button
-              onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
-              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
-            >
-              <X size={13} className="text-white" />
-            </button>
+            <img src={URL.createObjectURL(photoFile)} alt="" className="w-full object-cover max-h-52" />
           </div>
-        ) : (
-          <button
-            onClick={() => photoInputRef.current?.click()}
-            className="w-full h-11 rounded-2xl border border-dashed border-white/20 flex items-center justify-center gap-2 text-white/40 text-sm mb-4"
-          >
-            <ImagePlus size={16} /> Adaugă o fotografie
-          </button>
         )}
 
         {/* Share */}
