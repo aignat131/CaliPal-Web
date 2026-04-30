@@ -21,3 +21,10 @@ export async function uploadWorkoutPhoto(userId: string, timestamp: number, file
   await uploadBytes(storageRef, file)
   return getDownloadURL(storageRef)
 }
+
+export async function uploadFormCheckVideo(userId: string, timestamp: number, file: File): Promise<string> {
+  const ext = file.name.split('.').pop() ?? 'mp4'
+  const storageRef = ref(storage, `form_check_videos/${userId}/${timestamp}.${ext}`)
+  await uploadBytes(storageRef, file)
+  return getDownloadURL(storageRef)
+}

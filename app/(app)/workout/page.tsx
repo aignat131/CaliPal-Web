@@ -34,6 +34,23 @@ function totalRepsInWorkout(exercises: WorkoutExercise[]): number {
   return exercises.flatMap(e => e.sets).reduce((sum, s) => sum + (s.reps ?? 0), 0)
 }
 
+/** "Tracțiuni · 3×10 rep" — compact one-liner for an exercise. */
+function exerciseOneLiner(ex: WorkoutExercise): string {
+  const n = ex.sets.length
+  if (n === 0) return ex.name
+  const first = ex.sets[0]
+  if (first.durationSeconds != null) {
+    const allSame = ex.sets.every(s => s.durationSeconds === first.durationSeconds)
+    return allSame
+      ? `${ex.name} · ${n}×${first.durationSeconds ?? 0}s`
+      : `${ex.name} · ${ex.sets.map(s => `${s.durationSeconds ?? 0}s`).join(', ')}`
+  }
+  const allSame = ex.sets.every(s => s.reps === first.reps)
+  return allSame
+    ? `${ex.name} · ${n}×${first.reps ?? 0} rep`
+    : `${ex.name} · ${ex.sets.map(s => `${s.reps ?? 0}`).join(', ')} rep`
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 type Screen = 'home' | 'active' | 'postdetails' | 'summary'
@@ -65,17 +82,11 @@ export default function WorkoutPage() {
   const [capturedExercises, setCapturedExercises] = useState<WorkoutExercise[]>([])
   const [capturedSeconds, setCapturedSeconds] = useState(0)
   const [summaryPhotoFile, setSummaryPhotoFile] = useState<File | null>(null)
+  const [autoOpenShare, setAutoOpenShare] = useState(false)
 
   // History
   const [history, setHistory] = useState<WorkoutDoc[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
-
-  // Coach form check request
-  const [showFormCheckRequest, setShowFormCheckRequest] = useState(false)
-  const [fcExercise, setFcExercise] = useState('Tracțiuni')
-  const [fcNotes, setFcNotes] = useState('')
-  const [fcSubmitting, setFcSubmitting] = useState(false)
-  const [fcDone, setFcDone] = useState(false)
 
   // Challenge
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
@@ -196,26 +207,6 @@ export default function WorkoutPage() {
   function startWorkout() {
     ctxStart([])
     setScreen('active')
-  }
-
-  async function submitFormCheckRequest() {
-    if (!user || fcSubmitting) return
-    const coins = profile?.coins ?? 0
-    if (coins < 30) return
-    setFcSubmitting(true)
-    try {
-      await addDoc(collection(db, 'form_check_requests'), {
-        userId: user.uid,
-        userName: profile?.displayName || user.displayName || '',
-        exerciseName: fcExercise,
-        notes: fcNotes.trim(),
-        status: 'PENDING',
-        coinsSpent: 30,
-        createdAt: serverTimestamp(),
-      })
-      await updateDoc(doc(db, 'users', user.uid), { coins: increment(-30) })
-      setFcDone(true)
-    } finally { setFcSubmitting(false) }
   }
 
   // Step 1: snapshot context state, stop timer, show postdetails
@@ -375,68 +366,15 @@ export default function WorkoutPage() {
     })
   }
 
+  async function saveWorkoutAndShare(photoFile: File | null, description: string) {
+    setAutoOpenShare(true)
+    await saveWorkout(photoFile, description)
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
-
-      {/* Form check request modal */}
-      {showFormCheckRequest && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 pb-safe">
-          <div className="w-full max-w-sm rounded-t-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
-            {fcDone ? (
-              <div className="flex flex-col items-center py-4 text-center">
-                <div className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center mb-3">
-                  <Check size={28} className="text-black" />
-                </div>
-                <p className="font-bold text-white text-base mb-1">Cerere trimisă!</p>
-                <p className="text-sm text-white/50 mb-5">Un antrenor va analiza forma ta și va trimite feedback în curând.</p>
-                <button onClick={() => setShowFormCheckRequest(false)}
-                  className="w-full h-11 rounded-xl bg-brand-green text-black font-bold">OK</button>
-              </div>
-            ) : (
-              <>
-                <p className="text-base font-black text-white mb-1">Analiză formă — Master Coach</p>
-                <p className="text-xs text-white/40 mb-4">Cost: 30 monede · Sold curent: {profile?.coins ?? 0} 🪙</p>
-                <div className="mb-3">
-                  <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1.5">EXERCIȚIU</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {['Tracțiuni', 'Flotări', 'Squaturi'].map(ex => (
-                      <button key={ex} onClick={() => setFcExercise(ex)}
-                        className={`h-8 px-3 rounded-full text-xs font-bold transition-colors ${
-                          fcExercise === ex ? 'bg-brand-green text-black' : 'border border-white/20 text-white/60'
-                        }`}>{ex}</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mb-4">
-                  <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1.5">NOTE (opțional)</p>
-                  <textarea
-                    value={fcNotes}
-                    onChange={e => setFcNotes(e.target.value)}
-                    placeholder="Descrie ce vrei să îmbunătățești..."
-                    rows={3}
-                    className="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/5 resize-none"
-                  />
-                </div>
-                {(profile?.coins ?? 0) < 30 && (
-                  <p className="text-xs text-red-400 mb-3">Monede insuficiente. Completează antrenamente pentru a câștiga monede.</p>
-                )}
-                <div className="flex gap-3">
-                  <button onClick={() => setShowFormCheckRequest(false)}
-                    className="flex-1 h-11 rounded-xl border border-white/20 text-sm text-white/70">Anulează</button>
-                  <button
-                    onClick={submitFormCheckRequest}
-                    disabled={fcSubmitting || (profile?.coins ?? 0) < 30}
-                    className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-bold disabled:opacity-40">
-                    {fcSubmitting ? '...' : 'Confirmă (30 🪙)'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Post-workout details (Strava-style: photo + description before summary) */}
       {screen === 'postdetails' && (
@@ -444,6 +382,8 @@ export default function WorkoutPage() {
           exercises={capturedExercises}
           seconds={capturedSeconds}
           onSave={saveWorkout}
+          onShare={saveWorkoutAndShare}
+          hasJoinedCommunities={(profile?.joinedCommunityIds ?? []).length > 0}
         />
       )}
 
@@ -452,13 +392,14 @@ export default function WorkoutPage() {
         <WorkoutSummary
           workout={lastWorkout}
           coinsEarned={coinsEarned}
-          onDone={() => { setScreen('home'); setTab(1) }}
+          onDone={() => { setScreen('home'); setTab(1); setAutoOpenShare(false) }}
           userId={user?.uid ?? ''}
           userDisplayName={profile?.displayName ?? user?.displayName ?? ''}
           joinedCommunityIds={profile?.joinedCommunityIds ?? []}
           favoriteCommunityId={profile?.favoriteCommunityId}
           startedAt={workoutStartedAt}
           photoFile={summaryPhotoFile}
+          autoOpenShare={autoOpenShare}
         />
       )}
 
@@ -535,21 +476,18 @@ export default function WorkoutPage() {
 
               {/* Master Coach card */}
               {!profile?.isCoach && (
-                <div className="rounded-2xl p-4 mb-4 border border-yellow-400/20" style={{ backgroundColor: '#FFB80010' }}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <Star size={18} className="text-yellow-400 flex-shrink-0" />
-                    <p className="text-sm font-bold text-white">Master Coach</p>
-                    <span className="ml-auto text-xs font-bold text-yellow-400">30 🪙</span>
+                <Link href="/workout/master-coach">
+                  <div className="rounded-2xl p-4 mb-4 border border-yellow-400/20 hover:border-yellow-400/40 transition-colors" style={{ backgroundColor: '#FFB80010' }}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Star size={18} className="text-yellow-400 flex-shrink-0" />
+                      <p className="text-sm font-bold text-white">Master Coach</p>
+                      <span className="ml-auto text-xs font-bold text-yellow-400">500 🪙</span>
+                    </div>
+                    <p className="text-xs text-white/55 leading-relaxed">
+                      Trimite un video și primește feedback personalizat de la un antrenor certificat.
+                    </p>
                   </div>
-                  <p className="text-xs text-white/55 mb-3 leading-relaxed">
-                    Trimite un video cu un set și primește feedback personalizat de la un antrenor certificat.
-                  </p>
-                  <button
-                    onClick={() => { setShowFormCheckRequest(true); setFcDone(false) }}
-                    className="w-full h-9 rounded-xl text-xs font-bold border border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10 transition-colors">
-                    Solicită analiză
-                  </button>
-                </div>
+                </Link>
               )}
 
               {/* Weekly challenge */}
@@ -1050,10 +988,14 @@ function PostWorkoutDetails({
   exercises,
   seconds,
   onSave,
+  onShare,
+  hasJoinedCommunities,
 }: {
   exercises: WorkoutExercise[]
   seconds: number
   onSave: (photoFile: File | null, description: string) => void
+  onShare: (photoFile: File | null, description: string) => void
+  hasJoinedCommunities: boolean
 }) {
   const [description, setDescription] = useState('')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
@@ -1124,12 +1066,15 @@ function PostWorkoutDetails({
         >
           Salvează antrenamentul
         </button>
-        <button
-          onClick={() => onSave(null, '')}
-          className="w-full text-sm text-white/35 py-2"
-        >
-          Sari peste
-        </button>
+        {hasJoinedCommunities && (
+          <button
+            onClick={() => onShare(photoFile, description)}
+            className="w-full rounded-full font-bold border border-white/20 text-white/70 flex items-center justify-center gap-2"
+            style={{ height: 48 }}
+          >
+            <Share2 size={16} /> Postează în comunitate
+          </button>
+        )}
       </div>
     </div>
   )
@@ -1139,7 +1084,7 @@ function PostWorkoutDetails({
 
 function WorkoutSummary({
   workout, coinsEarned, onDone, userId, userDisplayName, joinedCommunityIds, favoriteCommunityId, startedAt,
-  photoFile,
+  photoFile, autoOpenShare,
 }: {
   workout: WorkoutDoc
   coinsEarned: number
@@ -1150,6 +1095,7 @@ function WorkoutSummary({
   favoriteCommunityId?: string | null
   startedAt: number | null
   photoFile?: File | null
+  autoOpenShare?: boolean
 }) {
   const description = workout.note
   const [showShare, setShowShare] = useState(false)
@@ -1159,6 +1105,11 @@ function WorkoutSummary({
   const [shared, setShared] = useState(false)
   const [loadingComms, setLoadingComms] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+
+  // Auto-open share sheet when coming from "Postează în comunitate"
+  useEffect(() => {
+    if (autoOpenShare) openShare()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function openShare() {
     if (shared) return
@@ -1196,12 +1147,7 @@ function WorkoutSummary({
         '💪 Antrenament finalizat!' + descLine,
         `⏱ ${formatDuration(workout.durationSeconds)} · 🔁 ${workout.totalReps} rep`,
         '',
-        ...workout.exercises.map(e => {
-          const setsSummary = e.sets.map((s, i) =>
-            s.durationSeconds != null ? `Set ${i + 1}  ${s.durationSeconds}s` : `Set ${i + 1}  ${s.reps ?? 0} rep`
-          ).join('\n')
-          return `${e.name}\n${setsSummary}`
-        }),
+        ...workout.exercises.map(e => exerciseOneLiner(e)),
       ].join('\n')
       await addDoc(collection(db, 'communities', selectedCommId, 'posts'), {
         authorId: userId,
@@ -1261,24 +1207,11 @@ function WorkoutSummary({
           )}
         </div>
 
-        {/* Exercise list — sets stacked vertically */}
+        {/* Exercise list — compact N×M format */}
         <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           {workout.exercises.map((ex, ei) => (
-            <div key={ei} className={`px-4 py-3 ${ei > 0 ? 'border-t border-white/8' : ''}`}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-bold text-white">{ex.name}</p>
-                <span className="text-[11px] text-white/30">{ex.sets.length} set</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                {ex.sets.map((s, si) => (
-                  <div key={si} className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-white/30 w-10">Set {si + 1}</span>
-                    <span className="text-xs font-bold text-white/75">
-                      {s.durationSeconds != null ? `${s.durationSeconds}s` : `${s.reps ?? 0} rep`}
-                    </span>
-                  </div>
-                ))}
-              </div>
+            <div key={ei} className={`px-4 py-2.5 ${ei > 0 ? 'border-t border-white/8' : ''}`}>
+              <p className="text-sm text-white/85">{exerciseOneLiner(ex)}</p>
             </div>
           ))}
         </div>
