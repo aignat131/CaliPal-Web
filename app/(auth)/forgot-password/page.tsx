@@ -15,6 +15,7 @@ export default function ForgotPasswordPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [emailSent, setEmailSent] = useState(false)
   const [resendDone, setResendDone] = useState(false)
+  const [resendError, setResendError] = useState('')
 
   async function handleSend() {
     setErrorMessage('')
@@ -41,11 +42,12 @@ export default function ForgotPasswordPage() {
 
   async function handleResend() {
     if (resendDone) return
+    setResendError('')
     try {
       await sendPasswordResetEmail(auth, email)
       setResendDone(true)
     } catch {
-      // silent
+      setResendError('Retrimite a eșuat. Încearcă din nou.')
     }
   }
 
@@ -56,7 +58,7 @@ export default function ForgotPasswordPage() {
     >
       {/* Blobs */}
       <div className="absolute w-64 h-64 -top-16 -left-16 rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #1DB95440, transparent 70%)' }} />
+        style={{ background: 'radial-gradient(circle, #1ED75F40, transparent 70%)' }} />
       <div className="absolute w-52 h-52 bottom-0 right-0 rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle, #0D7A3E33, transparent 70%)' }} />
 
@@ -106,7 +108,7 @@ export default function ForgotPasswordPage() {
               onClick={handleSend}
               disabled={loading || !isValidEmail(email)}
               className="w-full rounded-full font-extrabold text-[15px] tracking-wide text-white disabled:opacity-40 flex items-center justify-center transition-opacity"
-              style={{ height: 52, backgroundColor: '#1DB954' }}
+              style={{ height: 52, backgroundColor: '#1ED75F' }}
             >
               {loading
                 ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -150,6 +152,9 @@ export default function ForgotPasswordPage() {
                 {resendDone ? 'Trimis ✓' : 'Retrimite'}
               </button>
             </div>
+            {resendError && (
+              <p className="text-[12px] text-red-400 mt-2 text-center">{resendError}</p>
+            )}
           </div>
         )}
       </div>

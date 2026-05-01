@@ -56,9 +56,8 @@ export default function CommunityPage() {
   // Join notification popup
   const [joinedCommunityName, setJoinedCommunityName] = useState<string | null>(null)
 
-  // Evenimente state
-  const [eventi, setEventi] = useState<(PlannedTraining & { communityId: string; communityName: string })[]>([])
-  const [loadedEventi, setLoadedEventi] = useState(false)
+  // Evenimente state — null = not yet fetched/loading, [] = loaded but empty
+  const [eventi, setEventi] = useState<(PlannedTraining & { communityId: string; communityName: string })[] | null>(null)
 
   // Provocari state
   const [provChallenges, setProvChallenges] = useState<(CommunityChallenge & { communityName: string })[]>([])
@@ -104,10 +103,10 @@ export default function CommunityPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userDocLoaded]) // intentionally only on first load
 
-  // Load evenimente lazily when tab 1 is opened
+  // Load evenimente whenever tab 1 is opened or joinedIds changes
   useEffect(() => {
-    if (tab !== 1 || loadedEventi || joinedIds.size === 0) return
-    setLoadedEventi(true)
+    if (tab !== 1 || joinedIds.size === 0) return
+    setEventi(null) // reset to loading state
     const today = new Date().toISOString().slice(0, 10)
     const communityMap = new Map(communities.map(c => [c.id, c.name]))
 
@@ -144,7 +143,7 @@ export default function CommunityPage() {
       const all = results.flat().sort((a, b) => (a.timeStart ?? a.date ?? '').localeCompare(b.timeStart ?? b.date ?? ''))
       setEventi(all)
     })
-  }, [tab, loadedEventi, joinedIds, communities])
+  }, [tab, joinedIds, communities])
 
   // Load provocari lazily when tab 2 is opened
   useEffect(() => {
@@ -342,7 +341,7 @@ export default function CommunityPage() {
         {/* ── Evenimente tab ── */}
         {tab === 1 && (
           <div>
-            {!loadedEventi ? (
+            {eventi === null ? (
               <div className="flex justify-center py-12"><div className="w-7 h-7 border-2 border-brand-green border-t-transparent rounded-full animate-spin" /></div>
             ) : eventi.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12 text-center">

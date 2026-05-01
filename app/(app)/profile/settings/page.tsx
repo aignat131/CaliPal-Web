@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
 
-const SUPERADMIN = 'aignat131@gmail.com'
+const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 const LOCATION_MODE_LABELS: Record<LocationSharingMode, string> = {
   OFF: 'Oprit',

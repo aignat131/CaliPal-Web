@@ -171,6 +171,11 @@
   --app-surface: #FFFFFF;
 }
 
+/* ── Auth page background ────────────────────────────────────────────────── */
+.auth-bg {
+  background: linear-gradient(135deg, #0F0F0F, #1A2A1A);
+}
+
 /* ── Light mode overrides for white-based Tailwind utilities ─────────────── */
 /* Text */
 .light .text-white           { color: #0D1B1A !important; }
@@ -219,3 +224,8 @@
 
 /* Hover states */
 .light .hover\:bg-white\/5:hover { background-color: rgba(13,27,26,0.05) !important; }
+
+/* ── Contrast improvements (B2-13) ──────────────────────────────────────── */
+/* Bump input label opacity for WCAG AA compliance */
+.text-white\/45 { color: rgba(255,255,255,0.60) !important; }
+.light .text-white\/45 { color: rgba(13,27,26,0.60) !important; }

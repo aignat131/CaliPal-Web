@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, updateDoc,
@@ -15,7 +15,7 @@ import type {
 import { Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 
-const SUPERADMIN = 'aignat131@gmail.com'
+const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth()
@@ -30,6 +30,8 @@ export default function HomePage() {
   const [showStreakCalendar, setShowStreakCalendar] = useState(false)
   const [workoutDates, setWorkoutDates] = useState<Set<string>>(new Set())
   const [latestFavTraining, setLatestFavTraining] = useState<PlannedTraining | null>(null)
+  // Ref for nested community challenge progress subscription (B1-4)
+  const unsubCommProgressRef = useRef<(() => void) | null>(null)
 
   // Live user doc
   useEffect(() => {
@@ -66,7 +68,6 @@ export default function HomePage() {
       () => setLatestFavTraining(null)
     )
 
-    let unsubCommProgress: (() => void) | null = null
     const unsubChallenge = onSnapshot(
       query(collection(db, 'communities', favId, 'challenges'), orderBy('endsAt', 'desc'), limit(1)),
       snap => {
@@ -74,8 +75,8 @@ export default function HomePage() {
         const c = { id: snap.docs[0].id, ...snap.docs[0].data() } as CommunityChallenge
         setCommChallenge(c)
         if (user) {
-          if (unsubCommProgress) unsubCommProgress()
-          unsubCommProgress = onSnapshot(
+          if (unsubCommProgressRef.current) unsubCommProgressRef.current()
+          unsubCommProgressRef.current = onSnapshot(
             doc(db, 'users', user.uid, 'community_challenge_progress', c.id),
             ps => setCommChallengeProgress(ps.exists() ? ps.data() as UserCommunityChallengeProgress : null)
           )
@@ -84,7 +85,7 @@ export default function HomePage() {
       () => setCommChallenge(null)
     )
 
-    return () => { unsubTraining(); unsubChallenge(); if (unsubCommProgress) unsubCommProgress() }
+    return () => { unsubTraining(); unsubChallenge(); unsubCommProgressRef.current?.() }
   }, [userDoc?.favoriteCommunityId, user])
 
   // Weekly challenge + live progress
@@ -388,9 +389,13 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
     : 0
 
   async function setRsvp(value: 'GOING' | 'MAYBE' | 'NOT_GOING') {
-    await updateDoc(doc(db, 'communities', favId, 'trainings', training.id), {
-      [`rsvps.${uid}`]: value,
-    })
+    try {
+      await updateDoc(doc(db, 'communities', favId, 'trainings', training.id), {
+        [`rsvps.${uid}`]: value,
+      })
+    } catch (e) {
+      console.error('[RSVP] update failed', e)
+    }
   }
 
   return (

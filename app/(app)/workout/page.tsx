@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   collection, query, orderBy, limit, onSnapshot,
-  addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, getDocs, deleteDoc, setDoc,
+  addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, getDocs, deleteDoc, setDoc, runTransaction,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -13,6 +13,7 @@ import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap,
 import Link from 'next/link'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
+import { useDebounce } from '@/lib/hooks/useDebounce'
 import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
 import { DEFAULT_EXERCISE_CATALOGUE, getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/exercise-catalogue'
 
@@ -49,6 +50,16 @@ function exerciseOneLiner(ex: WorkoutExercise): string {
   return allSame
     ? `${ex.name} · ${n}×${first.reps ?? 0} rep`
     : `${ex.name} · ${ex.sets.map(s => `${s.reps ?? 0}`).join(', ')} rep`
+}
+
+/** Locale-safe "yyyy-MM-dd" from a Date — avoids toDateString() timezone issues. */
+function localDate(d: Date): string {
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+}
+
+/** Normalize string for diacritic-insensitive search. */
+function norm(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
@@ -120,12 +131,12 @@ export default function WorkoutPage() {
   useEffect(() => {
     const saved = sessionStorage.getItem('calipal_load_training')
     if (!saved) return
+    sessionStorage.removeItem('calipal_load_training')
     try {
       const { exercises: exs } = JSON.parse(saved) as {
         name: string
         exercises: { name: string; sets: number; repsPerSet: number }[]
       }
-      sessionStorage.removeItem('calipal_load_training')
       const mapped: WorkoutExercise[] = exs
         .filter(e => e.name.trim())
         .map(e => ({
@@ -260,26 +271,30 @@ export default function WorkoutPage() {
         createdAt: serverTimestamp(),
       })
 
-      // Increment totalWorkouts + streak
+      // Increment totalWorkouts + streak (atomic transaction to avoid race conditions)
       const userRef = doc(db, 'users', user.uid)
-      const userSnap = await getDoc(userRef)
-      const userData = userSnap.data()
-      const newTotal = (userData?.totalWorkouts ?? 0) + 1
-
-      const lastWorkoutDate: string | undefined = userData?.lastWorkoutDate
-      const today = new Date().toDateString()
-      const yesterday = new Date(Date.now() - 86400000).toDateString()
-      const currentStreak = userData?.currentStreak ?? 0
-      const newStreak = lastWorkoutDate === yesterday
-        ? currentStreak + 1
-        : lastWorkoutDate === today
-          ? currentStreak
-          : 1
-
-      await updateDoc(userRef, {
-        totalWorkouts: increment(1),
-        currentStreak: newStreak,
-        lastWorkoutDate: today,
+      const today = localDate(new Date())
+      const yesterday = localDate(new Date(Date.now() - 86400000))
+      let newTotal = 0
+      let newStreak = 0
+      let joinedCommunityIds: string[] = []
+      await runTransaction(db, async tx => {
+        const userSnap = await tx.get(userRef)
+        const userData = userSnap.data()
+        newTotal = (userData?.totalWorkouts ?? 0) + 1
+        joinedCommunityIds = userData?.joinedCommunityIds ?? []
+        const lastWorkoutDate: string | undefined = userData?.lastWorkoutDate
+        const currentStreak = userData?.currentStreak ?? 0
+        newStreak = lastWorkoutDate === yesterday
+          ? currentStreak + 1
+          : lastWorkoutDate === today
+            ? currentStreak
+            : 1
+        tx.update(userRef, {
+          totalWorkouts: increment(1),
+          currentStreak: newStreak,
+          lastWorkoutDate: today,
+        })
       })
 
       // Base coins
@@ -321,7 +336,7 @@ export default function WorkoutPage() {
 
       // Update community challenge progress
       try {
-        const joinedIds: string[] = userData?.joinedCommunityIds ?? []
+        const joinedIds: string[] = joinedCommunityIds
         const exerciseReps: Record<string, number> = {}
         for (const ex of finalExercises) {
           const reps = ex.sets.reduce((sum, s) => sum + (s.reps ?? 0), 0)
@@ -572,9 +587,11 @@ function ActiveWorkout({
 
   const totalReps = totalRepsInWorkout(exercises)
 
-  // Build filtered exercise list
-  const filteredCatalogue = searchQuery.trim()
-    ? catalogue.filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const debouncedQuery = useDebounce(searchQuery, 150)
+
+  // Build filtered exercise list — diacritic-insensitive
+  const filteredCatalogue = debouncedQuery.trim()
+    ? catalogue.filter(e => norm(e.name).includes(norm(debouncedQuery)))
     : catalogue
 
   const grouped = groupByCategoryByCatalogue(filteredCatalogue)
@@ -769,7 +786,7 @@ function ActiveWorkout({
                       {/* Reps stepper */}
                       {metric === 'reps' && (
                         <div className="flex-1 flex items-center justify-center gap-2">
-                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: Math.max(0, (s.reps ?? 0) - 1) } : s))}
+                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: Math.max(1, (s.reps ?? 0) - 1) } : s))}
                             className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:bg-white/12 active:scale-95 transition-all text-lg font-bold">−</button>
                           <span className="w-10 text-center text-xl font-black text-white tabular-nums">{reps}</span>
                           <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: (s.reps ?? 0) + 1 } : s))}
@@ -780,7 +797,7 @@ function ActiveWorkout({
                       {/* Seconds stepper */}
                       {metric === 'seconds' && (
                         <div className="flex-1 flex items-center justify-center gap-2">
-                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: Math.max(0, (s.durationSeconds ?? 0) - 5) } : s))}
+                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: Math.max(5, (s.durationSeconds ?? 0) - 5) } : s))}
                             className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:bg-white/12 active:scale-95 transition-all text-lg font-bold">−</button>
                           <span className="w-12 text-center text-xl font-black text-white tabular-nums">{secs}s</span>
                           <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: (s.durationSeconds ?? 0) + 5 } : s))}
@@ -934,7 +951,7 @@ function ActiveWorkout({
                     <p className="text-xs text-white/50 text-center mb-3">Repetări</p>
                     <div className="flex items-center justify-center gap-6">
                       <button
-                        onClick={() => setLogReps(r => Math.max(0, r - 1))}
+                        onClick={() => setLogReps(r => Math.max(1, r - 1))}
                         className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform"
                       >−</button>
                       <span className="w-20 text-center text-5xl font-black text-white tabular-nums">{logReps}</span>
@@ -952,7 +969,7 @@ function ActiveWorkout({
                     <p className="text-xs text-white/50 text-center mb-3">Secunde</p>
                     <div className="flex items-center justify-center gap-6">
                       <button
-                        onClick={() => setLogSecs(s => Math.max(0, s - 5))}
+                        onClick={() => setLogSecs(s => Math.max(5, s - 5))}
                         className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform"
                       >−</button>
                       <span className="w-20 text-center text-5xl font-black text-white tabular-nums">

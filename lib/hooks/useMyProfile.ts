@@ -22,10 +22,13 @@ export function useMyProfile() {
     return unsub
   }, [user])
 
+  const DEFAULT_DISPLAY_NAME = 'Utilizator'
   const storedName = profile?.displayName
   const authName = user?.displayName || ''
-  // Don't use 'Utilizator' as a real name — fall back to auth name
-  const displayName = storedName && storedName !== 'Utilizator' ? storedName : (authName || storedName || '')
+  // Never return an empty string — fall back through: stored → auth → default
+  const displayName = (storedName && storedName !== DEFAULT_DISPLAY_NAME)
+    ? storedName
+    : (authName || DEFAULT_DISPLAY_NAME)
 
   return {
     displayName,

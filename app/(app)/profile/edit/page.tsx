@@ -33,9 +33,24 @@ export default function EditProfilePage() {
     })
   }, [user])
 
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }
+  }, [previewUrl])
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp']
+    if (!ALLOWED.includes(file.type)) {
+      setError('Doar imagini JPEG, PNG sau WebP.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Imaginea nu poate depăși 5MB.')
+      return
+    }
+    setError('')
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPendingFile(file)
     setPreviewUrl(URL.createObjectURL(file))
   }
@@ -101,7 +116,7 @@ export default function EditProfilePage() {
           <p className="text-xs text-brand-green mt-2">
             {displayUrl ? 'Schimbă fotografia' : 'Adaugă fotografie'}
           </p>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
         </div>
 
         {/* Fields */}
@@ -133,7 +148,7 @@ export default function EditProfilePage() {
             onClick={handleSave}
             disabled={saving || !name.trim()}
             className="w-full h-13 rounded-full font-extrabold text-[15px] text-white disabled:opacity-40 flex items-center justify-center transition-opacity mt-2"
-            style={{ height: 52, backgroundColor: '#1DB954' }}
+            style={{ height: 52, backgroundColor: '#1ED75F' }}
           >
             {saving
               ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

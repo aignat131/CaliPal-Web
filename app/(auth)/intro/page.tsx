@@ -11,7 +11,7 @@ const slides = [
     pill: 'Calisthenics & Street Workout',
     gradientFrom: '#0F0F0F',
     gradientTo: '#1A2A1A',
-    accent: '#1DB954',
+    accent: '#1ED75F',
   },
   {
     title: 'AI numără și analizează forma',
@@ -57,6 +57,10 @@ export default function IntroPage() {
   const [animating, setAnimating] = useState(false)
 
   const slide = slides[current]
+
+  useEffect(() => {
+    if (localStorage.getItem('calipal_intro_done')) router.replace('/login')
+  }, [router])
 
   function finish() {
     localStorage.setItem('calipal_intro_done', '1')

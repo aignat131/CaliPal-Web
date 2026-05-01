@@ -23,7 +23,10 @@
       "Bash(ls:*)",
       "Bash(sed \"s/.*collection\\(db, '//\")",
       "Bash(sed \"s/'.*$//\")",
-      "Bash(npx firebase:*)"
+      "Bash(npx firebase:*)",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|BUG\\\\|XXX\" /e/Web_Apps/CaliPal-Web --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/node_modules/*\" ! -path \"*/.next/*\")",
+      "Bash(grep -r \"catch\\\\|error\\\\|Error\" /e/Web_Apps/CaliPal-Web/app --include=\"*.tsx\" ! -path \"*/node_modules/*\" ! -path \"*/.next/*\")",
+      "Bash(grep -r \"cancel\\\\|unsubscribe\" /e/Web_Apps/CaliPal-Web/app ! -path \"*/node_modules/*\" ! -path \"*/.next/*\" -l)"
     ]
   }
 }

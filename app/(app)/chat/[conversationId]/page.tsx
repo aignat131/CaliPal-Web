@@ -36,6 +36,7 @@ export default function ChatDetailPage() {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // When navigating from a notification (no URL params), derive other user from conversation doc
@@ -74,7 +75,7 @@ export default function ChatDetailPage() {
         setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ChatMessage))
         setLoading(false)
       },
-      () => setLoading(false), // permission denied — show empty state
+      () => { setNotFound(true); setLoading(false) }, // permission denied or invalid ID
     )
     return unsub
   }, [conversationId])
@@ -144,6 +145,15 @@ export default function ChatDetailPage() {
 
   const myInitial = (myName || 'U').charAt(0).toUpperCase()
   const otherInitial = otherName.charAt(0).toUpperCase()
+
+  if (notFound) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-3" style={{ backgroundColor: 'var(--app-bg)' }}>
+        <p className="text-white/50 text-sm">Conversație negăsită.</p>
+        <button onClick={() => router.back()} className="text-brand-green text-sm font-semibold">Înapoi</button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] md:h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>

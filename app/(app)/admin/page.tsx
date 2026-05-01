@@ -13,7 +13,7 @@ import type { ParkDoc, CommunityDoc, WeeklyChallenge, CommunityChallenge, ParkRe
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, MapPin, Trophy, Users, Shield, ChevronDown, ChevronUp, BadgeCheck, Dumbbell } from 'lucide-react'
 import { DEFAULT_EXERCISE_CATALOGUE, type CatalogueEntry } from '@/lib/exercise-catalogue'
 
-const SUPERADMIN = 'aignat131@gmail.com'
+const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 const EXERCISES = [
   'Tracțiuni', 'Flotări', 'Genuflexiuni', 'Dips', 'Muscle-up',
@@ -33,7 +33,7 @@ export default function AdminPage() {
     if (user && user.email !== SUPERADMIN) router.replace('/home')
   }, [user, router])
 
-  if (!user || user.email !== SUPERADMIN) return null
+  if (!user || user.email !== SUPERADMIN) return <div className="min-h-screen" style={{ backgroundColor: 'var(--app-bg)' }} />
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>

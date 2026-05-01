@@ -15,14 +15,18 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'CaliPal',
   },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#1ED75F',
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#0D2E2B' },
+    { media: '(prefers-color-scheme: light)', color: '#1ED75F' },
+  ],
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

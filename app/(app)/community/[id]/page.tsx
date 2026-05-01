@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import {
   doc, collection, onSnapshot, addDoc, deleteDoc,
   updateDoc, setDoc, serverTimestamp, getDoc, query, orderBy, getDocs, where,
-  increment, arrayRemove, arrayUnion,
+  increment, arrayRemove, arrayUnion, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-const SUPERADMIN = 'aignat131@gmail.com'
+const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 const ROLE_COLORS: Record<MemberRole, string> = {
   ADMIN: '#FFB800',
@@ -120,7 +120,11 @@ export default function CommunityDetailPage() {
   useEffect(() => {
     const unsub = onSnapshot(
       doc(db, 'communities', id),
-      snap => { if (snap.exists()) setCommunity({ id: snap.id, ...snap.data() } as CommunityDoc); setLoading(false) },
+      snap => {
+        if (snap.exists()) setCommunity({ id: snap.id, ...snap.data() } as CommunityDoc)
+        else setCommunity(null)
+        setLoading(false)
+      },
       () => setLoading(false)
     )
     return unsub
@@ -216,7 +220,8 @@ export default function CommunityDetailPage() {
     if (!user || joining) return
     setJoining(true)
     try {
-      await setDoc(doc(db, 'communities', id, 'members', user.uid), {
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'communities', id, 'members', user.uid), {
         userId: user.uid,
         displayName: user.displayName ?? '',
         role: 'MEMBER',
@@ -225,10 +230,9 @@ export default function CommunityDetailPage() {
         photoUrl: user.photoURL ?? null,
         joinedAt: serverTimestamp(),
       })
-      await updateDoc(doc(db, 'communities', id), { memberCount: increment(1) })
-      await updateDoc(doc(db, 'users', user.uid), {
-        joinedCommunityIds: arrayUnion(id),
-      })
+      batch.update(doc(db, 'communities', id), { memberCount: increment(1) })
+      batch.update(doc(db, 'users', user.uid), { joinedCommunityIds: arrayUnion(id) })
+      await batch.commit()
       setShowJoinNotif(true)
     } finally {
       setJoining(false)
@@ -239,13 +243,15 @@ export default function CommunityDetailPage() {
     if (!user || leaving) return
     setLeaving(true)
     try {
-      await deleteDoc(doc(db, 'communities', id, 'members', user.uid))
-      await updateDoc(doc(db, 'communities', id), { memberCount: increment(-1) })
       const userRef = doc(db, 'users', user.uid)
       const userSnap = await getDoc(userRef)
+      const batch = writeBatch(db)
+      batch.delete(doc(db, 'communities', id, 'members', user.uid))
+      batch.update(doc(db, 'communities', id), { memberCount: increment(-1) })
       const updates: Record<string, unknown> = { joinedCommunityIds: arrayRemove(id) }
       if (userSnap.data()?.favoriteCommunityId === id) updates.favoriteCommunityId = ''
-      await updateDoc(userRef, updates)
+      batch.update(userRef, updates)
+      await batch.commit()
       sessionStorage.setItem('skip_community_redirect', '1')
       router.push('/community')
     } finally {
@@ -258,13 +264,15 @@ export default function CommunityDetailPage() {
     if (!user || kicking) return
     setKicking(true)
     try {
-      await deleteDoc(doc(db, 'communities', id, 'members', member.userId))
-      await updateDoc(doc(db, 'communities', id), { memberCount: increment(-1) })
       const memberUserRef = doc(db, 'users', member.userId)
       const memberUserSnap = await getDoc(memberUserRef)
+      const batch = writeBatch(db)
+      batch.delete(doc(db, 'communities', id, 'members', member.userId))
+      batch.update(doc(db, 'communities', id), { memberCount: increment(-1) })
       const updates: Record<string, unknown> = { joinedCommunityIds: arrayRemove(id) }
       if (memberUserSnap.data()?.favoriteCommunityId === id) updates.favoriteCommunityId = ''
-      await updateDoc(memberUserRef, updates)
+      batch.update(memberUserRef, updates)
+      await batch.commit()
       await createNotification(
         member.userId,
         'COMMUNITY_REMOVED',
@@ -366,6 +374,18 @@ export default function CommunityDetailPage() {
   if (loading) return (
     <div className="flex items-center justify-center min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+
+  if (!community) return (
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-6 text-center" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <p className="text-4xl mb-4">🏚️</p>
+      <p className="text-base font-bold text-white mb-1">Comunitate negăsită</p>
+      <p className="text-sm text-white/50 mb-6">Această comunitate nu există sau a fost ștearsă.</p>
+      <button onClick={() => router.replace('/community')}
+        className="h-11 px-6 rounded-2xl bg-brand-green text-black text-sm font-bold">
+        Înapoi la comunități
+      </button>
     </div>
   )
 

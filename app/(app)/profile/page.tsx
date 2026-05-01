@@ -210,7 +210,7 @@ export default function ProfilePage() {
               }}>
               {profile?.isCoach ? '⭐ Master Coach' : '⚔️ Începător'}
             </span>
-            {user?.email === 'aignat131@gmail.com' && (
+            {user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '') && (
               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
                 style={{ backgroundColor: '#FFB80022', color: '#FFB800', border: '1px solid #FFB80040' }}>
                 👑 Super Admin
