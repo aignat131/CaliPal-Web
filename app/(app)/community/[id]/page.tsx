@@ -97,12 +97,6 @@ export default function CommunityDetailPage() {
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set())
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const [verifyReqPending, setVerifyReqPending] = useState(false)
-  const [showVerifyForm, setShowVerifyForm] = useState(false)
-  const [verifyReason, setVerifyReason] = useState('')
-  const [verifySaving, setVerifySaving] = useState(false)
-  const [verifySent, setVerifySent] = useState(false)
-
   // Three-dots community menu (leave)
   const [showCommunityMenu, setShowCommunityMenu] = useState(false)
   const [leaving, setLeaving] = useState(false)
@@ -191,15 +185,6 @@ export default function CommunityDetailPage() {
     sessionStorage.setItem(`comm_detail_tab_${id}`, String(tab))
     if (tab === 2) loadSocialStatus()
   }, [tab, id, loadSocialStatus])
-
-  // Check for pending verification request on mount
-  useEffect(() => {
-    getDocs(query(
-      collection(db, 'verification_requests'),
-      where('communityId', '==', id),
-      where('status', '==', 'PENDING')
-    )).then(snap => setVerifyReqPending(!snap.empty)).catch(() => {})
-  }, [id])
 
   // Auto-delete expired trainings (staff/superAdmin only)
   useEffect(() => {
@@ -350,27 +335,6 @@ export default function CommunityDetailPage() {
     }
   }
 
-  async function submitVerifyRequest() {
-    if (!user || !verifyReason.trim()) return
-    setVerifySaving(true)
-    try {
-      await addDoc(collection(db, 'verification_requests'), {
-        communityId: id,
-        communityName: community?.name ?? '',
-        requestedByUid: user.uid,
-        requestedByName: myName,
-        reason: verifyReason.trim(),
-        status: 'PENDING',
-        createdAt: serverTimestamp(),
-      })
-      setShowVerifyForm(false)
-      setVerifyReqPending(true)
-      setVerifySent(true)
-    } finally {
-      setVerifySaving(false)
-    }
-  }
-
   if (loading) return (
     <div className="flex items-center justify-center min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
@@ -459,6 +423,7 @@ export default function CommunityDetailPage() {
       )}
 
       {/* Header */}
+      <div className="max-w-lg mx-auto">
       {community?.imageUrl ? (
         /* ── Cover image header ── */
         <div className="border-b border-white/8">
@@ -510,21 +475,6 @@ export default function CommunityDetailPage() {
               <p className="text-xs text-white/65">{community.memberCount ?? 0} membri · {isMember ? 'Membru' : 'Vizitator'}</p>
             </div>
           </div>
-          {myRole === 'ADMIN' && community && !community.verified && (
-            <div className="px-4 pb-3 pt-2">
-              <VerifyArea
-                verifySent={verifySent}
-                verifyReqPending={verifyReqPending}
-                showVerifyForm={showVerifyForm}
-                verifyReason={verifyReason}
-                verifySaving={verifySaving}
-                onShowForm={() => setShowVerifyForm(true)}
-                onHideForm={() => setShowVerifyForm(false)}
-                onChangeReason={setVerifyReason}
-                onSubmit={submitVerifyRequest}
-              />
-            </div>
-          )}
         </div>
       ) : (
         /* ── Plain text header (no image) ── */
@@ -571,23 +521,9 @@ export default function CommunityDetailPage() {
               </div>
             )}
           </div>
-          {myRole === 'ADMIN' && community && !community.verified && (
-            <div className="mt-2.5">
-              <VerifyArea
-                verifySent={verifySent}
-                verifyReqPending={verifyReqPending}
-                showVerifyForm={showVerifyForm}
-                verifyReason={verifyReason}
-                verifySaving={verifySaving}
-                onShowForm={() => setShowVerifyForm(true)}
-                onHideForm={() => setShowVerifyForm(false)}
-                onChangeReason={setVerifyReason}
-                onSubmit={submitVerifyRequest}
-              />
-            </div>
-          )}
         </div>
       )}
+      </div>
 
       {/* Non-member join banner */}
       {!isMember && !loading && (
@@ -1329,58 +1265,3 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
   )
 }
 
-// ── Verify Area ───────────────────────────────────────────────────────────────
-
-function VerifyArea({
-  verifySent, verifyReqPending, showVerifyForm, verifyReason, verifySaving,
-  onShowForm, onHideForm, onChangeReason, onSubmit,
-}: {
-  verifySent: boolean
-  verifyReqPending: boolean
-  showVerifyForm: boolean
-  verifyReason: string
-  verifySaving: boolean
-  onShowForm: () => void
-  onHideForm: () => void
-  onChangeReason: (v: string) => void
-  onSubmit: () => void
-}) {
-  if (verifySent) return <span className="text-[11px] text-brand-green font-semibold">Cerere trimisă ✓</span>
-  if (verifyReqPending) return (
-    <span className="text-[11px] px-2 py-0.5 rounded-full"
-      style={{ backgroundColor: '#F9731618', color: '#F97316', border: '1px solid #F9731630' }}>
-      ⏳ Verificare în așteptare...
-    </span>
-  )
-  if (!showVerifyForm) return (
-    <button
-      onClick={onShowForm}
-      className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 transition-colors"
-    >
-      Solicită verificare
-    </button>
-  )
-  return (
-    <div className="p-3 rounded-xl border border-blue-500/30" style={{ backgroundColor: '#1e3a5f22' }}>
-      <p className="text-xs font-bold text-white/70 mb-1.5">De ce merită această comunitate verificarea?</p>
-      <textarea
-        value={verifyReason}
-        onChange={e => onChangeReason(e.target.value)}
-        placeholder="Descrie comunitatea și activitatea ei..."
-        rows={3}
-        className="w-full rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 resize-none focus:border-blue-500/50"
-      />
-      <div className="flex gap-2 mt-2">
-        <button onClick={onHideForm}
-          className="flex-1 h-8 rounded-lg border border-white/15 text-xs text-white/60">
-          Anulează
-        </button>
-        <button onClick={onSubmit} disabled={verifySaving || !verifyReason.trim()}
-          className="flex-1 h-8 rounded-lg text-xs font-bold disabled:opacity-40"
-          style={{ backgroundColor: '#3B82F6', color: 'white' }}>
-          {verifySaving ? '...' : 'Trimite'}
-        </button>
-      </div>
-    </div>
-  )
-}

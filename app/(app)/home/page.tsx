@@ -149,33 +149,31 @@ export default function HomePage() {
         />
       )}
 
-      {/* Top bar */}
-      <div className="sticky top-0 z-10 flex items-center justify-between px-4 h-12 border-b border-white/8"
-        style={{ backgroundColor: 'var(--app-bg)' }}>
-        <p className="text-xl font-black text-white">Acasă</p>
-        <div className="flex items-center gap-2">
-          {/* Streak icon */}
-          <button
-            onClick={() => setShowStreakCalendar(true)}
-            className="flex items-center gap-1 px-2.5 h-8 rounded-full transition-colors"
-            style={{ backgroundColor: '#FF6B2B18', border: '1px solid #FF6B2B30' }}
-          >
-            <span className={`text-base leading-none ${streak > 0 ? 'animate-pulse' : ''}`}>🔥</span>
-            {streak > 0 && <span className="text-xs font-black" style={{ color: '#FF6B2B' }}>{streak}</span>}
-          </button>
-          {user?.email === SUPERADMIN && (
-            <Link href="/admin">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: '#FF000020', border: '1px solid #FF000040' }}>
-                <Shield size={14} className="text-red-400" />
-              </div>
-            </Link>
-          )}
-          {user && <NotificationBell uid={user.uid} />}
-        </div>
-      </div>
+      <div className="max-w-lg mx-auto px-4 pt-5 pb-8">
 
-      <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-black text-white">Acasă</h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowStreakCalendar(true)}
+              className="flex items-center gap-1 px-2.5 h-8 rounded-full transition-colors"
+              style={{ backgroundColor: '#FF6B2B18', border: '1px solid #FF6B2B30' }}
+            >
+              <span className={`text-base leading-none ${streak > 0 ? 'animate-pulse' : ''}`}>🔥</span>
+              {streak > 0 && <span className="text-xs font-black" style={{ color: '#FF6B2B' }}>{streak}</span>}
+            </button>
+            {user?.email === SUPERADMIN && (
+              <Link href="/admin">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: '#FF000020', border: '1px solid #FF000040' }}>
+                  <Shield size={14} className="text-red-400" />
+                </div>
+              </Link>
+            )}
+            {user && <NotificationBell uid={user.uid} />}
+          </div>
+        </div>
 
         {/* Push notification banner */}
         {showPushBanner && (
