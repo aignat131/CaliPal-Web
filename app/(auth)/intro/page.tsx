@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 const slides = [
@@ -14,26 +14,8 @@ const slides = [
     accent: '#1ED75F',
   },
   {
-    title: 'AI numără și analizează forma',
-    description: 'Numără rep-urile și îți spune dacă ai genunchii îndoiți, picioarele prea în față sau dacă mișcarea este incompletă.',
-    emoji: '🤖',
-    pill: 'MediaPipe + TFLite',
-    gradientFrom: '#0A0A1A',
-    gradientTo: '#1A1040',
-    accent: '#7B61FF',
-  },
-  {
-    title: 'Antrenor personal în aplicație',
-    description: 'Găsește un mentor verificat, cere feedback pe forma ta și urmează un plan personalizat. Dacă ești coach, poți gestiona atleți direct din aplicație.',
-    emoji: '🎯',
-    pill: 'Coaching & Mentorship',
-    gradientFrom: '#001A1A',
-    gradientTo: '#003333',
-    accent: '#00D4AA',
-  },
-  {
     title: 'Comunitate & locuri de antrenament',
-    description: 'Conectează-te cu alți atleți, urmărește-le progresul și găsește parcuri cu bare de tracțiuni în apropierea ta direct pe hartă. Vezi în timp real cine este la același loc.',
+    description: 'Conectează-te cu alți atleți și găsește parcuri cu bare de tracțiuni în apropierea ta direct pe hartă. Vezi în timp real cine este la același loc.',
     emoji: '🗺️',
     pill: 'Comunitate + Maps',
     gradientFrom: '#1A0A00',
@@ -41,13 +23,13 @@ const slides = [
     accent: '#FF6B2B',
   },
   {
-    title: 'Istoricul tău de antrenamente',
-    description: 'Toate sesiunile tale sunt salvate. Revezi fiecare antrenament cu numărul de rep-uri, clasificarea formei și clipurile video aferente.',
-    emoji: '📊',
-    pill: 'Istoric & statistici',
-    gradientFrom: '#1A001A',
-    gradientTo: '#330033',
-    accent: '#E91E8C',
+    title: 'Ești gata?',
+    description: 'Explorează parcuri, comunități și antrenamente. Contul îți deblochează tot.',
+    emoji: '🏃',
+    pill: 'Începe',
+    gradientFrom: '#0F0F0F',
+    gradientTo: '#1A2A1A',
+    accent: '#1ED75F',
   },
 ]
 
@@ -57,15 +39,15 @@ export default function IntroPage() {
   const [animating, setAnimating] = useState(false)
 
   const slide = slides[current]
+  const isLast = current === slides.length - 1
 
   useEffect(() => {
-    if (localStorage.getItem('calipal_intro_done')) router.replace('/login')
+    if (localStorage.getItem('calipal_intro_done')) router.replace('/home')
   }, [router])
 
-  function finish() {
+  const finish = useCallback(() => {
     localStorage.setItem('calipal_intro_done', '1')
-    router.replace('/login')
-  }
+  }, [])
 
   function goTo(index: number) {
     if (animating || index === current) return
@@ -78,12 +60,19 @@ export default function IntroPage() {
 
   function next() {
     if (current < slides.length - 1) goTo(current + 1)
-    else finish()
   }
 
   function prev() {
     if (current > 0) goTo(current - 1)
   }
+
+  // Auto-advance (cleared on user interaction)
+  useEffect(() => {
+    if (isLast) return
+    const t = setTimeout(() => next(), 4000)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, isLast])
 
   // Keyboard support
   useEffect(() => {
@@ -114,7 +103,10 @@ export default function IntroPage() {
         {/* Top bar */}
         <div className="flex items-center justify-between mb-auto">
           <span className="text-xs font-black text-white/90 tracking-[2px]">CALIPAL</span>
-          <button onClick={finish} className="text-xs font-semibold text-white/50 hover:text-white/80 transition-colors">
+          <button
+            onClick={() => { finish(); router.replace('/home') }}
+            className="text-xs font-semibold text-white/50 hover:text-white/80 transition-colors"
+          >
             Skip
           </button>
         </div>
@@ -170,32 +162,48 @@ export default function IntroPage() {
         </div>
 
         {/* Nav buttons */}
-        <div className="flex gap-2.5">
-          <button
-            onClick={prev}
-            disabled={current === 0}
-            className="w-13 h-13 rounded-full flex items-center justify-center text-lg transition-colors disabled:opacity-20"
-            style={{
-              width: 52, height: 52,
-              backgroundColor: current > 0 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
-              color: current > 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
-            }}
-          >
-            ←
-          </button>
-
-          <button
-            onClick={next}
-            className="flex-1 h-13 rounded-full font-extrabold text-[15px] tracking-wide transition-colors"
-            style={{
-              height: 52,
-              backgroundColor: current === slides.length - 1 ? slide.accent : '#FFFFFF',
-              color: current === slides.length - 1 ? '#FFFFFF' : '#111111',
-            }}
-          >
-            {current < slides.length - 1 ? 'Continuă →' : 'Începe acum →'}
-          </button>
-        </div>
+        {isLast ? (
+          /* Last slide: two CTAs */
+          <div className="flex flex-col gap-2.5">
+            <button
+              onClick={() => { finish(); router.replace('/login') }}
+              className="w-full h-13 rounded-full font-extrabold text-[15px] tracking-wide transition-colors"
+              style={{ height: 52, backgroundColor: slide.accent, color: '#111' }}
+            >
+              Intră în cont →
+            </button>
+            <button
+              onClick={() => { finish(); router.replace('/home') }}
+              className="w-full h-13 rounded-full font-semibold text-[15px] tracking-wide transition-colors"
+              style={{ height: 52, backgroundColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.75)' }}
+            >
+              Explorează mai întâi
+            </button>
+          </div>
+        ) : (
+          /* Other slides: prev + next */
+          <div className="flex gap-2.5">
+            <button
+              onClick={prev}
+              disabled={current === 0}
+              className="rounded-full flex items-center justify-center text-lg transition-colors disabled:opacity-20"
+              style={{
+                width: 52, height: 52,
+                backgroundColor: current > 0 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
+                color: current > 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)',
+              }}
+            >
+              ←
+            </button>
+            <button
+              onClick={next}
+              className="flex-1 rounded-full font-extrabold text-[15px] tracking-wide transition-colors"
+              style={{ height: 52, backgroundColor: '#FFFFFF', color: '#111111' }}
+            >
+              Continuă →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

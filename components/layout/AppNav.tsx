@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Users, Dumbbell, Map, User } from 'lucide-react'
+import { Home, Users, Dumbbell, Map, User, LogIn } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 const tabs = [
   { href: '/home',      label: 'Acasă',       Icon: Home },
@@ -13,10 +14,20 @@ const tabs = [
   { href: '/profile',   label: 'Profil',       Icon: User },
 ]
 
+const guestTabs = [
+  { href: '/home',      label: 'Acasă',       Icon: Home },
+  { href: '/community', label: 'Comunitate',   Icon: Users },
+  { href: '/workout',   label: 'Antrenament',  Icon: Dumbbell },
+  { href: '/map',       label: 'Hartă',        Icon: Map },
+  { href: '/login',     label: 'Cont',         Icon: LogIn },
+]
+
 export default function AppNav() {
   const pathname = usePathname()
   const { theme } = useTheme()
+  const { user, loading } = useAuth()
   const inactiveColor = theme === 'light' ? 'rgba(13,27,26,0.40)' : 'rgba(255,255,255,0.45)'
+  const navTabs = (!loading && !user) ? guestTabs : tabs
 
   return (
     <>
@@ -25,7 +36,7 @@ export default function AppNav() {
         className="fixed bottom-0 left-0 right-0 z-50 flex items-center border-t border-white/8 md:hidden"
         style={{ backgroundColor: 'var(--app-bg)', height: 64 }}
       >
-        {tabs.map(({ href, label, Icon }) => {
+        {navTabs.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <Link
@@ -65,7 +76,7 @@ export default function AppNav() {
         </div>
 
         <div className="flex flex-col gap-1 w-full px-2 flex-1">
-          {tabs.map(({ href, label, Icon }) => {
+          {navTabs.map(({ href, label, Icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/')
             return (
               <Link

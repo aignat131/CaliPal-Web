@@ -369,18 +369,20 @@ export default function MapClient() {
     return unsub
   }, [])
 
-  // Sync fresh photoUrls from live_locations
+  // Sync fresh photoUrls from live_locations (auth required)
   useEffect(() => {
+    if (!user) return
     const unsub = onSnapshot(collection(db, 'live_locations'), snap => {
       const map: Record<string, string> = {}
       snap.docs.forEach(d => { map[d.id] = (d.data().photoUrl as string) ?? '' })
       setLiveLocations(map)
     })
     return unsub
-  }, [])
+  }, [user])
 
-  // Load presence for all park communities
+  // Load presence for all park communities (auth required)
   useEffect(() => {
+    if (!user) return
     const communityIds = [...new Set(parks.map(p => p.communityId).filter(Boolean) as string[])]
     if (communityIds.length === 0) return
     const unsubs = communityIds.map(cid =>
@@ -392,7 +394,7 @@ export default function MapClient() {
       })
     )
     return () => unsubs.forEach(u => u())
-  }, [parks])
+  }, [user, parks])
 
   // Cleanup on unmount + page unload
   useEffect(() => {
@@ -474,7 +476,7 @@ export default function MapClient() {
       )}
       {/* Search + filter chips */}
       <div className="absolute top-0 left-0 right-0 z-[1000] px-3 pt-3 pb-2 pointer-events-none">
-        <div className="pointer-events-auto">
+        <div className="max-w-lg mx-auto pointer-events-auto">
           <div className="relative">
             <input
               value={search}
@@ -612,8 +614,8 @@ export default function MapClient() {
         </MapContainer>
       </div>
 
-      {/* Location sharing FAB */}
-      {locationSharingMode === 'OFF' ? (
+      {/* Location sharing FAB (authenticated only) */}
+      {user && (locationSharingMode === 'OFF' ? (
         <div className="absolute bottom-4 left-4 z-[1000] h-10 px-4 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg bg-white/10 border border-white/15 text-white/40">
           <Navigation size={14} />Locație oprită
         </div>
@@ -643,9 +645,10 @@ export default function MapClient() {
             ? <><span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />Oprește locația</>
             : <><Navigation size={14} />{locationSharingMode === 'FRIENDS_ONLY' ? 'Distribuie (prieteni)' : 'Distribuie locația'}</>}
         </button>
-      )}
+      ))}
 
-      {/* Request a park button */}
+      {/* Request a park button (authenticated only) */}
+      {user && (
       <button
         onClick={() => setShowParkRequest(true)}
         className="absolute bottom-16 left-4 z-[1000] h-9 px-3 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-md"
@@ -653,6 +656,7 @@ export default function MapClient() {
       >
         <MapPin size={12} className="text-brand-green" /> Solicită un parc
       </button>
+      )}
 
       {showParkRequest && (
         <ParkRequestModal

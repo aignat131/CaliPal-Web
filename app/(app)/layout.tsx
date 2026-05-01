@@ -40,16 +40,20 @@ function WorkoutMiniBar() {
   )
 }
 
+const GUEST_ROUTES = ['/home', '/map', '/community']
+
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   const { theme } = useTheme()
   const router = useRouter()
+  const pathname = usePathname()
+  const isGuestRoute = GUEST_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'))
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !isGuestRoute) {
       router.replace('/login')
     }
-  }, [user, loading, router])
+  }, [user, loading, router, isGuestRoute])
 
   if (loading) {
     return (
@@ -59,7 +63,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!user) return null
+  if (!user && !isGuestRoute) return null
 
   return (
     <div className={`min-h-screen${theme === 'light' ? ' light' : ''}`} style={{ backgroundColor: 'var(--app-bg)' }}>

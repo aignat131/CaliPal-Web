@@ -14,7 +14,7 @@ export default function RootPage() {
       router.replace('/home')
     } else {
       const hasSeenIntro = localStorage.getItem('calipal_intro_done')
-      router.replace(hasSeenIntro ? '/login' : '/intro')
+      router.replace(hasSeenIntro ? '/home' : '/intro')
     }
   }, [user, loading, router])
 

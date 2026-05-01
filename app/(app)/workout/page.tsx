@@ -438,9 +438,9 @@ export default function WorkoutPage() {
 
       {/* Main tabs (hidden during active) */}
       {screen === 'home' && (
-        <div className="max-w-lg mx-auto px-4 pt-5 pb-8">
+        <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-black text-white">Antrenament</h1>
+            <h1 className="text-2xl font-black text-white">Antrenament</h1>
           </div>
 
           {/* Tabs */}

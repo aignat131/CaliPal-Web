@@ -237,12 +237,12 @@ export default function CommunityPage() {
         />
       )}
 
-      <div className="max-w-lg mx-auto px-4 pt-5 pb-6">
+      <div className="max-w-lg mx-auto px-4 pt-8 pb-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-black text-white">Comunitate</h1>
+          <h1 className="text-2xl font-black text-white">Comunitate</h1>
           <div className="flex items-center gap-2">
-            {tab === 0 && (
+            {tab === 0 && !!user && (
               <Link href="/community/create">
                 <button className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center">
                   <Plus size={18} className="text-black" strokeWidth={2.5} />
@@ -252,22 +252,24 @@ export default function CommunityPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-white/10 mb-4">
-          {[
-            { label: 'Comunitate', Icon: Users },
-            { label: 'Evenimente', Icon: Calendar },
-            { label: 'Provocari', Icon: Trophy },
-          ].map(({ label, Icon }, i) => (
-            <button key={i} onClick={() => changeTab(i)}
-              className={`flex-1 py-2.5 text-xs font-bold transition-colors flex flex-col items-center gap-0.5 ${
-                tab === i ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/40'
-              }`}>
-              <Icon size={14} />
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* Tabs (authenticated only) */}
+        {!!user && (
+          <div className="flex border-b border-white/10 mb-4">
+            {[
+              { label: 'Comunitate', Icon: Users },
+              { label: 'Evenimente', Icon: Calendar },
+              { label: 'Provocari', Icon: Trophy },
+            ].map(({ label, Icon }, i) => (
+              <button key={i} onClick={() => changeTab(i)}
+                className={`flex-1 py-2.5 text-xs font-bold transition-colors flex flex-col items-center gap-0.5 ${
+                  tab === i ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/40'
+                }`}>
+                <Icon size={14} />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ── Comunitate tab ── */}
         {tab === 0 && (
@@ -320,7 +322,7 @@ export default function CommunityPage() {
                             <DiscoverCommunityCard
                               key={c.id}
                               community={c}
-                              onPreview={() => setPreviewCommunity(c)}
+                              onPreview={user ? () => setPreviewCommunity(c) : undefined}
                             />
                           ))}
                         </div>
@@ -470,10 +472,9 @@ function DiscoverCommunityCard({
   community, onPreview,
 }: {
   community: CommunityDoc
-  onPreview: () => void
+  onPreview?: () => void
 }) {
-  return (
-    <button onClick={onPreview} className="w-full text-left">
+  const inner = (
       <div className="rounded-2xl p-4 active:opacity-80 transition-opacity border border-white/5" style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -511,13 +512,14 @@ function DiscoverCommunityCard({
           <div className="flex-shrink-0">
             <div className="h-8 px-3 rounded-lg text-xs font-bold flex items-center"
               style={{ backgroundColor: '#1ED75F18', color: '#1ED75F' }}>
-              Intru
+              {onPreview ? 'Intru' : 'Vezi'}
             </div>
           </div>
         </div>
       </div>
-    </button>
   )
+  if (onPreview) return <button onClick={onPreview} className="w-full text-left">{inner}</button>
+  return <Link href={`/community/${community.id}`} className="block">{inner}</Link>
 }
 
 // ── Members Preview Modal (for non-members) ───────────────────────────────────

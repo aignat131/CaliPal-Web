@@ -530,20 +530,36 @@ export default function CommunityDetailPage() {
         <div className="mx-4 mt-3 mb-1 rounded-2xl p-4 flex items-center gap-3 border border-brand-green/25"
           style={{ backgroundColor: '#1ED75F0A' }}>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-black text-white">Ești vizitator</p>
-            <p className="text-xs text-white/50 mt-0.5">Intră în comunitate pentru a accesa antrenamentele și feed-ul.</p>
+            <p className="text-sm font-black text-white">
+              {user ? 'Ești vizitator' : 'Autentifică-te pentru a te alătura'}
+            </p>
+            <p className="text-xs text-white/50 mt-0.5">
+              {user ? 'Intră în comunitate pentru a accesa antrenamentele și feed-ul.' : 'Creează un cont sau intră în cont pentru acces complet.'}
+            </p>
           </div>
-          <button
-            onClick={joinCommunity}
-            disabled={joining}
-            className="h-9 px-4 rounded-xl bg-brand-green text-black text-sm font-black flex-shrink-0 disabled:opacity-50"
-          >
-            {joining ? '...' : 'Intru'}
-          </button>
+          {user ? (
+            <button
+              onClick={joinCommunity}
+              disabled={joining}
+              className="h-9 px-4 rounded-xl bg-brand-green text-black text-sm font-black flex-shrink-0 disabled:opacity-50"
+            >
+              {joining ? '...' : 'Intru'}
+            </button>
+          ) : (
+            <div className="flex gap-2 flex-shrink-0">
+              <Link href="/login">
+                <span className="h-9 px-3 rounded-xl border border-white/20 text-xs font-bold text-white flex items-center">Cont</span>
+              </Link>
+              <Link href="/register">
+                <span className="h-9 px-4 rounded-xl bg-brand-green text-black text-xs font-black flex items-center">Înscrie-te</span>
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
       {/* Tabs — non-members only see Membri */}
+      <div className="max-w-lg mx-auto">
       <div className="flex border-b border-white/10 mt-3">
         {visibleTabs.map(({ label, Icon }, i) => {
           // For members: tab index matches. For non-members: only 1 tab (index 0 = Membri)
@@ -559,6 +575,7 @@ export default function CommunityDetailPage() {
             </button>
           )
         })}
+      </div>
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-4">
@@ -646,7 +663,23 @@ export default function CommunityDetailPage() {
         )}
 
         {/* ── Membri ── */}
-        {effectiveTab === 2 && (
+        {effectiveTab === 2 && (!user ? (
+          <div className="text-center py-14">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#1ED75F18' }}>
+              <Users size={24} className="text-brand-green" />
+            </div>
+            <p className="font-black text-white mb-1">Vezi membrii comunității</p>
+            <p className="text-sm text-white/50 mb-5">Autentifică-te pentru a vedea membrii</p>
+            <div className="flex flex-col gap-2 max-w-xs mx-auto">
+              <Link href="/register">
+                <span className="h-11 rounded-2xl bg-brand-green text-black text-sm font-black flex items-center justify-center">Creează cont</span>
+              </Link>
+              <Link href="/login">
+                <span className="h-11 rounded-2xl border border-white/15 text-white text-sm font-semibold flex items-center justify-center">Intră în cont</span>
+              </Link>
+            </div>
+          </div>
+        ) : (
           <div className="flex flex-col gap-2">
             <p className="text-[10px] font-bold text-white/35 tracking-widest mb-1">{members.length} MEMBRI</p>
             {sortedMembers.map(m => {
@@ -754,7 +787,7 @@ export default function CommunityDetailPage() {
               )
             })}
           </div>
-        )}
+        ))}
 
       </div>
     </div>

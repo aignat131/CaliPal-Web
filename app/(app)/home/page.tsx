@@ -137,6 +137,8 @@ export default function HomePage() {
 
   const showPushBanner = pushStatus === 'idle' && !dismissedPush
 
+  if (!authLoading && !user) return <GuestHomePage />
+
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
 
@@ -149,11 +151,11 @@ export default function HomePage() {
         />
       )}
 
-      <div className="max-w-lg mx-auto px-4 pt-5 pb-8">
+      <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-black text-white">Acasă</h1>
+          <h1 className="text-2xl font-black text-white">Acasă</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowStreakCalendar(true)}
@@ -566,6 +568,91 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
             <span className="text-xs text-white/50">Azi</span>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Guest Home Page ────────────────────────────────────────────────────────────
+
+function GuestHomePage() {
+  const [communities, setCommunities] = useState<CommunityDoc[]>([])
+
+  useEffect(() => {
+    getDocs(query(collection(db, 'communities'), orderBy('memberCount', 'desc'), limit(5)))
+      .then(snap => setCommunities(snap.docs.map(d => ({ id: d.id, ...d.data() }) as CommunityDoc)))
+      .catch(() => {})
+  }, [])
+
+  return (
+    <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
+
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-black text-white">Explorează CaliPal</h1>
+          <p className="text-sm text-white/50 mt-1">Descoperă comunități, parcuri și antrenamente</p>
+        </div>
+
+        {/* Map CTA */}
+        <Link href="/map">
+          <div className="rounded-2xl p-4 mb-4 flex items-center gap-4 border border-brand-green/20 cursor-pointer"
+            style={{ backgroundColor: '#1ED75F0A' }}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: '#1ED75F18' }}>
+              <MapPin size={22} className="text-brand-green" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-white text-sm">Harta parcurilor</p>
+              <p className="text-xs text-white/50 mt-0.5">Vezi parcurile cu bare din apropierea ta</p>
+            </div>
+            <ChevronRight size={18} className="text-white/30 flex-shrink-0" />
+          </div>
+        </Link>
+
+        {/* Top communities */}
+        {communities.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Comunități populare</p>
+            <div className="flex flex-col gap-2">
+              {communities.map(c => (
+                <Link key={c.id} href={`/community/${c.id}`}>
+                  <div className="rounded-2xl p-3.5 flex items-center gap-3 border border-white/8 cursor-pointer"
+                    style={{ backgroundColor: 'var(--app-surface)' }}>
+                    {c.imageUrl
+                      ? <img src={c.imageUrl} alt="" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                      : <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/8">
+                          <Users size={18} className="text-white/40" />
+                        </div>
+                    }
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-white text-sm truncate">{c.name}</p>
+                      <p className="text-xs text-white/40">{c.memberCount ?? 0} membri</p>
+                    </div>
+                    <ChevronRight size={16} className="text-white/25 flex-shrink-0" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Auth CTAs */}
+        <div className="flex flex-col gap-3 mt-2">
+          <Link href="/register" className="block">
+            <button className="w-full h-12 rounded-2xl font-black text-black text-sm"
+              style={{ backgroundColor: '#1ED75F' }}>
+              Creează cont gratuit
+            </button>
+          </Link>
+          <Link href="/login" className="block">
+            <button className="w-full h-12 rounded-2xl font-bold text-white text-sm border border-white/15"
+              style={{ backgroundColor: 'transparent' }}>
+              Intră în cont
+            </button>
+          </Link>
+        </div>
+
       </div>
     </div>
   )
