@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { DEFAULT_SKILL_CATEGORIES } from '@/lib/skillCategories'
 import type {
-  BasicStrength, SkillsByCategory, SkillItem, SkillCategoryDef,
+  BasicStrength, SkillsByCategory,
   CalisthenicsLevel, PushupType, PullupType, CardioFrequency,
 } from '@/types'
 import { ArrowLeft } from 'lucide-react'
@@ -50,8 +50,6 @@ export default function SkillsPage() {
   const [assignments, setAssignments] = useState<SkillsByCategory>({})
   const [assessmentCompleted, setAssessmentCompleted] = useState(false)
   const [selectedCatId, setSelectedCatId] = useState<string>(DEFAULT_SKILL_CATEGORIES[0].id)
-  const [updating, setUpdating] = useState(false)
-
   useEffect(() => {
     if (!user) return
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
@@ -63,34 +61,6 @@ export default function SkillsPage() {
     })
     return unsub
   }, [user])
-
-  async function cycleSkill(cat: SkillCategoryDef, skill: SkillItem) {
-    if (!user || updating) return
-    setUpdating(true)
-    try {
-      const current = assignments[cat.id] ?? { have: [], wantToLearn: [] }
-      const inHave = current.have.some(s => s.id === skill.id)
-      const inWant = current.wantToLearn.some(s => s.id === skill.id)
-      let newHave: SkillItem[]
-      let newWant: SkillItem[]
-      if (!inHave && !inWant) {
-        newHave = [...current.have, skill]
-        newWant = current.wantToLearn
-      } else if (inHave) {
-        newHave = current.have.filter(s => s.id !== skill.id)
-        newWant = [...current.wantToLearn, skill]
-      } else {
-        newHave = current.have
-        newWant = current.wantToLearn.filter(s => s.id !== skill.id)
-      }
-      await updateDoc(doc(db, 'users', user.uid), {
-        [`skillsByCategory.${cat.id}.have`]:        newHave.map(s => ({ id: s.id, name: s.name })),
-        [`skillsByCategory.${cat.id}.wantToLearn`]: newWant.map(s => ({ id: s.id, name: s.name })),
-      })
-    } finally {
-      setUpdating(false)
-    }
-  }
 
   const totalHave = Object.values(assignments).reduce((sum, v) => sum + v.have.length, 0)
   const totalWant = Object.values(assignments).reduce((sum, v) => sum + v.wantToLearn.length, 0)
@@ -207,34 +177,33 @@ export default function SkillsPage() {
                 {allSkills.map(skill => {
                   const zone = getZone(assignments, cat.id, skill.id)
                   return (
-                    <button key={skill.id}
-                      onClick={() => cycleSkill(cat, skill)}
-                      disabled={updating}
-                      className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-60 ${
+                    <span key={skill.id}
+                      className={`px-3 py-2 rounded-xl text-xs font-semibold ${
                         zone === 'HAVE'
                           ? 'bg-brand-green text-black'
                           : zone === 'WANT'
                             ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
-                            : 'bg-white/8 text-white/60 border border-white/12 hover:bg-white/12'
+                            : 'bg-white/8 text-white/60 border border-white/12'
                       }`}>
                       {skill.name}
-                    </button>
+                    </span>
                   )
                 })}
               </div>
 
               <p className="text-xs text-white/30 mt-4">
-                Atinge un skill pentru a schimba statusul: niciuna → stăpânesc → vreau să învăț → niciuna
+                Refă evaluarea pentru a modifica skill-urile tale.
               </p>
             </div>
           )
         })}
 
-        {/* Re-assess link */}
+        {/* Re-assess CTA */}
         <div className="mt-8 pt-4 border-t border-white/8">
+          <p className="text-xs text-white/35 text-center mb-3">Skill-urile sunt blocate după evaluare. Refă testul pentru a le actualiza.</p>
           <button onClick={() => router.push('/profile/assessment')}
-            className="w-full h-10 rounded-full border border-white/15 text-sm text-white/50 font-semibold">
-            Refă evaluarea
+            className="w-full h-11 rounded-2xl bg-brand-green text-black text-sm font-black">
+            Refă evaluarea →
           </button>
         </div>
 

@@ -335,6 +335,19 @@ export default function MapClient() {
     }
   }, [user, startSharing])
 
+  // Guest location: just get position once to center the map (no Firestore, browser native dialog)
+  useEffect(() => {
+    if (user) return
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setMyLat(pos.coords.latitude)
+        setMyLng(pos.coords.longitude)
+      },
+      () => {} // user denied — map stays on Romania default center
+    )
+  }, [user])
+
   // Load communities where the current user is ADMIN (from joinedCommunityIds + createdByUid for Android compat)
   useEffect(() => {
     if (!user) return
@@ -619,31 +632,26 @@ export default function MapClient() {
         <div className="absolute bottom-4 left-4 z-[1000] h-10 px-4 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg bg-white/10 border border-white/15 text-white/40">
           <Navigation size={14} />Locație oprită
         </div>
+      ) : sharing ? (
+        /* Active sharing indicator — no stop button */
+        <div className="absolute bottom-4 left-4 z-[1000] h-10 px-4 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg bg-brand-green/15 border border-brand-green/30 text-brand-green">
+          <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
+          {locationSharingMode === 'FRIENDS_ONLY' ? 'Distribuie (prieteni)' : 'Locație activă'}
+        </div>
       ) : (
         <button
           onClick={() => {
-            if (sharing) {
-              stopSharing()
-              localStorage.setItem(LOCATION_CONSENT_KEY, 'denied')
+            const stored = localStorage.getItem(LOCATION_CONSENT_KEY)
+            if (stored === 'granted') {
+              startSharing()
             } else {
-              const stored = localStorage.getItem(LOCATION_CONSENT_KEY)
-              if (stored === 'granted') {
-                startSharing()
-              } else {
-                setPermDenied(false)
-                setShowPermSheet(true)
-              }
+              setPermDenied(false)
+              setShowPermSheet(true)
             }
           }}
-          className={`absolute bottom-4 left-4 z-[1000] h-10 px-4 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg transition-colors ${
-            sharing
-              ? 'bg-red-500/20 border border-red-500/40 text-red-400'
-              : 'bg-brand-green text-black'
-          }`}
+          className="absolute bottom-4 left-4 z-[1000] h-10 px-4 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg bg-brand-green text-black"
         >
-          {sharing
-            ? <><span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />Oprește locația</>
-            : <><Navigation size={14} />{locationSharingMode === 'FRIENDS_ONLY' ? 'Distribuie (prieteni)' : 'Distribuie locația'}</>}
+          <Navigation size={14} />{locationSharingMode === 'FRIENDS_ONLY' ? 'Distribuie (prieteni)' : 'Distribuie locația'}
         </button>
       ))}
 
