@@ -207,6 +207,184 @@ function LocationPermissionSheet({
   )
 }
 
+// ── City list for onboarding city picker ─────────────────────────────────────
+
+const CITIES = [
+  { name: 'București',    lat: 44.4268, lng: 26.1025 },
+  { name: 'Cluj-Napoca',  lat: 46.7712, lng: 23.6236 },
+  { name: 'Timișoara',    lat: 45.7489, lng: 21.2087 },
+  { name: 'Iași',         lat: 47.1585, lng: 27.6014 },
+  { name: 'Constanța',    lat: 44.1598, lng: 28.6348 },
+  { name: 'Brașov',       lat: 45.6427, lng: 25.5887 },
+  { name: 'Craiova',      lat: 44.3302, lng: 23.7949 },
+  { name: 'Galați',       lat: 45.4353, lng: 28.0080 },
+  { name: 'Ploiești',     lat: 44.9434, lng: 26.0225 },
+  { name: 'Oradea',       lat: 47.0465, lng: 21.9189 },
+  { name: 'Sibiu',        lat: 45.7983, lng: 24.1256 },
+  { name: 'Bacău',        lat: 46.5675, lng: 26.9146 },
+]
+
+// ── Map onboarding sheet (first-time visitors) ────────────────────────────────
+
+function MapOnboardingSheet({
+  onLocationGranted,
+  onCitySelected,
+  onSkip,
+}: {
+  onLocationGranted: (lat: number, lng: number) => void
+  onCitySelected: (lat: number, lng: number) => void
+  onSkip: () => void
+}) {
+  const { theme } = useTheme()
+  const [showCities, setShowCities] = useState(false)
+  const [locating, setLocating] = useState(false)
+
+  function handleUseLocation() {
+    if (!navigator.geolocation) { setShowCities(true); return }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setLocating(false)
+        onLocationGranted(pos.coords.latitude, pos.coords.longitude)
+      },
+      () => {
+        setLocating(false)
+        setShowCities(true)
+      },
+      { timeout: 8000 }
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div
+        className="w-full max-w-lg rounded-t-3xl px-5 pt-4 pb-8"
+        style={{
+          backgroundColor: 'var(--app-surface)',
+          boxShadow: theme === 'light' ? '0 -4px 32px rgba(0,0,0,0.12)' : '0 -4px 32px rgba(0,0,0,0.5)',
+        }}
+      >
+        <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5" />
+
+        {/* Icon */}
+        <div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+          style={{ backgroundColor: '#1ED75F18' }}
+        >
+          <MapPin size={26} className="text-brand-green" />
+        </div>
+
+        {/* Headline */}
+        <h2 className="text-xl font-black text-white mb-1">
+          Unde vrei să te antrenezi?
+        </h2>
+        <p className="text-sm text-white/50 leading-relaxed mb-5">
+          Găsim parcurile și comunitățile din zona ta.
+        </p>
+
+        {/* Buttons */}
+        {!showCities && (
+          <div className="flex flex-col gap-2.5">
+            <button
+              onClick={handleUseLocation}
+              disabled={locating}
+              className="w-full h-12 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
+              style={{ backgroundColor: '#1ED75F', color: '#111' }}
+            >
+              <Navigation size={16} />
+              {locating ? 'Se detectează...' : 'Folosește locația mea'}
+            </button>
+            <button
+              onClick={() => setShowCities(true)}
+              className="w-full h-12 rounded-2xl font-semibold text-sm border text-white/70 transition-colors hover:text-white/90"
+              style={{ borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'transparent' }}
+            >
+              Alege un oraș
+            </button>
+          </div>
+        )}
+
+        {/* City list */}
+        {showCities && (
+          <div>
+            <p className="text-[10px] font-bold tracking-widest text-white/40 uppercase mb-3">
+              Selectează orașul tău
+            </p>
+            <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto">
+              {CITIES.map(city => (
+                <button
+                  key={city.name}
+                  onClick={() => onCitySelected(city.lat, city.lng)}
+                  className="h-11 rounded-xl text-sm font-semibold text-white/80 text-left px-3 border transition-colors hover:border-brand-green/50 hover:text-white"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                  }}
+                >
+                  {city.name}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowCities(false)}
+              className="mt-3 text-xs text-white/30 hover:text-white/50 transition-colors"
+            >
+              ← Înapoi
+            </button>
+          </div>
+        )}
+
+        {/* Skip */}
+        <button
+          onClick={onSkip}
+          className="mt-4 w-full text-center text-xs text-white/25 hover:text-white/45 transition-colors"
+        >
+          Explorează fără locație
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Callout coord helper (must live inside MapContainer) ──────────────────────
+
+function CalloutCoordHelper({
+  parks,
+  userLat,
+  userLng,
+  onReady,
+}: {
+  parks: ParkDoc[]
+  userLat: number
+  userLng: number
+  onReady: (x: number, y: number, park: ParkDoc) => void
+}) {
+  const map = useMap()
+  const didFire = useRef(false)
+
+  useEffect(() => {
+    if (didFire.current) return
+    const commParks = parks.filter(p => p.communityId)
+    if (!commParks.length) return
+
+    // Find the nearest community park to the user
+    const nearest = commParks.reduce((a, b) =>
+      Math.hypot(a.latitude - userLat, a.longitude - userLng) <
+      Math.hypot(b.latitude - userLat, b.longitude - userLng) ? a : b
+    )
+
+    didFire.current = true
+    map.flyTo([nearest.latitude, nearest.longitude], 15, { duration: 1.5 })
+
+    setTimeout(() => {
+      const pt = map.latLngToContainerPoint([nearest.latitude, nearest.longitude])
+      onReady(pt.x, pt.y, nearest)
+    }, 1800)
+  }, [map, parks, userLat, userLng, onReady])
+
+  return null
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 const LOCATION_CONSENT_KEY = 'calipal_location_consent'
@@ -237,10 +415,16 @@ export default function MapClient() {
   const [todayTraining, setTodayTraining] = useState<PlannedTraining | null>(null)
   const [userAdminCommunities, setUserAdminCommunities] = useState<CommunityDoc[]>([])
   const watchIdRef = useRef<number | null>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
 
   // Permission sheet state
   const [showPermSheet, setShowPermSheet] = useState(false)
   const [permDenied, setPermDenied] = useState(false)
+
+  // Onboarding state
+  const [showMapIntro, setShowMapIntro] = useState(false)
+  const [calloutData, setCalloutData] = useState<{ x: number; y: number; park: ParkDoc } | null>(null)
+  const [calloutDismissed, setCalloutDismissed] = useState(false)
 
   // ── Geolocation callbacks (defined before effects that use them) ──────────
 
@@ -286,6 +470,30 @@ export default function MapClient() {
   function handleLocationDeny() {
     setShowPermSheet(false)
     localStorage.setItem(LOCATION_CONSENT_KEY, 'denied')
+  }
+
+  // ── Onboarding handlers ───────────────────────────────────────────────────
+
+  function dismissCallout() {
+    setCalloutDismissed(true)
+    localStorage.setItem('calipal_community_callout_done', '1')
+  }
+
+  function finishMapIntro() {
+    localStorage.setItem('calipal_map_intro_done', '1')
+    setShowMapIntro(false)
+  }
+
+  function handleIntroLocationGranted(lat: number, lng: number) {
+    setMyLat(lat)
+    setMyLng(lng)
+    localStorage.setItem(LOCATION_CONSENT_KEY, 'granted')
+    finishMapIntro()
+  }
+
+  function handleIntroCitySelected(lat: number, lng: number) {
+    setFlyTarget([lat, lng])
+    finishMapIntro()
   }
 
   // ── Effects ───────────────────────────────────────────────────────────────
@@ -466,6 +674,24 @@ export default function MapClient() {
     return unsub
   }, [selectedPark, user])
 
+  // Show map intro sheet on first visit
+  useEffect(() => {
+    if (!localStorage.getItem('calipal_map_intro_done')) {
+      setShowMapIntro(true)
+    }
+    if (localStorage.getItem('calipal_community_callout_done')) {
+      setCalloutDismissed(true)
+    }
+  }, [])
+
+  // Auto-dismiss callout after 6 seconds
+  useEffect(() => {
+    if (!calloutData || calloutDismissed) return
+    const t = setTimeout(dismissCallout, 6000)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calloutData, calloutDismissed])
+
   // Filter + search
   const filteredParks = parks.filter(p => {
     if (filter === 'community' && !p.communityId) return false
@@ -478,8 +704,17 @@ export default function MapClient() {
   const centerLng = myLng ?? 24.9668
 
   return (
-    <div className="relative flex flex-col h-[calc(100vh-64px)] md:h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
-      {/* Location permission sheet */}
+    <div ref={mapContainerRef} className="relative flex flex-col h-[calc(100vh-64px)] md:h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
+      {/* First-visit onboarding sheet */}
+      {showMapIntro && (
+        <MapOnboardingSheet
+          onLocationGranted={handleIntroLocationGranted}
+          onCitySelected={handleIntroCitySelected}
+          onSkip={finishMapIntro}
+        />
+      )}
+
+      {/* Location permission sheet (auth users only) */}
       {showPermSheet && (
         <LocationPermissionSheet
           onAllow={handleLocationAllow}
@@ -624,8 +859,64 @@ export default function MapClient() {
               <RecenterButton lat={myLat} lng={myLng} />
             </>
           )}
+
+          {/* Community callout helper — fires once after location known */}
+          {myLat !== null && myLng !== null && !showMapIntro && !calloutDismissed && parks.length > 0 && (
+            <CalloutCoordHelper
+              parks={parks}
+              userLat={myLat}
+              userLng={myLng}
+              onReady={(x, y, park) => setCalloutData({ x, y, park })}
+            />
+          )}
         </MapContainer>
       </div>
+
+      {/* Community pin callout (one-time guided tooltip) */}
+      {calloutData && !calloutDismissed && (
+        <div
+          className="absolute z-[2500] pointer-events-auto"
+          style={{
+            left: Math.max(8, Math.min(calloutData.x - 96, (mapContainerRef.current?.clientWidth ?? 360) - 208)),
+            top: Math.max(60, calloutData.y - 140),
+          }}
+        >
+          <div
+            className="w-48 rounded-2xl p-3 shadow-2xl animate-pop-in cursor-pointer"
+            style={{ background: '#164742', border: '1.5px solid rgba(30,215,95,0.35)' }}
+            onClick={() => {
+              setSelectedPark(calloutData.park)
+              dismissCallout()
+            }}
+          >
+            <div className="flex items-start justify-between gap-1 mb-1">
+              <span className="text-[10px] font-black tracking-widest uppercase" style={{ color: '#1ED75F' }}>
+                Comunitate activă
+              </span>
+              <button
+                onClick={e => { e.stopPropagation(); dismissCallout() }}
+                className="text-white/30 hover:text-white/60 transition-colors text-xs leading-none mt-0.5"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-[12px] text-white/75 leading-snug">
+              O echipă se adună regulat la acest parc. Dă tap să afli mai mult 💪
+            </p>
+          </div>
+          {/* Arrow pointing down toward pin */}
+          <div
+            className="ml-[88px]"
+            style={{
+              width: 0,
+              height: 0,
+              borderLeft: '8px solid transparent',
+              borderRight: '8px solid transparent',
+              borderTop: '10px solid rgba(30,215,95,0.35)',
+            }}
+          />
+        </div>
+      )}
 
       {/* Location sharing FAB (authenticated only) */}
       {user && (locationSharingMode === 'OFF' ? (

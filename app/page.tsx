@@ -13,8 +13,8 @@ export default function RootPage() {
     if (user) {
       router.replace('/home')
     } else {
-      const hasSeenIntro = localStorage.getItem('calipal_intro_done')
-      router.replace(hasSeenIntro ? '/home' : '/intro')
+      const hasSeenMapIntro = localStorage.getItem('calipal_map_intro_done')
+      router.replace(hasSeenMapIntro ? '/home' : '/map')
     }
   }, [user, loading, router])
 
