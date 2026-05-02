@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { DEFAULT_SKILL_CATEGORIES } from '@/lib/skillCategories'
 import type {
-  BasicStrength, SkillsByCategory,
+  BasicStrength, SkillsByCategory, SkillItem,
   CalisthenicsLevel, PushupType, PullupType, CardioFrequency,
 } from '@/types'
 import { ArrowLeft } from 'lucide-react'
