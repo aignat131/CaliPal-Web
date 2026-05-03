@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { DEFAULT_SKILL_CATEGORIES } from '@/lib/skillCategories'
+import { DEFAULT_SKILL_CATEGORIES } from '@/lib/data/skillCategories'
 import type {
   BasicStrength, SkillsByCategory, SkillItem,
   CalisthenicsLevel, PushupType, PullupType, CardioFrequency,

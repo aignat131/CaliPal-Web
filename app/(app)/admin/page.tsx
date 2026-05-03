@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { ParkDoc, CommunityDoc, WeeklyChallenge, CommunityChallenge, ParkRequest, ParkCommunityRequest, VerificationRequest } from '@/types'
 import { ArrowLeft, Plus, Trash2, Pencil, Check, X, MapPin, Trophy, Users, Shield, ChevronDown, ChevronUp, BadgeCheck, Dumbbell } from 'lucide-react'
-import { DEFAULT_EXERCISE_CATALOGUE, type CatalogueEntry } from '@/lib/exercise-catalogue'
+import { DEFAULT_EXERCISE_CATALOGUE, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 
 const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 

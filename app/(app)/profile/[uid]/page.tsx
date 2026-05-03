@@ -12,7 +12,7 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { UserDoc, WorkoutDoc } from '@/types'
 import { conversationId } from '@/types'
-import { SKILLS, SKILL_LEVEL_COLORS } from '@/lib/skills'
+import { SKILLS, SKILL_LEVEL_COLORS } from '@/lib/data/skills'
 import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell } from 'lucide-react'
 
 function formatDuration(s: number): string {

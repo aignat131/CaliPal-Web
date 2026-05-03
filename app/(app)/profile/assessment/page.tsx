@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { awardCoins, checkSkillMilestones } from '@/lib/coins'
-import { loadSkillCategories } from '@/lib/skillCategories'
+import { awardCoins, checkSkillMilestones } from '@/lib/gamification/coins'
+import { loadSkillCategories } from '@/lib/data/skillCategories'
 import { ArrowLeft, ArrowRight, Check, Plus, X } from 'lucide-react'
 import type {
   CalisthenicsLevel, PushupType, PullupType, CardioFrequency,

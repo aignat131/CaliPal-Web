@@ -1122,7 +1122,7 @@ function ParkBottomSheet({
                   <span className="text-xl">🏗️</span>
                   <div>
                     <p className="text-sm font-bold text-white">Creează comunitate nouă</p>
-                    <p className="text-xs text-white/45">Pornește o comunitate pentru acest parc</p>
+                    <p className="text-xs text-white/45">Pornești o comunitate pentru acest parc</p>
                   </div>
                 </button>
                 <button

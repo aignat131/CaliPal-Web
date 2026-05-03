@@ -9,7 +9,7 @@ import { db } from '@/lib/firebase/firestore'
 import { collection, query, orderBy, limit, where, onSnapshot, doc } from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { UserDoc, WorkoutDoc } from '@/types'
-import { SKILLS, SKILL_LEVEL_LABELS, SKILL_LEVEL_COLORS } from '@/lib/skills'
+import { SKILLS, SKILL_LEVEL_LABELS, SKILL_LEVEL_COLORS } from '@/lib/data/skills'
 import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, Flame } from 'lucide-react'
 
 function formatDuration(s: number): string {

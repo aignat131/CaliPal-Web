@@ -11,7 +11,7 @@
  */
 
 import { usePathname } from 'next/navigation'
-import ChatListPane from './ChatListPane'
+import ChatListPane from '@/components/chat/ChatListPane'
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
