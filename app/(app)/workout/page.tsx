@@ -695,39 +695,63 @@ function ActiveWorkout({
             </div>
           )}
 
-          {exercises.map((ex, ei) => (
-            <div key={`${ex.name}-${ei}`} className="rounded-2xl p-4 mb-3" style={{ backgroundColor: 'var(--app-surface)' }}>
-              <div className="flex items-center gap-2 mb-2">
-                {/* Clickable area to edit sets */}
-                <div
-                  className="flex-1 flex items-center justify-between cursor-pointer select-none min-w-0"
-                  onPointerDown={() => openExPopup(ei, ex.sets)}
-                >
-                  <div className="min-w-0">
-                    <p className="font-bold text-white text-sm">{ex.name}</p>
-                    <p className="text-xs text-white/40">{ex.category}</p>
+          {exercises.map((ex, ei) => {
+            const accentColor = ex.weightKg ? '#f97316' : ex.bandKg ? '#a855f7' : null
+            return (
+              <div
+                key={`${ex.name}-${ei}`}
+                className="rounded-2xl mb-3 overflow-hidden"
+                style={{
+                  backgroundColor: 'var(--app-surface)',
+                  boxShadow: accentColor ? `inset 3px 0 0 ${accentColor}` : undefined,
+                }}
+              >
+                {/* Modifier header strip */}
+                {(ex.weightKg || ex.bandKg) && (
+                  <div
+                    className="flex items-center gap-1.5 px-4 py-1.5"
+                    style={{ backgroundColor: accentColor ? `${accentColor}18` : undefined }}
+                  >
+                    {ex.weightKg && (
+                      <span className="text-[10px] font-black tracking-wide px-2 py-0.5 rounded-full border border-orange-500/35 text-orange-400 bg-orange-500/10">
+                        ⚖️ +{ex.weightKg} kg
+                      </span>
+                    )}
+                    {ex.bandKg && (
+                      <span className="text-[10px] font-black tracking-wide px-2 py-0.5 rounded-full border border-purple-500/35 text-purple-400 bg-purple-500/10">
+                        🔴 Bandă {ex.bandKg} kg
+                      </span>
+                    )}
                   </div>
-                  <ChevronRight size={16} className="text-white/30 flex-shrink-0 ml-2" />
+                )}
+
+                <div className="p-4 pt-3">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div
+                      className="flex-1 flex items-center justify-between cursor-pointer select-none min-w-0"
+                      onPointerDown={() => openExPopup(ei, ex.sets)}
+                    >
+                      <p className="font-bold text-white text-sm">{ex.name}</p>
+                      <ChevronRight size={16} className="text-white/30 flex-shrink-0 ml-2" />
+                    </div>
+                    <button
+                      onPointerDown={() => onRemoveExercise(ei)}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                  <p className="text-xs text-white/45">
+                    {ex.sets.length} set{ex.sets.length !== 1 ? 'uri' : ''} · {
+                      ex.sets.map(s =>
+                        s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
+                      ).join(', ')
+                    }
+                  </p>
                 </div>
-                {/* Delete button */}
-                <button
-                  onPointerDown={() => onRemoveExercise(ei)}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0"
-                >
-                  <Trash2 size={13} />
-                </button>
               </div>
-              <p className="text-xs text-white/50">
-                {ex.sets.length} set{ex.sets.length !== 1 ? 'uri' : ''} · {
-                  ex.sets.map(s =>
-                    s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
-                  ).join(', ')
-                }
-                {ex.weightKg ? <span className="text-orange-400/70"> · ⚖️ +{ex.weightKg}kg</span> : null}
-                {ex.bandKg   ? <span className="text-purple-400/70"> · 🔴 {ex.bandKg}kg</span>    : null}
-              </p>
-            </div>
-          ))}
+            )
+          })}
 
           {/* Search exercise button */}
           <button
@@ -860,7 +884,7 @@ function ActiveWorkout({
               {/* Modifier toggles */}
               <div className="flex gap-2 px-5 mt-4">
                 <button
-                  onClick={() => setPopupWeightOn(v => !v)}
+                  onClick={() => { setPopupWeightOn(v => !v); setPopupBandOn(false) }}
                   className={`flex-1 h-9 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-colors ${
                     popupWeightOn
                       ? 'bg-orange-500/15 border-orange-500/40 text-orange-400'
@@ -870,7 +894,7 @@ function ActiveWorkout({
                   ⚖️ {popupWeightOn ? `+${popupWeight}kg` : 'Greutate'}
                 </button>
                 <button
-                  onClick={() => setPopupBandOn(v => !v)}
+                  onClick={() => { setPopupBandOn(v => !v); setPopupWeightOn(false) }}
                   className={`flex-1 h-9 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-colors ${
                     popupBandOn
                       ? 'bg-purple-500/15 border-purple-500/40 text-purple-400'
@@ -1077,7 +1101,7 @@ function ActiveWorkout({
                 {/* Modifier toggle chips — always visible */}
                 <div className="flex gap-2 mb-4">
                   <button
-                    onClick={() => setLogWeightOn(v => !v)}
+                    onClick={() => { setLogWeightOn(v => !v); setLogBandOn(false) }}
                     className={`flex-1 h-10 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-95 ${
                       logWeightOn
                         ? 'bg-orange-500/15 border-orange-500/50 text-orange-400'
@@ -1087,7 +1111,7 @@ function ActiveWorkout({
                     ⚖️ {logWeightOn ? `+${logWeight} kg` : '+ Greutate'}
                   </button>
                   <button
-                    onClick={() => setLogBandOn(v => !v)}
+                    onClick={() => { setLogBandOn(v => !v); setLogWeightOn(false) }}
                     className={`flex-1 h-10 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-95 ${
                       logBandOn
                         ? 'bg-purple-500/15 border-purple-500/50 text-purple-400'
