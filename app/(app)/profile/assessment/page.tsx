@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { awardCoins, checkSkillMilestones } from '@/lib/gamification/coins'
 import { loadSkillCategories } from '@/lib/data/skillCategories'
-import { ArrowLeft, ArrowRight, Check, Plus, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Plus } from 'lucide-react'
 import type {
   CalisthenicsLevel, PushupType, PullupType, CardioFrequency,
   SkillCategoryDef, SkillItem, UserSkillData, SkillsByCategory,

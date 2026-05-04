@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { useRouter, useParams } from 'next/navigation'
 import {
   doc, collection, query, orderBy, limit,
@@ -158,29 +159,34 @@ export default function UserProfilePage() {
     if (!user || friendLoading) return
     setFriendLoading(true)
     const reqId = `${uid}_${user.uid}`
-    await Promise.all([
-      setDoc(doc(db, 'users', user.uid, 'friends', uid), {
-        friendUid: uid,
-        friendName: profile?.displayName ?? '',
-        friendPhotoUrl: profile?.photoUrl ?? '',
-        since: serverTimestamp(),
-      }),
-      setDoc(doc(db, 'users', uid, 'friends', user.uid), {
-        friendUid: user.uid,
-        friendName: user.displayName ?? '',
-        friendPhotoUrl: user.photoURL ?? '',
-        since: serverTimestamp(),
-      }),
-      deleteDoc(doc(db, 'friend_requests', reqId)),
-      updateDoc(doc(db, 'users', user.uid), { friendCount: increment(1) }),
-      updateDoc(doc(db, 'users', uid), { friendCount: increment(1) }),
-      createNotification(uid, 'FRIEND_REQUEST_ACCEPTED',
-        'Cerere acceptată! 🎉',
-        `${myName || 'Cineva'} și-a acceptat cererea ta de prietenie.`,
-        user.uid
-      ),
-    ])
-    setFriendLoading(false)
+    try {
+      await Promise.all([
+        setDoc(doc(db, 'users', user.uid, 'friends', uid), {
+          friendUid: uid,
+          friendName: profile?.displayName ?? '',
+          friendPhotoUrl: profile?.photoUrl ?? '',
+          since: serverTimestamp(),
+        }),
+        setDoc(doc(db, 'users', uid, 'friends', user.uid), {
+          friendUid: user.uid,
+          friendName: user.displayName ?? '',
+          friendPhotoUrl: user.photoURL ?? '',
+          since: serverTimestamp(),
+        }),
+        deleteDoc(doc(db, 'friend_requests', reqId)),
+        updateDoc(doc(db, 'users', user.uid), { friendCount: increment(1) }),
+        updateDoc(doc(db, 'users', uid), { friendCount: increment(1) }),
+        createNotification(uid, 'FRIEND_REQUEST_ACCEPTED',
+          'Cerere acceptată! 🎉',
+          `${myName || 'Cineva'} și-a acceptat cererea ta de prietenie.`,
+          user.uid
+        ),
+      ])
+    } catch (err) {
+      console.error('acceptRequest failed', err)
+    } finally {
+      setFriendLoading(false)
+    }
   }
 
   function goToChat() {
@@ -227,10 +233,10 @@ export default function UserProfilePage() {
 
         {/* Profile hero */}
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+          <div className="relative w-20 h-20 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: '#1ED75F33', border: '2px solid #1ED75F44' }}>
             {photoUrl
-              ? <img src={photoUrl} alt={displayName} className="w-full h-full object-cover" />
+              ? <Image src={photoUrl} alt={displayName} fill sizes="80px" className="object-cover" />
               : <span className="text-3xl font-black text-brand-green">{initial}</span>}
           </div>
 

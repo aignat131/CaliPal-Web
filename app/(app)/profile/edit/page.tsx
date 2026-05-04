@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateProfile } from 'firebase/auth'
-import { auth } from '@/lib/firebase/auth'
 import { getUserDoc, updateUserDoc } from '@/lib/firebase/firestore'
 import { uploadProfilePhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -106,6 +105,7 @@ export default function EditProfilePage() {
             <div className="w-24 h-24 rounded-full overflow-hidden flex items-center justify-center"
               style={{ backgroundColor: '#1ED75F33' }}>
               {displayUrl
+                /* eslint-disable-next-line @next/next/no-img-element */
                 ? <img src={displayUrl} alt="avatar" className="w-full h-full object-cover" />
                 : <span className="text-4xl font-black text-brand-green">{initial}</span>}
             </div>

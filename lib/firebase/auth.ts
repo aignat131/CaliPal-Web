@@ -1,6 +1,6 @@
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import { app } from './config'
 
-// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-export const auth = app ? getAuth(app) : null as unknown as ReturnType<typeof getAuth>
+if (!app) throw new Error('Firebase failed to initialize. Check NEXT_PUBLIC_FIREBASE_* env vars.')
+export const auth = getAuth(app)
 export const googleProvider = new GoogleAuthProvider()

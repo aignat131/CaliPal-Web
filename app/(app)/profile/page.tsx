@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signOut } from 'firebase/auth'
@@ -9,8 +10,8 @@ import { db } from '@/lib/firebase/firestore'
 import { collection, query, orderBy, limit, where, onSnapshot, doc } from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { UserDoc, WorkoutDoc } from '@/types'
-import { SKILLS, SKILL_LEVEL_LABELS, SKILL_LEVEL_COLORS } from '@/lib/data/skills'
-import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, Flame } from 'lucide-react'
+import { SKILLS, SKILL_LEVEL_COLORS } from '@/lib/data/skills'
+import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell } from 'lucide-react'
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -54,10 +55,17 @@ export default function ProfilePage() {
   // Live profile
   useEffect(() => {
     if (!user) return
-    const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
-      if (snap.exists()) setProfile({ uid: snap.id, ...snap.data() } as UserDoc)
-      setLoading(false)
-    })
+    const unsub = onSnapshot(
+      doc(db, 'users', user.uid),
+      snap => {
+        if (snap.exists()) setProfile({ uid: snap.id, ...snap.data() } as UserDoc)
+        setLoading(false)
+      },
+      err => {
+        console.error('Profile snapshot error', err)
+        setLoading(false)
+      }
+    )
     return unsub
   }, [user])
 
@@ -167,10 +175,10 @@ export default function ProfilePage() {
         <div className="flex items-center gap-4 mb-4">
           <div className="relative">
             <Link href="/profile/edit">
-              <div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center cursor-pointer"
+              <div className="relative w-20 h-20 rounded-full overflow-hidden flex items-center justify-center cursor-pointer"
                 style={{ backgroundColor: '#1ED75F33' }}>
                 {photoUrl
-                  ? <img src={photoUrl} alt={displayName} className="w-full h-full object-cover" />
+                  ? <Image src={photoUrl} alt={displayName} fill sizes="80px" className="object-cover" />
                   : <span className="text-3xl font-black text-brand-green">{initial}</span>}
               </div>
             </Link>

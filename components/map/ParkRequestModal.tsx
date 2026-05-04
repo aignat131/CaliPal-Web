@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
@@ -47,6 +47,8 @@ export default function ParkRequestModal({ onClose, defaultLat, defaultLng }: Pr
   const [showMapPicker, setShowMapPicker] = useState(false)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
+  const mountedRef = useRef(true)
+  useEffect(() => () => { mountedRef.current = false }, [])
 
   async function handlePick(pickedLat: number, pickedLng: number) {
     setLat(pickedLat)
@@ -64,16 +66,18 @@ export default function ParkRequestModal({ onClose, defaultLat, defaultLng }: Pr
     navigator.geolocation.getCurrentPosition(
       async pos => {
         const { latitude, longitude } = pos.coords
+        if (!mountedRef.current) return
         setLat(latitude)
         setLng(longitude)
         setLocating(false)
         setGeocoding(true)
         const result = await reverseGeocode(latitude, longitude)
+        if (!mountedRef.current) return
         if (result.address) setAddress(result.address)
         if (result.city) setCity(result.city)
         setGeocoding(false)
       },
-      () => setLocating(false)
+      () => { if (mountedRef.current) setLocating(false) }
     )
   }
 

@@ -307,10 +307,12 @@ export default function CreateCommunityPage() {
               className="w-24 h-24 rounded-2xl overflow-hidden flex items-center justify-center relative border-2 border-dashed border-white/20 hover:border-brand-green/50 transition-colors"
               style={{ backgroundColor: '#1ED75F10' }}
             >
-              {previewUrl
-                ? <img src={previewUrl} alt="" className="w-full h-full object-cover" />
-                : <Camera size={28} className="text-white/30" />
-              }
+              {previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <Camera size={28} className="text-white/30" />
+              )}
               <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                 <Camera size={20} className="text-white" />
               </div>

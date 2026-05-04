@@ -20,7 +20,10 @@ export const FEATURES_PER_FRAME = 8
  *  6: left vertical reach (wrist above hip, normalized by torso)  × 90 to bring to degree-like scale
  *  7: right vertical reach
  */
+const REQUIRED_LANDMARKS = 33
+
 export function extractFeatures(landmarks: Landmark[]): number[] {
+  if (landmarks.length < REQUIRED_LANDMARKS) return new Array(8).fill(0)
   const lShoulder = landmarks[MP.LEFT_SHOULDER]
   const rShoulder = landmarks[MP.RIGHT_SHOULDER]
   const lElbow = landmarks[MP.LEFT_ELBOW]

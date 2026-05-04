@@ -195,7 +195,6 @@ export default function AutoCutPage() {
       await ffmpeg.writeFile('input.webm', await fetchFile(fullBlob))
 
       // Build a filter_complex concat for detected reps
-      const totalDuration = (Date.now() - recordingStartRef.current)
       const filterParts: string[] = []
       const concatInputs: string[] = []
 
@@ -227,7 +226,7 @@ export default function AutoCutPage() {
       setOutputBlob(blob)
       setOutputUrl(URL.createObjectURL(blob))
       setStatus('done')
-    } catch (e) {
+    } catch {
       // ffmpeg failed — just offer the full video
       const fullBlob = new Blob(chunksRef.current, { type: 'video/webm' })
       setOutputBlob(fullBlob)

@@ -241,8 +241,6 @@ export default function WorkoutPage() {
     const finalExercises = capturedExercises
     const finalSeconds = capturedSeconds
     const finalNote = description
-    const capturedStartedAt = workoutStartedAt ?? Date.now() - capturedSeconds * 1000
-
     setScreen('summary')
 
     const totalReps = totalRepsInWorkout(finalExercises)
@@ -554,7 +552,7 @@ export default function WorkoutPage() {
 function ActiveWorkout({
   exercises, seconds, note, catalogue, onNoteChange,
   onReplaceExerciseSets, onAddExercise, onRemoveExercise, onFinish, onCancel,
-  favorites, onToggleFavorite,
+  favorites, onToggleFavorite: _onToggleFavorite,
 }: {
   exercises: WorkoutExercise[]
   seconds: number
@@ -1047,6 +1045,7 @@ function PostWorkoutDetails({
         <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
         {photoPreview ? (
           <div className="relative rounded-2xl overflow-hidden mb-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={photoPreview} alt="" className="w-full object-cover max-h-52" />
             <button
               onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
@@ -1121,7 +1120,7 @@ function WorkoutSummary({
   const [sharing, setSharing] = useState(false)
   const [shared, setShared] = useState(false)
   const [loadingComms, setLoadingComms] = useState(false)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [, setUploadingPhoto] = useState(false)
 
   // Auto-open share sheet when coming from "Postează în comunitate"
   useEffect(() => {
@@ -1241,6 +1240,7 @@ function WorkoutSummary({
         {/* Photo from postdetails */}
         {photoFile && (
           <div className="relative rounded-2xl overflow-hidden mb-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={URL.createObjectURL(photoFile)} alt="" className="w-full object-cover max-h-52" />
           </div>
         )}

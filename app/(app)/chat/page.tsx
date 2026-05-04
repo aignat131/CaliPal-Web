@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
@@ -110,7 +111,7 @@ function Avatar({ name, photoUrl, size }: { name: string; photoUrl: string; size
     <div className="rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
       style={{ width: size, height: size, backgroundColor: '#1ED75F33' }}>
       {photoUrl
-        ? <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
+        ? <Image src={photoUrl} alt={name} width={size} height={size} className="object-cover" />
         : <span className="font-black text-brand-green" style={{ fontSize: size * 0.38 }}>{name.charAt(0).toUpperCase()}</span>}
     </div>
   )

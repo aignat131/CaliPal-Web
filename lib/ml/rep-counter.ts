@@ -45,7 +45,12 @@ export class RepCounter {
    * Feed one frame's average elbow angle (degrees).
    * Returns updated state snapshot.
    */
+  private snapshot(): RepCounterState {
+    return { repCount: this.repCount, state: this.state, currentAngle: NaN, framesSinceRep: this.framesSinceRep }
+  }
+
   update(avgElbow: number): RepCounterState {
+    if (!isFinite(avgElbow)) return this.snapshot()
     this.framesSinceRep++
 
     switch (this.state) {
@@ -159,6 +164,7 @@ export class PushupCounter {
   reset() { this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0 }
 
   update(avgElbow: number): { repCount: number; state: PushupState } {
+    if (!isFinite(avgElbow)) return { repCount: this.repCount, state: this.state }
     switch (this.state) {
       case 'IDLE':
       case 'UP':
@@ -199,6 +205,7 @@ export class SquatCounter {
   reset() { this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0 }
 
   update(avgKnee: number): { repCount: number; state: SquatState } {
+    if (!isFinite(avgKnee)) return { repCount: this.repCount, state: this.state }
     switch (this.state) {
       case 'IDLE':
       case 'UP':

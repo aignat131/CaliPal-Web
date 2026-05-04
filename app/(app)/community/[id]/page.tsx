@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Image from 'next/image'
 import { useRouter, useParams } from 'next/navigation'
 import {
   doc, collection, onSnapshot, addDoc, deleteDoc,
@@ -428,7 +429,7 @@ export default function CommunityDetailPage() {
         /* ── Cover image header ── */
         <div className="border-b border-white/8">
           <div className="relative overflow-hidden" style={{ height: 140 }}>
-            <img src={community.imageUrl} alt="" className="w-full h-full object-cover" />
+            <Image src={community.imageUrl} alt="" fill sizes="(max-width: 640px) 100vw, 640px" className="object-cover" />
             <div className="absolute inset-0"
               style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, var(--app-bg) 100%)' }} />
             <button
@@ -692,10 +693,10 @@ export default function CommunityDetailPage() {
                 <div key={m.userId} className="flex items-center gap-2 px-3 py-3 rounded-2xl" style={{ backgroundColor: 'var(--app-surface)' }}>
                   {/* Avatar with role ring */}
                   <div className="relative flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center"
+                    <div className="relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center"
                       style={{ backgroundColor: `${roleColor}22`, border: `2px solid ${roleColor}` }}>
                       {m.photoUrl
-                        ? <img src={m.photoUrl} alt={m.displayName} className="w-full h-full object-cover" />
+                        ? <Image src={m.photoUrl} alt={m.displayName} fill sizes="40px" className="object-cover" />
                         : <span className="text-sm font-black" style={{ color: roleColor }}>{m.displayName.charAt(0).toUpperCase()}</span>}
                     </div>
                     {m.role === 'ADMIN' && (
@@ -856,7 +857,7 @@ function MemberAvatar({ photoUrl, name, size = 28 }: { photoUrl?: string | null;
       style={{ width: size, height: size, borderColor: 'var(--app-surface)' }}
     >
       {photoUrl
-        ? <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
+        ? <Image src={photoUrl} alt={name} width={size} height={size} className="object-cover" />
         : <span className="text-white font-bold" style={{ fontSize: size * 0.38 }}>{initials}</span>}
     </div>
   )
@@ -1010,7 +1011,7 @@ function TrainingCard({ training, myUid, members, canLoad, canDelete, onRsvp, on
                     {m.uid === myUid && <span className="text-[10px] text-brand-green ml-auto">Tu</span>}
                   </div>
                 ))}
-                {maybeUids.map((uid, i) => {
+                {maybeUids.map((uid) => {
                   const m = members.find(mem => mem.userId === uid)
                   if (!m) return null
                   return (
@@ -1242,6 +1243,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
 
       {post.photoUrl && (
         <div className="mb-3 rounded-xl overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={post.photoUrl} alt="" className="w-full object-cover max-h-72" />
         </div>
       )}

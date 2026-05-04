@@ -9,7 +9,7 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import type { FormCheckRequest } from '@/types'
-import { ArrowLeft, Video, MessageSquare, Clock, Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Video, MessageSquare, Check, ChevronDown, ChevronUp } from 'lucide-react'
 
 const STATUS_COLORS = {
   PENDING: '#F59E0B',

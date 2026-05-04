@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback, memo } from 'react'
+import Image from 'next/image'
 import {
   collection, onSnapshot, doc, setDoc, deleteDoc,
   serverTimestamp, getDoc, getDocs, query, where, addDoc, updateDoc, arrayUnion,
@@ -559,13 +560,15 @@ export default function MapClient() {
   // Load communities where the current user is ADMIN (from joinedCommunityIds + createdByUid for Android compat)
   useEffect(() => {
     if (!user) return
-    getDoc(doc(db, 'users', user.uid)).then(async snap => {
+    let cancelled = false
+    const uid = user.uid
+    getDoc(doc(db, 'users', uid)).then(async snap => {
       const ids: string[] = snap.data()?.joinedCommunityIds ?? []
       const joinedResults = await Promise.all(
         ids.map(id => getDoc(doc(db, 'communities', id)).then(s => s.exists() ? { id: s.id, ...s.data() } as CommunityDoc : null))
       )
       // Also fetch communities created by this user (Android may not update joinedCommunityIds)
-      const createdSnap = await getDocs(query(collection(db, 'communities'), where('creatorId', '==', user.uid)))
+      const createdSnap = await getDocs(query(collection(db, 'communities'), where('creatorId', '==', uid)))
       const createdComms = createdSnap.docs.map(d => ({ id: d.id, ...d.data() }) as CommunityDoc)
       // Merge and deduplicate
       const allComms = [...joinedResults.filter(Boolean) as CommunityDoc[]]
@@ -575,11 +578,12 @@ export default function MapClient() {
       // Filter to ADMIN role
       const adminComms: CommunityDoc[] = []
       await Promise.all(allComms.map(async c => {
-        const mem = await getDoc(doc(db, 'communities', c.id, 'members', user.uid))
+        const mem = await getDoc(doc(db, 'communities', c.id, 'members', uid))
         if (mem.exists() && mem.data().role === 'ADMIN') adminComms.push(c)
       }))
-      setUserAdminCommunities(adminComms)
+      if (!cancelled) setUserAdminCommunities(adminComms)
     })
+    return () => { cancelled = true }
   }, [user])
 
   // Load parks
@@ -658,7 +662,7 @@ export default function MapClient() {
     getDoc(doc(db, 'communities', selectedPark.communityId)).then(snap => {
       if (snap.exists()) setParkCommunity({ id: snap.id, ...snap.data() } as CommunityDoc)
       else setParkCommunity(null)
-    })
+    }).catch(() => setParkCommunity(null))
     // Load today's training (silently fail for non-members — rule requires isCommunityMember)
     const today = new Date().toISOString().slice(0, 10)
     getDocs(query(
@@ -689,7 +693,6 @@ export default function MapClient() {
     if (!calloutData || calloutDismissed) return
     const t = setTimeout(dismissCallout, 6000)
     return () => clearTimeout(t)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calloutData, calloutDismissed])
 
   // Filter + search
@@ -993,7 +996,7 @@ export default function MapClient() {
 function ParkBottomSheet({
   park, community, members, liveLocations, onClose,
   uid, userName, todayTraining, parkPendingReq, userAdminCommunities,
-  showParkCommModal, setShowParkCommModal, onPendingReqSet, onCommunityCreated,
+  showParkCommModal, setShowParkCommModal, onPendingReqSet, onCommunityCreated: _onCommunityCreated,
 }: {
   park: ParkDoc
   community: CommunityDoc | null
@@ -1227,7 +1230,7 @@ function ParkCommunityModal({
       })
       setAlreadyRequested(!!todayReq)
       setChecking(false)
-    })
+    }).catch(() => setChecking(false))
   }, [uid])
 
   async function submit() {
@@ -1470,11 +1473,11 @@ function MemberAvatar({ name, photoUrl }: { name: string; photoUrl: string }) {
   const [imgError, setImgError] = useState(false)
   return (
     <div
-      className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+      className="relative w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
       style={{ backgroundColor: '#1ED75F33' }}
     >
       {photoUrl && !imgError
-        ? <img src={photoUrl} alt={name} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+        ? <Image src={photoUrl} alt={name} fill sizes="32px" className="object-cover" onError={() => setImgError(true)} />
         : <span className="text-xs font-black text-brand-green">{name.charAt(0).toUpperCase()}</span>}
     </div>
   )

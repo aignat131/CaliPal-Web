@@ -1,4 +1,5 @@
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore'
+import type { Firestore } from 'firebase/firestore'
 import type { SkillCategoryDef } from '@/types'
 
 // ── Default categories — must match Android's defaultSkillCategories() exactly ─
@@ -77,8 +78,7 @@ export const DEFAULT_SKILL_CATEGORIES: SkillCategoryDef[] = [
  * Falls back to DEFAULT_SKILL_CATEGORIES if the collection is empty or an error occurs.
  * Mirrors Android's loadOrSeedCategories() behaviour.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function loadSkillCategories(db: any): Promise<SkillCategoryDef[]> {
+export async function loadSkillCategories(db: Firestore): Promise<SkillCategoryDef[]> {
   try {
     const snap = await getDocs(collection(db, 'skillCategories'))
     if (snap.empty) {
@@ -106,8 +106,7 @@ export async function loadSkillCategories(db: any): Promise<SkillCategoryDef[]> 
  * Seed Firestore skillCategories with the default categories.
  * Called automatically when the collection is empty (first ever assessment).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function seedSkillCategories(db: any): Promise<void> {
+export async function seedSkillCategories(db: Firestore): Promise<void> {
   try {
     const batch = writeBatch(db)
     for (const cat of DEFAULT_SKILL_CATEGORIES) {

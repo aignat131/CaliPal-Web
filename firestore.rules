@@ -122,7 +122,10 @@ service cloud.firestore {
         allow read: if isAuth();
         allow create, delete: if isCommunityStaff(communityId) || isSuperAdmin();
         // Members can update only their own RSVP field; staff can update anything
-        allow update: if isCommunityMember(communityId) || isSuperAdmin();
+        allow update: if isSuperAdmin()
+          || isCommunityStaff(communityId)
+          || (isCommunityMember(communityId)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps']));
       }
 
       match /challenges/{challengeId} {

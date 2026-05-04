@@ -38,7 +38,7 @@ export function normalize(features: number[], params: NormalizationParams): numb
  * Each frame is an array of features.
  */
 export function resampleFrames(frames: number[][], targetLength: number): number[][] {
-  if (frames.length === 0) return Array(targetLength).fill(new Array(8).fill(0))
+  if (frames.length === 0) return Array.from({ length: targetLength }, () => new Array(8).fill(0))
   if (frames.length === targetLength) return frames
 
   const result: number[][] = []

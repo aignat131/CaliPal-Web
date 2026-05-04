@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -98,8 +99,18 @@ export default function CommunityPage() {
     const skip = sessionStorage.getItem('skip_community_redirect')
     if (skip) { sessionStorage.removeItem('skip_community_redirect'); return }
 
-    if (favoriteCommunityId) { router.push(`/community/${favoriteCommunityId}`); return }
-    if (joinedIds.size === 1) { router.push(`/community/${[...joinedIds][0]}`) }
+    if (favoriteCommunityId) {
+      getDoc(doc(db, 'communities', favoriteCommunityId)).then(snap => {
+        if (snap.exists()) router.push(`/community/${favoriteCommunityId}`)
+      })
+      return
+    }
+    if (joinedIds.size === 1) {
+      const singleId = [...joinedIds][0]
+      getDoc(doc(db, 'communities', singleId)).then(snap => {
+        if (snap.exists()) router.push(`/community/${singleId}`)
+      })
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userDocLoaded]) // intentionally only on first load
 
@@ -332,7 +343,7 @@ export default function CommunityPage() {
                     {allFiltered.length === 0 && (
                       <div className="flex flex-col items-center gap-3 py-12 text-center">
                         <Search size={32} className="text-white/20" />
-                        <p className="text-sm text-white/40">Nicio comunitate în "{citySearch}".</p>
+                        <p className="text-sm text-white/40">Nicio comunitate în &quot;{citySearch}&quot;.</p>
                       </div>
                     )}
                   </div>
@@ -418,10 +429,10 @@ function MemberCommunityCard({
     <Link href={`/community/${community.id}`}>
       <div className="rounded-2xl p-4 active:opacity-80 transition-opacity" style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+          <div className="relative w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
             style={{ backgroundColor: '#1ED75F22' }}>
             {community.imageUrl
-              ? <img src={community.imageUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+              ? <Image src={community.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-xl" />
               : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
           </div>
 
@@ -477,10 +488,10 @@ function DiscoverCommunityCard({
   const inner = (
       <div className="rounded-2xl p-4 active:opacity-80 transition-opacity border border-white/5" style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+          <div className="relative w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
             style={{ backgroundColor: '#1ED75F22' }}>
             {community.imageUrl
-              ? <img src={community.imageUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+              ? <Image src={community.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-xl" />
               : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
           </div>
 
@@ -571,7 +582,7 @@ function MembersPreviewModal({
             <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ backgroundColor: '#1ED75F22' }}>
               {community.imageUrl
-                ? <img src={community.imageUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+                ? <Image src={community.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-xl" />
                 : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
             </div>
             <div className="flex-1 min-w-0">
@@ -608,10 +619,10 @@ function MembersPreviewModal({
                 const roleColor = ROLE_COLORS[m.role] ?? '#1ED75F'
                 return (
                   <div key={m.userId} className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                    <div className="relative w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: `${roleColor}22`, border: `1.5px solid ${roleColor}` }}>
                       {m.photoUrl
-                        ? <img src={m.photoUrl} alt={m.displayName} className="w-full h-full object-cover" />
+                        ? <Image src={m.photoUrl} alt={m.displayName} fill sizes="32px" className="object-cover" />
                         : <span className="text-xs font-black" style={{ color: roleColor }}>{m.displayName.charAt(0).toUpperCase()}</span>}
                     </div>
                     <div className="flex-1 min-w-0">

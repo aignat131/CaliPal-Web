@@ -900,8 +900,6 @@ function ExercisesTab() {
   const [editEntry, setEditEntry] = useState<(CatalogueEntry & { id: string }) | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const inputCls = "w-full h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50"
-
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'exercise_catalogue'), snap => {
       setExercisesState(
@@ -1046,7 +1044,6 @@ function ExerciseForm({
   const [saving, setSaving] = useState(false)
 
   const inputCls = "w-full h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50"
-  const CATEGORIES = ['Trageri', 'Împingeri', 'Core', 'Picioare', 'Statice', 'Cardio', 'Altele']
 
   async function save() {
     if (!name.trim()) return

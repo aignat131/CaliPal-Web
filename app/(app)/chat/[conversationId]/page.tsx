@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, addDoc, doc,
@@ -75,7 +76,17 @@ export default function ChatDetailPage() {
         setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ChatMessage))
         setLoading(false)
       },
-      () => { setNotFound(true); setLoading(false) }, // permission denied or invalid ID
+      () => {
+        // If otherUserIdParam is set, this is a brand-new conversation — the conversation doc
+        // doesn't exist yet so the messages read is denied by rules. That's expected; just show
+        // the empty state so the user can send the first message.
+        if (otherUserIdParam) {
+          setLoading(false)
+        } else {
+          setNotFound(true)
+          setLoading(false)
+        }
+      },
     )
     return unsub
   }, [conversationId])
@@ -143,7 +154,6 @@ export default function ChatDetailPage() {
     }
   }
 
-  const myInitial = (myName || 'U').charAt(0).toUpperCase()
   const otherInitial = otherName.charAt(0).toUpperCase()
 
   if (notFound) {
@@ -163,10 +173,10 @@ export default function ChatDetailPage() {
         <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center md:hidden">
           <ArrowLeft size={18} className="text-white/80" />
         </button>
-        <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+        <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: '#1ED75F33' }}>
           {otherPhoto
-            ? <img src={otherPhoto} alt={otherName} className="w-full h-full object-cover" />
+            ? <Image src={otherPhoto} alt={otherName} fill sizes="36px" className="object-cover" />
             : <span className="font-black text-brand-green text-sm">{otherInitial}</span>}
         </div>
         <span className="font-semibold text-white">{otherName}</span>
@@ -190,10 +200,10 @@ export default function ChatDetailPage() {
               {/* Avatar spacer */}
               <div className="w-7 flex-shrink-0">
                 {!isMe && showAvatar && (
-                  <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center"
+                  <div className="relative w-7 h-7 rounded-full overflow-hidden flex items-center justify-center"
                     style={{ backgroundColor: '#1ED75F33' }}>
                     {otherPhoto
-                      ? <img src={otherPhoto} alt="" className="w-full h-full object-cover" />
+                      ? <Image src={otherPhoto} alt="" fill sizes="28px" className="object-cover" />
                       : <span className="text-xs font-black text-brand-green">{otherInitial}</span>}
                   </div>
                 )}

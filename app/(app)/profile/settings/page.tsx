@@ -63,8 +63,14 @@ export default function SettingsPage() {
   }
 
   async function setLocMode(mode: LocationSharingMode) {
+    const prev = locationMode
     setLocationMode(mode)
-    if (user) await updateDoc(doc(db, 'users', user.uid), { locationSharingMode: mode })
+    try {
+      if (user) await updateDoc(doc(db, 'users', user.uid), { locationSharingMode: mode })
+    } catch (err) {
+      console.error('setLocMode failed', err)
+      setLocationMode(prev)
+    }
   }
 
   async function handleLogout() {
@@ -73,8 +79,8 @@ export default function SettingsPage() {
   }
 
   const pushLabel =
-    pushStatus === 'granted' ? 'Activate' :
-    pushStatus === 'denied' ? 'Blocate (din browser)' :
+    pushStatus === 'granted'     ? 'Active' :
+    pushStatus === 'denied'      ? 'Blocate (din browser)' :
     pushStatus === 'unsupported' ? 'Nesuportate' : 'Inactive'
 
   return (

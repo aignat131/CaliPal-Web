@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import {
   collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, updateDoc,
@@ -259,10 +260,10 @@ export default function HomePage() {
               <Link href={`/community/${fav.id}`}>
                 <div className="rounded-2xl p-4 flex items-center gap-3 border border-yellow-400/20"
                   style={{ backgroundColor: '#FFB80010' }}>
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                  <div className="relative w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                     style={{ backgroundColor: '#1ED75F22' }}>
                     {fav.imageUrl
-                      ? <img src={fav.imageUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+                      ? <Image src={fav.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-xl" />
                       : <span className="text-xl font-black text-brand-green">{fav.name.charAt(0)}</span>}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -289,10 +290,10 @@ export default function HomePage() {
               {joinedCommunities.slice(0, 6).map(c => (
                 <Link key={c.id} href={`/community/${c.id}`}>
                   <div className="flex-shrink-0 flex flex-col items-center gap-1.5 w-16">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                    <div className="relative w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden"
                       style={{ backgroundColor: '#1ED75F22', border: '1px solid #1ED75F33' }}>
                       {c.imageUrl
-                        ? <img src={c.imageUrl} alt="" className="w-full h-full object-cover rounded-2xl" />
+                        ? <Image src={c.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-2xl" />
                         : <span className="text-lg font-black text-brand-green">{c.name.charAt(0)}</span>}
                     </div>
                     <p className="text-[10px] text-white/60 text-center leading-tight line-clamp-2">{c.name}</p>
@@ -620,7 +621,7 @@ function GuestHomePage() {
                   <div className="rounded-2xl p-3.5 flex items-center gap-3 border border-white/8 cursor-pointer"
                     style={{ backgroundColor: 'var(--app-surface)' }}>
                     {c.imageUrl
-                      ? <img src={c.imageUrl} alt="" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                      ? <Image src={c.imageUrl} alt="" width={40} height={40} className="rounded-xl object-cover flex-shrink-0" />
                       : <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/8">
                           <Users size={18} className="text-white/40" />
                         </div>
