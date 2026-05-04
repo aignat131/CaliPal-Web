@@ -811,11 +811,14 @@ function ActiveWorkout({
         const metric = getMetric(exercises[popupExIdx].name, catalogue)
         return (
           <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-20">
-            <div className="w-full max-w-lg rounded-t-3xl pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
-              <div className="flex justify-center pt-3 pb-1">
+            <div className="w-full max-w-lg rounded-t-3xl pb-8 max-h-[92vh] flex flex-col" style={{ backgroundColor: 'var(--app-surface)' }}>
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
                 <div className="w-10 h-1 rounded-full bg-white/20" />
               </div>
-              <div className="flex items-center justify-between px-5 py-3 border-b border-white/8">
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-white/8 flex-shrink-0">
                 <div>
                   <p className="font-black text-white text-base">{exercises[popupExIdx].name}</p>
                   <p className="text-xs text-white/40">{exercises[popupExIdx].category} · {metric === 'reps' ? 'Repetări' : 'Secunde'}</p>
@@ -825,16 +828,92 @@ function ActiveWorkout({
                 </button>
               </div>
 
-              {/* Column headers */}
-              <div className="flex items-center px-5 pt-3 pb-1 gap-3">
-                <span className="w-8 text-[10px] font-bold text-white/30 text-center">SET</span>
-                <span className="flex-1 text-[10px] font-bold text-white/30 text-center">
-                  {metric === 'reps' ? 'REPETĂRI' : 'SECUNDE'}
-                </span>
-                <span className="w-6" />
+              {/* ── Modifier section — TOP, always visible ── */}
+              <div className="px-5 pt-4 pb-3 border-b border-white/6 flex-shrink-0">
+                {/* Toggle chips */}
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={() => { setPopupWeightOn(v => !v); setPopupBandOn(false) }}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-95 ${
+                      popupWeightOn
+                        ? 'bg-orange-500/15 border-orange-500/40 text-orange-400'
+                        : 'bg-white/5 border-white/12 text-white/35 hover:text-white/55'
+                    }`}
+                  >
+                    ⚖️ {popupWeightOn ? `+${popupWeight} kg` : '+ Greutate'}
+                  </button>
+                  <button
+                    onClick={() => { setPopupBandOn(v => !v); setPopupWeightOn(false) }}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-95 ${
+                      popupBandOn
+                        ? 'bg-purple-500/15 border-purple-500/40 text-purple-400'
+                        : 'bg-white/5 border-white/12 text-white/35 hover:text-white/55'
+                    }`}
+                  >
+                    🔴 {popupBandOn ? `${popupBandKg} kg` : '+ Bandă'}
+                  </button>
+                </div>
+
+                {/* Weight stepper — inline, compact */}
+                {popupWeightOn && (
+                  <div className="rounded-2xl bg-orange-500/10 border border-orange-500/25 px-4 py-3 flex items-center gap-3">
+                    <span className="text-[10px] font-black text-orange-400/70 tracking-widest flex-shrink-0">GREUTATE</span>
+                    <div className="flex-1 flex items-center justify-center gap-3">
+                      <button onClick={() => setPopupWeight(w => Math.max(0, +(w - 2.5).toFixed(1)))}
+                        className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-xl font-bold active:scale-95 transition-transform">−</button>
+                      <span className="w-20 text-center text-3xl font-black text-white tabular-nums">
+                        {popupWeight}<span className="text-base text-orange-400/70"> kg</span>
+                      </span>
+                      <button onClick={() => setPopupWeight(w => +(w + 2.5).toFixed(1))}
+                        className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white text-xl font-bold active:scale-95 transition-transform">+</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Band stepper — snaps to real resistance levels: 5, 15, 25, 35, 45, 55 */}
+                {popupBandOn && (() => {
+                  const BANDS = [5, 15, 25, 35, 45, 55]
+                  const bandUp   = () => setPopupBandKg(w => BANDS.find(v => v > w) ?? BANDS[BANDS.length - 1])
+                  const bandDown = () => setPopupBandKg(w => [...BANDS].reverse().find(v => v < w) ?? BANDS[0])
+                  const bandLabel = popupBandKg <= 5 ? 'Galbenă' : popupBandKg <= 15 ? 'Roșie' : popupBandKg <= 25 ? 'Neagră' : popupBandKg <= 35 ? 'Mov' : popupBandKg <= 45 ? 'Verde' : 'Albastră'
+                  return (
+                    <div className="rounded-2xl bg-purple-500/10 border border-purple-500/25 px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-black text-purple-400/70 tracking-widest flex-shrink-0">BANDĂ</span>
+                        <div className="flex-1 flex items-center justify-center gap-3">
+                          <button onClick={bandDown}
+                            className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-xl font-bold active:scale-95 transition-transform">−</button>
+                          <div className="text-center">
+                            <span className="text-3xl font-black text-white tabular-nums">
+                              {popupBandKg}<span className="text-base text-purple-400/70"> kg</span>
+                            </span>
+                            <p className="text-[10px] text-purple-400/60 mt-0.5">{bandLabel}</p>
+                          </div>
+                          <button onClick={bandUp}
+                            className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white text-xl font-bold active:scale-95 transition-transform">+</button>
+                        </div>
+                      </div>
+                      {/* Band level indicators */}
+                      <div className="flex gap-1 mt-3 justify-center">
+                        {[5,15,25,35,45,55].map(v => (
+                          <button key={v} onClick={() => setPopupBandKg(v)}
+                            className={`flex-1 h-1.5 rounded-full transition-all ${popupBandKg === v ? 'bg-purple-400' : 'bg-white/15'}`} />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
 
-              <div className="max-h-56 overflow-y-auto px-5">
+              {/* ── Sets list ── */}
+              <div className="flex-1 overflow-y-auto px-5 pt-2">
+                <div className="flex items-center gap-3 py-2">
+                  <span className="w-8 text-[10px] font-bold text-white/25 text-center">SET</span>
+                  <span className="flex-1 text-[10px] font-bold text-white/25 text-center">
+                    {metric === 'reps' ? 'REPETĂRI' : 'SECUNDE'}
+                  </span>
+                  <span className="w-6" />
+                </div>
                 {popupSets.map((set, si) => {
                   const reps = set.reps ?? 0
                   const secs = set.durationSeconds ?? 0
@@ -870,72 +949,18 @@ function ActiveWorkout({
                     </div>
                   )
                 })}
-              </div>
 
-              <button
-                onClick={() => setPopupSets(prev => {
-                  const last = prev[prev.length - 1] ?? {}
-                  return [...prev, { reps: last.reps, durationSeconds: last.durationSeconds }]
-                })}
-                className="flex items-center gap-1.5 text-xs text-brand-green font-semibold mx-5 mt-3">
-                <Plus size={13} /> Adaugă set
-              </button>
-
-              {/* Modifier toggles */}
-              <div className="flex gap-2 px-5 mt-4">
                 <button
-                  onClick={() => { setPopupWeightOn(v => !v); setPopupBandOn(false) }}
-                  className={`flex-1 h-9 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-colors ${
-                    popupWeightOn
-                      ? 'bg-orange-500/15 border-orange-500/40 text-orange-400'
-                      : 'bg-white/5 border-white/12 text-white/35'
-                  }`}
-                >
-                  ⚖️ {popupWeightOn ? `+${popupWeight}kg` : 'Greutate'}
-                </button>
-                <button
-                  onClick={() => { setPopupBandOn(v => !v); setPopupWeightOn(false) }}
-                  className={`flex-1 h-9 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-colors ${
-                    popupBandOn
-                      ? 'bg-purple-500/15 border-purple-500/40 text-purple-400'
-                      : 'bg-white/5 border-white/12 text-white/35'
-                  }`}
-                >
-                  🔴 {popupBandOn ? `${popupBandKg}kg` : 'Bandă'}
+                  onClick={() => setPopupSets(prev => {
+                    const last = prev[prev.length - 1] ?? {}
+                    return [...prev, { reps: last.reps, durationSeconds: last.durationSeconds }]
+                  })}
+                  className="flex items-center gap-1.5 text-xs text-brand-green font-semibold py-3">
+                  <Plus size={13} /> Adaugă set
                 </button>
               </div>
 
-              {popupWeightOn && (
-                <div className="mx-5 mt-3 rounded-2xl bg-orange-500/10 border border-orange-500/20 px-4 py-3">
-                  <p className="text-[10px] font-bold text-orange-400/60 tracking-widest mb-2 text-center">GREUTATE ADĂUGATĂ</p>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => setPopupWeight(w => Math.max(0, +(w - 2.5).toFixed(1)))}
-                      className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-lg font-bold active:scale-95 transition-transform">−</button>
-                    <span className="flex-1 text-center text-2xl font-black text-white tabular-nums">
-                      {popupWeight} <span className="text-sm text-orange-400/60">kg</span>
-                    </span>
-                    <button onClick={() => setPopupWeight(w => +(w + 2.5).toFixed(1))}
-                      className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center text-white text-lg font-bold active:scale-95 transition-transform">+</button>
-                  </div>
-                </div>
-              )}
-
-              {popupBandOn && (
-                <div className="mx-5 mt-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 px-4 py-3">
-                  <p className="text-[10px] font-bold text-purple-400/60 tracking-widest mb-2 text-center">REZISTENȚĂ BANDĂ</p>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => setPopupBandKg(w => Math.max(2.5, +(w - 2.5).toFixed(1)))}
-                      className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-lg font-bold active:scale-95 transition-transform">−</button>
-                    <span className="flex-1 text-center text-2xl font-black text-white tabular-nums">
-                      {popupBandKg} <span className="text-sm text-purple-400/60">kg</span>
-                    </span>
-                    <button onClick={() => setPopupBandKg(w => +(w + 2.5).toFixed(1))}
-                      className="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-white text-lg font-bold active:scale-95 transition-transform">+</button>
-                  </div>
-                </div>
-              )}
-
-              <div className="px-5 mt-4">
+              <div className="px-5 pt-2 flex-shrink-0">
                 <button onClick={savePopup} className="w-full h-12 rounded-2xl bg-brand-green text-black text-sm font-black">
                   Salvează
                 </button>
@@ -1138,21 +1163,35 @@ function ActiveWorkout({
                   </div>
                 )}
 
-                {/* Band stepper — expanded when toggled on */}
-                {logBandOn && (
-                  <div className="mb-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 px-4 py-4">
-                    <p className="text-[10px] font-bold text-purple-400/70 tracking-widest text-center mb-3">REZISTENȚĂ BANDĂ</p>
-                    <div className="flex items-center justify-center gap-6">
-                      <button onClick={() => setLogBandKg(w => Math.max(2.5, +(w - 2.5).toFixed(1)))}
-                        className="w-12 h-12 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-2xl font-bold active:scale-95 transition-transform">−</button>
-                      <span className="w-24 text-center text-4xl font-black text-white tabular-nums">
-                        {logBandKg}<span className="text-lg text-purple-400/60"> kg</span>
-                      </span>
-                      <button onClick={() => setLogBandKg(w => +(w + 2.5).toFixed(1))}
-                        className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-2xl font-bold active:scale-95 transition-transform">+</button>
+                {/* Band stepper — snaps to real resistance levels */}
+                {logBandOn && (() => {
+                  const BANDS = [5, 15, 25, 35, 45, 55]
+                  const bandUp   = () => setLogBandKg(w => BANDS.find(v => v > w) ?? BANDS[BANDS.length - 1])
+                  const bandDown = () => setLogBandKg(w => [...BANDS].reverse().find(v => v < w) ?? BANDS[0])
+                  const bandLabel = logBandKg <= 5 ? 'Galbenă' : logBandKg <= 15 ? 'Roșie' : logBandKg <= 25 ? 'Neagră' : logBandKg <= 35 ? 'Mov' : logBandKg <= 45 ? 'Verde' : 'Albastră'
+                  return (
+                    <div className="mb-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 px-4 py-4">
+                      <div className="flex items-center justify-center gap-6">
+                        <button onClick={bandDown}
+                          className="w-12 h-12 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-2xl font-bold active:scale-95 transition-transform">−</button>
+                        <div className="text-center">
+                          <span className="text-4xl font-black text-white tabular-nums">
+                            {logBandKg}<span className="text-lg text-purple-400/60"> kg</span>
+                          </span>
+                          <p className="text-xs text-purple-400/70 mt-0.5">{bandLabel}</p>
+                        </div>
+                        <button onClick={bandUp}
+                          className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-2xl font-bold active:scale-95 transition-transform">+</button>
+                      </div>
+                      <div className="flex gap-1.5 mt-4 justify-center">
+                        {BANDS.map(v => (
+                          <button key={v} onClick={() => setLogBandKg(v)}
+                            className={`flex-1 h-1.5 rounded-full transition-all ${logBandKg === v ? 'bg-purple-400' : 'bg-white/15'}`} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
 
                 <button
                   onClick={confirmLog}
