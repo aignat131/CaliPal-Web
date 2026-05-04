@@ -8,10 +8,11 @@ import {
   PushupCounter, PUSHUP_STATE_LABELS,
   SquatCounter, SQUAT_STATE_LABELS,
 } from '@/lib/ml/rep-counter'
-import { extractFeatures } from '@/lib/ml/pose-preprocessor'
-import { avgElbowAngle, avgKneeAngle, MP } from '@/lib/ml/pose-math'
 import { preprocessFrameBuffer } from '@/lib/ml/pose-preprocessor'
+import { avgElbowAngle, avgKneeAngle, MP } from '@/lib/ml/pose-math'
 import { classifyForm, loadModel, FORM_LABELS, FORM_COLORS, getModelStatus } from '@/lib/ml/pullup-classifier'
+import { classifyPushupForm, loadPushupModel, PUSHUP_FORM_LABELS, PUSHUP_FORM_COLORS, getPushupModelStatus } from '@/lib/ml/pushup-classifier'
+import { PULLUP_NORM_PARAMS, PUSHUP_NORM_PARAMS } from '@/lib/ml/normalization'
 import type { FormLabel } from '@/lib/ml/pullup-classifier'
 import type { RepState } from '@/lib/ml/rep-counter'
 import type { Landmark } from '@/lib/ml/pose-math'
@@ -98,6 +99,7 @@ export default function FormCheckPage() {
   const [formLabel, setFormLabel] = useState<FormLabel>('UNKNOWN')
   const [formConfidence, setFormConfidence] = useState(0)
   const [modelReady, setModelReady] = useState(false)
+  const [pushupModelReady, setPushupModelReady] = useState(false)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
   const [classifying, setClassifying] = useState(false)
   const [stateLabel, setStateLabel] = useState('Pregătire...')
@@ -105,6 +107,7 @@ export default function FormCheckPage() {
 
   useEffect(() => {
     loadModel().then(ok => setModelReady(ok))
+    loadPushupModel().then(ok => setPushupModelReady(ok))
   }, [])
 
   const stopCamera = useCallback(() => {
@@ -181,7 +184,6 @@ export default function FormCheckPage() {
             if (exerciseType === 'pullup') {
               const skeletonColor = STATE_COLORS[repState] ?? '#1ED75F'
               drawSkeleton(ctx, lms, canvas.width, canvas.height, skeletonColor)
-              const features = extractFeatures(lms)
               const elbow = avgElbowAngle(
                 lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST],
                 lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST]
@@ -194,7 +196,6 @@ export default function FormCheckPage() {
               setStateColor(STATE_COLORS[counterState.state])
               frameBufferRef.current.push(lms)
               if (frameBufferRef.current.length > 150) frameBufferRef.current.shift()
-              void features
             } else if (exerciseType === 'pushup') {
               drawSkeleton(ctx, lms, canvas.width, canvas.height, '#F97316')
               const elbow = avgElbowAngle(
@@ -206,6 +207,8 @@ export default function FormCheckPage() {
               setPrimaryAngle(Math.round(elbow))
               setStateLabel(PUSHUP_STATE_LABELS[counterState.state])
               setStateColor(counterState.state === 'UP' ? '#1ED75F' : counterState.state === 'DOWN' ? '#F59E0B' : '#6B7280')
+              frameBufferRef.current.push(lms)
+              if (frameBufferRef.current.length > 150) frameBufferRef.current.shift()
             } else {
               drawSkeleton(ctx, lms, canvas.width, canvas.height, '#3B82F6')
               const knee = avgKneeAngle(
@@ -239,11 +242,15 @@ export default function FormCheckPage() {
   }, [stopCamera])
 
   async function runClassification() {
-    if (!modelReady || classifying || frameBufferRef.current.length < 10) return
+    const ready = exerciseType === 'pullup' ? modelReady : pushupModelReady
+    if (!ready || classifying || frameBufferRef.current.length < 10) return
     setClassifying(true)
     try {
-      const flat = await preprocessFrameBuffer(frameBufferRef.current)
-      const result = await classifyForm(flat)
+      const params = exerciseType === 'pullup' ? PULLUP_NORM_PARAMS : PUSHUP_NORM_PARAMS
+      const flat = preprocessFrameBuffer(frameBufferRef.current, params)
+      const result = exerciseType === 'pullup'
+        ? await classifyForm(flat)
+        : await classifyPushupForm(flat)
       setFormLabel(result.label)
       setFormConfidence(Math.round(result.confidence * 100))
     } finally {
@@ -348,11 +355,11 @@ export default function FormCheckPage() {
               <span className="text-2xl font-black text-white tabular-nums">{primaryAngle}°</span>
             </div>
 
-            {exerciseType === 'pullup' && formLabel !== 'UNKNOWN' && (
+            {(exerciseType === 'pullup' || exerciseType === 'pushup') && formLabel !== 'UNKNOWN' && (
               <div className="absolute bottom-4 right-4 px-3 py-1.5 rounded-xl"
                 style={{ backgroundColor: `${formColor}33`, border: `1px solid ${formColor}66` }}>
                 <p className="text-xs font-bold" style={{ color: formColor }}>
-                  {FORM_LABELS[formLabel]}
+                  {exerciseType === 'pullup' ? FORM_LABELS[formLabel] : PUSHUP_FORM_LABELS[formLabel]}
                 </p>
                 <p className="text-[10px] text-white/40 text-right">{formConfidence}%</p>
               </div>
@@ -396,10 +403,10 @@ export default function FormCheckPage() {
       <div className="flex-shrink-0 px-4 py-4 flex gap-3" style={{ backgroundColor: '#0D1B1A' }}>
         {status === 'running' ? (
           <>
-            {exerciseType === 'pullup' && (
+            {(exerciseType === 'pullup' || exerciseType === 'pushup') && (
               <button
                 onClick={runClassification}
-                disabled={!modelReady || classifying || frameBufferRef.current.length < 10}
+                disabled={(exerciseType === 'pullup' ? !modelReady : !pushupModelReady) || classifying || frameBufferRef.current.length < 10}
                 className="flex-1 h-12 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 border border-brand-green/40 text-brand-green disabled:opacity-40"
               >
                 <Zap size={15} />
@@ -426,7 +433,8 @@ export default function FormCheckPage() {
         )}
       </div>
 
-      {exerciseType === 'pullup' && !modelReady && getModelStatus().error && (
+      {((exerciseType === 'pullup' && !modelReady && getModelStatus().error) ||
+        (exerciseType === 'pushup' && !pushupModelReady && getPushupModelStatus().error)) && (
         <div className="px-4 pb-3">
           <p className="text-xs text-yellow-400/70 text-center">
             ⚠️ Modelul de clasificare nu a putut fi încărcat — numărarea rep-urilor funcționează, feedback-ul AI nu.
