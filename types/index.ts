@@ -150,7 +150,8 @@ export interface WorkoutExercise {
   name: string
   category: string
   sets: WorkoutSet[]
-  weightKg?: number  // added weight (kg) for "Cu Greutate" exercises
+  weightKg?: number  // added weight (kg)
+  bandKg?: number    // band resistance/assistance (kg equivalent)
 }
 
 export interface WorkoutDoc {
