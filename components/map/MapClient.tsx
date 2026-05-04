@@ -6,6 +6,20 @@ import {
   collection, onSnapshot, doc, setDoc, deleteDoc,
   serverTimestamp, getDoc, getDocs, query, where, addDoc, updateDoc, arrayUnion,
 } from 'firebase/firestore'
+
+// ── Training date parser (for map upcoming-filter) ────────────────────────────
+
+function parseMapTrainingDate(t: PlannedTraining): Date | null {
+  const str = t.timeStart
+  if (!str) return null
+  const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
+  if (m) {
+    const [, dd, mm, yyyy, hh, min] = m
+    return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`)
+  }
+  if (t.date && /^\d{2}:\d{2}$/.test(str)) return new Date(`${t.date}T${str}`)
+  try { return new Date(str) } catch { return null }
+}
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useTheme } from '@/lib/hooks/useTheme'
@@ -413,7 +427,7 @@ export default function MapClient() {
   const [locationSharingMode, setLocationSharingMode] = useState<LocationSharingMode>('EVERYWHERE')
   const [showParkCommModal, setShowParkCommModal] = useState(false)
   const [parkPendingReq, setParkPendingReq] = useState<ParkCommunityRequest | null>(null)
-  const [todayTraining, setTodayTraining] = useState<PlannedTraining | null>(null)
+  const [parkTrainings, setParkTrainings] = useState<PlannedTraining[]>([])
   const [userAdminCommunities, setUserAdminCommunities] = useState<CommunityDoc[]>([])
   const watchIdRef = useRef<number | null>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -638,14 +652,14 @@ export default function MapClient() {
     if (!selectedPark) {
       setParkCommunity(null)
       setParkPresenceMembers([])
-      setTodayTraining(null)
+      setParkTrainings([])
       setParkPendingReq(null)
       return
     }
     if (!selectedPark.communityId) {
       setParkCommunity(null)
       setParkPresenceMembers([])
-      setTodayTraining(null)
+      setParkTrainings([])
       // Check for pending community request on this park (PENDING = associate existing, NEW = created from map)
       if (user) {
         getDocs(query(
@@ -663,14 +677,21 @@ export default function MapClient() {
       if (snap.exists()) setParkCommunity({ id: snap.id, ...snap.data() } as CommunityDoc)
       else setParkCommunity(null)
     }).catch(() => setParkCommunity(null))
-    // Load today's training (silently fail for non-members — rule requires isCommunityMember)
-    const today = new Date().toISOString().slice(0, 10)
-    getDocs(query(
-      collection(db, 'communities', selectedPark.communityId, 'trainings'),
-      where('date', '==', today)
-    )).then(snap => {
-      setTodayTraining(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() } as PlannedTraining)
-    }).catch(() => setTodayTraining(null))
+    // Load upcoming trainings (public read rule allows this for everyone)
+    getDocs(collection(db, 'communities', selectedPark.communityId, 'trainings'))
+      .then(snap => {
+        const now = new Date()
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
+        const upcoming = all
+          .filter(t => {
+            const start = parseMapTrainingDate(t)
+            return !start || start >= now
+          })
+          .sort((a, b) => (parseMapTrainingDate(a)?.getTime() ?? 0) - (parseMapTrainingDate(b)?.getTime() ?? 0))
+          .slice(0, 3)
+        setParkTrainings(upcoming)
+      })
+      .catch(() => setParkTrainings([]))
     const unsub = onSnapshot(
       collection(db, 'park_presence', selectedPark.communityId, 'active_members'),
       snap => setParkPresenceMembers(snap.docs.map(d => d.data() as ParkPresenceMember))
@@ -978,7 +999,7 @@ export default function MapClient() {
           onClose={() => { setSelectedPark(null); setShowParkCommModal(false) }}
           uid={user?.uid ?? null}
           userName={user?.displayName ?? ''}
-          todayTraining={todayTraining}
+          parkTrainings={parkTrainings}
           parkPendingReq={parkPendingReq}
           userAdminCommunities={userAdminCommunities}
           showParkCommModal={showParkCommModal}
@@ -995,7 +1016,7 @@ export default function MapClient() {
 
 function ParkBottomSheet({
   park, community, members, liveLocations, onClose,
-  uid, userName, todayTraining, parkPendingReq, userAdminCommunities,
+  uid, userName, parkTrainings, parkPendingReq, userAdminCommunities,
   showParkCommModal, setShowParkCommModal, onPendingReqSet, onCommunityCreated: _onCommunityCreated,
 }: {
   park: ParkDoc
@@ -1005,7 +1026,7 @@ function ParkBottomSheet({
   onClose: () => void
   uid: string | null
   userName: string
-  todayTraining: PlannedTraining | null
+  parkTrainings: PlannedTraining[]
   parkPendingReq: ParkCommunityRequest | null
   userAdminCommunities: CommunityDoc[]
   showParkCommModal: boolean
@@ -1087,21 +1108,36 @@ function ParkBottomSheet({
             </div>
           </Link>
 
-          {/* Today's training */}
-          {todayTraining && (
-            <div className="mt-2 p-3 rounded-xl border border-brand-green/20" style={{ backgroundColor: '#0D3D2820' }}>
-              <p className="text-[9px] font-bold text-brand-green/70 tracking-widest mb-1">ANTRENAMENT AZI</p>
-              <p className="text-sm font-bold text-white leading-tight">{todayTraining.name}</p>
-              <p className="text-xs text-white/50 mt-0.5">
-                {todayTraining.timeStart}{todayTraining.timeEnd ? `–${todayTraining.timeEnd}` : ''}
-                {todayTraining.location ? ` · ${todayTraining.location}` : ''}
-              </p>
-              {(() => {
-                const going = Object.values(todayTraining.rsvps ?? {}).filter(s => s === 'GOING').length
-                return going > 0 ? (
-                  <p className="text-xs text-brand-green mt-0.5">{going} {going === 1 ? 'merge' : 'merg'}</p>
-                ) : null
-              })()}
+          {/* Upcoming trainings */}
+          {parkTrainings.length > 0 && (
+            <div className="mt-2 flex flex-col gap-1.5">
+              <p className="text-[9px] font-bold text-brand-green/70 tracking-widest">ANTRENAMENTE</p>
+              {parkTrainings.map(t => {
+                const memberGoing = Object.values(t.rsvps ?? {}).filter(s => s === 'GOING').length
+                const guestGoing = Object.values(t.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
+                const totalGoing = memberGoing + guestGoing
+                const dateObj = parseMapTrainingDate(t)
+                const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' }) : ''
+                const timeLabel = t.timeStart?.slice(-5) ?? ''
+                return (
+                  <div
+                    key={t.id}
+                    className="p-2.5 rounded-xl border border-brand-green/20"
+                    style={{ backgroundColor: '#0D3D2820' }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{t.name}</p>
+                      {totalGoing > 0 && (
+                        <span className="text-xs text-brand-green font-bold flex-shrink-0">{totalGoing} merg</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-white/45 mt-0.5">
+                      {dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
+                      {t.location ? ` · ${t.location}` : ''}
+                    </p>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

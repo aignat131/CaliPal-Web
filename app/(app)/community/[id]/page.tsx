@@ -21,7 +21,7 @@ import { ROLE_LABELS, conversationId } from '@/types'
 import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
-  Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut, UserX,
+  Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut, UserX, Share2,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -631,6 +631,7 @@ export default function CommunityDetailPage() {
                 userId={user?.uid ?? ''}
                 userName={myName}
                 isStaff={myRole === 'ADMIN' || myRole === 'TRAINER' || myRole === 'MODERATOR' || isSuperAdmin}
+                defaultLocation={community?.location ?? ''}
                 onClose={() => setShowAddTraining(false)}
               />
             )}
@@ -651,6 +652,7 @@ export default function CommunityDetailPage() {
                 <TrainingCard
                   key={t.id}
                   training={t}
+                  communityId={id}
                   myUid={user?.uid ?? ''}
                   members={members}
                   canLoad={isMember && (t.exercises?.length ?? 0) > 0}
@@ -863,8 +865,9 @@ function MemberAvatar({ photoUrl, name, size = 28 }: { photoUrl?: string | null;
   )
 }
 
-function TrainingCard({ training, myUid, members, canLoad, canDelete, onRsvp, onLoad, onDelete }: {
+function TrainingCard({ training, communityId, myUid, members, canLoad, canDelete, onRsvp, onLoad, onDelete }: {
   training: PlannedTraining
+  communityId: string
   myUid: string
   members: CommunityMember[]
   canLoad: boolean
@@ -886,9 +889,30 @@ function TrainingCard({ training, myUid, members, canLoad, canDelete, onRsvp, on
     return m ? { uid, name: m.displayName, photoUrl: m.photoUrl } : { uid, name: uid.slice(0, 6), photoUrl: null }
   })
 
+  // Guests who confirmed
+  const guestGoing = Object.entries(training.guestRsvps ?? {})
+    .filter(([, g]) => g.status === 'GOING')
+    .map(([gid, g]) => ({ uid: gid, name: g.name, photoUrl: null, isGuest: true }))
+
+  const totalGoing = goingMembers.length + guestGoing.length
+
+  function handleShare() {
+    const url = `${window.location.origin}/training/${communityId}/${training.id}`
+    const dateStr = formatTrainingDate(training.timeStart, training.date)
+    const timeStr = training.timeStart?.slice(-5) ?? ''
+    const locationStr = training.location ? `📍 ${training.location}\n` : ''
+    const text = `Vino la antrenament: *${training.name}*\n📅 ${dateStr} la ${timeStr}\n${locationStr}\n${url}`
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: training.name, url }).catch(() => {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+      })
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+    }
+  }
+
   const PREVIEW = 3
   const previewMembers = goingMembers.slice(0, PREVIEW)
-  const extra = goingMembers.length - PREVIEW
 
   const officialStyle = training.official ? {
     backgroundColor: '#0D3D28',
@@ -916,11 +940,20 @@ function TrainingCard({ training, myUid, members, canLoad, canDelete, onRsvp, on
               <p className="text-[10px] text-white/35 mt-0.5">de {training.authorName}</p>
             )}
           </div>
-          {canDelete && (
-            <button onClick={onDelete} className="ml-2 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-red-400/50 hover:text-red-400 hover:bg-red-400/10 transition-colors">
-              <Trash2 size={14} />
+          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+            <button
+              onClick={handleShare}
+              title="Distribuie pe WhatsApp"
+              className="w-8 h-8 flex items-center justify-center rounded-full text-brand-green/60 hover:text-brand-green hover:bg-brand-green/10 transition-colors"
+            >
+              <Share2 size={14} />
             </button>
-          )}
+            {canDelete && (
+              <button onClick={onDelete} className="w-8 h-8 flex items-center justify-center rounded-full text-red-400/50 hover:text-red-400 hover:bg-red-400/10 transition-colors">
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Meta */}
@@ -968,32 +1001,38 @@ function TrainingCard({ training, myUid, members, canLoad, canDelete, onRsvp, on
         )}
 
         {/* ── Who's coming (WhatsApp-style) ── */}
-        {goingMembers.length > 0 && (
+        {totalGoing > 0 && (
           <div className="mb-3">
             <button
               className="flex items-center gap-2.5 w-full text-left"
               onClick={() => setShowAllGoing(v => !v)}
             >
-              {/* Overlapping avatars */}
+              {/* Overlapping avatars (members first, then guests) */}
               <div className="flex items-center">
                 {previewMembers.map((m, i) => (
                   <div key={m.uid} style={{ marginLeft: i > 0 ? -8 : 0 }}>
                     <MemberAvatar photoUrl={m.photoUrl} name={m.name} size={26} />
                   </div>
                 ))}
-                {extra > 0 && (
+                {/* Guest avatars (up to 2 preview slots remaining) */}
+                {guestGoing.slice(0, Math.max(0, PREVIEW - previewMembers.length)).map((g, i) => (
+                  <div key={g.uid} style={{ marginLeft: (i === 0 && previewMembers.length === 0) ? 0 : -8 }}>
+                    <GuestAvatar name={g.name} size={26} />
+                  </div>
+                ))}
+                {totalGoing > PREVIEW && (
                   <div
                     className="rounded-full border-2 flex items-center justify-center bg-white/15 flex-shrink-0"
                     style={{ width: 26, height: 26, marginLeft: -8, borderColor: 'var(--app-surface)' }}
                   >
-                    <span className="text-[9px] font-bold text-white/80">+{extra}</span>
+                    <span className="text-[9px] font-bold text-white/80">+{totalGoing - PREVIEW}</span>
                   </div>
                 )}
               </div>
               {/* Summary text */}
               <span className="text-xs text-white/55 flex-1 min-w-0 truncate">
-                {goingMembers.slice(0, 2).map(m => m.name.split(' ')[0]).join(', ')}
-                {goingMembers.length > 2 ? ` și ${goingMembers.length - 2} alții merg` : ' merg'}
+                {[...goingMembers, ...guestGoing].slice(0, 2).map(m => m.name.split(' ')[0]).join(', ')}
+                {totalGoing > 2 ? ` și ${totalGoing - 2} alții merg` : ' merg'}
               </span>
               {maybeUids.length > 0 && (
                 <span className="text-[10px] text-white/30 flex-shrink-0">🤔 {maybeUids.length}</span>
@@ -1009,6 +1048,16 @@ function TrainingCard({ training, myUid, members, canLoad, canDelete, onRsvp, on
                     <MemberAvatar photoUrl={m.photoUrl} name={m.name} size={24} />
                     <span className="text-xs font-semibold text-white/75">{m.name}</span>
                     {m.uid === myUid && <span className="text-[10px] text-brand-green ml-auto">Tu</span>}
+                  </div>
+                ))}
+                {/* Guests */}
+                {guestGoing.map((g, i) => (
+                  <div key={g.uid} className={`flex items-center gap-2.5 px-3 py-2 border-t border-white/5`}>
+                    <GuestAvatar name={g.name} size={24} />
+                    <span className="text-xs font-semibold text-white/75">{g.name}</span>
+                    <span className="text-[10px] text-white/30 ml-auto flex items-center gap-0.5">
+                      <User size={9} />invitat
+                    </span>
                   </div>
                 ))}
                 {maybeUids.map((uid) => {
@@ -1028,7 +1077,7 @@ function TrainingCard({ training, myUid, members, canLoad, canDelete, onRsvp, on
         )}
 
         {/* No attendees yet */}
-        {goingMembers.length === 0 && (
+        {totalGoing === 0 && (
           <p className="text-xs text-white/25 mb-3">Nimeni nu a confirmat încă</p>
         )}
 
@@ -1059,8 +1108,8 @@ function TrainingCard({ training, myUid, members, canLoad, canDelete, onRsvp, on
 
 // ── Add Training Form ─────────────────────────────────────────────────────────
 
-function AddTrainingForm({ communityId, userId, userName, isStaff, onClose }: {
-  communityId: string; userId: string; userName: string; isStaff: boolean; onClose: () => void
+function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocation, onClose }: {
+  communityId: string; userId: string; userName: string; isStaff: boolean; defaultLocation?: string; onClose: () => void
 }) {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
@@ -1070,7 +1119,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, onClose }: {
   const [date, setDate] = useState(tomorrow.toISOString().split('T')[0])
   const [start, setStart] = useState('19:00')
   const [end, setEnd] = useState('20:30')
-  const [location, setLocation] = useState('')
+  const [location, setLocation] = useState(defaultLocation ?? '')
   const [official, setOfficial] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -1300,3 +1349,19 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
   )
 }
 
+// ── Guest Avatar (for guest RSVPs — gray silhouette icon) ─────────────────────
+
+function GuestAvatar({ size = 28 }: { name?: string; size?: number }) {
+  return (
+    <div
+      className="rounded-full border-2 overflow-hidden flex items-center justify-center flex-shrink-0"
+      style={{
+        width: size, height: size,
+        borderColor: 'var(--app-surface)',
+        backgroundColor: 'rgba(255,255,255,0.12)',
+      }}
+    >
+      <User size={size * 0.45} className="text-white/50" />
+    </div>
+  )
+}

@@ -119,13 +119,15 @@ service cloud.firestore {
       }
 
       match /trainings/{trainingId} {
-        allow read: if isAuth();
+        allow read: if true;
         allow create, delete: if isCommunityStaff(communityId) || isSuperAdmin();
-        // Members can update only their own RSVP field; staff can update anything
+        // Members can update only their own RSVP field; staff can update anything;
+        // Anyone (including guests) can update only the guestRsvps field
         allow update: if isSuperAdmin()
           || isCommunityStaff(communityId)
           || (isCommunityMember(communityId)
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps']));
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps']))
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestRsvps']);
       }
 
       match /challenges/{challengeId} {

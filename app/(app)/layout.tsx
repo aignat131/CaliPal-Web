@@ -40,7 +40,7 @@ function WorkoutMiniBar() {
   )
 }
 
-const GUEST_ROUTES = ['/home', '/map', '/community']
+const GUEST_ROUTES = ['/home', '/map', '/community', '/training']
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
