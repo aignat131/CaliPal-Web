@@ -35,26 +35,34 @@ function totalRepsInWorkout(exercises: WorkoutExercise[]): number {
   return exercises.flatMap(e => e.sets).reduce((sum, s) => sum + (s.reps ?? 0), 0)
 }
 
-/** "Tracțiuni · 3×10 rep +10kg" — compact one-liner for an exercise. */
+/** "Tracțiuni · 3×10 rep · +15/12.5/10kg" — compact one-liner for an exercise. */
 function exerciseOneLiner(ex: WorkoutExercise): string {
   const n = ex.sets.length
-  const modSuffix = [
-    ex.weightKg ? `+${ex.weightKg}kg` : '',
-    ex.bandKg   ? `bandă ${ex.bandKg}kg` : '',
-  ].filter(Boolean).join(' · ')
-  const suffix = modSuffix ? ` · ${modSuffix}` : ''
   if (n === 0) return ex.name
   const first = ex.sets[0]
-  if (first.durationSeconds != null) {
-    const allSame = ex.sets.every(s => s.durationSeconds === first.durationSeconds)
-    return allSame
-      ? `${ex.name} · ${n}×${first.durationSeconds ?? 0}s${suffix}`
-      : `${ex.name} · ${ex.sets.map(s => `${s.durationSeconds ?? 0}s`).join(', ')}${suffix}`
+
+  // Build per-set labels: "10 rep +15kg" or just "10 rep"
+  function setLabel(s: WorkoutSet): string {
+    const base = s.reps != null ? `${s.reps}` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
+    const mod  = s.weightKg ? ` +${s.weightKg}kg` : s.bandKg ? ` ~${s.bandKg}kg` : ''
+    return base + mod
   }
-  const allSame = ex.sets.every(s => s.reps === first.reps)
-  return allSame
-    ? `${ex.name} · ${n}×${first.reps ?? 0} rep${suffix}`
-    : `${ex.name} · ${ex.sets.map(s => `${s.reps ?? 0}`).join(', ')} rep${suffix}`
+
+  // If all sets are identical (same reps/secs + same modifier), use compact Nx format
+  const allSame = ex.sets.every(s =>
+    s.reps === first.reps &&
+    s.durationSeconds === first.durationSeconds &&
+    s.weightKg === first.weightKg &&
+    s.bandKg === first.bandKg
+  )
+
+  if (allSame) {
+    const modSuffix = first.weightKg ? ` +${first.weightKg}kg` : first.bandKg ? ` ~${first.bandKg}kg` : ''
+    const valStr = first.reps != null ? `${first.reps} rep` : `${first.durationSeconds ?? 0}s`
+    return `${ex.name} · ${n}×${valStr}${modSuffix}`
+  }
+
+  return `${ex.name} · ${ex.sets.map(setLabel).join(', ')}`
 }
 
 /** Locale-safe "yyyy-MM-dd" from a Date — avoids toDateString() timezone issues. */
@@ -196,21 +204,13 @@ export default function WorkoutPage() {
 
   // ── Exercise mutations (all go through context) ───────────────────────────
 
-  function replaceExerciseSets(ei: number, sets: WorkoutSet[], weightKg?: number, bandKg?: number) {
-    setExercises(exercises.map((ex, i) => i === ei ? {
-      ...ex, sets,
-      weightKg: weightKg ?? undefined,
-      bandKg:   bandKg   ?? undefined,
-    } : ex))
+  function replaceExerciseSets(ei: number, sets: WorkoutSet[]) {
+    setExercises(exercises.map((ex, i) => i === ei ? { ...ex, sets } : ex))
   }
 
-  function addExercise(name: string, initialSet: WorkoutSet, weightKg?: number, bandKg?: number) {
+  function addExercise(name: string, initialSet: WorkoutSet) {
     const category = getCategory(name, catalogue)
-    setExercises([...exercises, {
-      name, category, sets: [initialSet],
-      ...(weightKg ? { weightKg } : {}),
-      ...(bandKg   ? { bandKg }   : {}),
-    }])
+    setExercises([...exercises, { name, category, sets: [initialSet] }])
   }
 
   function removeExercise(idx: number) {
@@ -438,7 +438,7 @@ export default function WorkoutPage() {
           catalogue={catalogue}
           onNoteChange={setNote}
           onReplaceExerciseSets={replaceExerciseSets}
-          onAddExercise={(name, set, weightKg, bandKg) => addExercise(name, set, weightKg, bandKg)}
+          onAddExercise={(name, set) => addExercise(name, set)}
           onRemoveExercise={removeExercise}
           onFinish={captureWorkout}
           onCancel={() => { ctxStop(); setScreen('home') }}
@@ -572,8 +572,8 @@ function ActiveWorkout({
   note: string
   catalogue: CatalogueEntry[]
   onNoteChange: (v: string) => void
-  onReplaceExerciseSets: (ei: number, sets: WorkoutSet[], weightKg?: number, bandKg?: number) => void
-  onAddExercise: (name: string, set: WorkoutSet, weightKg?: number, bandKg?: number) => void
+  onReplaceExerciseSets: (ei: number, sets: WorkoutSet[]) => void
+  onAddExercise: (name: string, set: WorkoutSet) => void
   onRemoveExercise: (idx: number) => void
   onFinish: () => void
   onCancel: () => void
@@ -586,10 +586,8 @@ function ActiveWorkout({
   // Edit existing exercise sets popup
   const [popupExIdx, setPopupExIdx] = useState<number | null>(null)
   const [popupSets, setPopupSets] = useState<WorkoutSet[]>([])
-  const [popupWeightOn, setPopupWeightOn] = useState(false)
-  const [popupWeight, setPopupWeight] = useState(10)
-  const [popupBandOn, setPopupBandOn] = useState(false)
-  const [popupBandKg, setPopupBandKg] = useState(10)
+  // 'none' | 'weight' | 'band' — which modifier column to show in the sets list
+  const [popupModifier, setPopupModifier] = useState<'none' | 'weight' | 'band'>('none')
 
   // Search sheet
   const [showSearch, setShowSearch] = useState(false)
@@ -602,7 +600,7 @@ function ActiveWorkout({
   const [logWeightOn, setLogWeightOn] = useState(false)
   const [logWeight, setLogWeight] = useState(10)
   const [logBandOn, setLogBandOn] = useState(false)
-  const [logBandKg, setLogBandKg] = useState(10)
+  const [logBandKg, setLogBandKg] = useState(5)
 
   const totalReps = totalRepsInWorkout(exercises)
 
@@ -616,22 +614,26 @@ function ActiveWorkout({
   const grouped = groupByCategoryByCatalogue(filteredCatalogue)
 
   function openExPopup(ei: number, sets: WorkoutSet[]) {
-    const ex = exercises[ei]
     setPopupExIdx(ei)
-    setPopupSets(sets.map(s => ({ ...s })))
-    setPopupWeightOn(!!ex?.weightKg || ex?.category === 'Cu Greutate')
-    setPopupWeight(ex?.weightKg ?? 10)
-    setPopupBandOn(!!ex?.bandKg || ex?.category === 'Cu Bandă')
-    setPopupBandKg(ex?.bandKg ?? 10)
+    const copied = sets.map(s => ({ ...s }))
+    setPopupSets(copied)
+    // Derive modifier from existing sets
+    const hasWeight = copied.some(s => s.weightKg != null)
+    const hasBand   = copied.some(s => s.bandKg   != null)
+    const category  = exercises[ei]?.category ?? ''
+    setPopupModifier(hasWeight || category === 'Cu Greutate' ? 'weight' : hasBand || category === 'Cu Bandă' ? 'band' : 'none')
   }
 
   function savePopup() {
     if (popupExIdx !== null) {
-      onReplaceExerciseSets(
-        popupExIdx, popupSets,
-        popupWeightOn ? popupWeight : undefined,
-        popupBandOn   ? popupBandKg : undefined,
-      )
+      // Strip the inactive modifier values before saving
+      const cleaned = popupSets.map(s => {
+        const { weightKg: _w, bandKg: _b, ...rest } = s
+        if (popupModifier === 'weight') return { ...rest, weightKg: s.weightKg }
+        if (popupModifier === 'band')   return { ...rest, bandKg:   s.bandKg   }
+        return rest
+      })
+      onReplaceExerciseSets(popupExIdx, cleaned)
       setPopupExIdx(null)
     }
   }
@@ -645,18 +647,18 @@ function ActiveWorkout({
     setLogWeightOn(category === 'Cu Greutate')
     setLogWeight(10)
     setLogBandOn(category === 'Cu Bandă')
-    setLogBandKg(10)
+    setLogBandKg(5)
   }
 
   function confirmLog() {
     if (!logExercise) return
     const metric = getMetric(logExercise, catalogue)
-    const set: WorkoutSet = metric === 'reps' ? { reps: logReps } : { durationSeconds: logSecs }
-    onAddExercise(
-      logExercise, set,
-      logWeightOn ? logWeight : undefined,
-      logBandOn   ? logBandKg : undefined,
-    )
+    const set: WorkoutSet = {
+      ...(metric === 'reps' ? { reps: logReps } : { durationSeconds: logSecs }),
+      ...(logWeightOn ? { weightKg: logWeight } : {}),
+      ...(logBandOn   ? { bandKg:   logBandKg } : {}),
+    }
+    onAddExercise(logExercise, set)
     setLogExercise(null)
     setShowSearch(false)
     setSearchQuery('')
@@ -696,7 +698,9 @@ function ActiveWorkout({
           )}
 
           {exercises.map((ex, ei) => {
-            const accentColor = ex.weightKg ? '#f97316' : ex.bandKg ? '#a855f7' : null
+            const hasWeight = ex.sets.some(s => s.weightKg != null)
+            const hasBand   = ex.sets.some(s => s.bandKg   != null)
+            const accentColor = hasWeight ? '#f97316' : hasBand ? '#a855f7' : null
             return (
               <div
                 key={`${ex.name}-${ei}`}
@@ -707,19 +711,17 @@ function ActiveWorkout({
                 }}
               >
                 {/* Modifier header strip */}
-                {(ex.weightKg || ex.bandKg) && (
-                  <div
-                    className="flex items-center gap-1.5 px-4 py-1.5"
-                    style={{ backgroundColor: accentColor ? `${accentColor}18` : undefined }}
-                  >
-                    {ex.weightKg && (
-                      <span className="text-[10px] font-black tracking-wide px-2 py-0.5 rounded-full border border-orange-500/35 text-orange-400 bg-orange-500/10">
-                        ⚖️ +{ex.weightKg} kg
+                {accentColor && (
+                  <div className="flex items-center gap-1.5 px-4 py-1.5"
+                    style={{ backgroundColor: `${accentColor}18` }}>
+                    {hasWeight && (
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-orange-500/35 text-orange-400 bg-orange-500/10">
+                        ⚖️ cu greutate
                       </span>
                     )}
-                    {ex.bandKg && (
-                      <span className="text-[10px] font-black tracking-wide px-2 py-0.5 rounded-full border border-purple-500/35 text-purple-400 bg-purple-500/10">
-                        🔴 Bandă {ex.bandKg} kg
+                    {hasBand && (
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-purple-500/35 text-purple-400 bg-purple-500/10">
+                        🔴 cu bandă
                       </span>
                     )}
                   </div>
@@ -741,13 +743,20 @@ function ActiveWorkout({
                       <Trash2 size={13} />
                     </button>
                   </div>
-                  <p className="text-xs text-white/45">
-                    {ex.sets.length} set{ex.sets.length !== 1 ? 'uri' : ''} · {
-                      ex.sets.map(s =>
-                        s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
-                      ).join(', ')
-                    }
-                  </p>
+                  {/* Per-set summary */}
+                  <div className="flex flex-col gap-0.5">
+                    {ex.sets.map((s, si) => {
+                      const val = s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
+                      const mod = s.weightKg ? ` · +${s.weightKg}kg` : s.bandKg ? ` · ~${s.bandKg}kg` : ''
+                      return (
+                        <p key={si} className="text-xs text-white/45">
+                          <span className="text-white/20 mr-1">{si + 1}.</span>
+                          {val}
+                          {mod && <span style={{ color: s.weightKg ? '#fb923c99' : '#c084fc99' }}>{mod}</span>}
+                        </p>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             )
@@ -809,6 +818,17 @@ function ActiveWorkout({
       {/* ── Edit existing exercise sets popup ── */}
       {popupExIdx !== null && (() => {
         const metric = getMetric(exercises[popupExIdx].name, catalogue)
+        const BANDS = [5, 15, 25, 35, 45, 55]
+
+        function applyModifier(m: 'none' | 'weight' | 'band') {
+          if (m === 'weight') {
+            setPopupSets(prev => prev.map(s => ({ ...s, weightKg: s.weightKg ?? 10 })))
+          } else if (m === 'band') {
+            setPopupSets(prev => prev.map(s => ({ ...s, bandKg: s.bandKg ?? 5 })))
+          }
+          setPopupModifier(m)
+        }
+
         return (
           <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-20">
             <div className="w-full max-w-lg rounded-t-3xl pb-8 max-h-[92vh] flex flex-col" style={{ backgroundColor: 'var(--app-surface)' }}>
@@ -828,101 +848,70 @@ function ActiveWorkout({
                 </button>
               </div>
 
-              {/* ── Modifier section — TOP, always visible ── */}
-              <div className="px-5 pt-4 pb-3 border-b border-white/6 flex-shrink-0">
-                {/* Toggle chips */}
-                <div className="flex gap-2 mb-3">
+              {/* Modifier chips */}
+              <div className="px-5 pt-3 pb-3 border-b border-white/6 flex-shrink-0">
+                <div className="flex gap-2">
                   <button
-                    onClick={() => { setPopupWeightOn(v => !v); setPopupBandOn(false) }}
-                    className={`flex-1 h-9 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-95 ${
-                      popupWeightOn
-                        ? 'bg-orange-500/15 border-orange-500/40 text-orange-400'
-                        : 'bg-white/5 border-white/12 text-white/35 hover:text-white/55'
+                    onClick={() => applyModifier('none')}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
+                      popupModifier === 'none'
+                        ? 'bg-white/12 border-white/25 text-white'
+                        : 'bg-white/4 border-white/10 text-white/35'
                     }`}
                   >
-                    ⚖️ {popupWeightOn ? `+${popupWeight} kg` : '+ Greutate'}
+                    Normal
                   </button>
                   <button
-                    onClick={() => { setPopupBandOn(v => !v); setPopupWeightOn(false) }}
-                    className={`flex-1 h-9 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-95 ${
-                      popupBandOn
-                        ? 'bg-purple-500/15 border-purple-500/40 text-purple-400'
-                        : 'bg-white/5 border-white/12 text-white/35 hover:text-white/55'
+                    onClick={() => applyModifier('weight')}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
+                      popupModifier === 'weight'
+                        ? 'bg-orange-500/15 border-orange-500/40 text-orange-400'
+                        : 'bg-white/4 border-white/10 text-white/35'
                     }`}
                   >
-                    🔴 {popupBandOn ? `${popupBandKg} kg` : '+ Bandă'}
+                    ⚖️ Greutate
+                  </button>
+                  <button
+                    onClick={() => applyModifier('band')}
+                    className={`flex-1 h-9 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
+                      popupModifier === 'band'
+                        ? 'bg-purple-500/15 border-purple-500/40 text-purple-400'
+                        : 'bg-white/4 border-white/10 text-white/35'
+                    }`}
+                  >
+                    🔴 Bandă
                   </button>
                 </div>
-
-                {/* Weight stepper — inline, compact */}
-                {popupWeightOn && (
-                  <div className="rounded-2xl bg-orange-500/10 border border-orange-500/25 px-4 py-3 flex items-center gap-3">
-                    <span className="text-[10px] font-black text-orange-400/70 tracking-widest flex-shrink-0">GREUTATE</span>
-                    <div className="flex-1 flex items-center justify-center gap-3">
-                      <button onClick={() => setPopupWeight(w => Math.max(0, +(w - 2.5).toFixed(1)))}
-                        className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-xl font-bold active:scale-95 transition-transform">−</button>
-                      <span className="w-20 text-center text-3xl font-black text-white tabular-nums">
-                        {popupWeight}<span className="text-base text-orange-400/70"> kg</span>
-                      </span>
-                      <button onClick={() => setPopupWeight(w => +(w + 2.5).toFixed(1))}
-                        className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white text-xl font-bold active:scale-95 transition-transform">+</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Band stepper — snaps to real resistance levels: 5, 15, 25, 35, 45, 55 */}
-                {popupBandOn && (() => {
-                  const BANDS = [5, 15, 25, 35, 45, 55]
-                  const bandUp   = () => setPopupBandKg(w => BANDS.find(v => v > w) ?? BANDS[BANDS.length - 1])
-                  const bandDown = () => setPopupBandKg(w => [...BANDS].reverse().find(v => v < w) ?? BANDS[0])
-                  const bandLabel = popupBandKg <= 5 ? 'Galbenă' : popupBandKg <= 15 ? 'Roșie' : popupBandKg <= 25 ? 'Neagră' : popupBandKg <= 35 ? 'Mov' : popupBandKg <= 45 ? 'Verde' : 'Albastră'
-                  return (
-                    <div className="rounded-2xl bg-purple-500/10 border border-purple-500/25 px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-black text-purple-400/70 tracking-widest flex-shrink-0">BANDĂ</span>
-                        <div className="flex-1 flex items-center justify-center gap-3">
-                          <button onClick={bandDown}
-                            className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-xl font-bold active:scale-95 transition-transform">−</button>
-                          <div className="text-center">
-                            <span className="text-3xl font-black text-white tabular-nums">
-                              {popupBandKg}<span className="text-base text-purple-400/70"> kg</span>
-                            </span>
-                            <p className="text-[10px] text-purple-400/60 mt-0.5">{bandLabel}</p>
-                          </div>
-                          <button onClick={bandUp}
-                            className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white text-xl font-bold active:scale-95 transition-transform">+</button>
-                        </div>
-                      </div>
-                      {/* Band level indicators */}
-                      <div className="flex gap-1 mt-3 justify-center">
-                        {[5,15,25,35,45,55].map(v => (
-                          <button key={v} onClick={() => setPopupBandKg(v)}
-                            className={`flex-1 h-1.5 rounded-full transition-all ${popupBandKg === v ? 'bg-purple-400' : 'bg-white/15'}`} />
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })()}
               </div>
 
               {/* ── Sets list ── */}
               <div className="flex-1 overflow-y-auto px-5 pt-2">
-                <div className="flex items-center gap-3 py-2">
+                <div className="flex items-center gap-2 py-2">
                   <span className="w-8 text-[10px] font-bold text-white/25 text-center">SET</span>
                   <span className="flex-1 text-[10px] font-bold text-white/25 text-center">
                     {metric === 'reps' ? 'REPETĂRI' : 'SECUNDE'}
                   </span>
-                  <span className="w-6" />
+                  {popupModifier !== 'none' && (
+                    <span className="w-28 text-[10px] font-bold text-white/25 text-center">
+                      {popupModifier === 'weight' ? 'GREUTATE' : 'BANDĂ'}
+                    </span>
+                  )}
+                  <span className="w-6 flex-shrink-0" />
                 </div>
+
                 {popupSets.map((set, si) => {
                   const reps = set.reps ?? 0
                   const secs = set.durationSeconds ?? 0
+                  const wKg  = set.weightKg ?? 10
+                  const bKg  = set.bandKg   ?? 5
                   return (
-                    <div key={si} className="flex items-center gap-3 py-2.5 border-b border-white/6">
+                    <div key={si} className="flex items-center gap-2 py-2.5 border-b border-white/6">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: '#1ED75F22', border: '1.5px solid #1ED75F55' }}>
                         <span className="text-xs font-black text-brand-green">{si + 1}</span>
                       </div>
+
+                      {/* Reps / seconds stepper */}
                       {metric === 'reps' && (
                         <div className="flex-1 flex items-center justify-center gap-2">
                           <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: Math.max(1, (s.reps ?? 0) - 1) } : s))}
@@ -941,9 +930,48 @@ function ActiveWorkout({
                             className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center text-black hover:opacity-90 active:scale-95 transition-all text-lg font-bold">+</button>
                         </div>
                       )}
+
+                      {/* Per-set weight stepper */}
+                      {popupModifier === 'weight' && (
+                        <div className="w-28 flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, weightKg: Math.max(0, +((s.weightKg ?? 10) - 2.5).toFixed(1)) } : s))}
+                            className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-white/60 active:scale-95 transition-all text-base font-bold flex-shrink-0">−</button>
+                          <span className="w-14 text-center text-sm font-black tabular-nums" style={{ color: '#fb923c' }}>
+                            +{wKg}kg
+                          </span>
+                          <button
+                            onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, weightKg: +((s.weightKg ?? 10) + 2.5).toFixed(1) } : s))}
+                            className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 active:scale-95 transition-all text-base font-bold flex-shrink-0">+</button>
+                        </div>
+                      )}
+
+                      {/* Per-set band stepper */}
+                      {popupModifier === 'band' && (
+                        <div className="w-28 flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => setPopupSets(prev => prev.map((s, i) => {
+                              if (i !== si) return s
+                              const cur = s.bandKg ?? 5
+                              return { ...s, bandKg: [...BANDS].reverse().find(v => v < cur) ?? BANDS[0] }
+                            }))}
+                            className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-white/60 active:scale-95 transition-all text-base font-bold flex-shrink-0">−</button>
+                          <span className="w-14 text-center text-sm font-black tabular-nums" style={{ color: '#c084fc' }}>
+                            ~{bKg}kg
+                          </span>
+                          <button
+                            onClick={() => setPopupSets(prev => prev.map((s, i) => {
+                              if (i !== si) return s
+                              const cur = s.bandKg ?? 5
+                              return { ...s, bandKg: BANDS.find(v => v > cur) ?? BANDS[BANDS.length - 1] }
+                            }))}
+                            className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 active:scale-95 transition-all text-base font-bold flex-shrink-0">+</button>
+                        </div>
+                      )}
+
                       <button onClick={() => setPopupSets(prev => prev.filter((_, i) => i !== si))}
                         disabled={popupSets.length <= 1}
-                        className="w-6 h-6 flex items-center justify-center text-white/20 hover:text-red-400 transition-colors disabled:opacity-0">
+                        className="w-6 h-6 flex items-center justify-center text-white/20 hover:text-red-400 transition-colors disabled:opacity-0 flex-shrink-0">
                         <X size={13} />
                       </button>
                     </div>
@@ -953,7 +981,7 @@ function ActiveWorkout({
                 <button
                   onClick={() => setPopupSets(prev => {
                     const last = prev[prev.length - 1] ?? {}
-                    return [...prev, { reps: last.reps, durationSeconds: last.durationSeconds }]
+                    return [...prev, { ...last }]
                   })}
                   className="flex items-center gap-1.5 text-xs text-brand-green font-semibold py-3">
                   <Plus size={13} /> Adaugă set
@@ -1168,18 +1196,14 @@ function ActiveWorkout({
                   const BANDS = [5, 15, 25, 35, 45, 55]
                   const bandUp   = () => setLogBandKg(w => BANDS.find(v => v > w) ?? BANDS[BANDS.length - 1])
                   const bandDown = () => setLogBandKg(w => [...BANDS].reverse().find(v => v < w) ?? BANDS[0])
-                  const bandLabel = logBandKg <= 5 ? 'Galbenă' : logBandKg <= 15 ? 'Roșie' : logBandKg <= 25 ? 'Neagră' : logBandKg <= 35 ? 'Mov' : logBandKg <= 45 ? 'Verde' : 'Albastră'
                   return (
                     <div className="mb-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 px-4 py-4">
                       <div className="flex items-center justify-center gap-6">
                         <button onClick={bandDown}
                           className="w-12 h-12 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-2xl font-bold active:scale-95 transition-transform">−</button>
-                        <div className="text-center">
-                          <span className="text-4xl font-black text-white tabular-nums">
-                            {logBandKg}<span className="text-lg text-purple-400/60"> kg</span>
-                          </span>
-                          <p className="text-xs text-purple-400/70 mt-0.5">{bandLabel}</p>
-                        </div>
+                        <span className="w-24 text-center text-4xl font-black text-white tabular-nums">
+                          {logBandKg}<span className="text-lg text-purple-400/60"> kg</span>
+                        </span>
                         <button onClick={bandUp}
                           className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-2xl font-bold active:scale-95 transition-transform">+</button>
                       </div>

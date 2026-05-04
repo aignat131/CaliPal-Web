@@ -144,14 +144,14 @@ export function conversationId(uid1: string, uid2: string): string {
 export interface WorkoutSet {
   reps?: number
   durationSeconds?: number
+  weightKg?: number  // added weight for this set
+  bandKg?: number    // band resistance for this set
 }
 
 export interface WorkoutExercise {
   name: string
   category: string
   sets: WorkoutSet[]
-  weightKg?: number  // added weight (kg)
-  bandKg?: number    // band resistance/assistance (kg equivalent)
 }
 
 export interface WorkoutDoc {
