@@ -150,6 +150,7 @@ export interface WorkoutExercise {
   name: string
   category: string
   sets: WorkoutSet[]
+  weightKg?: number  // added weight (kg) for "Cu Greutate" exercises
 }
 
 export interface WorkoutDoc {

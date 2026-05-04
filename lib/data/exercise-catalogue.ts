@@ -44,10 +44,22 @@ export const DEFAULT_EXERCISE_CATALOGUE: CatalogueEntry[] = [
   { name: 'Handstand Hold',     category: 'Statice',   metric: 'seconds' },
   { name: 'Dead Hang',          category: 'Statice',   metric: 'seconds' },
   // ── Cardio ───────────────────────────────────────────────────────────────────
-  { name: 'Burpees',            category: 'Cardio',    metric: 'reps'    },
-  { name: 'Mountain Climbers',  category: 'Cardio',    metric: 'reps'    },
-  { name: 'Jumping Jacks',      category: 'Cardio',    metric: 'reps'    },
-  { name: 'Sprint 100m',        category: 'Cardio',    metric: 'seconds' },
+  { name: 'Burpees',                     category: 'Cardio',      metric: 'reps'    },
+  { name: 'Mountain Climbers',           category: 'Cardio',      metric: 'reps'    },
+  { name: 'Jumping Jacks',              category: 'Cardio',      metric: 'reps'    },
+  { name: 'Sprint 100m',                category: 'Cardio',      metric: 'seconds' },
+  // ── Cu Greutate ───────────────────────────────────────────────────────────────
+  { name: 'Tracțiuni cu greutate',       category: 'Cu Greutate', metric: 'reps'    },
+  { name: 'Chin-up cu greutate',         category: 'Cu Greutate', metric: 'reps'    },
+  { name: 'Flotări cu greutate',         category: 'Cu Greutate', metric: 'reps'    },
+  { name: 'Dips cu greutate',            category: 'Cu Greutate', metric: 'reps'    },
+  { name: 'Ring Dip cu greutate',        category: 'Cu Greutate', metric: 'reps'    },
+  { name: 'Squaturi cu greutate',        category: 'Cu Greutate', metric: 'reps'    },
+  { name: 'Lunges cu greutate',          category: 'Cu Greutate', metric: 'reps'    },
+  { name: 'Pistol Squat cu greutate',    category: 'Cu Greutate', metric: 'reps'    },
+  { name: 'Calf Raise cu greutate',      category: 'Cu Greutate', metric: 'reps'    },
+  { name: 'Australian Pull-up cu greu.', category: 'Cu Greutate', metric: 'reps'    },
+  { name: 'Muscle-Up cu greutate',       category: 'Cu Greutate', metric: 'reps'    },
 ]
 
 /** Group entries by category for display */

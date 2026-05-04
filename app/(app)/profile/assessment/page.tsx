@@ -593,6 +593,26 @@ function NextButton({ onClick, label = 'Continuă' }: { onClick: () => void; lab
 }
 
 function RepCounter({ value, onChange, max = 200 }: { value: number; onChange: (v: number) => void; max?: number }) {
+  const [raw, setRaw] = useState(String(value))
+
+  // Keep raw in sync when value changes via +/- buttons
+  useEffect(() => { setRaw(String(value)) }, [value])
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const str = e.target.value
+    if (str === '' || /^\d+$/.test(str)) {
+      setRaw(str)
+      if (str !== '') onChange(Math.max(0, Math.min(max, parseInt(str, 10))))
+    }
+  }
+
+  function handleBlur() {
+    const num = parseInt(raw, 10)
+    const clamped = isNaN(num) ? 0 : Math.max(0, Math.min(max, num))
+    setRaw(String(clamped))
+    onChange(clamped)
+  }
+
   return (
     <div className="flex items-center gap-4">
       <button onClick={() => onChange(Math.max(0, value - 1))}
@@ -600,9 +620,13 @@ function RepCounter({ value, onChange, max = 200 }: { value: number; onChange: (
         −
       </button>
       <input
-        type="number" min={0} max={max}
-        value={value}
-        onChange={e => onChange(Math.max(0, Math.min(max, Number(e.target.value) || 0)))}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={raw}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onFocus={e => e.target.select()}
         className="flex-1 h-11 rounded-2xl text-center text-lg font-black text-white bg-white/8 border border-white/12 outline-none focus:border-brand-green/60"
       />
       <button onClick={() => onChange(Math.min(max, value + 1))}

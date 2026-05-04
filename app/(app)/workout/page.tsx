@@ -38,6 +38,7 @@ function totalRepsInWorkout(exercises: WorkoutExercise[]): number {
 /** "Tracțiuni · 3×10 rep" — compact one-liner for an exercise. */
 function exerciseOneLiner(ex: WorkoutExercise): string {
   const n = ex.sets.length
+  const weightSuffix = ex.weightKg ? ` +${ex.weightKg}kg` : ''
   if (n === 0) return ex.name
   const first = ex.sets[0]
   if (first.durationSeconds != null) {
@@ -48,8 +49,8 @@ function exerciseOneLiner(ex: WorkoutExercise): string {
   }
   const allSame = ex.sets.every(s => s.reps === first.reps)
   return allSame
-    ? `${ex.name} · ${n}×${first.reps ?? 0} rep`
-    : `${ex.name} · ${ex.sets.map(s => `${s.reps ?? 0}`).join(', ')} rep`
+    ? `${ex.name} · ${n}×${first.reps ?? 0} rep${weightSuffix}`
+    : `${ex.name} · ${ex.sets.map(s => `${s.reps ?? 0}`).join(', ')} rep${weightSuffix}`
 }
 
 /** Locale-safe "yyyy-MM-dd" from a Date — avoids toDateString() timezone issues. */
@@ -191,13 +192,15 @@ export default function WorkoutPage() {
 
   // ── Exercise mutations (all go through context) ───────────────────────────
 
-  function replaceExerciseSets(ei: number, sets: WorkoutSet[]) {
-    setExercises(exercises.map((ex, i) => i === ei ? { ...ex, sets } : ex))
+  function replaceExerciseSets(ei: number, sets: WorkoutSet[], weightKg?: number) {
+    setExercises(exercises.map((ex, i) =>
+      i === ei ? { ...ex, sets, ...(weightKg !== undefined ? { weightKg } : {}) } : ex
+    ))
   }
 
-  function addExercise(name: string, initialSet: WorkoutSet) {
+  function addExercise(name: string, initialSet: WorkoutSet, weightKg?: number) {
     const category = getCategory(name, catalogue)
-    setExercises([...exercises, { name, category, sets: [initialSet] }])
+    setExercises([...exercises, { name, category, sets: [initialSet], ...(weightKg ? { weightKg } : {}) }])
   }
 
   function removeExercise(idx: number) {
@@ -425,7 +428,7 @@ export default function WorkoutPage() {
           catalogue={catalogue}
           onNoteChange={setNote}
           onReplaceExerciseSets={replaceExerciseSets}
-          onAddExercise={(name, set) => addExercise(name, set)}
+          onAddExercise={(name, set, weightKg) => addExercise(name, set, weightKg)}
           onRemoveExercise={removeExercise}
           onFinish={captureWorkout}
           onCancel={() => { ctxStop(); setScreen('home') }}
@@ -559,8 +562,8 @@ function ActiveWorkout({
   note: string
   catalogue: CatalogueEntry[]
   onNoteChange: (v: string) => void
-  onReplaceExerciseSets: (ei: number, sets: WorkoutSet[]) => void
-  onAddExercise: (name: string, set: WorkoutSet) => void
+  onReplaceExerciseSets: (ei: number, sets: WorkoutSet[], weightKg?: number) => void
+  onAddExercise: (name: string, set: WorkoutSet, weightKg?: number) => void
   onRemoveExercise: (idx: number) => void
   onFinish: () => void
   onCancel: () => void
@@ -573,6 +576,7 @@ function ActiveWorkout({
   // Edit existing exercise sets popup
   const [popupExIdx, setPopupExIdx] = useState<number | null>(null)
   const [popupSets, setPopupSets] = useState<WorkoutSet[]>([])
+  const [popupWeight, setPopupWeight] = useState<number>(10)
 
   // Search sheet
   const [showSearch, setShowSearch] = useState(false)
@@ -582,6 +586,7 @@ function ActiveWorkout({
   const [logExercise, setLogExercise] = useState<string | null>(null)
   const [logReps, setLogReps] = useState(10)
   const [logSecs, setLogSecs] = useState(30)
+  const [logWeight, setLogWeight] = useState(10)
 
   const totalReps = totalRepsInWorkout(exercises)
 
@@ -597,11 +602,13 @@ function ActiveWorkout({
   function openExPopup(ei: number, sets: WorkoutSet[]) {
     setPopupExIdx(ei)
     setPopupSets(sets.map(s => ({ ...s })))
+    setPopupWeight(exercises[ei]?.weightKg ?? 10)
   }
 
   function savePopup() {
     if (popupExIdx !== null) {
-      onReplaceExerciseSets(popupExIdx, popupSets)
+      const isWeighted = exercises[popupExIdx]?.category === 'Cu Greutate'
+      onReplaceExerciseSets(popupExIdx, popupSets, isWeighted ? popupWeight : undefined)
       setPopupExIdx(null)
     }
   }
@@ -611,15 +618,17 @@ function ActiveWorkout({
     setLogExercise(name)
     setLogReps(metric === 'reps' ? 10 : 0)
     setLogSecs(metric === 'seconds' ? 30 : 0)
+    setLogWeight(10)
   }
 
   function confirmLog() {
     if (!logExercise) return
     const metric = getMetric(logExercise, catalogue)
+    const isWeighted = getCategory(logExercise, catalogue) === 'Cu Greutate'
     const set: WorkoutSet = metric === 'reps'
       ? { reps: logReps }
       : { durationSeconds: logSecs }
-    onAddExercise(logExercise, set)
+    onAddExercise(logExercise, set, isWeighted ? logWeight : undefined)
     setLogExercise(null)
     setShowSearch(false)
     setSearchQuery('')
@@ -685,7 +694,7 @@ function ActiveWorkout({
                   ex.sets.map(s =>
                     s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
                   ).join(', ')
-                }
+                }{ex.weightKg ? ` · +${ex.weightKg}kg` : ''}
               </p>
             </div>
           ))}
@@ -746,6 +755,7 @@ function ActiveWorkout({
       {/* ── Edit existing exercise sets popup ── */}
       {popupExIdx !== null && (() => {
         const metric = getMetric(exercises[popupExIdx].name, catalogue)
+        const isWeighted = exercises[popupExIdx].category === 'Cu Greutate'
         return (
           <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-20">
             <div className="w-full max-w-lg rounded-t-3xl pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
@@ -821,6 +831,25 @@ function ActiveWorkout({
                 className="flex items-center gap-1.5 text-xs text-brand-green font-semibold mx-5 mt-3">
                 <Plus size={13} /> Adaugă set
               </button>
+
+              {/* Weight stepper — only for "Cu Greutate" exercises */}
+              {isWeighted && (
+                <div className="mx-5 mt-4 rounded-2xl border border-white/10 bg-white/4 px-4 py-3">
+                  <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3">GREUTATE ADĂUGATĂ</p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setPopupWeight(w => Math.max(0, +(w - 2.5).toFixed(1)))}
+                      className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-lg font-bold">−</button>
+                    <span className="flex-1 text-center text-2xl font-black text-white tabular-nums">
+                      {popupWeight} <span className="text-sm text-white/40">kg</span>
+                    </span>
+                    <button
+                      onClick={() => setPopupWeight(w => +(w + 2.5).toFixed(1))}
+                      className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center text-black text-lg font-bold">+</button>
+                  </div>
+                </div>
+              )}
+
               <div className="px-5 mt-4">
                 <button onClick={savePopup} className="w-full h-12 rounded-2xl bg-brand-green text-black text-sm font-black">
                   Salvează
@@ -921,6 +950,7 @@ function ActiveWorkout({
       {/* ── Log exercise popup (reps or seconds only) ── */}
       {logExercise !== null && (() => {
         const metric = getMetric(logExercise, catalogue)
+        const isWeighted = getCategory(logExercise, catalogue) === 'Cu Greutate'
         return (
           <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-40">
             <div className="w-full max-w-lg rounded-t-3xl pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
@@ -975,6 +1005,26 @@ function ActiveWorkout({
                       </span>
                       <button
                         onClick={() => setLogSecs(s => s + 5)}
+                        className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform"
+                      >+</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Weight input — only for "Cu Greutate" exercises */}
+                {isWeighted && (
+                  <div className="mb-6">
+                    <p className="text-xs text-white/50 text-center mb-3">Greutate adăugată</p>
+                    <div className="flex items-center justify-center gap-6">
+                      <button
+                        onClick={() => setLogWeight(w => Math.max(0, +(w - 2.5).toFixed(1)))}
+                        className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform"
+                      >−</button>
+                      <span className="w-24 text-center text-5xl font-black text-white tabular-nums">
+                        {logWeight}<span className="text-xl text-white/40">kg</span>
+                      </span>
+                      <button
+                        onClick={() => setLogWeight(w => +(w + 2.5).toFixed(1))}
                         className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform"
                       >+</button>
                     </div>
