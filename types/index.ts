@@ -223,7 +223,7 @@ export interface BasicStrength {
 
 // Skill items stored in Firestore (matches Android SkillItem)
 export interface SkillItem     { id: string; name: string }
-export interface UserSkillData { have: SkillItem[]; wantToLearn: SkillItem[] }
+export interface UserSkillData { have: SkillItem[]; wantToLearn: SkillItem[]; close?: SkillItem[] }
 export type SkillsByCategory   = Record<string, UserSkillData>  // key = categoryId
 
 // Skill category definitions loaded from Firestore skillCategories collection

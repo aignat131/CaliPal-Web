@@ -916,16 +916,35 @@ function ActiveWorkout({
                         <div className="flex-1 flex items-center justify-center gap-2">
                           <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: Math.max(1, (s.reps ?? 0) - 1) } : s))}
                             className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:bg-white/12 active:scale-95 transition-all text-lg font-bold">−</button>
-                          <span className="w-10 text-center text-xl font-black text-white tabular-nums">{reps}</span>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            value={reps}
+                            onChange={e => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: Math.max(1, parseInt(e.target.value) || 1) } : s))}
+                            onFocus={e => e.target.select()}
+                            className="w-10 text-center text-xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            min={1}
+                          />
                           <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: (s.reps ?? 0) + 1 } : s))}
                             className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center text-black hover:opacity-90 active:scale-95 transition-all text-lg font-bold">+</button>
                         </div>
                       )}
                       {metric === 'seconds' && (
                         <div className="flex-1 flex items-center justify-center gap-2">
-                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: Math.max(5, (s.durationSeconds ?? 0) - 5) } : s))}
+                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: Math.max(1, (s.durationSeconds ?? 0) - 5) } : s))}
                             className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:bg-white/12 active:scale-95 transition-all text-lg font-bold">−</button>
-                          <span className="w-12 text-center text-xl font-black text-white tabular-nums">{secs}s</span>
+                          <div className="flex items-baseline justify-center w-12">
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              value={secs}
+                              onChange={e => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: Math.max(1, parseInt(e.target.value) || 1) } : s))}
+                              onFocus={e => e.target.select()}
+                              className="w-9 text-center text-xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              min={1}
+                            />
+                            <span className="text-sm text-white/40">s</span>
+                          </div>
                           <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: (s.durationSeconds ?? 0) + 5 } : s))}
                             className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center text-black hover:opacity-90 active:scale-95 transition-all text-lg font-bold">+</button>
                         </div>
@@ -1128,7 +1147,15 @@ function ActiveWorkout({
                     <div className="flex items-center justify-center gap-6">
                       <button onClick={() => setLogReps(r => Math.max(1, r - 1))}
                         className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform">−</button>
-                      <span className="w-20 text-center text-6xl font-black text-white tabular-nums">{logReps}</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={logReps}
+                        onChange={e => setLogReps(Math.max(1, parseInt(e.target.value) || 1))}
+                        onFocus={e => e.target.select()}
+                        className="w-20 text-center text-6xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        min={1}
+                      />
                       <button onClick={() => setLogReps(r => r + 1)}
                         className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform">+</button>
                     </div>
@@ -1142,9 +1169,18 @@ function ActiveWorkout({
                     <div className="flex items-center justify-center gap-6">
                       <button onClick={() => setLogSecs(s => Math.max(5, s - 5))}
                         className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform">−</button>
-                      <span className="w-24 text-center text-6xl font-black text-white tabular-nums">
-                        {logSecs}<span className="text-2xl text-white/40">s</span>
-                      </span>
+                      <div className="flex items-baseline justify-center w-24">
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={logSecs}
+                          onChange={e => setLogSecs(Math.max(1, parseInt(e.target.value) || 1))}
+                          onFocus={e => e.target.select()}
+                          className="w-16 text-center text-6xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          min={1}
+                        />
+                        <span className="text-2xl text-white/40">s</span>
+                      </div>
                       <button onClick={() => setLogSecs(s => s + 5)}
                         className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform">+</button>
                     </div>

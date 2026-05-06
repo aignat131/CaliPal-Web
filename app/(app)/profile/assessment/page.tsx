@@ -25,7 +25,7 @@ interface BasicStrengthState {
   cardio:       CardioFrequency | null
 }
 
-type SkillZone = 'NONE' | 'HAVE' | 'WANT'
+type SkillZone = 'NONE' | 'HAVE' | 'WANT' | 'CLOSE'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -34,22 +34,31 @@ function cycleSkillInCategory(
   categoryId: string,
   skill: SkillItem,
 ): SkillsByCategory {
-  const current: UserSkillData = assignments[categoryId] ?? { have: [], wantToLearn: [] }
-  const inHave = current.have.some(s => s.id === skill.id)
-  const inWant = current.wantToLearn.some(s => s.id === skill.id)
+  const current: UserSkillData = assignments[categoryId] ?? { have: [], wantToLearn: [], close: [] }
+  const inHave  = current.have.some(s => s.id === skill.id)
+  const inWant  = current.wantToLearn.some(s => s.id === skill.id)
+  const inClose = (current.close ?? []).some(s => s.id === skill.id)
   let updated: UserSkillData
-  if (!inHave && !inWant) {
+  if (!inHave && !inWant && !inClose) {
     // unselected → HAVE
     updated = { ...current, have: [...current.have, skill] }
   } else if (inHave) {
     // HAVE → WANT
     updated = {
+      ...current,
       have: current.have.filter(s => s.id !== skill.id),
       wantToLearn: [...current.wantToLearn, skill],
     }
+  } else if (inWant) {
+    // WANT → CLOSE
+    updated = {
+      ...current,
+      wantToLearn: current.wantToLearn.filter(s => s.id !== skill.id),
+      close: [...(current.close ?? []), skill],
+    }
   } else {
-    // WANT → unselected
-    updated = { ...current, wantToLearn: current.wantToLearn.filter(s => s.id !== skill.id) }
+    // CLOSE → unselected
+    updated = { ...current, close: (current.close ?? []).filter(s => s.id !== skill.id) }
   }
   return { ...assignments, [categoryId]: updated }
 }
@@ -59,6 +68,7 @@ function getSkillZone(assignments: SkillsByCategory, categoryId: string, skillId
   if (!cat) return 'NONE'
   if (cat.have.some(s => s.id === skillId)) return 'HAVE'
   if (cat.wantToLearn.some(s => s.id === skillId)) return 'WANT'
+  if (cat.close?.some(s => s.id === skillId)) return 'CLOSE'
   return 'NONE'
 }
 
@@ -133,7 +143,7 @@ export default function AssessmentPage() {
     if (!name) return
     const skill: SkillItem = { id: `custom_${Date.now()}`, name }
     setAssignments(prev => {
-      const current = prev[categoryId] ?? { have: [], wantToLearn: [] }
+      const current = prev[categoryId] ?? { have: [], wantToLearn: [], close: [] }
       return { ...prev, [categoryId]: { ...current, wantToLearn: [...current.wantToLearn, skill] } }
     })
     setCustomInputs(prev => ({ ...prev, [categoryId]: '' }))
@@ -159,6 +169,7 @@ export default function AssessmentPage() {
             {
               have:        data.have.map(s => ({ id: s.id, name: s.name })),
               wantToLearn: data.wantToLearn.map(s => ({ id: s.id, name: s.name })),
+              close:       (data.close ?? []).map(s => ({ id: s.id, name: s.name })),
             },
           ])
         ),
@@ -190,8 +201,9 @@ export default function AssessmentPage() {
 
   // ── Results screen ───────────────────────────────────────────────────────────
   if (step === totalSteps - 1) {
-    const totalHave = Object.values(assignments).reduce((sum, v) => sum + v.have.length, 0)
-    const totalWant = Object.values(assignments).reduce((sum, v) => sum + v.wantToLearn.length, 0)
+    const totalHave  = Object.values(assignments).reduce((sum, v) => sum + v.have.length, 0)
+    const totalWant  = Object.values(assignments).reduce((sum, v) => sum + v.wantToLearn.length, 0)
+    const totalClose = Object.values(assignments).reduce((sum, v) => sum + (v.close?.length ?? 0), 0)
     return (
       <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center px-6" style={{ backgroundColor: 'var(--app-bg)' }}>
         {saving ? (
@@ -214,6 +226,12 @@ export default function AssessmentPage() {
                   <p className="text-2xl font-black text-blue-400">{totalWant}</p>
                   <p className="text-xs text-white/50">de învățat</p>
                 </div>
+                {totalClose > 0 && (
+                  <div className="text-center">
+                    <p className="text-2xl font-black text-amber-400">{totalClose}</p>
+                    <p className="text-xs text-white/50">aproape</p>
+                  </div>
+                )}
               </div>
               {coinsEarned > 0 && (
                 <p className="text-sm text-white/60 text-center">
@@ -505,12 +523,13 @@ function StepSkillCategory({ category, assignments, customInput, onCycleSkill, o
   onAddCustom: () => void
   onNext: () => void
 }) {
-  const userCat = assignments[category.id] ?? { have: [], wantToLearn: [] }
+  const userCat = assignments[category.id] ?? { have: [], wantToLearn: [], close: [] }
 
   // Merge predefined + custom skills in this category
   const customSkills: SkillItem[] = [
     ...userCat.have.filter(s => s.id.startsWith('custom_')),
     ...userCat.wantToLearn.filter(s => s.id.startsWith('custom_')),
+    ...(userCat.close ?? []).filter(s => s.id.startsWith('custom_')),
   ].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)
 
   return (
@@ -519,7 +538,7 @@ function StepSkillCategory({ category, assignments, customInput, onCycleSkill, o
       <p className="text-sm text-white/45 mb-5">{category.question}</p>
 
       {/* Legend */}
-      <div className="flex gap-4 mb-4 text-xs text-white/50">
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-4 text-xs text-white/50">
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-brand-green inline-block" />
           Stăpânesc
@@ -527,6 +546,10 @@ function StepSkillCategory({ category, assignments, customInput, onCycleSkill, o
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
           Vreau să învăț
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
+          Aproape
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-white/20 inline-block" />
@@ -544,7 +567,9 @@ function StepSkillCategory({ category, assignments, customInput, onCycleSkill, o
                   ? 'bg-brand-green text-black'
                   : zone === 'WANT'
                     ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
-                    : 'bg-white/8 text-white/60 border border-white/12'
+                    : zone === 'CLOSE'
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                      : 'bg-white/8 text-white/60 border border-white/12'
               }`}>
               {skill.name}
             </button>
@@ -568,9 +593,10 @@ function StepSkillCategory({ category, assignments, customInput, onCycleSkill, o
       </div>
 
       {/* Summary chips */}
-      {userCat.have.length > 0 && (
+      {(userCat.have.length > 0 || (userCat.close?.length ?? 0) > 0) && (
         <p className="text-xs text-white/40 mb-4">
           ✅ {userCat.have.length} stăpânite · 🎯 {userCat.wantToLearn.length} de învățat
+          {(userCat.close?.length ?? 0) > 0 && ` · 🔥 ${userCat.close!.length} aproape`}
         </p>
       )}
 

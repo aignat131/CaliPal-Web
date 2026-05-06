@@ -30,13 +30,14 @@ const CARDIO_LABELS: Record<CardioFrequency, string> = {
   never: 'Niciodată', rarely: 'Rar', regular: 'Regulat', daily: 'Zilnic',
 }
 
-type SkillZone = 'NONE' | 'HAVE' | 'WANT'
+type SkillZone = 'NONE' | 'HAVE' | 'WANT' | 'CLOSE'
 
 function getZone(assignments: SkillsByCategory, catId: string, skillId: string): SkillZone {
   const cat = assignments[catId]
   if (!cat) return 'NONE'
   if (cat.have.some(s => s.id === skillId)) return 'HAVE'
   if (cat.wantToLearn.some(s => s.id === skillId)) return 'WANT'
+  if (cat.close?.some(s => s.id === skillId)) return 'CLOSE'
   return 'NONE'
 }
 
@@ -62,8 +63,9 @@ export default function SkillsPage() {
     return unsub
   }, [user])
 
-  const totalHave = Object.values(assignments).reduce((sum, v) => sum + v.have.length, 0)
-  const totalWant = Object.values(assignments).reduce((sum, v) => sum + v.wantToLearn.length, 0)
+  const totalHave  = Object.values(assignments).reduce((sum, v) => sum + v.have.length, 0)
+  const totalWant  = Object.values(assignments).reduce((sum, v) => sum + v.wantToLearn.length, 0)
+  const totalClose = Object.values(assignments).reduce((sum, v) => sum + (v.close?.length ?? 0), 0)
 
   if (!assessmentCompleted) {
     return (
@@ -128,6 +130,12 @@ export default function SkillsPage() {
             <p className="text-2xl font-black text-blue-400">{totalWant}</p>
             <p className="text-xs text-white/50">de învățat</p>
           </div>
+          {totalClose > 0 && (
+            <div className="flex-1 rounded-xl p-3 text-center" style={{ backgroundColor: 'var(--app-surface)' }}>
+              <p className="text-2xl font-black text-amber-400">{totalClose}</p>
+              <p className="text-xs text-white/50">aproape</p>
+            </div>
+          )}
         </div>
 
         {/* Category tabs */}
@@ -152,6 +160,7 @@ export default function SkillsPage() {
           const customSkills: SkillItem[] = [
             ...userCat.have.filter(s => s.id.startsWith('custom_')),
             ...userCat.wantToLearn.filter(s => s.id.startsWith('custom_')),
+            ...(userCat.close ?? []).filter(s => s.id.startsWith('custom_')),
           ].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)
 
           const allSkills = [...cat.skills, ...customSkills]
@@ -162,7 +171,7 @@ export default function SkillsPage() {
               <p className="text-xs text-white/40 mb-3">{cat.question}</p>
 
               {/* Legend */}
-              <div className="flex gap-4 mb-4 text-xs text-white/50">
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-4 text-xs text-white/50">
                 <span className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-brand-green inline-block" />
                   Stăpânesc
@@ -170,6 +179,10 @@ export default function SkillsPage() {
                 <span className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
                   Vreau să învăț
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
+                  Aproape
                 </span>
               </div>
 
@@ -183,7 +196,9 @@ export default function SkillsPage() {
                           ? 'bg-brand-green text-black'
                           : zone === 'WANT'
                             ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
-                            : 'bg-white/8 text-white/60 border border-white/12'
+                            : zone === 'CLOSE'
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                              : 'bg-white/8 text-white/60 border border-white/12'
                       }`}>
                       {skill.name}
                     </span>
