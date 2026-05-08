@@ -1,5 +1,5 @@
 'use client'
-
+'workout context to manage workout state across the app'
 import { createContext, useContext, useRef, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { WorkoutExercise } from '@/types'
 
