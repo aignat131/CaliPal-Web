@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import Image from 'next/image'
 import {
   collection, onSnapshot, doc, setDoc, deleteDoc,
-  serverTimestamp, getDoc, getDocs, query, where, addDoc, updateDoc, arrayUnion,
+  serverTimestamp, getDoc, getDocs, query, where, addDoc, updateDoc, arrayUnion, increment,
 } from 'firebase/firestore'
 
 // ── Training date parser (for map upcoming-filter) ────────────────────────────
@@ -35,25 +35,25 @@ import ParkRequestModal from '@/components/map/ParkRequestModal'
 
 // ── Custom Leaflet icons ─────────────────────────────────────────────────────
 
-function makeParkIcon(hasComm: boolean, activeCount: number) {
-  const color = hasComm ? '#1ED75F' : '#6B7280'
+function makeParkIcon(hasComm: boolean, activeCount: number, hasUpcomingTraining = false) {
+  const color = hasComm ? '#1ED75F' : hasUpcomingTraining ? '#3B82F6' : '#6B7280'
   const ring = activeCount > 0
     ? `<circle cx="20" cy="20" r="16" fill="none" stroke="${color}" stroke-width="2" opacity="0.5" class="pulse-ring"/>`
     : ''
-  const glowDefs = hasComm ? `
+  const glowDefs = (hasComm || hasUpcomingTraining) ? `
     <defs>
       <radialGradient id="g" cx="50%" cy="40%" r="60%">
-        <stop offset="0%" stop-color="#2EF070"/>
-        <stop offset="100%" stop-color="#1ED75F"/>
+        <stop offset="0%" stop-color="${hasComm ? '#2EF070' : '#60A5FA'}"/>
+        <stop offset="100%" stop-color="${color}"/>
       </radialGradient>
       <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
         <feGaussianBlur stdDeviation="2.5" result="blur"/>
         <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
       </filter>
     </defs>` : ''
-  const pinFill = hasComm ? 'url(#g)' : color
-  const pinFilter = hasComm ? 'filter="url(#glow)"' : ''
-  const strokeW = hasComm ? '2' : '1.5'
+  const pinFill = (hasComm || hasUpcomingTraining) ? 'url(#g)' : color
+  const pinFilter = (hasComm || hasUpcomingTraining) ? 'filter="url(#glow)"' : ''
+  const strokeW = (hasComm || hasUpcomingTraining) ? '2' : '1.5'
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
       <style>
@@ -428,6 +428,8 @@ export default function MapClient() {
   const [showParkCommModal, setShowParkCommModal] = useState(false)
   const [parkPendingReq, setParkPendingReq] = useState<ParkCommunityRequest | null>(null)
   const [parkTrainings, setParkTrainings] = useState<PlannedTraining[]>([])
+  const [parkStandaloneTrainings, setParkStandaloneTrainings] = useState<PlannedTraining[]>([])
+  const [showParkTrainingForm, setShowParkTrainingForm] = useState(false)
   const [userAdminCommunities, setUserAdminCommunities] = useState<CommunityDoc[]>([])
   const watchIdRef = useRef<number | null>(null)
   const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -660,6 +662,18 @@ export default function MapClient() {
       setParkCommunity(null)
       setParkPresenceMembers([])
       setParkTrainings([])
+      setShowParkTrainingForm(false)
+      // Load standalone park trainings
+      const now = new Date()
+      getDocs(collection(db, 'parks', selectedPark.id, 'trainings'))
+        .then(snap => {
+          const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
+          const upcoming = all
+            .filter(t => { const s = parseMapTrainingDate(t); return !s || s >= now })
+            .sort((a, b) => (parseMapTrainingDate(a)?.getTime() ?? 0) - (parseMapTrainingDate(b)?.getTime() ?? 0))
+          setParkStandaloneTrainings(upcoming)
+        })
+        .catch(() => setParkStandaloneTrainings([]))
       // Check for pending community request on this park (PENDING = associate existing, NEW = created from map)
       if (user) {
         getDocs(query(
@@ -861,11 +875,12 @@ export default function MapClient() {
             const activeCount = park.communityId
               ? (presence[park.communityId]?.length ?? 0)
               : 0
+            const hasUpcomingTraining = !park.communityId && (park.upcomingTrainingCount ?? 0) > 0
             return (
               <Marker
                 key={park.id}
                 position={[park.latitude, park.longitude]}
-                icon={makeParkIcon(!!park.communityId, activeCount)}
+                icon={makeParkIcon(!!park.communityId, activeCount, hasUpcomingTraining)}
                 eventHandlers={{ click: () => setSelectedPark(park) }}
               />
             )
@@ -996,16 +1011,21 @@ export default function MapClient() {
           community={parkCommunity}
           members={parkPresenceMembers}
           liveLocations={liveLocations}
-          onClose={() => { setSelectedPark(null); setShowParkCommModal(false) }}
+          onClose={() => { setSelectedPark(null); setShowParkCommModal(false); setShowParkTrainingForm(false) }}
           uid={user?.uid ?? null}
           userName={user?.displayName ?? ''}
           parkTrainings={parkTrainings}
+          parkStandaloneTrainings={parkStandaloneTrainings}
+          onStandaloneTrainingAdded={t => setParkStandaloneTrainings(prev => [...prev, t])}
+          showParkTrainingForm={showParkTrainingForm}
+          setShowParkTrainingForm={setShowParkTrainingForm}
           parkPendingReq={parkPendingReq}
           userAdminCommunities={userAdminCommunities}
           showParkCommModal={showParkCommModal}
           setShowParkCommModal={setShowParkCommModal}
           onPendingReqSet={req => setParkPendingReq(req)}
           onCommunityCreated={comm => setParkCommunity(comm)}
+          onDirectAssociated={() => setSelectedPark(null)}
         />
       )}
     </div>
@@ -1016,8 +1036,11 @@ export default function MapClient() {
 
 function ParkBottomSheet({
   park, community, members, liveLocations, onClose,
-  uid, userName, parkTrainings, parkPendingReq, userAdminCommunities,
+  uid, userName, parkTrainings, parkStandaloneTrainings, onStandaloneTrainingAdded,
+  showParkTrainingForm, setShowParkTrainingForm,
+  parkPendingReq, userAdminCommunities,
   showParkCommModal, setShowParkCommModal, onPendingReqSet, onCommunityCreated: _onCommunityCreated,
+  onDirectAssociated,
 }: {
   park: ParkDoc
   community: CommunityDoc | null
@@ -1027,12 +1050,17 @@ function ParkBottomSheet({
   uid: string | null
   userName: string
   parkTrainings: PlannedTraining[]
+  parkStandaloneTrainings: PlannedTraining[]
+  onStandaloneTrainingAdded: (t: PlannedTraining) => void
+  showParkTrainingForm: boolean
+  setShowParkTrainingForm: (v: boolean) => void
   parkPendingReq: ParkCommunityRequest | null
   userAdminCommunities: CommunityDoc[]
   showParkCommModal: boolean
   setShowParkCommModal: (v: boolean) => void
   onPendingReqSet: (req: ParkCommunityRequest) => void
   onCommunityCreated: (comm: CommunityDoc) => void
+  onDirectAssociated: () => void
 }) {
   const { theme } = useTheme()
   const [showCommChoice, setShowCommChoice] = useState(false)
@@ -1143,6 +1171,46 @@ function ParkBottomSheet({
         </div>
       ) : (
         <div className="mb-3">
+          {/* Standalone upcoming trainings */}
+          {parkStandaloneTrainings.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[9px] font-bold text-blue-400/70 tracking-widest mb-1.5">ANTRENAMENTE PLANIFICATE</p>
+              <div className="flex flex-col gap-1.5">
+                {parkStandaloneTrainings.map(t => {
+                  const dateObj = parseMapTrainingDate(t)
+                  const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' }) : ''
+                  const timeLabel = t.timeStart?.slice(-5) ?? ''
+                  const totalGoing = Object.values(t.rsvps ?? {}).filter(s => s === 'GOING').length
+                  return (
+                    <div key={t.id} className="p-2.5 rounded-xl border border-blue-500/20"
+                      style={{ backgroundColor: '#1D4ED808' }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{t.name}</p>
+                        {totalGoing > 0 && (
+                          <span className="text-xs text-blue-400 font-bold flex-shrink-0">{totalGoing} merg</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-white/45 mt-0.5">
+                        {t.authorName && `${t.authorName} · `}{dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Plan training button */}
+          {uid && (
+            <button
+              onClick={() => setShowParkTrainingForm(true)}
+              className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-blue-500/30 text-blue-400 text-sm font-bold hover:bg-blue-500/10 transition-colors mb-2"
+              style={{ backgroundColor: '#1D4ED808' }}
+            >
+              <span className="text-base">📅</span> Planifică antrenament
+            </button>
+          )}
+
           {parkPendingReq ? (
             <div className="flex items-center gap-2 p-3 rounded-2xl border border-yellow-400/25"
               style={{ backgroundColor: '#F9731610' }}>
@@ -1220,6 +1288,7 @@ function ParkBottomSheet({
           userAdminCommunities={userAdminCommunities}
           onClose={() => setShowParkCommModal(false)}
           onSubmitted={req => { onPendingReqSet(req); setShowParkCommModal(false) }}
+          onDirectAssociated={() => { setShowParkCommModal(false); onDirectAssociated() }}
         />
       )}
 
@@ -1233,6 +1302,17 @@ function ParkBottomSheet({
           onPending={req => { onPendingReqSet(req); setShowCreateCommForm(false) }}
         />
       )}
+
+      {/* Add standalone training modal */}
+      {showParkTrainingForm && uid && (
+        <AddParkTrainingModal
+          park={park}
+          uid={uid}
+          userName={userName}
+          onClose={() => setShowParkTrainingForm(false)}
+          onAdded={t => { onStandaloneTrainingAdded(t); setShowParkTrainingForm(false) }}
+        />
+      )}
     </div>
   )
 }
@@ -1240,63 +1320,27 @@ function ParkBottomSheet({
 // ── Park Community Modal ──────────────────────────────────────────────────────
 
 function ParkCommunityModal({
-  park, uid, userAdminCommunities, onClose, onSubmitted,
+  park, uid, userAdminCommunities, onClose, onSubmitted, onDirectAssociated,
 }: {
   park: ParkDoc
   uid: string
   userAdminCommunities: CommunityDoc[]
   onClose: () => void
   onSubmitted: (req: ParkCommunityRequest) => void
+  onDirectAssociated: () => void
 }) {
-  const [alreadyRequested, setAlreadyRequested] = useState(false)
   const [selectedCommunityId, setSelectedCommunityId] = useState(userAdminCommunities[0]?.id ?? '')
   const [submitting, setSubmitting] = useState(false)
-  const [checking, setChecking] = useState(true)
 
-  useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    getDocs(query(
-      collection(db, 'park_community_requests'),
-      where('requestedByUid', '==', uid),
-      where('status', '==', 'PENDING')
-    )).then(snap => {
-      const todayReq = snap.docs.find(d => {
-        const ts = d.data().createdAt?.toDate?.()
-        return ts && ts.toISOString().slice(0, 10) === today
-      })
-      setAlreadyRequested(!!todayReq)
-      setChecking(false)
-    }).catch(() => setChecking(false))
-  }, [uid])
-
+  // Admins (communities in userAdminCommunities) associate directly — no request needed
   async function submit() {
     if (!selectedCommunityId || submitting) return
     const community = userAdminCommunities.find(c => c.id === selectedCommunityId)
     if (!community) return
     setSubmitting(true)
     try {
-      const docRef = await addDoc(collection(db, 'park_community_requests'), {
-        parkId: park.id,
-        parkName: park.name,
-        communityId: community.id,
-        communityName: community.name,
-        requestedByUid: uid,
-        requestedByName: '',
-        status: 'PENDING',
-        createdAt: serverTimestamp(),
-      })
-      const req: ParkCommunityRequest = {
-        id: docRef.id,
-        parkId: park.id,
-        parkName: park.name,
-        communityId: community.id,
-        communityName: community.name,
-        requestedByUid: uid,
-        requestedByName: '',
-        status: 'PENDING',
-        createdAt: null,
-      }
-      onSubmitted(req)
+      await updateDoc(doc(db, 'parks', park.id), { communityId: community.id })
+      onDirectAssociated()
     } finally {
       setSubmitting(false)
     }
@@ -1316,16 +1360,7 @@ function ParkCommunityModal({
         </div>
         <p className="text-xs text-white/50 mb-4">{park.name}</p>
 
-        {checking ? (
-          <div className="flex justify-center py-6">
-            <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : alreadyRequested ? (
-          <div className="p-3 rounded-xl border border-yellow-400/25 text-xs text-yellow-400"
-            style={{ backgroundColor: '#F9731610' }}>
-            Ai deja o cerere astăzi. Poți trimite o nouă cerere mâine.
-          </div>
-        ) : userAdminCommunities.length === 0 ? (
+        {userAdminCommunities.length === 0 ? (
           <div className="text-center py-4">
             <p className="text-sm text-white/50 mb-3">Nu ești admin în nicio comunitate.</p>
             <Link href="/community/create">
@@ -1336,7 +1371,8 @@ function ParkCommunityModal({
           </div>
         ) : (
           <div>
-            <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2">SELECTEAZĂ COMUNITATEA</p>
+            <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1">SELECTEAZĂ COMUNITATEA</p>
+            <p className="text-xs text-white/35 mb-3">Ca administrator, asocierea este directă și imediată.</p>
             <div className="flex flex-col gap-2 mb-4">
               {userAdminCommunities.map(c => (
                 <button key={c.id}
@@ -1357,7 +1393,7 @@ function ParkCommunityModal({
             </div>
             <button onClick={submit} disabled={submitting || !selectedCommunityId}
               className="w-full h-11 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-40">
-              {submitting ? '...' : 'Trimite cererea'}
+              {submitting ? '...' : 'Asociează direct'}
             </button>
           </div>
         )}
@@ -1497,6 +1533,103 @@ function CreateCommunityForParkModal({
             <button onClick={create} disabled={saving || !name.trim()}
               className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-40">
               {saving ? '...' : 'Trimite cererea'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Add Standalone Park Training Modal ───────────────────────────────────────
+
+function AddParkTrainingModal({
+  park, uid, userName, onClose, onAdded,
+}: {
+  park: ParkDoc
+  uid: string
+  userName: string
+  onClose: () => void
+  onAdded: (t: PlannedTraining) => void
+}) {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const [name, setName] = useState('')
+  const [desc, setDesc] = useState('')
+  const [date, setDate] = useState(tomorrow.toISOString().split('T')[0])
+  const [start, setStart] = useState('19:00')
+  const [end, setEnd] = useState('20:30')
+  const [saving, setSaving] = useState(false)
+
+  function fmt(dateStr: string, time: string): string {
+    if (!dateStr || !time) return ''
+    const [yyyy, mm, dd] = dateStr.split('-')
+    return `${dd}/${mm}/${yyyy} ${time}`
+  }
+
+  async function save() {
+    if (!name.trim() || saving) return
+    setSaving(true)
+    try {
+      const payload = {
+        name:            name.trim(),
+        description:     desc.trim(),
+        timeStart:       fmt(date, start),
+        timeEnd:         fmt(date, end),
+        location:        park.name,
+        authorId:        uid,
+        authorName:      userName,
+        authorCoach:     false,
+        authorAdmin:     false,
+        official:        false,
+        reminderMinutes: 30,
+        rsvps:           { [uid]: 'GOING' },
+        exercises:       [],
+        createdAt:       serverTimestamp(),
+      }
+      const ref = await addDoc(collection(db, 'parks', park.id, 'trainings'), payload)
+      // Increment the park's upcoming training counter so the pin turns blue
+      await updateDoc(doc(db, 'parks', park.id), { upcomingTrainingCount: increment(1) })
+      onAdded({ id: ref.id, ...payload, createdAt: null } as unknown as PlannedTraining)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputCls = "w-full h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-blue-500/50 transition-colors"
+
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/60"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-lg rounded-t-3xl px-5 pt-4 pb-8"
+        style={{ backgroundColor: 'var(--app-surface)' }}>
+        <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm font-black text-white">📅 Planifică antrenament</p>
+          <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
+            <X size={13} className="text-white/60" />
+          </button>
+        </div>
+        <p className="text-xs text-white/40 mb-4">{park.name}</p>
+        <div className="flex flex-col gap-2">
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Nume antrenament *"
+            className={inputCls} />
+          <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descriere (opțional)"
+            className={inputCls} />
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
+          <div className="flex gap-2">
+            <input type="time" value={start} onChange={e => setStart(e.target.value)}
+              className={`flex-1 min-w-0 ${inputCls}`} />
+            <input type="time" value={end} onChange={e => setEnd(e.target.value)}
+              className={`flex-1 min-w-0 ${inputCls}`} />
+          </div>
+          <div className="flex gap-2 mt-1">
+            <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-white/15 text-sm text-white/60">Anulează</button>
+            <button onClick={save} disabled={saving || !name.trim()}
+              className="flex-1 h-11 rounded-xl text-black text-sm font-black disabled:opacity-40"
+              style={{ backgroundColor: '#3B82F6' }}>
+              {saving ? '...' : 'Salvează'}
             </button>
           </div>
         </div>

@@ -740,7 +740,7 @@ export default function CommunityDetailPage() {
                   myUid={user?.uid ?? ''}
                   members={members}
                   canLoad={isMember && (t.exercises?.length ?? 0) > 0}
-                  canDelete={isSuperAdmin || myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER'}
+                  canDelete={isSuperAdmin || myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER' || t.authorId === user?.uid}
                   onRsvp={status => rsvp(t.id, status)}
                   onLoad={() => loadTraining(t)}
                   onDelete={() => deleteDoc(doc(db, 'communities', id, 'trainings', t.id))}
@@ -962,6 +962,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
   onDelete: () => void
 }) {
   const [showAllGoing, setShowAllGoing] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const myStatus = training.rsvps?.[myUid]
   const rsvpEntries = Object.entries(training.rsvps ?? {})
@@ -1033,13 +1034,31 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
             >
               <Share2 size={14} />
             </button>
-            {canDelete && (
-              <button onClick={onDelete} className="w-8 h-8 flex items-center justify-center rounded-full text-red-400/50 hover:text-red-400 hover:bg-red-400/10 transition-colors">
+            {canDelete && !showDeleteConfirm && (
+              <button onClick={() => setShowDeleteConfirm(true)} className="w-8 h-8 flex items-center justify-center rounded-full text-red-400/50 hover:text-red-400 hover:bg-red-400/10 transition-colors">
                 <Trash2 size={14} />
               </button>
             )}
           </div>
         </div>
+
+        {/* Delete confirmation */}
+        {showDeleteConfirm && (
+          <div className="mb-3 p-3 rounded-xl border border-red-500/30 bg-red-500/10">
+            <p className="text-sm font-semibold text-white mb-1">Ștergi antrenamentul?</p>
+            <p className="text-xs text-white/50 mb-3">Această acțiune nu poate fi anulată.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 h-8 rounded-lg border border-white/20 text-xs font-semibold text-white/70">
+                Anulează
+              </button>
+              <button onClick={() => { setShowDeleteConfirm(false); onDelete() }}
+                className="flex-1 h-8 rounded-lg bg-red-500/80 text-white text-xs font-bold">
+                Șterge
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Meta */}
         <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2.5">

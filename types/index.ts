@@ -271,6 +271,7 @@ export interface ParkDoc {
   communityId: string | null
   placeId: string
   addedByUid: string
+  upcomingTrainingCount?: number
   createdAt: Timestamp | null
 }
 

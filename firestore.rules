@@ -121,7 +121,9 @@ service cloud.firestore {
       match /trainings/{trainingId} {
         allow read: if true;
         allow create: if isCommunityMember(communityId) || isSuperAdmin();
-        allow delete: if isCommunityStaff(communityId) || isSuperAdmin();
+        allow delete: if isSuperAdmin()
+          || isCommunityStaff(communityId)
+          || (isCommunityMember(communityId) && request.auth.uid == resource.data.authorId);
         // Members can update only their own RSVP field; staff can update anything;
         // Anyone (including guests) can update only the guestRsvps field
         allow update: if isSuperAdmin()
@@ -191,7 +193,23 @@ service cloud.firestore {
     // ── Parks ─────────────────────────────────────────────────────────────────
     match /parks/{parkId} {
       allow read: if true;
-      allow write: if isSuperAdmin();
+      allow create, delete: if isSuperAdmin();
+      // Admins can update communityId directly; authenticated users can increment upcomingTrainingCount
+      allow update: if isSuperAdmin()
+        || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['communityId']))
+        || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upcomingTrainingCount']));
+
+      match /trainings/{trainingId} {
+        allow read: if true;
+        allow create: if isAuth();
+        // Creator or superadmin can delete
+        allow delete: if isSuperAdmin()
+          || (isAuth() && request.auth.uid == resource.data.authorId);
+        // Anyone can update RSVPs; creator/superadmin can update anything
+        allow update: if isSuperAdmin()
+          || (isAuth() && request.auth.uid == resource.data.authorId)
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps']);
+      }
     }
 
     // ── Live locations ────────────────────────────────────────────────────────
