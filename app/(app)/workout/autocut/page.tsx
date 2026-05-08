@@ -187,9 +187,15 @@ export default function AutoCutPage() {
       const { fetchFile, toBlobURL } = await import('@ffmpeg/util')
 
       const ffmpeg = new FFmpeg()
+      // Prefer locally hosted files (see scripts/copy-ffmpeg.mjs); fall back to unpkg.
+      // To activate local hosting: `node scripts/copy-ffmpeg.mjs` after `npm install @ffmpeg/core@0.12.6`
+      const BASE = '/ffmpeg'
+      const localCoreExists = await fetch(`${BASE}/ffmpeg-core.js`, { method: 'HEAD' })
+        .then(r => r.ok).catch(() => false)
+      const coreBase = localCoreExists ? BASE : 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm'
       await ffmpeg.load({
-        coreURL: await toBlobURL('https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js', 'text/javascript'),
-        wasmURL: await toBlobURL('https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm', 'application/wasm'),
+        coreURL: await toBlobURL(`${coreBase}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${coreBase}/ffmpeg-core.wasm`, 'application/wasm'),
       })
 
       await ffmpeg.writeFile('input.webm', await fetchFile(fullBlob))

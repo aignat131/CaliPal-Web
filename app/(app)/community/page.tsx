@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, doc,
   updateDoc, setDoc, arrayUnion, increment, serverTimestamp,
-  getDocs, getDoc,
+  getDocs, getDoc, limit,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -124,9 +124,11 @@ export default function CommunityPage() {
     Promise.all(
       [...joinedIds].map(async cid => {
         try {
-          // Fetch all trainings and filter client-side (date field no longer
-          // exists in new docs — timeStart is now a full "dd/MM/yyyy HH:mm" string)
-          const snap = await getDocs(collection(db, 'communities', cid, 'trainings'))
+          // Fetch the most recent 40 trainings — enough to cover upcoming events
+          // while avoiding reading years of past history. Client-side date filter below.
+          const snap = await getDocs(
+            query(collection(db, 'communities', cid, 'trainings'), orderBy('createdAt', 'desc'), limit(40))
+          )
           const nowMs = Date.now()
           return snap.docs
             .map(d => ({

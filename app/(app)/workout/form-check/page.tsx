@@ -89,6 +89,7 @@ export default function FormCheckPage() {
   const squatCounterRef = useRef(new SquatCounter())
   const frameBufferRef = useRef<Landmark[][]>([])
   const detectorRef = useRef<unknown>(null)
+  const lastHapticRepRef = useRef(0)
 
   const [exerciseType, setExerciseType] = useState<ExerciseType>('pullup')
   const [status, setStatus] = useState<Status>('select')
@@ -105,10 +106,8 @@ export default function FormCheckPage() {
   const [stateLabel, setStateLabel] = useState('Pregătire...')
   const [stateColor, setStateColor] = useState('#6B7280')
 
-  useEffect(() => {
-    loadModel().then(ok => setModelReady(ok))
-    loadPushupModel().then(ok => setPushupModelReady(ok))
-  }, [])
+  // Models are loaded lazily inside startCamera() — not on mount —
+  // to avoid downloading TF.js bundles until the user actually starts a session.
 
   const stopCamera = useCallback(() => {
     if (animRef.current) cancelAnimationFrame(animRef.current)
@@ -129,6 +128,14 @@ export default function FormCheckPage() {
     setFormLabel('UNKNOWN')
 
     try {
+      // Load TF.js classifier models now (deferred from mount for bundle size)
+      const [pullupOk, pushupOk] = await Promise.all([
+        loadModel(),
+        loadPushupModel(),
+      ])
+      setModelReady(pullupOk)
+      setPushupModelReady(pushupOk)
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
       })
@@ -189,6 +196,10 @@ export default function FormCheckPage() {
                 lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST]
               )
               const counterState = repCounterRef.current.update(elbow)
+              if (counterState.repCount > lastHapticRepRef.current) {
+                lastHapticRepRef.current = counterState.repCount
+                navigator.vibrate?.(30)
+              }
               setRepCount(counterState.repCount)
               setRepState(counterState.state)
               setPrimaryAngle(Math.round(elbow))
@@ -203,6 +214,10 @@ export default function FormCheckPage() {
                 lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST]
               )
               const counterState = pushupCounterRef.current.update(elbow)
+              if (counterState.repCount > lastHapticRepRef.current) {
+                lastHapticRepRef.current = counterState.repCount
+                navigator.vibrate?.(30)
+              }
               setRepCount(counterState.repCount)
               setPrimaryAngle(Math.round(elbow))
               setStateLabel(PUSHUP_STATE_LABELS[counterState.state])
@@ -216,6 +231,10 @@ export default function FormCheckPage() {
                 lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE]
               )
               const counterState = squatCounterRef.current.update(knee)
+              if (counterState.repCount > lastHapticRepRef.current) {
+                lastHapticRepRef.current = counterState.repCount
+                navigator.vibrate?.(30)
+              }
               setRepCount(counterState.repCount)
               setPrimaryAngle(Math.round(knee))
               setStateLabel(SQUAT_STATE_LABELS[counterState.state])

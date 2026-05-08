@@ -8,6 +8,11 @@ service firebase.storage {
     function isOwner(uid) {
       return isAuth() && request.auth.uid == uid;
     }
+    // Check if the requesting user is an admin or moderator of this community
+    function isCommunityAdmin(communityId) {
+      let member = firestore.get(/databases/(default)/documents/communities/$(communityId)/members/$(request.auth.uid));
+      return isAuth() && member != null && member.data.role in ['ADMIN', 'MODERATOR'];
+    }
 
     // Profile photos — owner writes, any auth user reads
     match /profile_photos/{uid}/{allPaths=**} {
@@ -15,10 +20,10 @@ service firebase.storage {
       allow write: if isOwner(uid);
     }
 
-    // Community photos — any auth user writes (admin-gated client-side), all can read
+    // Community photos — only community admins/moderators can write
     match /community_photos/{communityId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth();
+      allow write: if isCommunityAdmin(communityId);
     }
 
     // Workout photos — owner writes and reads, any auth user can read

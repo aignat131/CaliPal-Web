@@ -9,8 +9,14 @@ service cloud.firestore {
     function isOwner(uid) {
       return isAuth() && request.auth.uid == uid;
     }
+    // NOTE: Hardcoded email will be replaced with a custom claim once the
+    // Firebase Admin SDK is configured to set `superAdmin: true` on the token.
+    // Future: `return isAuth() && request.auth.token.superAdmin == true;`
     function isSuperAdmin() {
-      return isAuth() && request.auth.token.email == 'aignat131@gmail.com';
+      return isAuth() && (
+        request.auth.token.email == 'aignat131@gmail.com'
+        || request.auth.token.superAdmin == true
+      );
     }
     function getCommunityMember(communityId) {
       return get(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid));
@@ -59,7 +65,6 @@ service cloud.firestore {
 
     // ── Coin tasks (one-time award guards) ────────────────────────────────────
     match /coin_tasks/{taskId} {
-      // Documents have a `uid` field — filter queries by uid so rules can be validated
       allow read: if isAuth() && (resource == null || resource.data.uid == request.auth.uid);
       allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
       allow update, delete: if false;
@@ -73,7 +78,11 @@ service cloud.firestore {
     // ── Communities ───────────────────────────────────────────────────────────
     match /communities/{communityId} {
       allow read: if true;
-      allow create: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 1000;
       allow update: if isCommunityAdmin(communityId) || isSuperAdmin() ||
         (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount']));
       allow delete: if isSuperAdmin();
@@ -87,12 +96,13 @@ service cloud.firestore {
 
       match /posts/{postId} {
         allow read: if true;
-        allow create: if isCommunityMember(communityId);
+        allow create: if isCommunityMember(communityId)
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 2000;
         allow update: if isAuth() && (
           request.auth.uid == resource.data.authorId ||
           isCommunityStaff(communityId) ||
           isSuperAdmin() ||
-          // Any member can increment commentsCount when adding a comment
           (isCommunityMember(communityId) &&
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentsCount']))
         );
@@ -104,7 +114,9 @@ service cloud.firestore {
 
         match /comments/{commentId} {
           allow read: if true;
-          allow create: if isCommunityMember(communityId);
+          allow create: if isCommunityMember(communityId)
+            && request.resource.data.text is string
+            && request.resource.data.text.size() <= 1000;
           allow update, delete: if isAuth() && (
             request.auth.uid == resource.data.authorId ||
             isCommunityStaff(communityId) ||
@@ -120,17 +132,24 @@ service cloud.firestore {
 
       match /trainings/{trainingId} {
         allow read: if true;
-        allow create: if isCommunityMember(communityId) || isSuperAdmin();
+        allow create: if (isCommunityMember(communityId) || isSuperAdmin())
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.description is string
+          && request.resource.data.description.size() <= 1000;
         allow delete: if isSuperAdmin()
           || isCommunityStaff(communityId)
           || (isCommunityMember(communityId) && request.auth.uid == resource.data.authorId);
-        // Members can update only their own RSVP field; staff can update anything;
-        // Anyone (including guests) can update only the guestRsvps field
+        // Members: update own rsvp (+ optionally lastRsvpNotifAt in same write)
+        // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200 entries
         allow update: if isSuperAdmin()
           || isCommunityStaff(communityId)
           || (isCommunityMember(communityId)
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps']))
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guestRsvps']);
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['rsvps', 'lastRsvpNotifAt']))
+          || (request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
+              && request.resource.data.guestRsvps.size() <= 200);
       }
 
       match /challenges/{challengeId} {
@@ -145,13 +164,11 @@ service cloud.firestore {
       function isParticipant() {
         return isAuth() && resource != null && request.auth.uid in resource.data.participantIds;
       }
-      // resource is null when the doc doesn't exist — guard before accessing .data
       allow read: if resource == null || isParticipant();
       allow create: if isAuth() && request.auth.uid in request.resource.data.participantIds;
       allow update: if isParticipant();
 
       match /messages/{messageId} {
-        // get() returns null if conversation doesn't exist — guard with helper
         function convParticipants() {
           let conv = get(/databases/$(database)/documents/conversations/$(conversationId));
           return conv == null ? [] : conv.data.participantIds;
@@ -159,21 +176,21 @@ service cloud.firestore {
         allow read: if isAuth() && request.auth.uid in convParticipants();
         allow create: if isAuth() &&
           request.auth.uid in convParticipants() &&
-          request.auth.uid == request.resource.data.senderId;
+          request.auth.uid == request.resource.data.senderId &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() <= 4000;
         allow delete: if isAuth() && resource.data.senderId == request.auth.uid;
       }
     }
 
     // ── Friend requests ───────────────────────────────────────────────────────
     match /friend_requests/{requestId} {
-      // resource is null when the doc doesn't exist — must guard before accessing .data
       allow read: if isAuth() && (
         resource == null ||
         request.auth.uid == resource.data.fromUid ||
         request.auth.uid == resource.data.toUid
       );
       allow create: if isAuth() && request.auth.uid == request.resource.data.fromUid;
-      // Both sender (re-send) and recipient (accept/decline) may update
       allow update: if isAuth() && (
         request.auth.uid == resource.data.toUid ||
         request.auth.uid == resource.data.fromUid
@@ -186,7 +203,7 @@ service cloud.firestore {
 
     // ── Skill category definitions ────────────────────────────────────────────
     match /skillCategories/{categoryId} {
-      allow read: if true;          // loaded on assessment start, even unauthenticated
+      allow read: if true;
       allow write: if isSuperAdmin();
     }
 
@@ -194,21 +211,30 @@ service cloud.firestore {
     match /parks/{parkId} {
       allow read: if true;
       allow create, delete: if isSuperAdmin();
-      // Admins can update communityId directly; authenticated users can increment upcomingTrainingCount
       allow update: if isSuperAdmin()
         || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['communityId']))
         || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upcomingTrainingCount']));
 
       match /trainings/{trainingId} {
         allow read: if true;
-        allow create: if isAuth();
-        // Creator or superadmin can delete
+        allow create: if isAuth()
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.description is string
+          && request.resource.data.description.size() <= 1000;
         allow delete: if isSuperAdmin()
           || (isAuth() && request.auth.uid == resource.data.authorId);
-        // Anyone can update RSVPs; creator/superadmin can update anything
+        // Authenticated users: update own rsvp (+ optionally lastRsvpNotifAt)
+        // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200
+        // Author: update anything
         allow update: if isSuperAdmin()
           || (isAuth() && request.auth.uid == resource.data.authorId)
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvps']);
+          || (isAuth()
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['rsvps', 'lastRsvpNotifAt']))
+          || (request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
+              && request.resource.data.guestRsvps.size() <= 200);
       }
     }
 

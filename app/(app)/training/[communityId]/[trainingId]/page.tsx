@@ -449,6 +449,7 @@ export default function PublicTrainingPage() {
                       onChange={e => setGuestInput(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && confirmGuestRsvp()}
                       placeholder="Numele tău *"
+                      maxLength={80}
                       className="flex-1 h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
                     />
                     <button

@@ -1,4 +1,7 @@
-const CACHE_NAME = 'calipal-v1'
+// Build ID injected at registration time via ?v= query param — ensures a new SW
+// is installed after each deployment (browser detects the changed SW URL).
+const BUILD_ID = new URL(self.location.href).searchParams.get('v') ?? 'dev'
+const CACHE_NAME = `calipal-${BUILD_ID}`
 const STATIC_ASSETS = ['/', '/home', '/workout', '/community', '/map', '/profile']
 
 // Install: cache static routes

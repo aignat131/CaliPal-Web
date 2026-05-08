@@ -591,9 +591,10 @@ export default function MapClient() {
       for (const c of createdComms) {
         if (!allComms.find(x => x.id === c.id)) allComms.push(c)
       }
-      // Filter to ADMIN role
+      // Filter to ADMIN role — skip the member read for communities the user created
       const adminComms: CommunityDoc[] = []
       await Promise.all(allComms.map(async c => {
+        if (c.creatorId === uid) { adminComms.push(c); return }
         const mem = await getDoc(doc(db, 'communities', c.id, 'members', uid))
         if (mem.exists() && mem.data().role === 'ADMIN') adminComms.push(c)
       }))
@@ -602,12 +603,11 @@ export default function MapClient() {
     return () => { cancelled = true }
   }, [user])
 
-  // Load parks
+  // Load parks once — parks rarely change so a real-time listener is wasteful
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'parks'), snap => {
-      setParks(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkDoc))
-    })
-    return unsub
+    getDocs(collection(db, 'parks'))
+      .then(snap => setParks(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkDoc)))
+      .catch(() => {})
   }, [])
 
   // Sync fresh photoUrls from live_locations (auth required)
@@ -1540,10 +1540,12 @@ function CreateCommunityForParkModal({
         </div>
         <p className="text-xs text-white/40 mb-4">Parc: {park.name}</p>
         <div className="flex flex-col gap-2.5">
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Numele comunității *" className={inputCls} />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Numele comunității *"
+            maxLength={80} className={inputCls} />
           <textarea value={description} onChange={e => setDescription(e.target.value)}
             placeholder="Descriere (opțional)"
             rows={2}
+            maxLength={1000}
             className="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50 transition-colors resize-none" />
           <button onClick={() => setIsPublic(p => !p)}
             className="flex items-center gap-2 p-3 rounded-xl border border-white/12">
@@ -1589,6 +1591,7 @@ function AddParkTrainingModal({
   const [start, setStart] = useState('19:00')
   const [end, setEnd] = useState('20:30')
   const [saving, setSaving] = useState(false)
+  const [rateError, setRateError] = useState('')
 
   function fmt(dateStr: string, time: string): string {
     if (!dateStr || !time) return ''
@@ -1599,7 +1602,23 @@ function AddParkTrainingModal({
   async function save() {
     if (!name.trim() || saving) return
     setSaving(true)
+    setRateError('')
     try {
+      // Rate limit: max 5 standalone trainings per day per park per user
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+      const rateSnap = await getDocs(query(
+        collection(db, 'parks', park.id, 'trainings'),
+        where('authorId', '==', uid),
+      ))
+      const todayCount = rateSnap.docs.filter(d => {
+        const ts = d.data().createdAt?.toDate?.()
+        return ts && ts >= todayStart
+      }).length
+      if (todayCount >= 5) {
+        setRateError('Ai atins limita de 5 antrenamente pe zi pentru acest parc.')
+        setSaving(false)
+        return
+      }
       const payload = {
         name:            name.trim(),
         description:     desc.trim(),
@@ -1642,9 +1661,9 @@ function AddParkTrainingModal({
         <p className="text-xs text-white/40 mb-4">{park.name}</p>
         <div className="flex flex-col gap-2">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Nume antrenament *"
-            className={inputCls} />
+            maxLength={120} className={inputCls} />
           <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descriere (opțional)"
-            className={inputCls} />
+            maxLength={1000} className={inputCls} />
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
           <div className="flex gap-2">
             <input type="time" value={start} onChange={e => setStart(e.target.value)}
@@ -1652,11 +1671,12 @@ function AddParkTrainingModal({
             <input type="time" value={end} onChange={e => setEnd(e.target.value)}
               className={`flex-1 min-w-0 ${inputCls}`} />
           </div>
+          {rateError && <p className="text-xs text-red-400 text-center">{rateError}</p>}
           <div className="flex gap-2 mt-1">
             <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-white/15 text-sm text-white/60">Anulează</button>
             <button onClick={save} disabled={saving || !name.trim()}
               className="flex-1 h-11 rounded-xl text-black text-sm font-black disabled:opacity-40"
-              style={{ backgroundColor: '#3B82F6' }}>
+              style={{ backgroundColor: '#1ED75F' }}>
               {saving ? '...' : 'Salvează'}
             </button>
           </div>

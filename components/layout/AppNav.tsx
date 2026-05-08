@@ -2,24 +2,25 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Users, Dumbbell, Map, User, LogIn } from 'lucide-react'
+import { Home, Users, Dumbbell, Map, User, LogIn, MessageSquare } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useAuth } from '@/lib/hooks/useAuth'
 
 const tabs = [
-  { href: '/home',      label: 'Acasă',       Icon: Home },
-  { href: '/community', label: 'Comunitate',   Icon: Users },
-  { href: '/workout',   label: 'Antrenament',  Icon: Dumbbell },
-  { href: '/map',       label: 'Hartă',        Icon: Map },
-  { href: '/profile',   label: 'Profil',       Icon: User },
+  { href: '/home',      label: 'Acasă',      Icon: Home },
+  { href: '/community', label: 'Comunitate', Icon: Users },
+  { href: '/chat',      label: 'Chat',       Icon: MessageSquare },
+  { href: '/workout',   label: 'Workout',    Icon: Dumbbell },
+  { href: '/map',       label: 'Hartă',      Icon: Map },
+  { href: '/profile',   label: 'Profil',     Icon: User },
 ]
 
 const guestTabs = [
-  { href: '/home',      label: 'Acasă',       Icon: Home },
-  { href: '/community', label: 'Comunitate',   Icon: Users },
-  { href: '/workout',   label: 'Antrenament',  Icon: Dumbbell },
-  { href: '/map',       label: 'Hartă',        Icon: Map },
-  { href: '/login',     label: 'Cont',         Icon: LogIn },
+  { href: '/home',      label: 'Acasă',      Icon: Home },
+  { href: '/community', label: 'Comunitate', Icon: Users },
+  { href: '/workout',   label: 'Workout',    Icon: Dumbbell },
+  { href: '/map',       label: 'Hartă',      Icon: Map },
+  { href: '/login',     label: 'Cont',       Icon: LogIn },
 ]
 
 export default function AppNav() {
@@ -34,7 +35,11 @@ export default function AppNav() {
       {/* ── Mobile bottom bar (hidden on md+) ── */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 flex items-center border-t border-white/8 md:hidden"
-        style={{ backgroundColor: 'var(--app-bg)', height: 64 }}
+        style={{
+          backgroundColor: 'var(--app-bg)',
+          height: 'calc(56px + env(safe-area-inset-bottom))',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}
       >
         {navTabs.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
@@ -42,19 +47,19 @@ export default function AppNav() {
             <Link
               key={href}
               href={href}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-colors"
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 transition-colors"
             >
               <Icon
-                size={22}
+                size={20}
                 className="transition-all duration-200"
                 style={{
                   color: active ? '#1ED75F' : inactiveColor,
-                  transform: active ? 'translateY(-2px)' : 'translateY(0)',
+                  transform: active ? 'translateY(-1px)' : 'translateY(0)',
                 }}
                 strokeWidth={active ? 2.5 : 1.8}
               />
               <span
-                className="text-[10px] font-semibold tracking-wide transition-colors"
+                className="text-[9px] font-semibold tracking-wide transition-colors"
                 style={{ color: active ? '#1ED75F' : inactiveColor }}
               >
                 {label}

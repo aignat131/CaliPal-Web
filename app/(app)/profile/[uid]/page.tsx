@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useRouter, useParams } from 'next/navigation'
 import {
   doc, collection, query, orderBy, limit,
-  setDoc, deleteDoc, updateDoc, onSnapshot, serverTimestamp, increment,
+  setDoc, deleteDoc, updateDoc, onSnapshot, serverTimestamp, increment, getDoc,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -110,7 +110,18 @@ export default function UserProfilePage() {
     setFriendLoading(true)
     setFriendError(null)
     try {
+      // Spam guard: check if a request was already sent in the last 24 hours
       const reqId = `${user.uid}_${uid}`
+      const existing = await getDoc(doc(db, 'friend_requests', reqId))
+      if (existing.exists()) {
+        const sentAt: { toDate?: () => Date } | undefined = existing.data()?.sentAt
+        const sentMs = sentAt?.toDate?.()?.getTime() ?? 0
+        if (Date.now() - sentMs < 24 * 60 * 60 * 1000) {
+          setFriendError('Ai trimis deja o cerere în ultimele 24h. Mai încearcă mâine.')
+          setFriendLoading(false)
+          return
+        }
+      }
       await setDoc(doc(db, 'friend_requests', reqId), {
         id: reqId,
         fromUid: user.uid,

@@ -171,19 +171,21 @@ export default function CommunityDetailPage() {
     )
   }, [id, user])
 
-  // Fetch fresh profile photos for all members from users collection
+  // Fetch fresh profile photos — only for members not yet in the cache
+  const memberPhotosCacheRef = useRef<Record<string, string>>({})
   useEffect(() => {
     if (members.length === 0) return
+    const missing = members.filter(m => !(m.userId in memberPhotosCacheRef.current))
+    if (missing.length === 0) return
     Promise.all(
-      members.map(m =>
+      missing.map(m =>
         getDoc(doc(db, 'users', m.userId))
           .then(snap => [m.userId, (snap.data()?.photoUrl as string) ?? ''] as const)
           .catch(() => [m.userId, ''] as const)
       )
     ).then(entries => {
-      const map: Record<string, string> = {}
-      entries.forEach(([uid, url]) => { if (url) map[uid] = url })
-      setMemberPhotos(map)
+      entries.forEach(([uid, url]) => { memberPhotosCacheRef.current[uid] = url })
+      setMemberPhotos({ ...memberPhotosCacheRef.current })
     })
   }, [members])
 
@@ -675,6 +677,7 @@ export default function CommunityDetailPage() {
                   onChange={e => setPostText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && addPost()}
                   placeholder="Scrie ceva..."
+                  maxLength={2000}
                   className="flex-1 h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
                 />
                 <button onClick={addPost} disabled={posting || !postText.trim()}
@@ -1240,6 +1243,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
   const [location, setLocation] = useState(defaultLocation ?? '')
   const [official, setOfficial] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [rateError, setRateError] = useState('')
   const [showEquipment, setShowEquipment] = useState(false)
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
 
@@ -1260,7 +1264,23 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
   async function save() {
     if (!name.trim()) return
     setSaving(true)
+    setRateError('')
     try {
+      // Rate limit: max 5 trainings per day per community per user
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+      const rateSnap = await getDocs(query(
+        collection(db, 'communities', communityId, 'trainings'),
+        where('authorId', '==', userId),
+      ))
+      const todayCount = rateSnap.docs.filter(d => {
+        const ts = d.data().createdAt?.toDate?.()
+        return ts && ts >= todayStart
+      }).length
+      if (todayCount >= 5) {
+        setRateError('Ai atins limita de 5 antrenamente pe zi în această comunitate.')
+        setSaving(false)
+        return
+      }
       await addDoc(collection(db, 'communities', communityId, 'trainings'), {
         name:            name.trim(),
         description:     desc.trim(),
@@ -1290,8 +1310,10 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
       <p className="text-sm font-bold text-white mb-3">Adaugă antrenament</p>
       <div className="flex flex-col gap-2">
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Nume *"
+          maxLength={120}
           className="h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60" />
         <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descriere"
+          maxLength={1000}
           className="h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60" />
         <input type="date" value={date} onChange={e => setDate(e.target.value)}
           className="h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60" />
@@ -1302,6 +1324,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
             className="flex-1 min-w-0 h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60" />
         </div>
         <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Locație"
+          maxLength={100}
           className="h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60" />
 
         {isStaff && (
@@ -1353,6 +1376,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
           )}
         </div>
 
+        {rateError && <p className="text-xs text-red-400 text-center">{rateError}</p>}
         <div className="flex gap-2 mt-1">
           <button onClick={onClose} className="flex-1 h-9 rounded-xl border border-white/15 text-sm text-white/60">
             Anulează

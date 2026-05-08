@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { collection, onSnapshot } from 'firebase/firestore'
-import { db } from '@/lib/firebase/firestore'
 import { markAllRead, deleteNotification } from '@/lib/firebase/notifications'
+import { useNotifications } from '@/lib/context/NotificationContext'
 import type { AppNotification } from '@/types'
 import { X, Bell, MessageSquare, UserPlus, UserCheck, Dumbbell, MapPin, Trash2, Users } from 'lucide-react'
 
@@ -29,10 +28,11 @@ function notifIcon(type: AppNotification['type']) {
     case 'COMMUNITY_REQUEST_APPROVED': return <Users size={16} className="text-brand-green" />
     case 'COMMUNITY_REQUEST_REJECTED': return <Users size={16} className="text-red-400" />
     case 'COMMUNITY_DELETED': return <Users size={16} className="text-red-400" />
+    case 'TRAINING_RSVP':
     case 'TRAINING_STARTED':
     case 'TRAINING_UPDATED':
     case 'TRAINING_DELETED':
-    case 'OFFICIAL_TRAINING_POSTED': return <Dumbbell size={16} className="text-purple-400" />
+    case 'OFFICIAL_TRAINING_POSTED': return <Dumbbell size={16} className="text-brand-green" />
     default: return <Bell size={16} className="text-white/50" />
   }
 }
@@ -43,6 +43,7 @@ function notifRoute(notif: AppNotification): string | null {
     case 'FRIEND_REQUEST': return '/profile/friends'
     case 'FRIEND_REQUEST_ACCEPTED': return notif.relatedId ? `/profile/${notif.relatedId}` : '/profile/friends'
     case 'FRIEND_AT_YOUR_PARK': return '/map'
+    case 'TRAINING_RSVP':
     case 'TRAINING_STARTED':
     case 'TRAINING_UPDATED':
     case 'OFFICIAL_TRAINING_POSTED': return notif.relatedId ? `/community/${notif.relatedId}` : '/community'
@@ -57,24 +58,20 @@ function notifRoute(notif: AppNotification): string | null {
 // ── Bell button with live unread badge ────────────────────────────────────────
 
 export function NotificationBell({ uid }: { uid: string }) {
-  const [unread, setUnread] = useState(0)
+  const { unreadCount } = useNotifications()
   const [open, setOpen] = useState(false)
   const [wiggleKey, setWiggleKey] = useState(0)
   const prevUnread = useRef(0)
 
+  // Trigger wiggle animation when a new notification arrives
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'notifications', uid, 'items'), snap => {
-      const count = snap.docs.filter(d => !d.data().isRead).length
-      if (count > prevUnread.current) setWiggleKey(k => k + 1)
-      prevUnread.current = count
-      setUnread(count)
-    })
-    return unsub
-  }, [uid])
+    if (unreadCount > prevUnread.current) setWiggleKey(k => k + 1)
+    prevUnread.current = unreadCount
+  }, [unreadCount])
 
   async function handleOpen() {
     setOpen(true)
-    if (unread > 0) await markAllRead(uid)
+    if (unreadCount > 0) await markAllRead(uid)
   }
 
   return (
@@ -89,9 +86,9 @@ export function NotificationBell({ uid }: { uid: string }) {
           size={18}
           className={`text-white/70 ${wiggleKey > 0 ? 'animate-wiggle' : ''}`}
         />
-        {unread > 0 && (
+        {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-brand-green text-black text-[9px] font-black flex items-center justify-center">
-            {unread > 9 ? '9+' : unread}
+            {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
@@ -105,18 +102,8 @@ export function NotificationBell({ uid }: { uid: string }) {
 
 function NotificationPanel({ uid, onClose }: { uid: string; onClose: () => void }) {
   const router = useRouter()
-  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const { notifications } = useNotifications()
   const panelRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'notifications', uid, 'items'), snap => {
-      const items = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as AppNotification))
-        .sort((a, b) => (b.createdAt?.toDate?.()?.getTime() ?? 0) - (a.createdAt?.toDate?.()?.getTime() ?? 0))
-      setNotifications(items)
-    })
-    return unsub
-  }, [uid])
 
   // Close on backdrop click
   useEffect(() => {
