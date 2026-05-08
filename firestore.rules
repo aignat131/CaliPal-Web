@@ -120,7 +120,8 @@ service cloud.firestore {
 
       match /trainings/{trainingId} {
         allow read: if true;
-        allow create, delete: if isCommunityStaff(communityId) || isSuperAdmin();
+        allow create: if isCommunityMember(communityId) || isSuperAdmin();
+        allow delete: if isCommunityStaff(communityId) || isSuperAdmin();
         // Members can update only their own RSVP field; staff can update anything;
         // Anyone (including guests) can update only the guestRsvps field
         allow update: if isSuperAdmin()

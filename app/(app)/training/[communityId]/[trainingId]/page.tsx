@@ -304,6 +304,20 @@ export default function PublicTrainingPage() {
             </div>
           )}
 
+          {/* Equipment */}
+          {(training.equipment?.length ?? 0) > 0 && (
+            <div className="p-3 rounded-2xl mb-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2">ECHIPAMENT</p>
+              <div className="flex flex-wrap gap-2">
+                {training.equipment!.map(eq => (
+                  <span key={eq} className="text-sm text-white/70 bg-white/8 rounded-xl px-3 py-1">
+                    {eq === 'rings' ? '🪢 Inele' : eq === 'elastic_bands' ? '🔁 Benzi elastice' : eq === 'parallels' ? '⚙️ Paralele' : eq}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Attendees summary */}
           <div className="flex items-center gap-2 text-sm text-white/50">
             <Users size={14} className="text-brand-green flex-shrink-0" />

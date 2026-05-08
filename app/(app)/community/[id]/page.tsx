@@ -703,7 +703,7 @@ export default function CommunityDetailPage() {
         {/* ── Antrenamente ── */}
         {effectiveTab === 1 && (
           <div>
-            {isMember && (myRole === 'ADMIN' || myRole === 'TRAINER' || myRole === 'MODERATOR' || isSuperAdmin) && (
+            {isMember && (
               <button onClick={() => setShowAddTraining(true)}
                 className="w-full h-11 rounded-xl mb-4 border border-brand-green/40 text-brand-green text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-green/10 transition-colors">
                 <Plus size={16} /> Adaugă antrenament
@@ -1085,6 +1085,20 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
           </div>
         )}
 
+        {/* Equipment */}
+        {(training.equipment?.length ?? 0) > 0 && (
+          <div className="mb-3 p-2.5 rounded-xl bg-white/5 border border-white/8">
+            <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1.5">ECHIPAMENT</p>
+            <div className="flex flex-wrap gap-1.5">
+              {training.equipment!.map(eq => (
+                <span key={eq} className="text-xs text-white/70 bg-white/8 rounded-lg px-2 py-0.5">
+                  {eq === 'rings' ? '🪢 Inele' : eq === 'elastic_bands' ? '🔁 Benzi elastice' : eq === 'parallels' ? '⚙️ Paralele' : eq}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Who's coming (WhatsApp-style) ── */}
         {totalGoing > 0 && (
           <div className="mb-3">
@@ -1207,6 +1221,20 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
   const [location, setLocation] = useState(defaultLocation ?? '')
   const [official, setOfficial] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showEquipment, setShowEquipment] = useState(false)
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
+
+  const EQUIPMENT_OPTIONS = [
+    { id: 'rings', label: '🪢 Inele' },
+    { id: 'elastic_bands', label: '🔁 Benzi elastice' },
+    { id: 'parallels', label: '⚙️ Paralele' },
+  ]
+
+  function toggleEquipment(id: string) {
+    setSelectedEquipment(prev =>
+      prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
+    )
+  }
 
   async function save() {
     if (!name.trim()) return
@@ -1225,6 +1253,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
         official,
         reminderMinutes: 30,
         rsvps:           userId ? { [userId]: 'GOING' } : {},
+        ...(selectedEquipment.length > 0 ? { equipment: selectedEquipment } : {}),
         createdAt:       serverTimestamp(),
       })
       onClose()
@@ -1262,6 +1291,36 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
             <span className="text-xs text-white/35">(anunț oficial al comunității)</span>
           </label>
         )}
+
+        {/* Equipment selector */}
+        <div className="mt-1">
+          <button
+            type="button"
+            onClick={() => setShowEquipment(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-white/45 hover:text-white/70 transition-colors"
+          >
+            <span>{showEquipment ? '▾' : '▸'}</span>
+            <span>Echipament necesar</span>
+            {selectedEquipment.length > 0 && (
+              <span className="text-brand-green font-bold">({selectedEquipment.length})</span>
+            )}
+          </button>
+          {showEquipment && (
+            <div className="mt-2 flex flex-col gap-1.5 pl-1">
+              {EQUIPMENT_OPTIONS.map(opt => (
+                <label key={opt.id} className="flex items-center gap-2 text-sm text-white/70 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedEquipment.includes(opt.id)}
+                    onChange={() => toggleEquipment(opt.id)}
+                    className="accent-brand-green w-4 h-4"
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="flex gap-2 mt-1">
           <button onClick={onClose} className="flex-1 h-9 rounded-xl border border-white/15 text-sm text-white/60">

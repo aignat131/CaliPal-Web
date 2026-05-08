@@ -92,6 +92,7 @@ export interface PlannedTraining {
   exercises: TrainingExercise[]
   rsvps: Record<string, 'GOING' | 'NOT_GOING' | 'MAYBE'>
   guestRsvps?: Record<string, { name: string; status: 'GOING' }>
+  equipment?: string[]
   createdAt: Timestamp | null
   // Legacy field — web-created trainings before the format change stored a separate date string
   date?: string
