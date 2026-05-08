@@ -1,24 +1,26 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Image from 'next/image'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, addDoc, doc,
-  setDoc, updateDoc, serverTimestamp, increment, getDoc,
+  setDoc, updateDoc, serverTimestamp, increment, getDoc, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { ChatMessage, ConversationDoc } from '@/types'
-import { ArrowLeft, Send } from 'lucide-react'
+import { ArrowLeft, Send, Check, CheckCheck } from 'lucide-react'
 
 function formatTs(ts: { toDate?: () => Date } | null | undefined): string {
   if (!ts) return ''
   const date = ts.toDate ? ts.toDate() : new Date()
   return date.toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })
 }
+
+const TYPING_EXPIRY_MS = 4000
 
 export default function ChatDetailPage() {
   const { user } = useAuth()
@@ -38,12 +40,15 @@ export default function ChatDetailPage() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [otherIsTyping, setOtherIsTyping] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const typingActiveRef = useRef(false)
 
   // When navigating from a notification (no URL params), derive other user from conversation doc
   useEffect(() => {
     if (!user) return
-    if (otherUserIdParam) return // already have it from URL
+    if (otherUserIdParam) return
     getDoc(doc(db, 'conversations', conversationId)).then(snap => {
       if (!snap.exists()) return
       const data = snap.data() as ConversationDoc
@@ -77,9 +82,6 @@ export default function ChatDetailPage() {
         setLoading(false)
       },
       () => {
-        // If otherUserIdParam is set, this is a brand-new conversation — the conversation doc
-        // doesn't exist yet so the messages read is denied by rules. That's expected; just show
-        // the empty state so the user can send the first message.
         if (otherUserIdParam) {
           setLoading(false)
         } else {
@@ -89,28 +91,84 @@ export default function ChatDetailPage() {
       },
     )
     return unsub
-  }, [conversationId])
+  }, [conversationId, otherUserIdParam])
 
-  // Scroll to bottom on new messages
+  // Watch the other user's typing indicator
+  useEffect(() => {
+    if (!otherUserId) return
+    const typingDoc = doc(db, 'conversations', conversationId, 'typing', otherUserId)
+    const unsub = onSnapshot(typingDoc, snap => {
+      if (!snap.exists()) { setOtherIsTyping(false); return }
+      const at = snap.data()?.at
+      if (!at) { setOtherIsTyping(false); return }
+      const ms = at.toMillis ? at.toMillis() : Date.now()
+      setOtherIsTyping(Date.now() - ms < TYPING_EXPIRY_MS)
+    })
+    return unsub
+  }, [conversationId, otherUserId])
+
+  // Scroll to bottom on new messages or typing indicator
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, otherIsTyping])
 
-  // Mark messages as read
+  // Mark messages as read + mark my sent messages as isRead for receipt display
   useEffect(() => {
-    if (!user) return
+    if (!user || messages.length === 0) return
     updateDoc(doc(db, 'conversations', conversationId), {
       [`unreadCount.${user.uid}`]: 0,
-    }).catch(() => {}) // conversation might not exist yet
-  }, [conversationId, user])
+    }).catch(() => {})
+
+    // Batch-mark the other user's messages as read so they see double-check
+    const unread = messages.filter(m => m.senderId !== user.uid && !m.isRead)
+    if (unread.length === 0) return
+    const batch = writeBatch(db)
+    unread.forEach(m => {
+      batch.update(doc(db, 'conversations', conversationId, 'messages', m.id), { isRead: true })
+    })
+    batch.commit().catch(() => {})
+  }, [conversationId, user, messages])
+
+  // Typing indicator — debounced write + clear on stop
+  const handleTyping = useCallback(() => {
+    if (!user) return
+    if (!typingActiveRef.current) {
+      typingActiveRef.current = true
+      setDoc(doc(db, 'conversations', conversationId, 'typing', user.uid), {
+        at: serverTimestamp(),
+      }).catch(() => {})
+    }
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    typingTimerRef.current = setTimeout(() => {
+      typingActiveRef.current = false
+      setDoc(doc(db, 'conversations', conversationId, 'typing', user.uid), {
+        at: null,
+      }).catch(() => {})
+    }, 2500)
+  }, [user, conversationId])
+
+  // Clear typing indicator on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+      if (user && typingActiveRef.current) {
+        setDoc(doc(db, 'conversations', conversationId, 'typing', user.uid), { at: null }).catch(() => {})
+      }
+    }
+  }, [user, conversationId])
 
   async function sendMessage() {
     if (!user || !text.trim() || sending) return
     const content = text.trim()
     setText('')
     setSending(true)
+
+    // Clear typing indicator immediately on send
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    typingActiveRef.current = false
+    setDoc(doc(db, 'conversations', conversationId, 'typing', user.uid), { at: null }).catch(() => {})
+
     try {
-      // Ensure conversation doc exists
       const convRef = doc(db, 'conversations', conversationId)
       const convSnap = await getDoc(convRef)
       if (!convSnap.exists()) {
@@ -135,7 +193,6 @@ export default function ChatDetailPage() {
           [`participantPhotos.${user.uid}`]: myPhoto,
         })
       }
-      // Add message
       await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
         senderId: user.uid,
         senderName: myName,
@@ -143,7 +200,6 @@ export default function ChatDetailPage() {
         timestamp: serverTimestamp(),
         isRead: false,
       })
-      // Notify recipient (only if they haven't read yet — unreadCount > 0 means they're not in the chat)
       await createNotification(otherUserId, 'NEW_MESSAGE',
         myName || 'Mesaj nou',
         content.length > 60 ? content.slice(0, 57) + '...' : content,
@@ -169,7 +225,6 @@ export default function ChatDetailPage() {
     <div className="flex flex-col h-[calc(100vh-64px)] md:h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/8 flex-shrink-0">
-        {/* Back button — hidden on desktop where the sidebar is always visible */}
         <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center md:hidden">
           <ArrowLeft size={18} className="text-white/80" />
         </button>
@@ -179,7 +234,12 @@ export default function ChatDetailPage() {
             ? <Image src={otherPhoto} alt={otherName} fill sizes="36px" className="object-cover" />
             : <span className="font-black text-brand-green text-sm">{otherInitial}</span>}
         </div>
-        <span className="font-semibold text-white">{otherName}</span>
+        <div className="flex flex-col min-w-0">
+          <span className="font-semibold text-white leading-tight">{otherName}</span>
+          {otherIsTyping && (
+            <span className="text-[11px] text-brand-green animate-pulse">scrie...</span>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
@@ -195,6 +255,7 @@ export default function ChatDetailPage() {
         {messages.map((msg, i) => {
           const isMe = msg.senderId === user?.uid
           const showAvatar = i === 0 || messages[i - 1]?.senderId !== msg.senderId
+          const isLastFromMe = isMe && (i === messages.length - 1 || messages[i + 1]?.senderId !== user?.uid)
           return (
             <div key={msg.id} className={`flex items-end gap-2 mb-1.5 ${isMe ? 'flex-row-reverse' : ''}`}>
               {/* Avatar spacer */}
@@ -220,13 +281,43 @@ export default function ChatDetailPage() {
                 >
                   {msg.text}
                 </div>
-                <span className="text-[10px] text-white/25 mt-0.5 px-1">
-                  {formatTs(msg.timestamp)}
-                </span>
+                <div className="flex items-center gap-1 mt-0.5 px-1">
+                  <span className="text-[10px] text-white/25">{formatTs(msg.timestamp)}</span>
+                  {/* Read receipt — only on last sent message */}
+                  {isMe && isLastFromMe && (
+                    msg.isRead
+                      ? <CheckCheck size={12} className="text-brand-green flex-shrink-0" />
+                      : <Check size={12} className="text-white/30 flex-shrink-0" />
+                  )}
+                </div>
               </div>
             </div>
           )
         })}
+        {/* Typing bubble */}
+        {otherIsTyping && (
+          <div className="flex items-end gap-2 mb-1.5">
+            <div className="w-7 flex-shrink-0">
+              <div className="relative w-7 h-7 rounded-full overflow-hidden flex items-center justify-center"
+                style={{ backgroundColor: '#1ED75F33' }}>
+                {otherPhoto
+                  ? <Image src={otherPhoto} alt="" fill sizes="28px" className="object-cover" />
+                  : <span className="text-xs font-black text-brand-green">{otherInitial}</span>}
+              </div>
+            </div>
+            <div className="px-4 py-3 rounded-2xl" style={{ backgroundColor: 'var(--app-surface)', borderBottomLeftRadius: 4 }}>
+              <div className="flex gap-1 items-center h-4">
+                {[0, 1, 2].map(i => (
+                  <span
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
+                    style={{ animationDelay: `${i * 150}ms` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -235,9 +326,10 @@ export default function ChatDetailPage() {
         style={{ backgroundColor: 'var(--app-bg)' }}>
         <input
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={e => { setText(e.target.value); handleTyping() }}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
           placeholder="Scrie un mesaj..."
+          maxLength={4000}
           className="flex-1 h-11 rounded-full px-4 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/40 transition-colors"
         />
         <button
