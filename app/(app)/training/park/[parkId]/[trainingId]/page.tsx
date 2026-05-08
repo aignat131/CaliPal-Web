@@ -3,38 +3,37 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  doc, getDoc, onSnapshot, updateDoc, deleteField, getDocs, collection, serverTimestamp,
+  doc, onSnapshot, updateDoc, deleteDoc, deleteField, getDoc, serverTimestamp, increment,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { createNotification } from '@/lib/firebase/notifications'
-import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
+import type { PlannedTraining } from '@/types'
 import {
-  ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, User, Check,
+  ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Trash2,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
-function parseDateTime(str: string, fallbackDate?: string): Date | null {
+function parseDateTime(str: string): Date | null {
   if (!str) return null
   const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
   if (m) {
     const [, dd, mm, yyyy, hh, min] = m
     return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`)
   }
-  if (fallbackDate && /^\d{2}:\d{2}$/.test(str)) return new Date(`${fallbackDate}T${str}`)
   try { return new Date(str) } catch { return null }
 }
 
-function formatDate(timeStart: string, legacyDate?: string): string {
-  const d = parseDateTime(timeStart, legacyDate)
-  if (!d || isNaN(d.getTime())) return legacyDate ?? ''
+function formatDate(timeStart: string): string {
+  const d = parseDateTime(timeStart)
+  if (!d || isNaN(d.getTime())) return ''
   return d.toLocaleDateString('ro', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
 }
 
-// ── Member Avatar ─────────────────────────────────────────────────────────────
+// ── Avatars ───────────────────────────────────────────────────────────────────
 
 function MemberAvatar({ photoUrl, name, size = 32 }: { photoUrl?: string | null; name: string; size?: number }) {
   return (
@@ -49,8 +48,6 @@ function MemberAvatar({ photoUrl, name, size = 32 }: { photoUrl?: string | null;
   )
 }
 
-// ── Guest Avatar ──────────────────────────────────────────────────────────────
-
 function GuestAvatar({ size = 32 }: { size?: number }) {
   return (
     <div
@@ -62,30 +59,53 @@ function GuestAvatar({ size = 32 }: { size?: number }) {
   )
 }
 
+// ── Anti-spam: 1-hour cooldown per training ───────────────────────────────────
+
+async function maybeNotifyAuthor(
+  training: PlannedTraining,
+  parkId: string,
+  joinerName: string,
+  authorUid: string,
+) {
+  const now = Date.now()
+  const lastAt = training.lastRsvpNotifAt?.toDate?.()?.getTime() ?? 0
+  const ONE_HOUR = 60 * 60 * 1000
+  if (now - lastAt < ONE_HOUR) return          // cooldown active — skip
+  await updateDoc(doc(db, 'parks', parkId, 'trainings', training.id), {
+    lastRsvpNotifAt: serverTimestamp(),
+  })
+  await createNotification(
+    authorUid,
+    'TRAINING_RSVP',
+    'Cineva participă la antrenamentul tău! 💪',
+    `${joinerName} a confirmat că merge la „${training.name}".`,
+    training.id,
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function PublicTrainingPage() {
+export default function StandaloneParkTrainingPage() {
   const { user } = useAuth()
   const router = useRouter()
   const params = useParams()
-  const communityId = params.communityId as string
+  const parkId = params.parkId as string
   const trainingId = params.trainingId as string
 
   const [training, setTraining] = useState<PlannedTraining | null>(null)
-  const [community, setCommunity] = useState<CommunityDoc | null>(null)
-  const [members, setMembers] = useState<CommunityMember[]>([])
-  const [isMember, setIsMember] = useState(false)
+  const [parkName, setParkName] = useState('')
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(false)
 
   // Guest state
-  const [guestId, setGuestId] = useState<string>('')
+  const [guestId, setGuestId] = useState('')
   const [guestName, setGuestName] = useState('')
   const [guestInput, setGuestInput] = useState('')
   const [savingGuest, setSavingGuest] = useState(false)
   const [guestConfirmed, setGuestConfirmed] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Init guest ID from localStorage
+  // Init guest ID
   useEffect(() => {
     if (typeof window === 'undefined') return
     let id = localStorage.getItem('calipal_guest_id')
@@ -96,121 +116,86 @@ export default function PublicTrainingPage() {
     setGuestId(id)
   }, [])
 
-  // Load community
+  // Load park name
   useEffect(() => {
-    getDoc(doc(db, 'communities', communityId)).then(snap => {
-      if (snap.exists()) setCommunity({ id: snap.id, ...snap.data() } as CommunityDoc)
+    getDoc(doc(db, 'parks', parkId)).then(snap => {
+      if (snap.exists()) setParkName(snap.data().name ?? '')
     })
-  }, [communityId])
+  }, [parkId])
 
-  // Load members (for enriching RSVP display + membership check)
-  useEffect(() => {
-    getDocs(collection(db, 'communities', communityId, 'members')).then(snap => {
-      const list = snap.docs.map(d => d.data() as CommunityMember)
-      setMembers(list)
-      if (user) setIsMember(list.some(m => m.userId === user.uid))
-    }).catch(() => {})
-  }, [communityId, user])
-
-  // Load training (real-time)
+  // Real-time training
   useEffect(() => {
     const unsub = onSnapshot(
-      doc(db, 'communities', communityId, 'trainings', trainingId),
+      doc(db, 'parks', parkId, 'trainings', trainingId),
       snap => {
-        if (snap.exists()) {
-          setTraining({ id: snap.id, ...snap.data() } as PlannedTraining)
-        } else {
-          setTraining(null)
-        }
+        if (snap.exists()) setTraining({ id: snap.id, ...snap.data() } as PlannedTraining)
+        else setTraining(null)
         setLoading(false)
       },
-      () => setLoading(false)
+      () => setLoading(false),
     )
     return unsub
-  }, [communityId, trainingId])
+  }, [parkId, trainingId])
 
-  // Sync guest RSVP state from training
+  // Sync guest RSVP
   useEffect(() => {
     if (!training || !guestId) return
     const g = training.guestRsvps?.[guestId]
-    if (g) {
-      setGuestConfirmed(true)
-      setGuestName(g.name)
-    } else {
-      setGuestConfirmed(false)
-    }
+    if (g) { setGuestConfirmed(true); setGuestName(g.name) }
+    else { setGuestConfirmed(false) }
   }, [training, guestId])
+
+  async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
+    if (!user || !training) return
+    const wasGoing = training.rsvps?.[user.uid] === 'GOING'
+    await updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), {
+      [`rsvps.${user.uid}`]: status,
+    })
+    if (status === 'GOING' && !wasGoing && user.uid !== training.authorId) {
+      await maybeNotifyAuthor(training, parkId, user.displayName ?? 'Un utilizator', training.authorId)
+    }
+  }
 
   async function confirmGuestRsvp() {
     const name = guestInput.trim()
     if (!name || !guestId || savingGuest || !training) return
     setSavingGuest(true)
     try {
-      await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
+      await updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), {
         [`guestRsvps.${guestId}`]: { name, status: 'GOING' },
       })
-      const now = Date.now()
-      const lastAt = training.lastRsvpNotifAt?.toDate?.()?.getTime() ?? 0
-      if (now - lastAt >= 60 * 60 * 1000) {
-        await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
-          lastRsvpNotifAt: serverTimestamp(),
-        })
-        await createNotification(
-          training.authorId,
-          'TRAINING_RSVP',
-          'Cineva participă la antrenamentul tău! 💪',
-          `${name} a confirmat că merge la „${training.name}".`,
-          trainingId,
-        )
-      }
+      await maybeNotifyAuthor(training, parkId, name, training.authorId)
       setGuestName(name)
       setGuestConfirmed(true)
       setGuestInput('')
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setSavingGuest(false)
-    }
+    } catch (e) { console.error(e) }
+    finally { setSavingGuest(false) }
   }
 
   async function cancelGuestRsvp() {
     if (!guestId || savingGuest) return
     setSavingGuest(true)
     try {
-      await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
+      await updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), {
         [`guestRsvps.${guestId}`]: deleteField(),
       })
       setGuestConfirmed(false)
       setGuestName('')
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setSavingGuest(false)
-    }
+    } catch (e) { console.error(e) }
+    finally { setSavingGuest(false) }
   }
 
-  async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
-    if (!user || !training) return
-    const wasGoing = training.rsvps?.[user.uid] === 'GOING'
-    await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
-      [`rsvps.${user.uid}`]: status,
-    })
-    if (status === 'GOING' && !wasGoing && user.uid !== training.authorId) {
-      const now = Date.now()
-      const lastAt = training.lastRsvpNotifAt?.toDate?.()?.getTime() ?? 0
-      if (now - lastAt >= 60 * 60 * 1000) {
-        await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
-          lastRsvpNotifAt: serverTimestamp(),
-        })
-        await createNotification(
-          training.authorId,
-          'TRAINING_RSVP',
-          'Cineva participă la antrenamentul tău! 💪',
-          `${user.displayName ?? 'Un utilizator'} a confirmat că merge la „${training.name}".`,
-          trainingId,
-        )
+  async function deleteTraining() {
+    if (!training || deleting) return
+    setDeleting(true)
+    try {
+      await deleteDoc(doc(db, 'parks', parkId, 'trainings', trainingId))
+      const d = parseDateTime(training.timeStart)
+      if (!d || d >= new Date()) {
+        await updateDoc(doc(db, 'parks', parkId), { upcomingTrainingCount: increment(-1) })
       }
-    }
+      router.replace('/map')
+    } catch (e) { console.error(e); setDeleting(false) }
   }
 
   if (loading) return (
@@ -224,9 +209,9 @@ export default function PublicTrainingPage() {
       <p className="text-4xl mb-4">🏚️</p>
       <p className="text-base font-bold text-white mb-2">Antrenament negăsit</p>
       <p className="text-sm text-white/50 mb-6">Acest antrenament nu mai există sau a expirat.</p>
-      <button onClick={() => router.replace('/community')}
+      <button onClick={() => router.replace('/map')}
         className="h-11 px-6 rounded-2xl bg-brand-green text-black text-sm font-bold">
-        Explorează comunități
+        Înapoi la hartă
       </button>
     </div>
   )
@@ -235,13 +220,8 @@ export default function PublicTrainingPage() {
   const maybeUids = Object.entries(training.rsvps ?? {}).filter(([, s]) => s === 'MAYBE').map(([uid]) => uid)
   const guestGoing = Object.entries(training.guestRsvps ?? {}).filter(([, g]) => g.status === 'GOING')
   const totalGoing = goingUids.length + guestGoing.length
-
-  const myMemberStatus = user ? training.rsvps?.[user.uid] : undefined
-
-  const officialStyle = training.official ? {
-    background: 'linear-gradient(135deg, #0D3D28 0%, #164742 100%)',
-    borderColor: '#1ED75F40',
-  } : {}
+  const myStatus = user ? training.rsvps?.[user.uid] : undefined
+  const isAuthor = user?.uid === training.authorId
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -255,46 +235,33 @@ export default function PublicTrainingPage() {
           <ArrowLeft size={16} /> Înapoi
         </button>
 
-        {/* Community link */}
-        {community && (
-          <Link href={`/community/${communityId}`}>
+        {/* Park link */}
+        {parkName && (
+          <Link href="/map">
             <div className="flex items-center gap-2 mb-4 text-brand-green/80 hover:text-brand-green transition-colors">
               <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: '#1ED75F22' }}>
-                <span className="text-[10px] font-black text-brand-green">{community.name.charAt(0)}</span>
+                <MapPin size={12} className="text-brand-green" />
               </div>
-              <span className="text-sm font-semibold truncate">{community.name}</span>
-              {community.verified && (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: '#3B82F625', color: '#3B82F6' }}>✓</span>
-              )}
+              <span className="text-sm font-semibold truncate">{parkName}</span>
             </div>
           </Link>
         )}
 
         {/* Training card */}
-        <div
-          className="rounded-3xl p-5 mb-4 border"
-          style={training.official ? { ...officialStyle, borderColor: '#1ED75F40' } : { backgroundColor: 'var(--app-surface)', borderColor: 'transparent' }}
-        >
-          {training.official && (
-            <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full tracking-widest mb-3"
-              style={{ backgroundColor: '#1ED75F22', color: '#1ED75F', border: '1px solid #1ED75F40' }}>
-              ⭐ OFICIAL
-            </span>
-          )}
+        <div className="rounded-3xl p-5 mb-4 border"
+          style={{ backgroundColor: 'var(--app-surface)', borderColor: 'transparent' }}>
 
           <h1 className="text-xl font-black text-white mb-1">{training.name}</h1>
           {training.authorName && (
             <p className="text-xs text-white/40 mb-4">de {training.authorName}</p>
           )}
 
-          {/* Meta */}
           <div className="flex flex-col gap-2 mb-4">
-            {(training.timeStart || training.date) && (
+            {training.timeStart && (
               <div className="flex items-center gap-2 text-sm text-white/70">
                 <Calendar size={14} className="text-brand-green flex-shrink-0" />
-                <span>{formatDate(training.timeStart, training.date)}</span>
+                <span>{formatDate(training.timeStart)}</span>
               </div>
             )}
             {(training.timeStart || training.timeEnd) && (
@@ -318,7 +285,6 @@ export default function PublicTrainingPage() {
             <p className="text-sm text-white/60 leading-relaxed mb-4">{training.description}</p>
           )}
 
-          {/* Exercises */}
           {(training.exercises?.length ?? 0) > 0 && (
             <div className="p-3 rounded-2xl mb-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <div className="flex items-center gap-1.5 mb-2">
@@ -336,7 +302,6 @@ export default function PublicTrainingPage() {
             </div>
           )}
 
-          {/* Equipment */}
           {(training.equipment?.length ?? 0) > 0 && (
             <div className="p-3 rounded-2xl mb-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2">ECHIPAMENT</p>
@@ -350,7 +315,6 @@ export default function PublicTrainingPage() {
             </div>
           )}
 
-          {/* Attendees summary */}
           <div className="flex items-center gap-2 text-sm text-white/50">
             <Users size={14} className="text-brand-green flex-shrink-0" />
             {totalGoing > 0
@@ -368,13 +332,11 @@ export default function PublicTrainingPage() {
             <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3">PARTICIPANȚI ({totalGoing})</p>
             <div className="flex flex-col gap-2">
               {goingUids.map(uid => {
-                const m = members.find(mem => mem.userId === uid)
-                const name = m?.displayName ?? uid.slice(0, 8)
-                const photo = m?.photoUrl ?? null
                 const isMe = user?.uid === uid
+                const name = isMe ? (user.displayName ?? uid.slice(0, 8)) : uid.slice(0, 8)
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
-                    <MemberAvatar photoUrl={photo} name={name} size={32} />
+                    <MemberAvatar photoUrl={isMe ? user.photoURL : null} name={name} size={32} />
                     <span className="text-sm font-semibold text-white/80 flex-1">{name}</span>
                     {isMe && <span className="text-[10px] text-brand-green">Tu</span>}
                   </div>
@@ -394,17 +356,17 @@ export default function PublicTrainingPage() {
         )}
 
         {/* RSVP section */}
-        <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+        <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           <p className="text-sm font-black text-white mb-3">Participi?</p>
 
-          {/* Authenticated member RSVP */}
-          {user && isMember && (
+          {/* Authenticated user RSVP (any logged-in user can join standalone trainings) */}
+          {user && (
             <div className="flex gap-2">
               {(['GOING', 'MAYBE', 'NOT_GOING'] as const).map(status => (
                 <button key={status}
                   onClick={() => memberRsvp(status)}
                   className={`flex-1 h-10 rounded-xl text-sm font-bold transition-colors border ${
-                    myMemberStatus === status
+                    myStatus === status
                       ? 'bg-brand-green text-black border-brand-green'
                       : 'border-white/15 text-white/60 hover:bg-white/8'
                   }`}>
@@ -414,8 +376,8 @@ export default function PublicTrainingPage() {
             </div>
           )}
 
-          {/* Guest RSVP (not logged in, or logged in but not a member) */}
-          {(!user || !isMember) && (
+          {/* Guest RSVP (not logged in) */}
+          {!user && (
             <div>
               {guestConfirmed ? (
                 <div>
@@ -429,11 +391,8 @@ export default function PublicTrainingPage() {
                       <p className="text-xs text-white/50">Înregistrat ca: {guestName}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={cancelGuestRsvp}
-                    disabled={savingGuest}
-                    className="w-full h-9 rounded-xl border border-white/15 text-sm text-white/50 hover:text-white/70 transition-colors disabled:opacity-40"
-                  >
+                  <button onClick={cancelGuestRsvp} disabled={savingGuest}
+                    className="w-full h-9 rounded-xl border border-white/15 text-sm text-white/50 hover:text-white/70 transition-colors disabled:opacity-40">
                     {savingGuest ? '...' : 'Anulează participarea'}
                   </button>
                 </div>
@@ -451,11 +410,8 @@ export default function PublicTrainingPage() {
                       placeholder="Numele tău *"
                       className="flex-1 h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
                     />
-                    <button
-                      onClick={confirmGuestRsvp}
-                      disabled={savingGuest || !guestInput.trim()}
-                      className="h-11 px-4 rounded-xl bg-brand-green text-black text-sm font-black flex items-center gap-1.5 disabled:opacity-40 flex-shrink-0"
-                    >
+                    <button onClick={confirmGuestRsvp} disabled={savingGuest || !guestInput.trim()}
+                      className="h-11 px-4 rounded-xl bg-brand-green text-black text-sm font-black flex items-center gap-1.5 disabled:opacity-40 flex-shrink-0">
                       <Check size={14} />
                       {savingGuest ? '...' : 'Merg'}
                     </button>
@@ -477,19 +433,19 @@ export default function PublicTrainingPage() {
               )}
             </div>
           )}
-
-          {/* Authenticated user who is not yet a member */}
-          {user && !isMember && (
-            <div className="mt-3 pt-3 border-t border-white/8">
-              <p className="text-xs text-white/40 mb-2">Intră în comunitate pentru a confirma ca membru.</p>
-              <Link href={`/community/${communityId}`}>
-                <span className="flex items-center justify-center h-10 rounded-xl bg-brand-green/15 text-brand-green text-sm font-bold border border-brand-green/30 hover:bg-brand-green/20 transition-colors">
-                  Alătură-te comunității
-                </span>
-              </Link>
-            </div>
-          )}
         </div>
+
+        {/* Delete button (author only) */}
+        {isAuthor && (
+          <button
+            onClick={deleteTraining}
+            disabled={deleting}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-2xl border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/10 transition-colors disabled:opacity-40"
+          >
+            <Trash2 size={15} />
+            {deleting ? 'Se șterge...' : 'Șterge antrenamentul'}
+          </button>
+        )}
 
       </div>
     </div>

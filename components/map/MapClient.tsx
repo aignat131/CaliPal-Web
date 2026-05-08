@@ -36,14 +36,14 @@ import ParkRequestModal from '@/components/map/ParkRequestModal'
 // ── Custom Leaflet icons ─────────────────────────────────────────────────────
 
 function makeParkIcon(hasComm: boolean, activeCount: number, hasUpcomingTraining = false) {
-  const color = hasComm ? '#1ED75F' : hasUpcomingTraining ? '#3B82F6' : '#6B7280'
+  const color = hasComm ? '#3B82F6' : hasUpcomingTraining ? '#1ED75F' : '#6B7280'
   const ring = activeCount > 0
     ? `<circle cx="20" cy="20" r="16" fill="none" stroke="${color}" stroke-width="2" opacity="0.5" class="pulse-ring"/>`
     : ''
   const glowDefs = (hasComm || hasUpcomingTraining) ? `
     <defs>
       <radialGradient id="g" cx="50%" cy="40%" r="60%">
-        <stop offset="0%" stop-color="${hasComm ? '#2EF070' : '#60A5FA'}"/>
+        <stop offset="0%" stop-color="${hasComm ? '#60A5FA' : '#2EF070'}"/>
         <stop offset="100%" stop-color="${color}"/>
       </radialGradient>
       <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -1017,6 +1017,7 @@ export default function MapClient() {
           parkTrainings={parkTrainings}
           parkStandaloneTrainings={parkStandaloneTrainings}
           onStandaloneTrainingAdded={t => setParkStandaloneTrainings(prev => [...prev, t])}
+          onStandaloneTrainingDeleted={id => setParkStandaloneTrainings(prev => prev.filter(t => t.id !== id))}
           showParkTrainingForm={showParkTrainingForm}
           setShowParkTrainingForm={setShowParkTrainingForm}
           parkPendingReq={parkPendingReq}
@@ -1037,6 +1038,7 @@ export default function MapClient() {
 function ParkBottomSheet({
   park, community, members, liveLocations, onClose,
   uid, userName, parkTrainings, parkStandaloneTrainings, onStandaloneTrainingAdded,
+  onStandaloneTrainingDeleted,
   showParkTrainingForm, setShowParkTrainingForm,
   parkPendingReq, userAdminCommunities,
   showParkCommModal, setShowParkCommModal, onPendingReqSet, onCommunityCreated: _onCommunityCreated,
@@ -1052,6 +1054,7 @@ function ParkBottomSheet({
   parkTrainings: PlannedTraining[]
   parkStandaloneTrainings: PlannedTraining[]
   onStandaloneTrainingAdded: (t: PlannedTraining) => void
+  onStandaloneTrainingDeleted: (id: string) => void
   showParkTrainingForm: boolean
   setShowParkTrainingForm: (v: boolean) => void
   parkPendingReq: ParkCommunityRequest | null
@@ -1174,26 +1177,51 @@ function ParkBottomSheet({
           {/* Standalone upcoming trainings */}
           {parkStandaloneTrainings.length > 0 && (
             <div className="mb-3">
-              <p className="text-[9px] font-bold text-blue-400/70 tracking-widest mb-1.5">ANTRENAMENTE PLANIFICATE</p>
+              <p className="text-[9px] font-bold text-brand-green/70 tracking-widest mb-1.5">ANTRENAMENTE PLANIFICATE</p>
               <div className="flex flex-col gap-1.5">
                 {parkStandaloneTrainings.map(t => {
                   const dateObj = parseMapTrainingDate(t)
                   const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' }) : ''
                   const timeLabel = t.timeStart?.slice(-5) ?? ''
                   const totalGoing = Object.values(t.rsvps ?? {}).filter(s => s === 'GOING').length
+                  const isAuthor = uid === t.authorId
+
+                  async function handleDelete(e: React.MouseEvent) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    try {
+                      await deleteDoc(doc(db, 'parks', park.id, 'trainings', t.id))
+                      await updateDoc(doc(db, 'parks', park.id), { upcomingTrainingCount: increment(-1) })
+                      onStandaloneTrainingDeleted(t.id)
+                    } catch { /* ignore */ }
+                  }
+
                   return (
-                    <div key={t.id} className="p-2.5 rounded-xl border border-blue-500/20"
-                      style={{ backgroundColor: '#1D4ED808' }}>
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{t.name}</p>
-                        {totalGoing > 0 && (
-                          <span className="text-xs text-blue-400 font-bold flex-shrink-0">{totalGoing} merg</span>
-                        )}
+                    <Link key={t.id} href={`/training/park/${park.id}/${t.id}`}>
+                      <div className="p-2.5 rounded-xl border border-brand-green/20 hover:bg-brand-green/5 transition-colors cursor-pointer"
+                        style={{ backgroundColor: '#0D3D2810' }}>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{t.name}</p>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {totalGoing > 0 && (
+                              <span className="text-xs text-brand-green font-bold">{totalGoing} merg</span>
+                            )}
+                            {isAuthor && (
+                              <button
+                                onClick={handleDelete}
+                                className="w-6 h-6 rounded-full bg-red-500/15 flex items-center justify-center hover:bg-red-500/30 transition-colors"
+                                title="Șterge antrenamentul"
+                              >
+                                <X size={10} className="text-red-400" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-xs text-white/45 mt-0.5">
+                          {t.authorName && `${t.authorName} · `}{dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
+                        </p>
                       </div>
-                      <p className="text-xs text-white/45 mt-0.5">
-                        {t.authorName && `${t.authorName} · `}{dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
-                      </p>
-                    </div>
+                    </Link>
                   )
                 })}
               </div>
@@ -1204,8 +1232,8 @@ function ParkBottomSheet({
           {uid && (
             <button
               onClick={() => setShowParkTrainingForm(true)}
-              className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-blue-500/30 text-blue-400 text-sm font-bold hover:bg-blue-500/10 transition-colors mb-2"
-              style={{ backgroundColor: '#1D4ED808' }}
+              className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-brand-green/30 text-brand-green text-sm font-bold hover:bg-brand-green/10 transition-colors mb-2"
+              style={{ backgroundColor: '#0D3D2810' }}
             >
               <span className="text-base">📅</span> Planifică antrenament
             </button>

@@ -97,6 +97,7 @@ export interface PlannedTraining {
   guestRsvps?: Record<string, { name: string; status: 'GOING' }>
   equipment?: string[]
   createdAt: Timestamp | null
+  lastRsvpNotifAt?: Timestamp | null
   // Legacy field — web-created trainings before the format change stored a separate date string
   date?: string
 }
@@ -308,6 +309,7 @@ export type NotificationType =
   | 'PARK_CREATED'
   | 'OFFICIAL_TRAINING_POSTED'
   | 'COMMUNITY_REMOVED'
+  | 'TRAINING_RSVP'
 
 export interface AppNotification {
   id: string
