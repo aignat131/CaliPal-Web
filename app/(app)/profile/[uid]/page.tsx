@@ -13,7 +13,6 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { UserDoc, WorkoutDoc } from '@/types'
 import { conversationId } from '@/types'
-import { SKILLS, SKILL_LEVEL_COLORS } from '@/lib/data/skills'
 import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell } from 'lucide-react'
 
 function formatDuration(s: number): string {
@@ -40,7 +39,6 @@ export default function UserProfilePage() {
   const [profile, setProfile] = useState<UserDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const [recentWorkouts, setRecentWorkouts] = useState<WorkoutDoc[]>([])
-  const [unlockedSkillIds, setUnlockedSkillIds] = useState<Set<string>>(new Set())
   const [friendStatus, setFriendStatus] = useState<FriendStatus>('none')
   const [friendLoading, setFriendLoading] = useState(false)
   const [friendError, setFriendError] = useState<string | null>(null)
@@ -70,14 +68,6 @@ export default function UserProfilePage() {
     )
     const unsub = onSnapshot(q, snap => {
       setRecentWorkouts(snap.docs.map(d => ({ id: d.id, ...d.data() }) as WorkoutDoc))
-    })
-    return unsub
-  }, [uid])
-
-  // Load unlocked skills (real-time)
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'users', uid, 'skills'), snap => {
-      setUnlockedSkillIds(new Set(snap.docs.map(d => d.id)))
     })
     return unsub
   }, [uid])
@@ -217,7 +207,25 @@ export default function UserProfilePage() {
     : (profile.email?.split('@')[0] || profile.displayName || 'Utilizator')
   const photoUrl = profile.photoUrl
   const initial = displayName.charAt(0).toUpperCase()
-  const unlockedSkills = SKILLS.filter(s => unlockedSkillIds.has(s.id))
+
+  // Skills from assessment
+  const allMasteredSkills = Object.values(profile.skillsByCategory ?? {}).flatMap(cat => cat.have)
+  const favoriteSkillIds = profile.favoriteSkillIds ?? []
+  const displaySkills = favoriteSkillIds.length > 0
+    ? allMasteredSkills.filter(s => favoriteSkillIds.includes(s.id)).slice(0, 5)
+    : allMasteredSkills.slice(0, 5)
+
+  // Badge based on assessment level
+  const assessmentLevel = profile.basicStrength?.level
+  const LEVEL_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+    beginner:     { label: '⚔️ Începător',   color: 'rgba(255,255,255,0.7)', bg: '#ffffff15' },
+    intermediate: { label: '🥈 Intermediar', color: '#60A5FA',               bg: '#3B82F622' },
+    advanced:     { label: '🥇 Avansat',     color: '#F97316',               bg: '#F9731622' },
+    elite:        { label: '👑 Elite',        color: '#FFB800',               bg: '#FFB80022' },
+  }
+  const badge = profile.isCoach
+    ? { label: '⭐ Master Coach', color: '#1ED75F', bg: '#1ED75F22' }
+    : LEVEL_BADGE[assessmentLevel ?? 'beginner'] ?? LEVEL_BADGE.beginner
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -259,12 +267,10 @@ export default function UserProfilePage() {
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-[17px] font-black text-white">{displayName}</span>
-            {profile.isCoach && (
-              <span className="px-2 py-0.5 rounded-md text-[11px] font-medium"
-                style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
-                ⭐ Master Coach
-              </span>
-            )}
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-medium"
+              style={{ backgroundColor: badge.bg, color: badge.color }}>
+              {badge.label}
+            </span>
           </div>
           {profile.bio ? (
             <p className="text-sm text-white/70 leading-relaxed">{profile.bio}</p>
@@ -349,27 +355,23 @@ export default function UserProfilePage() {
         </div>
 
         {/* Skills */}
-        {unlockedSkills.length > 0 && (
+        {displaySkills.length > 0 && (
           <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold text-white">Skills deblocate</p>
-              <span className="text-xs text-white/40">{unlockedSkills.length}/{SKILLS.length}</span>
+              <p className="text-sm font-bold text-white">Skills</p>
+              <span className="text-xs text-white/40">{allMasteredSkills.length} stăpânite</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {unlockedSkills.slice(0, 8).map(s => (
+              {displaySkills.map(s => (
                 <span key={s.id}
-                  className="flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-semibold"
-                  style={{
-                    backgroundColor: `${SKILL_LEVEL_COLORS[s.level]}22`,
-                    color: SKILL_LEVEL_COLORS[s.level],
-                    border: `1px solid ${SKILL_LEVEL_COLORS[s.level]}44`,
-                  }}>
-                  {s.icon} {s.name}
+                  className="flex items-center h-7 px-2.5 rounded-full text-xs font-semibold"
+                  style={{ backgroundColor: '#1ED75F22', color: '#1ED75F', border: '1px solid #1ED75F44' }}>
+                  {s.name}
                 </span>
               ))}
-              {unlockedSkills.length > 8 && (
+              {allMasteredSkills.length > 5 && (
                 <span className="h-7 px-2.5 rounded-full text-xs font-semibold text-white/40 border border-white/15 flex items-center">
-                  +{unlockedSkills.length - 8} mai multe
+                  +{allMasteredSkills.length - 5} mai multe
                 </span>
               )}
             </div>

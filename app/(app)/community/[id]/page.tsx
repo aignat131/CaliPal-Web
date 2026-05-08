@@ -1092,7 +1092,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
             <div className="flex flex-wrap gap-1.5">
               {training.equipment!.map(eq => (
                 <span key={eq} className="text-xs text-white/70 bg-white/8 rounded-lg px-2 py-0.5">
-                  {eq === 'rings' ? '🪢 Inele' : eq === 'elastic_bands' ? '🔁 Benzi elastice' : eq === 'parallels' ? '⚙️ Paralele' : eq}
+                  {eq === 'rings' ? '🪢 Inele' : eq === 'elastic_bands' ? '🔁 Benzi elastice' : eq === 'parallels' ? '⚙️ Paralele' : eq === 'jump_rope' ? '🪝 Coardă de sărit' : eq}
                 </span>
               ))}
             </div>
@@ -1228,7 +1228,9 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
     { id: 'rings', label: '🪢 Inele' },
     { id: 'elastic_bands', label: '🔁 Benzi elastice' },
     { id: 'parallels', label: '⚙️ Paralele' },
+    { id: 'jump_rope', label: '🪝 Coardă de sărit' },
   ]
+  const [customEquipment, setCustomEquipment] = useState('')
 
   function toggleEquipment(id: string) {
     setSelectedEquipment(prev =>
@@ -1253,7 +1255,11 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
         official,
         reminderMinutes: 30,
         rsvps:           userId ? { [userId]: 'GOING' } : {},
-        ...(selectedEquipment.length > 0 ? { equipment: selectedEquipment } : {}),
+        ...(selectedEquipment.length > 0 || customEquipment.trim() ? {
+        equipment: customEquipment.trim()
+          ? [...selectedEquipment, customEquipment.trim()]
+          : selectedEquipment
+      } : {}),
         createdAt:       serverTimestamp(),
       })
       onClose()
@@ -1300,9 +1306,9 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
             className="flex items-center gap-1.5 text-xs text-white/45 hover:text-white/70 transition-colors"
           >
             <span>{showEquipment ? '▾' : '▸'}</span>
-            <span>Echipament necesar</span>
-            {selectedEquipment.length > 0 && (
-              <span className="text-brand-green font-bold">({selectedEquipment.length})</span>
+            <span>Aduci echipament?</span>
+            {(selectedEquipment.length > 0 || customEquipment.trim()) && (
+              <span className="text-brand-green font-bold">({selectedEquipment.length + (customEquipment.trim() ? 1 : 0)})</span>
             )}
           </button>
           {showEquipment && (
@@ -1318,6 +1324,12 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
                   <span>{opt.label}</span>
                 </label>
               ))}
+              <input
+                value={customEquipment}
+                onChange={e => setCustomEquipment(e.target.value)}
+                placeholder="Altceva (ex: kettlebell...)"
+                className="mt-1 h-9 rounded-xl px-3 text-xs text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
+              />
             </div>
           )}
         </div>

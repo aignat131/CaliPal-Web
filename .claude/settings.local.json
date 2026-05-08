@@ -34,7 +34,9 @@
       "Bash(dir \"E:\\\\Web_Apps\\\\CaliPal-Web\\\\public\")",
       "Bash(node -e ':*)",
       "Bash(node -e \"require\\('sharp'\\)\")",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(node:*)",
+      "Bash(grep -E \"^\\\\s+\\\\{$\" /e/Web_Apps/CaliPal-Web/lib/data/skills.ts)"
     ]
   }
 }

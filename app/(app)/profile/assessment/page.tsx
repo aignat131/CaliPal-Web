@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, increment, writeBatch } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { awardCoins, checkSkillMilestones } from '@/lib/gamification/coins'
@@ -93,9 +93,13 @@ export default function AssessmentPage() {
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
   const [coinsEarned, setCoinsEarned] = useState(0)
+  const [favoriteSkillIds, setFavoriteSkillIds] = useState<string[]>([])
 
   const SKILL_STEP_OFFSET = 6
-  const totalSteps = SKILL_STEP_OFFSET + categories.length + 1 // +1 for results
+  // Steps: 0=intro, 1=level, 2=pushups, 3=pullups, 4=squats, 5=cardio,
+  //        6..6+N-1=skill categories, 6+N=favorites, 6+N+1=results
+  const FAVORITES_STEP = SKILL_STEP_OFFSET + categories.length
+  const totalSteps = SKILL_STEP_OFFSET + categories.length + 2 // +1 favorites, +1 results
 
   // Load categories & pre-fill if re-assessing
   useEffect(() => {
@@ -154,6 +158,11 @@ export default function AssessmentPage() {
     setSaving(true)
     try {
       const totalHave = Object.values(assignments).reduce((sum, v) => sum + v.have.length, 0)
+      const allHaveSkills = Object.values(assignments).flatMap(v => v.have)
+      // If user didn't pick favorites, auto-select first 5 mastered skills
+      const effectiveFavorites = favoriteSkillIds.length > 0
+        ? favoriteSkillIds
+        : allHaveSkills.slice(0, 5).map(s => s.id)
       await updateDoc(doc(db, 'users', user.uid), {
         assessmentCompleted: true,
         basicStrength: {
@@ -173,11 +182,27 @@ export default function AssessmentPage() {
             },
           ])
         ),
+        favoriteSkillIds: effectiveFavorites,
       })
       const coins = await awardCoins(user.uid, 'COMPLETE_ASSESSMENT')
       await checkSkillMilestones(user.uid, totalHave)
       setCoinsEarned(coins)
       setDone(true)
+      // Update community points (fire-and-forget — don't block results screen)
+      try {
+        const userSnap = await getDoc(doc(db, 'users', user.uid))
+        const joinedCommunityIds: string[] = userSnap.data()?.joinedCommunityIds ?? []
+        if (joinedCommunityIds.length > 0) {
+          const batch = writeBatch(db)
+          for (const communityId of joinedCommunityIds) {
+            batch.update(
+              doc(db, 'communities', communityId, 'members', user.uid),
+              { points: increment(25) }
+            )
+          }
+          await batch.commit()
+        }
+      } catch { /* best-effort — community points are not critical */ }
     } finally {
       setSaving(false)
     }
@@ -310,7 +335,7 @@ export default function AssessmentPage() {
           <StepCardio value={strength.cardio}
             onChange={cardio => { setStrength(s => ({ ...s, cardio })); goNext() }} />
         )}
-        {step >= SKILL_STEP_OFFSET && step < totalSteps - 1 && (() => {
+        {step >= SKILL_STEP_OFFSET && step < FAVORITES_STEP && (() => {
           const cat = categories[step - SKILL_STEP_OFFSET]
           if (!cat) return null
           return (
@@ -322,6 +347,55 @@ export default function AssessmentPage() {
               onCustomInputChange={val => setCustomInputs(prev => ({ ...prev, [cat.id]: val }))}
               onAddCustom={() => addCustomSkill(cat.id)}
               onNext={goNext} />
+          )
+        })()}
+
+        {step === FAVORITES_STEP && (() => {
+          const allHaveSkills = Object.values(assignments).flatMap(v => v.have)
+          function toggleFavorite(id: string) {
+            setFavoriteSkillIds(prev =>
+              prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 5 ? [...prev, id] : prev
+            )
+          }
+          return (
+            <div>
+              <h2 className="text-xl font-black text-white mb-1">Skill-urile tale favorite</h2>
+              <p className="text-sm text-white/50 mb-5">
+                Alege până la <span className="text-brand-green font-bold">5 skill-uri</span> pe care le stăpânești și vrei să le afișezi pe profil.
+              </p>
+              {allHaveSkills.length === 0 ? (
+                <p className="text-sm text-white/40 mb-6">Nu ai marcat niciun skill ca stăpânit. Poți sări peste acest pas.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {allHaveSkills.map(skill => {
+                    const selected = favoriteSkillIds.includes(skill.id)
+                    return (
+                      <button
+                        key={skill.id}
+                        type="button"
+                        onClick={() => toggleFavorite(skill.id)}
+                        className={`h-8 px-3 rounded-full text-xs font-semibold border transition-colors ${
+                          selected
+                            ? 'bg-brand-green text-black border-brand-green'
+                            : favoriteSkillIds.length >= 5
+                            ? 'border-white/10 text-white/30 cursor-not-allowed'
+                            : 'border-white/20 text-white/70 hover:border-brand-green/50'
+                        }`}
+                      >
+                        {selected && '✓ '}{skill.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              <p className="text-xs text-white/35 mb-5">{favoriteSkillIds.length}/5 selectate</p>
+              <button
+                onClick={goNext}
+                className="w-full h-12 rounded-full bg-brand-green text-black font-bold flex items-center justify-center gap-2"
+              >
+                {favoriteSkillIds.length === 0 ? 'Sari peste' : 'Continuă'} <ArrowRight size={18} />
+              </button>
+            </div>
           )
         })()}
 

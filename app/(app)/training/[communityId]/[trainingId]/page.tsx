@@ -311,7 +311,7 @@ export default function PublicTrainingPage() {
               <div className="flex flex-wrap gap-2">
                 {training.equipment!.map(eq => (
                   <span key={eq} className="text-sm text-white/70 bg-white/8 rounded-xl px-3 py-1">
-                    {eq === 'rings' ? '🪢 Inele' : eq === 'elastic_bands' ? '🔁 Benzi elastice' : eq === 'parallels' ? '⚙️ Paralele' : eq}
+                    {eq === 'rings' ? '🪢 Inele' : eq === 'elastic_bands' ? '🔁 Benzi elastice' : eq === 'parallels' ? '⚙️ Paralele' : eq === 'jump_rope' ? '🪝 Coardă de sărit' : eq}
                   </span>
                 ))}
               </div>

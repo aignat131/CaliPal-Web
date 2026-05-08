@@ -18,6 +18,9 @@ export interface UserDoc {
   favoriteCommunityId?: string
   favoriteExercises?: string[]
   locationSharingMode?: LocationSharingMode
+  basicStrength?: BasicStrength
+  skillsByCategory?: SkillsByCategory
+  favoriteSkillIds?: string[]
   createdAt: Timestamp | null
 }
 

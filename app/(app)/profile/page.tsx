@@ -10,7 +10,6 @@ import { db } from '@/lib/firebase/firestore'
 import { collection, query, orderBy, limit, where, onSnapshot, doc } from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { UserDoc, WorkoutDoc } from '@/types'
-import { SKILLS, SKILL_LEVEL_COLORS } from '@/lib/data/skills'
 import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell } from 'lucide-react'
 
 function formatDuration(s: number): string {
@@ -49,7 +48,6 @@ export default function ProfilePage() {
   const [tab, setTab] = useState(0)
   const [showLogout, setShowLogout] = useState(false)
   const [recentWorkouts, setRecentWorkouts] = useState<WorkoutDoc[]>([])
-  const [unlockedSkillIds, setUnlockedSkillIds] = useState<Set<string>>(new Set())
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set())
 
   // Live profile
@@ -79,15 +77,6 @@ export default function ProfilePage() {
     )
     const unsub = onSnapshot(q, snap => {
       setRecentWorkouts(snap.docs.map(d => ({ id: d.id, ...d.data() }) as WorkoutDoc))
-    })
-    return unsub
-  }, [user])
-
-  // Unlocked skills
-  useEffect(() => {
-    if (!user) return
-    const unsub = onSnapshot(collection(db, 'users', user.uid, 'skills'), snap => {
-      setUnlockedSkillIds(new Set(snap.docs.map(d => d.id)))
     })
     return unsub
   }, [user])
@@ -126,8 +115,30 @@ export default function ProfilePage() {
   const photoUrl = profile?.photoUrl ?? user?.photoURL ?? ''
   const initial = displayName.charAt(0).toUpperCase()
 
-  // Top unlocked skills preview
-  const unlockedSkills = SKILLS.filter(s => unlockedSkillIds.has(s.id)).slice(0, 6)
+  // Skills from assessment (skillsByCategory.*.have)
+  const allMasteredSkills = Object.values(profile?.skillsByCategory ?? {}).flatMap(cat => cat.have)
+  const totalMastered = allMasteredSkills.length
+  const totalAssessmentSkills = Object.values(profile?.skillsByCategory ?? {}).flatMap(cat => [
+    ...cat.have, ...cat.wantToLearn, ...(cat.close ?? [])
+  ]).length || 29 // fallback to 29 if no assessment data
+
+  // Favorite skills: use favoriteSkillIds if set, else first 5 mastered
+  const favoriteSkillIds = profile?.favoriteSkillIds ?? []
+  const displaySkills = favoriteSkillIds.length > 0
+    ? allMasteredSkills.filter(s => favoriteSkillIds.includes(s.id)).slice(0, 5)
+    : allMasteredSkills.slice(0, 5)
+
+  // Badge based on assessment level
+  const assessmentLevel = profile?.basicStrength?.level
+  const LEVEL_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+    beginner:     { label: '⚔️ Începător',   color: 'rgba(255,255,255,0.7)', bg: '#ffffff15' },
+    intermediate: { label: '🥈 Intermediar', color: '#60A5FA',               bg: '#3B82F622' },
+    advanced:     { label: '🥇 Avansat',     color: '#F97316',               bg: '#F9731622' },
+    elite:        { label: '👑 Elite',        color: '#FFB800',               bg: '#FFB80022' },
+  }
+  const badge = profile?.isCoach
+    ? { label: '⭐ Master Coach', color: '#1ED75F', bg: '#1ED75F22' }
+    : LEVEL_BADGE[assessmentLevel ?? 'beginner'] ?? LEVEL_BADGE.beginner
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -191,9 +202,9 @@ export default function ProfilePage() {
 
           <div className="flex-1">
             <div className="flex justify-around mb-2">
-              <Stat value={String(profile?.totalWorkouts ?? 0)} label="Antrenamente" />
+              <Link href="/workout"><Stat value={String(profile?.totalWorkouts ?? 0)} label="Antrenamente" /></Link>
               <Stat value={String(profile?.coins ?? 0)} label="Monede" />
-              <Stat value={String(profile?.friendCount ?? 0)} label="Prieteni" />
+              <Link href="/profile/friends"><Stat value={String(profile?.friendCount ?? 0)} label="Prieteni" /></Link>
             </div>
             <div className="flex justify-end">
               <span className="px-3 py-1 rounded-full text-xs font-bold"
@@ -212,11 +223,8 @@ export default function ProfilePage() {
               : <span className="text-[17px] font-black text-white">{displayName}</span>
             }
             <span className="px-2 py-0.5 rounded-md text-[11px] font-medium"
-              style={{
-                backgroundColor: profile?.isCoach ? '#1ED75F22' : '#ffffff15',
-                color: profile?.isCoach ? '#1ED75F' : 'rgba(255,255,255,0.7)',
-              }}>
-              {profile?.isCoach ? '⭐ Master Coach' : '⚔️ Începător'}
+              style={{ backgroundColor: badge.bg, color: badge.color }}>
+              {badge.label}
             </span>
             {user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '') && (
               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
@@ -287,7 +295,7 @@ export default function ProfilePage() {
                 <p className="text-sm font-bold text-white">Skills</p>
                 <Link href="/profile/skills">
                   <span className="text-xs text-brand-green font-semibold flex items-center gap-0.5">
-                    {unlockedSkillIds.size}/{SKILLS.length} <ChevronRight size={12} />
+                    {totalMastered}/{totalAssessmentSkills} <ChevronRight size={12} />
                   </span>
                 </Link>
               </div>
@@ -302,27 +310,23 @@ export default function ProfilePage() {
                     </button>
                   </Link>
                 </div>
-              ) : unlockedSkills.length === 0 ? (
+              ) : displaySkills.length === 0 ? (
                 <p className="text-xs text-white/35 text-center py-2">
-                  Niciun skill deblocat. <Link href="/profile/skills" className="text-brand-green">Deschide skill tree →</Link>
+                  Niciun skill marcat. <Link href="/profile/skills" className="text-brand-green">Deschide skill-urile →</Link>
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {unlockedSkills.map(s => (
+                  {displaySkills.map(s => (
                     <span key={s.id}
-                      className="flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-semibold"
-                      style={{
-                        backgroundColor: `${SKILL_LEVEL_COLORS[s.level]}22`,
-                        color: SKILL_LEVEL_COLORS[s.level],
-                        border: `1px solid ${SKILL_LEVEL_COLORS[s.level]}44`,
-                      }}>
-                      {s.icon} {s.name}
+                      className="flex items-center h-7 px-2.5 rounded-full text-xs font-semibold"
+                      style={{ backgroundColor: '#1ED75F22', color: '#1ED75F', border: '1px solid #1ED75F44' }}>
+                      {s.name}
                     </span>
                   ))}
-                  {unlockedSkillIds.size > 6 && (
+                  {totalMastered > 5 && (
                     <Link href="/profile/skills">
                       <span className="h-7 px-2.5 rounded-full text-xs font-semibold bg-white/8 text-white/50 flex items-center">
-                        +{unlockedSkillIds.size - 6} mai multe
+                        +{totalMastered - 5} mai multe
                       </span>
                     </Link>
                   )}
