@@ -1,10 +1,9 @@
 /**
- * TF.js wrapper for the push-up form classifier.
+ * TFLite wrapper for the push-up form classifier.
  * Model input shape: [1, 90, 8]  (batch=1, frames=90, features=8)
  * Model output: softmax probabilities for form classes
  */
 
-import type { LayersModel, Tensor } from '@tensorflow/tfjs'
 import { TARGET_FRAMES, FEATURES_PER_FRAME } from './pose-preprocessor'
 
 export type FormLabel = 'GOOD_FORM' | 'BAD_FORM' | 'UNKNOWN'
@@ -15,7 +14,7 @@ export interface ClassificationResult {
   probabilities: number[]
 }
 
-let model: LayersModel | null = null
+let model: unknown = null
 let modelLoading = false
 let modelError: string | null = null
 
@@ -25,8 +24,11 @@ export async function loadPushupModel(): Promise<boolean> {
   modelLoading = true
 
   try {
-    const tf = await import('@tensorflow/tfjs')
-    model = await tf.loadLayersModel('/models/pushup_tfjs/model.json')
+    const tflite = await import('@tensorflow/tfjs-tflite')
+    tflite.setWasmPath(
+      'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.10/wasm/'
+    )
+    model = await tflite.loadTFLiteModel('/models/pushup_model.tflite')
     modelError = null
     return true
   } catch (e) {
@@ -48,16 +50,18 @@ export async function classifyPushupForm(flat: Float32Array): Promise<Classifica
   }
 
   const tf = await import('@tensorflow/tfjs')
-  const input = tf.tensor3d(Array.from(flat), [1, TARGET_FRAMES, FEATURES_PER_FRAME])
+  const input = tf.tensor(flat, [1, TARGET_FRAMES, FEATURES_PER_FRAME])
 
   try {
-    const output = model.predict(input) as Tensor
+    const tfliteModel = model as { predict: (t: unknown) => unknown }
+    const output = tfliteModel.predict(input) as import('@tensorflow/tfjs').Tensor
     const probs = Array.from(await output.data())
     output.dispose()
 
     const goodProb = probs[0] ?? 0
     const badProb  = probs[1] ?? 0
     const label: FormLabel = goodProb >= badProb ? 'GOOD_FORM' : 'BAD_FORM'
+
     return { label, confidence: Math.max(goodProb, badProb), probabilities: probs }
   } finally {
     input.dispose()

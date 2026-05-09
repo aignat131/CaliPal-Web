@@ -1,10 +1,9 @@
 /**
- * TF.js wrapper for the pull-up form classifier.
+ * TFLite wrapper for the pull-up form classifier.
  * Model input shape: [1, 90, 8]  (batch=1, frames=90, features=8)
  * Model output: softmax probabilities for form classes
  */
 
-import type { LayersModel, Tensor } from '@tensorflow/tfjs'
 import { TARGET_FRAMES, FEATURES_PER_FRAME } from './pose-preprocessor'
 
 export type FormLabel = 'GOOD_FORM' | 'BAD_FORM' | 'UNKNOWN'
@@ -12,11 +11,10 @@ export type FormLabel = 'GOOD_FORM' | 'BAD_FORM' | 'UNKNOWN'
 export interface ClassificationResult {
   label: FormLabel
   confidence: number
-  /** Raw probabilities per class */
   probabilities: number[]
 }
 
-let model: LayersModel | null = null
+let model: unknown = null
 let modelLoading = false
 let modelError: string | null = null
 
@@ -26,8 +24,11 @@ export async function loadModel(): Promise<boolean> {
   modelLoading = true
 
   try {
-    const tf = await import('@tensorflow/tfjs')
-    model = await tf.loadLayersModel('/models/pullup_tfjs/model.json')
+    const tflite = await import('@tensorflow/tfjs-tflite')
+    tflite.setWasmPath(
+      'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.10/wasm/'
+    )
+    model = await tflite.loadTFLiteModel('/models/pullup_model.tflite')
     modelError = null
     return true
   } catch (e) {
@@ -42,10 +43,6 @@ export function getModelStatus(): { loaded: boolean; error: string | null } {
   return { loaded: !!model, error: modelError }
 }
 
-/**
- * Run inference on a preprocessed frame buffer.
- * @param flat Float32Array of shape [TARGET_FRAMES × FEATURES_PER_FRAME]
- */
 export async function classifyForm(flat: Float32Array): Promise<ClassificationResult> {
   if (!model) {
     const ok = await loadModel()
@@ -53,23 +50,19 @@ export async function classifyForm(flat: Float32Array): Promise<ClassificationRe
   }
 
   const tf = await import('@tensorflow/tfjs')
-  const input = tf.tensor3d(
-    Array.from(flat),
-    [1, TARGET_FRAMES, FEATURES_PER_FRAME]
-  )
+  const input = tf.tensor(flat, [1, TARGET_FRAMES, FEATURES_PER_FRAME])
 
   try {
-    const output = model.predict(input) as Tensor
+    const tfliteModel = model as { predict: (t: unknown) => unknown }
+    const output = tfliteModel.predict(input) as import('@tensorflow/tfjs').Tensor
     const probs = Array.from(await output.data())
     output.dispose()
 
-    // Assume index 0 = GOOD_FORM, index 1 = BAD_FORM
     const goodProb = probs[0] ?? 0
-    const badProb = probs[1] ?? 0
+    const badProb  = probs[1] ?? 0
     const label: FormLabel = goodProb >= badProb ? 'GOOD_FORM' : 'BAD_FORM'
-    const confidence = Math.max(goodProb, badProb)
 
-    return { label, confidence, probabilities: probs }
+    return { label, confidence: Math.max(goodProb, badProb), probabilities: probs }
   } finally {
     input.dispose()
   }
