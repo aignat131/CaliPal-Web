@@ -2,14 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Users, Dumbbell, Map, User, LogIn, MessageSquare } from 'lucide-react'
+import { Home, Users, Dumbbell, Map, User, LogIn } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useAuth } from '@/lib/hooks/useAuth'
 
 const tabs = [
   { href: '/home',      label: 'Acasă',      Icon: Home },
   { href: '/community', label: 'Comunitate', Icon: Users },
-  { href: '/chat',      label: 'Chat',       Icon: MessageSquare },
   { href: '/workout',   label: 'Workout',    Icon: Dumbbell },
   { href: '/map',       label: 'Hartă',      Icon: Map },
   { href: '/profile',   label: 'Profil',     Icon: User },

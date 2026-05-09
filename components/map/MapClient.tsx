@@ -36,14 +36,14 @@ import ParkRequestModal from '@/components/map/ParkRequestModal'
 // ── Custom Leaflet icons ─────────────────────────────────────────────────────
 
 function makeParkIcon(hasComm: boolean, activeCount: number, hasUpcomingTraining = false) {
-  const color = hasComm ? '#3B82F6' : hasUpcomingTraining ? '#1ED75F' : '#6B7280'
+  const color = hasUpcomingTraining ? '#1ED75F' : hasComm ? '#3B82F6' : '#6B7280'
   const ring = activeCount > 0
     ? `<circle cx="20" cy="20" r="16" fill="none" stroke="${color}" stroke-width="2" opacity="0.5" class="pulse-ring"/>`
     : ''
   const glowDefs = (hasComm || hasUpcomingTraining) ? `
     <defs>
       <radialGradient id="g" cx="50%" cy="40%" r="60%">
-        <stop offset="0%" stop-color="${hasComm ? '#60A5FA' : '#2EF070'}"/>
+        <stop offset="0%" stop-color="${hasUpcomingTraining ? '#2EF070' : '#60A5FA'}"/>
         <stop offset="100%" stop-color="${color}"/>
       </radialGradient>
       <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -875,7 +875,7 @@ export default function MapClient() {
             const activeCount = park.communityId
               ? (presence[park.communityId]?.length ?? 0)
               : 0
-            const hasUpcomingTraining = !park.communityId && (park.upcomingTrainingCount ?? 0) > 0
+            const hasUpcomingTraining = (park.upcomingTrainingCount ?? 0) > 0
             return (
               <Marker
                 key={park.id}
@@ -1636,7 +1636,7 @@ function AddParkTrainingModal({
         createdAt:       serverTimestamp(),
       }
       const ref = await addDoc(collection(db, 'parks', park.id, 'trainings'), payload)
-      // Increment the park's upcoming training counter so the pin turns blue
+      // Increment the park's upcoming training counter so the pin turns green
       await updateDoc(doc(db, 'parks', park.id), { upcomingTrainingCount: increment(1) })
       onAdded({ id: ref.id, ...payload, createdAt: null } as unknown as PlannedTraining)
     } finally {
