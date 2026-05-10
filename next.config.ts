@@ -69,27 +69,7 @@ const GLOBAL_SECURITY_HEADERS = [
   },
 ]
 
-// The @tensorflow/tfjs-tflite package ships a broken index.js that imports
-// a non-existent file (tflite_web_api_client.js). The self-contained ES2017
-// bundle has everything inlined and works correctly with both bundlers.
-// Relative path required for Turbopack (it cannot handle Windows absolute paths).
-const TFLITE_BUNDLE_REL = './node_modules/@tensorflow/tfjs-tflite/dist/tf-tflite.es2017.js'
-
 const nextConfig: NextConfig = {
-  experimental: {
-    turbo: {
-      resolveAlias: {
-        '@tensorflow/tfjs-tflite': TFLITE_BUNDLE_REL,
-      },
-    },
-  },
-  webpack(config) {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@tensorflow/tfjs-tflite': require.resolve('@tensorflow/tfjs-tflite/dist/tf-tflite.es2017.js'),
-    }
-    return config
-  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'firebasestorage.googleapis.com' },
@@ -119,12 +99,13 @@ const nextConfig: NextConfig = {
           { key: 'Cross-Origin-Embedder-Policy', value: 'unsafe-none' },
         ],
       },
-      // ML pages need SharedArrayBuffer → require strict COOP + COEP
+      // form-check: relax COEP so CDN-loaded WASM/scripts can load without CORP headers
+      // (MediaPipe + TFLite are loaded from CDN; SAB is not needed for inference)
       {
         source: '/workout/form-check',
         headers: [
-          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
+          { key: 'Cross-Origin-Opener-Policy', value: 'unsafe-none' },
+          { key: 'Cross-Origin-Embedder-Policy', value: 'unsafe-none' },
         ],
       },
       {

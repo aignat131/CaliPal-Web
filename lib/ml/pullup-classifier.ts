@@ -1,7 +1,12 @@
 /**
- * TFLite wrapper for the pull-up form classifier.
+ * Pull-up form classifier.
  * Model input shape: [1, 90, 8]  (batch=1, frames=90, features=8)
  * Model output: softmax probabilities for form classes
+ *
+ * @tensorflow/tfjs-tflite is NOT bundled — it is loaded from CDN as a script
+ * tag by the form-check page before startCamera() is called. The CDN script
+ * sets window.tflite (UMD global) and resolves WASM companions relative to the
+ * CDN URL, avoiding the webpack-chunk path problem.
  */
 
 import { TARGET_FRAMES, FEATURES_PER_FRAME } from './pose-preprocessor'
@@ -14,9 +19,18 @@ export interface ClassificationResult {
   probabilities: number[]
 }
 
-let model: unknown = null
+type TFLiteLib = {
+  setWasmPath: (path: string) => void
+  loadTFLiteModel: (url: string) => Promise<{ predict: (t: unknown) => unknown }>
+}
+
+let model: { predict: (t: unknown) => unknown } | null = null
 let modelLoading = false
 let modelError: string | null = null
+
+function getTFLite(): TFLiteLib | null {
+  return (globalThis as Record<string, unknown>).tflite as TFLiteLib | null ?? null
+}
 
 export async function loadModel(): Promise<boolean> {
   if (model) return true
@@ -24,7 +38,9 @@ export async function loadModel(): Promise<boolean> {
   modelLoading = true
 
   try {
-    const tflite = await import('@tensorflow/tfjs-tflite')
+    const tflite = getTFLite()
+    if (!tflite) throw new Error('TFLite runtime not loaded — call loadTFLiteRuntime() first')
+
     tflite.setWasmPath(
       'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.10/wasm/'
     )
@@ -53,8 +69,7 @@ export async function classifyForm(flat: Float32Array): Promise<ClassificationRe
   const input = tf.tensor(flat, [1, TARGET_FRAMES, FEATURES_PER_FRAME])
 
   try {
-    const tfliteModel = model as { predict: (t: unknown) => unknown }
-    const output = tfliteModel.predict(input) as import('@tensorflow/tfjs').Tensor
+    const output = model!.predict(input) as import('@tensorflow/tfjs').Tensor
     const probs = Array.from(await output.data())
     output.dispose()
 
