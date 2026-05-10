@@ -29,7 +29,7 @@ const GLOBAL_SECURITY_HEADERS = [
       "default-src 'self'",
       // Next.js hydration requires unsafe-inline + unsafe-eval; nonce-based CSP
       // would need Next.js middleware — use strict-dynamic when adopting nonces later
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://cdn.jsdelivr.net",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       // Firebase, Google auth
@@ -61,15 +61,35 @@ const GLOBAL_SECURITY_HEADERS = [
       "media-src 'self' blob:",
       // Service worker + ffmpeg WASM worker
       "worker-src 'self' blob:",
-      // iframe: Google sign-in popup only
-      "frame-src https://accounts.google.com",
+      // iframe: Google sign-in popup + Firebase auth helper
+      "frame-src https://accounts.google.com https://*.firebaseapp.com",
       // Prevents this site from being framed (belt-and-suspenders with X-Frame-Options)
       "frame-ancestors 'none'",
     ].join('; '),
   },
 ]
 
+// The @tensorflow/tfjs-tflite package ships a broken index.js that imports
+// a non-existent file (tflite_web_api_client.js). The self-contained ES2017
+// bundle has everything inlined and works correctly with both bundlers.
+// Relative path required for Turbopack (it cannot handle Windows absolute paths).
+const TFLITE_BUNDLE_REL = './node_modules/@tensorflow/tfjs-tflite/dist/tf-tflite.es2017.js'
+
 const nextConfig: NextConfig = {
+  experimental: {
+    turbo: {
+      resolveAlias: {
+        '@tensorflow/tfjs-tflite': TFLITE_BUNDLE_REL,
+      },
+    },
+  },
+  webpack(config) {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@tensorflow/tfjs-tflite': require.resolve('@tensorflow/tfjs-tflite/dist/tf-tflite.es2017.js'),
+    }
+    return config
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'firebasestorage.googleapis.com' },
