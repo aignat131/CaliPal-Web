@@ -606,7 +606,30 @@ export default function MapClient() {
   // Load parks once — parks rarely change so a real-time listener is wasteful
   useEffect(() => {
     getDocs(collection(db, 'parks'))
-      .then(snap => setParks(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkDoc)))
+      .then(async snap => {
+        const parksData = snap.docs.map(d => ({ id: d.id, ...d.data() }) as ParkDoc)
+        // For community parks, also check if the community has upcoming trainings
+        // (standalone trainings use park.upcomingTrainingCount, but community trainings don't)
+        const now = new Date()
+        await Promise.all(
+          parksData
+            .filter(p => p.communityId)
+            .map(async park => {
+              try {
+                const trainSnap = await getDocs(collection(db, 'communities', park.communityId!, 'trainings'))
+                const hasUpcoming = trainSnap.docs.some(d => {
+                  const t = d.data() as PlannedTraining
+                  const s = parseMapTrainingDate(t)
+                  return !s || s >= now
+                })
+                if (hasUpcoming) {
+                  park.upcomingTrainingCount = (park.upcomingTrainingCount ?? 0) + 1
+                }
+              } catch {}
+            })
+        )
+        setParks(parksData)
+      })
       .catch(() => {})
   }, [])
 
@@ -1159,7 +1182,7 @@ function ParkBottomSheet({
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{t.name}</p>
                       {totalGoing > 0 && (
-                        <span className="text-xs text-brand-green font-bold flex-shrink-0">{totalGoing} merg</span>
+                        <span className="text-xs text-brand-green font-bold flex-shrink-0">{totalGoing} {totalGoing === 1 ? 'merge' : 'merg'}</span>
                       )}
                     </div>
                     <p className="text-xs text-white/45 mt-0.5">
@@ -1204,7 +1227,7 @@ function ParkBottomSheet({
                           <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{t.name}</p>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             {totalGoing > 0 && (
-                              <span className="text-xs text-brand-green font-bold">{totalGoing} merg</span>
+                              <span className="text-xs text-brand-green font-bold">{totalGoing} {totalGoing === 1 ? 'merge' : 'merg'}</span>
                             )}
                             {isAuthor && (
                               <button

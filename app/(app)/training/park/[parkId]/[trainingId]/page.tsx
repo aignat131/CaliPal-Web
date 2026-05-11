@@ -96,6 +96,7 @@ export default function StandaloneParkTrainingPage() {
   const [parkName, setParkName] = useState('')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
+  const [profiles, setProfiles] = useState<Record<string, { name: string; photoUrl: string | null }>>({})
 
   // Guest state
   const [guestId, setGuestId] = useState('')
@@ -144,6 +145,30 @@ export default function StandaloneParkTrainingPage() {
     if (g) { setGuestConfirmed(true); setGuestName(g.name) }
     else { setGuestConfirmed(false) }
   }, [training, guestId])
+
+  // Fetch profiles for attendees that are not the current user
+  useEffect(() => {
+    if (!training) return
+    const goingUids = Object.entries(training.rsvps ?? {})
+      .filter(([, s]) => s === 'GOING')
+      .map(([uid]) => uid)
+    const uidsToFetch = goingUids.filter(uid => uid !== user?.uid)
+    if (!uidsToFetch.length) return
+    Promise.all(
+      uidsToFetch.map(uid =>
+        getDoc(doc(db, 'users', uid)).then(snap => ({
+          uid,
+          name: (snap.data()?.displayName as string | undefined) ?? '',
+          photoUrl: (snap.data()?.photoUrl as string | null | undefined) ?? null,
+        }))
+      )
+    ).then(results => {
+      const map: Record<string, { name: string; photoUrl: string | null }> = {}
+      results.forEach(r => { map[r.uid] = { name: r.name, photoUrl: r.photoUrl } })
+      setProfiles(map)
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [training?.id, user?.uid])
 
   async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
     if (!user || !training) return
@@ -333,10 +358,12 @@ export default function StandaloneParkTrainingPage() {
             <div className="flex flex-col gap-2">
               {goingUids.map(uid => {
                 const isMe = user?.uid === uid
-                const name = isMe ? (user.displayName ?? uid.slice(0, 8)) : uid.slice(0, 8)
+                const profile = profiles[uid]
+                const name = isMe ? (user.displayName ?? '') : (profile?.name || uid.slice(0, 8))
+                const photoUrl = isMe ? (user.photoURL ?? null) : (profile?.photoUrl ?? null)
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
-                    <MemberAvatar photoUrl={isMe ? user.photoURL : null} name={name} size={32} />
+                    <MemberAvatar photoUrl={photoUrl} name={name} size={32} />
                     <span className="text-sm font-semibold text-white/80 flex-1">{name}</span>
                     {isMe && <span className="text-[10px] text-brand-green">Tu</span>}
                   </div>
