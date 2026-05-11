@@ -13,7 +13,7 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { UserDoc, WorkoutDoc } from '@/types'
 import { conversationId } from '@/types'
-import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell } from 'lucide-react'
+import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell, X } from 'lucide-react'
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -25,6 +25,23 @@ function formatDate(ts: { toDate?: () => Date } | null | undefined): string {
   if (!ts) return ''
   const d = ts.toDate ? ts.toDate() : new Date()
   return d.toLocaleDateString('ro', { day: '2-digit', month: 'short' })
+}
+
+function exercisePreview(ex: import('@/types').WorkoutExercise): string {
+  const n = ex.sets.length
+  if (n === 0) return ex.name
+  const first = ex.sets[0]
+  if (n === 1) {
+    const v = first.reps != null ? `×${first.reps}` : first.durationSeconds != null ? `${first.durationSeconds}s` : ''
+    return v ? `${ex.name} ${v}` : ex.name
+  }
+  const allSame = ex.sets.every(s => s.reps === first.reps && s.durationSeconds === first.durationSeconds)
+  if (allSame) {
+    const v = first.reps != null ? `${n}×${first.reps}` : first.durationSeconds != null ? `${n}×${first.durationSeconds}s` : `${n} serii`
+    return `${ex.name} ${v}`
+  }
+  const total = ex.sets.reduce((s, set) => s + (set.reps ?? 0), 0)
+  return total > 0 ? `${ex.name} ${total} rep` : ex.name
 }
 
 type FriendStatus = 'none' | 'friends' | 'sent' | 'received'
@@ -42,6 +59,7 @@ export default function UserProfilePage() {
   const [friendStatus, setFriendStatus] = useState<FriendStatus>('none')
   const [friendLoading, setFriendLoading] = useState(false)
   const [friendError, setFriendError] = useState<string | null>(null)
+  const [selectedWorkout, setSelectedWorkout] = useState<WorkoutDoc | null>(null)
 
   // Don't render own profile here — redirect to /profile
   useEffect(() => {
@@ -265,12 +283,14 @@ export default function UserProfilePage() {
               <Stat value={String(profile.coins ?? 0)} label="Monede" />
               <Stat value={String(profile.friendCount ?? 0)} label="Prieteni" />
             </div>
-            <div className="flex justify-end">
-              <span className="px-3 py-1 rounded-full text-xs font-bold"
-                style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
-                🔥 {profile.currentStreak ?? 0} zile
-              </span>
-            </div>
+            {(profile.currentStreak ?? 0) > 0 && (
+              <div className="flex justify-end">
+                <span className="px-3 py-1 rounded-full text-xs font-bold"
+                  style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
+                  🔥 {profile.currentStreak} zile
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -349,21 +369,66 @@ export default function UserProfilePage() {
           ) : (
             <div className="flex flex-col gap-2">
               {recentWorkouts.map(w => (
-                <div key={w.id} className="flex items-center justify-between py-1.5">
+                <button key={w.id} onClick={() => setSelectedWorkout(w)}
+                  className="w-full flex items-center justify-between py-1.5 text-left hover:bg-white/5 rounded-xl px-1 transition-colors">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-white truncate">
-                      {w.exercises.map(e => e.name).join(', ')}
+                      {w.exercises.map(e => exercisePreview(e)).join(' · ')}
                     </p>
                     <p className="text-[10px] text-white/35 mt-0.5">
                       ⏱ {formatDuration(w.durationSeconds)} · 🔁 {w.totalReps} rep
                     </p>
                   </div>
                   <span className="text-[10px] text-white/35 ml-3 flex-shrink-0">{formatDate(w.createdAt)}</span>
-                </div>
+                </button>
               ))}
             </div>
           )}
         </div>
+
+        {/* Workout detail modal */}
+        {selectedWorkout && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60"
+            onClick={() => setSelectedWorkout(null)}>
+            <div className="w-full max-w-lg rounded-t-3xl px-5 pt-4 pb-8 max-h-[80vh] overflow-y-auto"
+              style={{ backgroundColor: 'var(--app-surface)' }}
+              onClick={e => e.stopPropagation()}>
+              <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-black text-white">Antrenament · {formatDate(selectedWorkout.createdAt)}</p>
+                <button onClick={() => setSelectedWorkout(null)}
+                  className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
+                  <X size={13} className="text-white/60" />
+                </button>
+              </div>
+              <p className="text-[10px] text-white/40 mb-3">
+                ⏱ {formatDuration(selectedWorkout.durationSeconds)} · 🔁 {selectedWorkout.totalReps} rep total
+              </p>
+              <div className="flex flex-col gap-3">
+                {selectedWorkout.exercises.map((ex, i) => (
+                  <div key={i} className="rounded-xl p-3 border border-white/8"
+                    style={{ backgroundColor: 'var(--app-bg)' }}>
+                    <p className="text-sm font-bold text-white mb-2">{ex.name}</p>
+                    <div className="flex flex-col gap-1">
+                      {ex.sets.map((s, si) => (
+                        <div key={si} className="flex items-center gap-2 text-xs text-white/60">
+                          <span className="w-12 text-white/30">Seria {si + 1}</span>
+                          {s.reps != null && <span>{s.reps} rep</span>}
+                          {s.durationSeconds != null && <span>{s.durationSeconds}s</span>}
+                          {s.weightKg != null && <span className="text-brand-green">+{s.weightKg}kg</span>}
+                          {s.bandKg != null && <span className="text-yellow-400">~{s.bandKg}kg bandă</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {selectedWorkout.note && (
+                <p className="text-xs text-white/50 mt-3 leading-relaxed">{selectedWorkout.note}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Skills */}
         {displaySkills.length > 0 && (

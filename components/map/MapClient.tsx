@@ -35,24 +35,26 @@ import ParkRequestModal from '@/components/map/ParkRequestModal'
 
 // ── Custom Leaflet icons ─────────────────────────────────────────────────────
 
+let _iconSeq = 0
 function makeParkIcon(hasComm: boolean, activeCount: number, hasUpcomingTraining = false) {
+  const uid = `pi${++_iconSeq}`
   const color = hasUpcomingTraining ? '#1ED75F' : hasComm ? '#3B82F6' : '#6B7280'
   const ring = activeCount > 0
     ? `<circle cx="20" cy="20" r="16" fill="none" stroke="${color}" stroke-width="2" opacity="0.5" class="pulse-ring"/>`
     : ''
   const glowDefs = (hasComm || hasUpcomingTraining) ? `
     <defs>
-      <radialGradient id="g" cx="50%" cy="40%" r="60%">
+      <radialGradient id="g_${uid}" cx="50%" cy="40%" r="60%">
         <stop offset="0%" stop-color="${hasUpcomingTraining ? '#2EF070' : '#60A5FA'}"/>
         <stop offset="100%" stop-color="${color}"/>
       </radialGradient>
-      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <filter id="glow_${uid}" x="-50%" y="-50%" width="200%" height="200%">
         <feGaussianBlur stdDeviation="2.5" result="blur"/>
         <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
       </filter>
     </defs>` : ''
-  const pinFill = (hasComm || hasUpcomingTraining) ? 'url(#g)' : color
-  const pinFilter = (hasComm || hasUpcomingTraining) ? 'filter="url(#glow)"' : ''
+  const pinFill = (hasComm || hasUpcomingTraining) ? `url(#g_${uid})` : color
+  const pinFilter = (hasComm || hasUpcomingTraining) ? `filter="url(#glow_${uid})"` : ''
   const strokeW = (hasComm || hasUpcomingTraining) ? '2' : '1.5'
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
@@ -1194,6 +1196,17 @@ function ParkBottomSheet({
               })}
             </div>
           )}
+
+          {/* Community training history button */}
+          <div className="mt-2">
+            <Link href={`/training/${community.id}/history`} onClick={onClose}>
+              <button
+                className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors"
+              >
+                <span className="text-base">🕓</span> Istoric antrenamente
+              </button>
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="mb-3">
@@ -1261,6 +1274,15 @@ function ParkBottomSheet({
               <span className="text-base">📅</span> Planifică antrenament
             </button>
           )}
+
+          {/* Training history button */}
+          <Link href={`/training/park/${park.id}/history`} onClick={onClose}>
+            <button
+              className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors mb-2"
+            >
+              <span className="text-base">🕓</span> Istoric antrenamente
+            </button>
+          </Link>
 
           {parkPendingReq ? (
             <div className="flex items-center gap-2 p-3 rounded-2xl border border-yellow-400/25"

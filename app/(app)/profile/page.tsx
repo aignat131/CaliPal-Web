@@ -24,6 +24,23 @@ function formatDate(ts: { toDate?: () => Date } | null | undefined): string {
   return d.toLocaleDateString('ro', { day: '2-digit', month: 'short' })
 }
 
+function exercisePreview(ex: import('@/types').WorkoutExercise): string {
+  const n = ex.sets.length
+  if (n === 0) return ex.name
+  const first = ex.sets[0]
+  if (n === 1) {
+    const v = first.reps != null ? `×${first.reps}` : first.durationSeconds != null ? `${first.durationSeconds}s` : ''
+    return v ? `${ex.name} ${v}` : ex.name
+  }
+  const allSame = ex.sets.every(s => s.reps === first.reps && s.durationSeconds === first.durationSeconds)
+  if (allSame) {
+    const v = first.reps != null ? `${n}×${first.reps}` : first.durationSeconds != null ? `${n}×${first.durationSeconds}s` : `${n} serii`
+    return `${ex.name} ${v}`
+  }
+  const total = ex.sets.reduce((s, set) => s + (set.reps ?? 0), 0)
+  return total > 0 ? `${ex.name} ${total} rep` : ex.name
+}
+
 const COIN_TASKS = [
   { id: 'FIRST_WORKOUT', label: 'Primul antrenament', coins: 20, icon: '🏋️' },
   { id: 'COMPLETE_WORKOUT', label: 'Finalizează un antrenament', coins: 10, icon: '✅' },
@@ -206,12 +223,14 @@ export default function ProfilePage() {
               <Stat value={String(profile?.coins ?? 0)} label="Monede" />
               <Link href="/profile/friends"><Stat value={String(profile?.friendCount ?? 0)} label="Prieteni" /></Link>
             </div>
-            <div className="flex justify-end">
-              <span className="px-3 py-1 rounded-full text-xs font-bold"
-                style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
-                🔥 {profile?.currentStreak ?? 0} zile
-              </span>
-            </div>
+            {(profile?.currentStreak ?? 0) > 0 && (
+              <div className="flex justify-end">
+                <span className="px-3 py-1 rounded-full text-xs font-bold"
+                  style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
+                  🔥 {profile?.currentStreak} zile
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -276,7 +295,7 @@ export default function ProfilePage() {
                     <div key={w.id} className="flex items-center justify-between py-1.5">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-white truncate">
-                          {w.exercises.map(e => e.name).join(', ')}
+                          {w.exercises.map(e => exercisePreview(e)).join(' · ')}
                         </p>
                         <p className="text-[10px] text-white/35 mt-0.5">
                           ⏱ {formatDuration(w.durationSeconds)} · 🔁 {w.totalReps} rep
