@@ -1,14 +1,11 @@
 /**
- * Pull-up form classifier.
- * Model input shape: [1, 90, 8]  (batch=1, frames=90, features=8)
- * Model output: softmax probabilities for form classes
- *
- * @tensorflow/tfjs-tflite is NOT bundled — it is loaded from CDN as a script
- * tag by the form-check page before startCamera() is called. The CDN script
- * sets window.tflite (UMD global) and resolves WASM companions relative to the
- * CDN URL, avoiding the webpack-chunk path problem.
+ * Pull-up form classifier — TF.js GraphModel (converted from TFLite).
+ * Input:  [1, 90, 8]  (batch=1, frames=90, 8 features with velocities)
+ * Output: logits [1, 5] — no softmax (identical to pushup for consistency;
+ *         pullup TFLite had softmax but we apply it here instead)
  */
 
+import * as tf from '@tensorflow/tfjs'
 import { TARGET_FRAMES, FEATURES_PER_FRAME } from './pose-preprocessor'
 
 export type FormLabel = 'GOOD_FORM' | 'BAD_FORM' | 'UNKNOWN'
@@ -19,32 +16,16 @@ export interface ClassificationResult {
   probabilities: number[]
 }
 
-type TFLiteLib = {
-  setWasmPath: (path: string) => void
-  loadTFLiteModel: (url: string) => Promise<{ predict: (t: unknown) => unknown }>
-}
-
-let model: { predict: (t: unknown) => unknown } | null = null
+let model: tf.GraphModel | null = null
 let modelLoading = false
 let modelError: string | null = null
-
-function getTFLite(): TFLiteLib | null {
-  return (globalThis as Record<string, unknown>).tflite as TFLiteLib | null ?? null
-}
 
 export async function loadModel(): Promise<boolean> {
   if (model) return true
   if (modelLoading) return false
   modelLoading = true
-
   try {
-    const tflite = getTFLite()
-    if (!tflite) throw new Error('TFLite runtime not loaded — call loadTFLiteRuntime() first')
-
-    tflite.setWasmPath(
-      'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.10/wasm/'
-    )
-    model = await tflite.loadTFLiteModel('/models/pullup_model.tflite')
+    model = await tf.loadGraphModel('/models/pullup_tfjs/model.json')
     modelError = null
     return true
   } catch (e) {
@@ -65,13 +46,11 @@ export async function classifyForm(flat: Float32Array): Promise<ClassificationRe
     if (!ok || !model) return { label: 'UNKNOWN', confidence: 0, probabilities: [] }
   }
 
-  const tf = await import('@tensorflow/tfjs')
   const input = tf.tensor(flat, [1, TARGET_FRAMES, FEATURES_PER_FRAME])
-
   try {
-    const output = model!.predict(input) as import('@tensorflow/tfjs').Tensor
-    const probs = Array.from(await output.data())
-    output.dispose()
+    const rawOutput = model!.predict(input) as tf.Tensor
+    const probs = Array.from(await tf.softmax(rawOutput).data())
+    rawOutput.dispose()
 
     const goodProb = probs[0] ?? 0
     const badProb  = probs[1] ?? 0
@@ -84,9 +63,9 @@ export async function classifyForm(flat: Float32Array): Promise<ClassificationRe
 }
 
 export const FORM_LABELS: Record<FormLabel, string> = {
-  GOOD_FORM: 'Formă Bună ✓',
-  BAD_FORM:  'Corectează Forma ⚠️',
-  UNKNOWN:   'Analizând...',
+  GOOD_FORM: 'Forma Buna',
+  BAD_FORM:  'Corecteaza Forma',
+  UNKNOWN:   'Analizand...',
 }
 
 export const FORM_COLORS: Record<FormLabel, string> = {

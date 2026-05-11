@@ -40,7 +40,8 @@
       "Bash(tensorflowjs_converter --version)",
       "Bash(pip show:*)",
       "Bash(pip install:*)",
-      "Bash(python -m pip install tensorflowjs)"
+      "Bash(python -m pip install tensorflowjs)",
+      "Bash(python convert_models.py)"
     ]
   }
 }

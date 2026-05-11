@@ -18,34 +18,6 @@ import type { FormLabel } from '@/lib/ml/pullup-classifier'
 import type { RepState } from '@/lib/ml/rep-counter'
 import type { Landmark } from '@/lib/ml/pose-math'
 
-// ── TFLite CDN loader ─────────────────────────────────────────────────────────
-// @tensorflow/tfjs-tflite is NOT bundled (emscripten captures document.currentScript.src
-// at init time; when bundled into a webpack chunk the WASM companions 404 because
-// they're resolved relative to /_next/static/chunks/ instead of the CDN).
-// Loading from CDN fixes the path and avoids Turbopack compatibility issues.
-
-const TFLITE_CDN =
-  'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.10/dist/tf-tflite.es2017.js'
-
-async function loadTFLiteRuntime(): Promise<void> {
-  if (typeof window === 'undefined') return
-  if ((window as unknown as Record<string, unknown>).tflite) return   // already loaded
-
-  // tf-tflite UMD bundle reads window.tf at init time — expose the bundled copy.
-  if (!(window as unknown as Record<string, unknown>).tf) {
-    const tf = await import('@tensorflow/tfjs')
-    ;(window as unknown as Record<string, unknown>).tf = tf
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const s = document.createElement('script')
-    s.src = TFLITE_CDN
-    s.onload = () => resolve()
-    s.onerror = () => reject(new Error('Failed to load TFLite from CDN'))
-    document.head.appendChild(s)
-  })
-}
-
 // MediaPipe pose landmarker model — loaded from Google's CDN so no local file
 // is required. The `connect-src *.googleapis.com` CSP directive covers this.
 const POSE_MODEL_URL =
@@ -162,9 +134,6 @@ export default function FormCheckPage() {
     setFormLabel('UNKNOWN')
 
     try {
-      // Load TFLite runtime from CDN, then the classifier models.
-      // loadTFLiteRuntime() is idempotent — safe to call on every session start.
-      await loadTFLiteRuntime()
       const [pullupOk, pushupOk] = await Promise.all([
         loadModel(),
         loadPushupModel(),
@@ -285,7 +254,7 @@ export default function FormCheckPage() {
       animRef.current = requestAnimationFrame(detect)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Eroare cameră'
-      setError(msg.includes('TFLite') ? 'Eroare la încărcarea runtime-ului TFLite. Verifică conexiunea.' : msg)
+      setError(msg)
       setStatus('error')
     }
   }, [facingMode, repState, exerciseType])
