@@ -8,10 +8,11 @@ import {
   PushupCounter, PUSHUP_STATE_LABELS,
   SquatCounter, SQUAT_STATE_LABELS,
 } from '@/lib/ml/rep-counter'
-import { preprocessFrameBuffer } from '@/lib/ml/pose-preprocessor'
+import { preprocessFrameBuffer, preprocessPushupFrameBuffer } from '@/lib/ml/pose-preprocessor'
 import { avgElbowAngle, avgKneeAngle, MP } from '@/lib/ml/pose-math'
 import { classifyForm, loadModel, FORM_LABELS, FORM_COLORS, getModelStatus } from '@/lib/ml/pullup-classifier'
 import { classifyPushupForm, loadPushupModel, PUSHUP_FORM_LABELS, PUSHUP_FORM_COLORS, getPushupModelStatus } from '@/lib/ml/pushup-classifier'
+import type { PushupFormLabel } from '@/lib/ml/pushup-classifier'
 import { PULLUP_NORM_PARAMS, PUSHUP_NORM_PARAMS } from '@/lib/ml/normalization'
 import type { FormLabel } from '@/lib/ml/pullup-classifier'
 import type { RepState } from '@/lib/ml/rep-counter'
@@ -130,7 +131,7 @@ export default function FormCheckPage() {
   const [repCount, setRepCount] = useState(0)
   const [repState, setRepState] = useState<RepState>('IDLE')
   const [primaryAngle, setPrimaryAngle] = useState(0)
-  const [formLabel, setFormLabel] = useState<FormLabel>('UNKNOWN')
+  const [formLabel, setFormLabel] = useState<FormLabel | PushupFormLabel>('UNKNOWN')
   const [formConfidence, setFormConfidence] = useState(0)
   const [modelReady, setModelReady] = useState(false)
   const [pushupModelReady, setPushupModelReady] = useState(false)
@@ -298,8 +299,9 @@ export default function FormCheckPage() {
     if (!ready || classifying || frameBufferRef.current.length < 10) return
     setClassifying(true)
     try {
-      const params = exerciseType === 'pullup' ? PULLUP_NORM_PARAMS : PUSHUP_NORM_PARAMS
-      const flat = preprocessFrameBuffer(frameBufferRef.current, params)
+      const flat = exerciseType === 'pullup'
+        ? preprocessFrameBuffer(frameBufferRef.current, PULLUP_NORM_PARAMS)
+        : preprocessPushupFrameBuffer(frameBufferRef.current, PUSHUP_NORM_PARAMS)
       const result = exerciseType === 'pullup'
         ? await classifyForm(flat)
         : await classifyPushupForm(flat)
@@ -315,7 +317,9 @@ export default function FormCheckPage() {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user')
   }
 
-  const formColor = FORM_COLORS[formLabel]
+  const formColor = exerciseType === 'pushup'
+    ? PUSHUP_FORM_COLORS[formLabel as PushupFormLabel] ?? '#6B7280'
+    : FORM_COLORS[formLabel as FormLabel] ?? '#6B7280'
 
   // ── Exercise selector screen ─────────────────────────────────────────────────
   if (status === 'select') {
@@ -411,7 +415,9 @@ export default function FormCheckPage() {
               <div className="absolute bottom-4 right-4 px-3 py-1.5 rounded-xl"
                 style={{ backgroundColor: `${formColor}33`, border: `1px solid ${formColor}66` }}>
                 <p className="text-xs font-bold" style={{ color: formColor }}>
-                  {exerciseType === 'pullup' ? FORM_LABELS[formLabel] : PUSHUP_FORM_LABELS[formLabel]}
+                  {exerciseType === 'pullup'
+                    ? FORM_LABELS[formLabel as FormLabel]
+                    : PUSHUP_FORM_LABELS[formLabel as PushupFormLabel]}
                 </p>
                 <p className="text-[10px] text-white/40 text-right">{formConfidence}%</p>
               </div>

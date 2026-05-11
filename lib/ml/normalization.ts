@@ -12,10 +12,10 @@ export const PULLUP_NORM_PARAMS: NormalizationParams = {
   range: [180.0, 180.0, 180.0, 22.375, 99.030, 151.789, 129.873, 7.566],
 }
 
-// TODO: Replace with real values from pushup normalization_params.json after training
+// 4 features only (elbow_ang, hip_ang, knee_ang, vert_reach) — no velocities
 export const PUSHUP_NORM_PARAMS: NormalizationParams = {
-  min:   [0.0, 0.0, 0.0, -1.0, -50.0, -70.0, -60.0, -3.0],
-  range: [180.0, 180.0, 180.0, 20.0, 100.0, 140.0, 120.0, 6.0],
+  min:   [0.0, 0.0, 0.0, -2.0],
+  range: [180.0, 180.0, 180.0, 4.0],
 }
 
 /** Min-max normalize a feature vector to [0, 1] */

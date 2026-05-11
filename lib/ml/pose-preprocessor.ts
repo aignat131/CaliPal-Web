@@ -4,7 +4,8 @@ import { normalize, resampleFrames } from './normalization'
 import type { NormalizationParams } from './normalization'
 
 export const TARGET_FRAMES = 90
-export const FEATURES_PER_FRAME = 8   // 4 angles + 4 velocities
+export const FEATURES_PER_FRAME = 8        // pullup: 4 angles + 4 velocities
+export const PUSHUP_FEATURES_PER_FRAME = 4 // pushup: 4 angles only
 const RAW_FEATURES = 4
 
 const REQUIRED_LANDMARKS = 33
@@ -66,6 +67,28 @@ export function preprocessFrameBuffer(
     const normalized = normalize(frame, params)
     normalized.forEach((v, vi) => {
       flat[fi * FEATURES_PER_FRAME + vi] = v
+    })
+  })
+
+  return flat
+}
+
+/**
+ * Pushup-specific preprocessor — model input shape [1, 90, 4].
+ * Uses only the 4 raw angle features (no velocities).
+ */
+export function preprocessPushupFrameBuffer(
+  frameBuffer: Landmark[][],
+  params: NormalizationParams,
+): Float32Array {
+  const rawFeatures = frameBuffer.map(extractFeatures)
+  const resampled = resampleFrames(rawFeatures, TARGET_FRAMES)
+
+  const flat = new Float32Array(TARGET_FRAMES * PUSHUP_FEATURES_PER_FRAME)
+  resampled.forEach((frame, fi) => {
+    const normalized = normalize(frame, params)
+    normalized.forEach((v, vi) => {
+      flat[fi * PUSHUP_FEATURES_PER_FRAME + vi] = v
     })
   })
 

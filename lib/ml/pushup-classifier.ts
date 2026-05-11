@@ -1,17 +1,26 @@
 /**
  * Push-up form classifier.
- * Model input shape: [1, 90, 8]  (batch=1, frames=90, features=8)
- * Model output: softmax probabilities for form classes
- *
- * @tensorflow/tfjs-tflite is NOT bundled — see pullup-classifier.ts for details.
+ * Model input shape: [1, 90, 4]  (batch=1, frames=90, 4 raw angle features)
+ * Model output: softmax probabilities for 5 form classes:
+ *   0 — CORRECT
+ *   1 — KNEES_TOO_LOW
+ *   2 — HIPS_TOO_HIGH
+ *   3 — UNCOMPLETED
+ *   4 — SHOULDERS_FIRST
  */
 
-import { TARGET_FRAMES, FEATURES_PER_FRAME } from './pose-preprocessor'
+import { TARGET_FRAMES, PUSHUP_FEATURES_PER_FRAME } from './pose-preprocessor'
 
-export type FormLabel = 'GOOD_FORM' | 'BAD_FORM' | 'UNKNOWN'
+export type PushupFormLabel =
+  | 'CORRECT'
+  | 'KNEES_TOO_LOW'
+  | 'HIPS_TOO_HIGH'
+  | 'UNCOMPLETED'
+  | 'SHOULDERS_FIRST'
+  | 'UNKNOWN'
 
-export interface ClassificationResult {
-  label: FormLabel
+export interface PushupClassificationResult {
+  label: PushupFormLabel
   confidence: number
   probabilities: number[]
 }
@@ -56,38 +65,51 @@ export function getPushupModelStatus(): { loaded: boolean; error: string | null 
   return { loaded: !!model, error: modelError }
 }
 
-export async function classifyPushupForm(flat: Float32Array): Promise<ClassificationResult> {
+const CLASS_LABELS: PushupFormLabel[] = [
+  'CORRECT',
+  'KNEES_TOO_LOW',
+  'HIPS_TOO_HIGH',
+  'UNCOMPLETED',
+  'SHOULDERS_FIRST',
+]
+
+export async function classifyPushupForm(flat: Float32Array): Promise<PushupClassificationResult> {
   if (!model) {
     const ok = await loadPushupModel()
     if (!ok || !model) return { label: 'UNKNOWN', confidence: 0, probabilities: [] }
   }
 
   const tf = await import('@tensorflow/tfjs')
-  const input = tf.tensor(flat, [1, TARGET_FRAMES, FEATURES_PER_FRAME])
+  const input = tf.tensor(flat, [1, TARGET_FRAMES, PUSHUP_FEATURES_PER_FRAME])
 
   try {
     const output = model!.predict(input) as import('@tensorflow/tfjs').Tensor
     const probs = Array.from(await output.data())
     output.dispose()
 
-    const goodProb = probs[0] ?? 0
-    const badProb  = probs[1] ?? 0
-    const label: FormLabel = goodProb >= badProb ? 'GOOD_FORM' : 'BAD_FORM'
+    const maxIdx = probs.indexOf(Math.max(...probs))
+    const label = CLASS_LABELS[maxIdx] ?? 'UNKNOWN'
 
-    return { label, confidence: Math.max(goodProb, badProb), probabilities: probs }
+    return { label, confidence: probs[maxIdx] ?? 0, probabilities: probs }
   } finally {
     input.dispose()
   }
 }
 
-export const PUSHUP_FORM_LABELS: Record<FormLabel, string> = {
-  GOOD_FORM: 'Formă Bună ✓',
-  BAD_FORM:  'Corectează Forma ⚠️',
-  UNKNOWN:   'Analizând...',
+export const PUSHUP_FORM_LABELS: Record<PushupFormLabel, string> = {
+  CORRECT:         'Formă Corectă ✓',
+  KNEES_TOO_LOW:   'Genunchi prea jos ⚠️',
+  HIPS_TOO_HIGH:   'Șolduri prea sus ⚠️',
+  UNCOMPLETED:     'Repetare incompletă ⚠️',
+  SHOULDERS_FIRST: 'Umeri în față ⚠️',
+  UNKNOWN:         'Analizând...',
 }
 
-export const PUSHUP_FORM_COLORS: Record<FormLabel, string> = {
-  GOOD_FORM: '#1ED75F',
-  BAD_FORM:  '#EF4444',
-  UNKNOWN:   '#6B7280',
+export const PUSHUP_FORM_COLORS: Record<PushupFormLabel, string> = {
+  CORRECT:         '#1ED75F',
+  KNEES_TOO_LOW:   '#F59E0B',
+  HIPS_TOO_HIGH:   '#F97316',
+  UNCOMPLETED:     '#EAB308',
+  SHOULDERS_FIRST: '#EF4444',
+  UNKNOWN:         '#6B7280',
 }
