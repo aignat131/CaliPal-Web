@@ -88,14 +88,14 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
 
       match /members/{uid} {
-        allow read: if true;
+        allow read: if isAuth();
         allow create: if isOwner(uid);
         allow update: if isOwner(uid) || isCommunityAdmin(communityId) || isSuperAdmin();
         allow delete: if isOwner(uid) || isCommunityAdmin(communityId) || isSuperAdmin();
       }
 
       match /posts/{postId} {
-        allow read: if true;
+        allow read: if isAuth();
         allow create: if isCommunityMember(communityId)
           && request.resource.data.text is string
           && request.resource.data.text.size() <= 2000;
@@ -113,7 +113,7 @@ service cloud.firestore {
         );
 
         match /comments/{commentId} {
-          allow read: if true;
+          allow read: if isAuth();
           allow create: if isCommunityMember(communityId)
             && request.resource.data.text is string
             && request.resource.data.text.size() <= 1000;
@@ -125,7 +125,7 @@ service cloud.firestore {
         }
 
         match /likes/{uid} {
-          allow read: if true;
+          allow read: if isAuth();
           allow write: if isOwner(uid);
         }
       }
@@ -267,7 +267,7 @@ service cloud.firestore {
 
     // ── Weekly challenges ─────────────────────────────────────────────────────
     match /weekly_challenges/{challengeId} {
-      allow read: if true;
+      allow read: if isAuth();
       allow write: if isSuperAdmin();
     }
 

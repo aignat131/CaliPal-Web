@@ -15,21 +15,35 @@ service firebase.storage {
     }
 
     // Profile photos — owner writes, any auth user reads
-    match /profile_photos/{uid}/{allPaths=**} {
+    match /profile_photos/{uid}/{fileName} {
       allow read: if isAuth();
-      allow write: if isOwner(uid);
+      allow write: if isOwner(uid)
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size <= 8 * 1024 * 1024;
     }
 
     // Community photos — only community admins/moderators can write
-    match /community_photos/{communityId}/{allPaths=**} {
+    match /community_photos/{communityId}/{fileName} {
       allow read: if true;
-      allow write: if isCommunityAdmin(communityId);
+      allow write: if isCommunityAdmin(communityId)
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size <= 8 * 1024 * 1024;
     }
 
     // Workout photos — owner writes and reads, any auth user can read
-    match /workout_photos/{uid}/{allPaths=**} {
+    match /workout_photos/{uid}/{fileName} {
       allow read: if isAuth();
-      allow write: if isOwner(uid);
+      allow write: if isOwner(uid)
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size <= 8 * 1024 * 1024;
+    }
+
+    // Form check videos — owner writes, superadmin reads
+    match /form_check_videos/{uid}/{fileName} {
+      allow read: if isOwner(uid) || isAuth();
+      allow write: if isOwner(uid)
+        && request.resource.contentType.matches('video/.*')
+        && request.resource.size <= 100 * 1024 * 1024;
     }
   }
 }

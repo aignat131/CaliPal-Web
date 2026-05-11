@@ -26,10 +26,16 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url)
 
-  // Skip non-GET, Firebase, and external requests
+  // Skip non-GET and external domains that must not be cached
+  const SKIP_CACHE_DOMAINS = [
+    'firebaseio.com', 'firebase.google.com', 'googleapis.com',
+    'googleusercontent.com', 'accounts.google.com',
+    'cartocdn.com', 'basemaps.cartocdn.com',
+    'mediapipe.dev', 'cdn.jsdelivr.net', 'unpkg.com',
+    'nominatim.openstreetmap.org',
+  ]
   if (event.request.method !== 'GET') return
-  if (url.hostname.includes('firebase') || url.hostname.includes('google')) return
-  if (url.hostname.includes('carto') || url.hostname.includes('mediapipe')) return
+  if (SKIP_CACHE_DOMAINS.some(d => url.hostname === d || url.hostname.endsWith('.' + d))) return
 
   // Static assets: cache-first
   if (url.pathname.match(/\.(js|css|woff2?|png|svg|ico|json)$/)) {

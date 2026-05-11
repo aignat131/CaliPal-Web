@@ -193,14 +193,16 @@ export default function WorkoutPage() {
   // Load weekly challenge + live progress
   useEffect(() => {
     if (!user) return
+    let unsubProgress: (() => void) | null = null
     const unsub = onSnapshot(
       query(collection(db, 'weekly_challenges'), orderBy('endsAt', 'desc'), limit(1)),
       snap => {
+        // Clean up previous progress listener before attaching a new one
+        if (unsubProgress) { unsubProgress(); unsubProgress = null }
         if (snap.docs.length > 0) {
           const c = { id: snap.docs[0].id, ...snap.docs[0].data() } as WeeklyChallenge
           setChallenge(c)
-          // Live progress
-          return onSnapshot(
+          unsubProgress = onSnapshot(
             doc(db, 'users', user.uid, 'challenge_progress', c.id),
             ps => {
               if (ps.exists()) setChallengeProgress(ps.data() as UserChallengeProgress)
@@ -210,7 +212,7 @@ export default function WorkoutPage() {
         }
       }
     )
-    return unsub
+    return () => { unsub(); if (unsubProgress) unsubProgress() }
   }, [user])
 
   // ── Exercise mutations (all go through context) ───────────────────────────
@@ -1425,6 +1427,15 @@ function WorkoutSummary({
   const [loadingComms, setLoadingComms] = useState(false)
   const [, setUploadingPhoto] = useState(false)
 
+  // Create a stable blob URL for the photo preview and revoke it on cleanup
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!photoFile) return
+    const url = URL.createObjectURL(photoFile)
+    setPhotoPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [photoFile])
+
   // Auto-open share sheet when coming from "Postează în comunitate"
   useEffect(() => {
     if (autoOpenShare) openShare()
@@ -1541,10 +1552,10 @@ function WorkoutSummary({
         ) : null}
 
         {/* Photo from postdetails */}
-        {photoFile && (
+        {photoPreviewUrl && (
           <div className="relative rounded-2xl overflow-hidden mb-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={URL.createObjectURL(photoFile)} alt="" className="w-full object-cover max-h-52" />
+            <img src={photoPreviewUrl} alt="" className="w-full object-cover max-h-52" />
           </div>
         )}
 

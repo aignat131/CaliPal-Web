@@ -6,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 import {
   doc, collection, onSnapshot, addDoc, deleteDoc,
   updateDoc, setDoc, serverTimestamp, getDoc, query, orderBy, getDocs, where,
-  increment, arrayRemove, arrayUnion, writeBatch,
+  increment, arrayRemove, arrayUnion, writeBatch, limit,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { uploadCommunityPhoto } from '@/lib/firebase/storage'
@@ -151,7 +151,7 @@ export default function CommunityDetailPage() {
   }, [id, user])
 
   useEffect(() => {
-    const q = query(collection(db, 'communities', id, 'posts'), orderBy('createdAt', 'desc'))
+    const q = query(collection(db, 'communities', id, 'posts'), orderBy('createdAt', 'desc'), limit(30))
     return onSnapshot(q,
       snap => { setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() }) as CommunityPost)) },
       () => { /* non-members can't read posts — silently ignore */ }
@@ -1490,9 +1490,16 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
       <p className="text-sm text-white/80 leading-relaxed mb-3 whitespace-pre-line">{post.content}</p>
 
       {post.photoUrl && (
-        <div className="mb-3 rounded-xl overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={post.photoUrl} alt="" className="w-full object-cover max-h-72" />
+        <div className="relative mb-3 rounded-xl overflow-hidden" style={{ maxHeight: 288 }}>
+          <Image
+            src={post.photoUrl}
+            alt=""
+            width={600}
+            height={288}
+            className="w-full object-cover"
+            style={{ maxHeight: 288 }}
+            unoptimized={!post.photoUrl.startsWith('https://firebasestorage')}
+          />
         </div>
       )}
 

@@ -9,6 +9,8 @@ const GLOBAL_SECURITY_HEADERS = [
   { key: 'X-Frame-Options', value: 'DENY' },
   // Prevent MIME-type sniffing
   { key: 'X-Content-Type-Options', value: 'nosniff' },
+  // Force HTTPS for 1 year, include subdomains
+  { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
   // Only send origin in referer header (no full path)
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // Restrict browser feature access to only what the app needs
