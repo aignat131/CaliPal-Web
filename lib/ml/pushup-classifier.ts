@@ -62,8 +62,9 @@ export async function classifyPushupForm(flat: Float32Array): Promise<PushupClas
 
   const input = tf.tensor(flat, [1, TARGET_FRAMES, PUSHUP_FEATURES_PER_FRAME])
   try {
-    const rawOutput = model!.predict(input) as tf.Tensor
-    const probs = Array.from(await tf.softmax(rawOutput).data())
+    const result = await model!.executeAsync(input)
+    const rawOutput = (Array.isArray(result) ? result[0] : result) as tf.Tensor
+    const probs = Array.from(await tf.softmax(rawOutput).data() as Float32Array) as number[]
     rawOutput.dispose()
 
     const maxIdx = probs.indexOf(Math.max(...probs))

@@ -204,6 +204,7 @@ export default function FormCheckPage() {
               if (counterState.repCount > lastHapticRepRef.current) {
                 lastHapticRepRef.current = counterState.repCount
                 navigator.vibrate?.(30)
+                runClassification()
               }
               setRepCount(counterState.repCount)
               setRepState(counterState.state)
@@ -222,6 +223,7 @@ export default function FormCheckPage() {
               if (counterState.repCount > lastHapticRepRef.current) {
                 lastHapticRepRef.current = counterState.repCount
                 navigator.vibrate?.(30)
+                runClassification()
               }
               setRepCount(counterState.repCount)
               setPrimaryAngle(Math.round(elbow))
