@@ -80,7 +80,7 @@ function norm(s: string): string {
 /** Map exercise name to a supported camera-counting type, or null if unsupported. */
 function getExerciseType(name: string): ExerciseType | null {
   const n = norm(name)
-  if (n.includes('tractiuni') || n.includes('chin-up') || n.includes('chinup') || n.includes('australian') || n.includes('muscle-up')) return 'pullup'
+  if (n.includes('tractiuni') || n.includes('chin-up') || n.includes('chinup') || n.includes('australian')) return 'pullup'
   if (n.includes('flotari') || n.includes('flotare') || n.includes('push-up') || n.includes('pushup') || n.includes('diamond') || n.includes('pike')) return 'pushup'
   if (n.includes('squat')) return 'squat'
   return null
@@ -970,9 +970,21 @@ function ActiveWorkout({
                           <button
                             onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, weightKg: Math.max(0, +((s.weightKg ?? 10) - 2.5).toFixed(1)) } : s))}
                             className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-white/60 active:scale-95 transition-all text-base font-bold flex-shrink-0">−</button>
-                          <span className="w-14 text-center text-sm font-black tabular-nums" style={{ color: '#fb923c' }}>
-                            +{wKg}kg
-                          </span>
+                          <div className="flex items-baseline justify-center w-14">
+                            <span className="text-sm font-black" style={{ color: '#fb923c' }}>+</span>
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={wKg}
+                              onChange={e => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, weightKg: Math.max(0, parseFloat(e.target.value) || 0) } : s))}
+                              onFocus={e => e.target.select()}
+                              className="w-8 text-center text-sm font-black tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              style={{ color: '#fb923c' }}
+                              min={0}
+                              step={0.5}
+                            />
+                            <span className="text-sm font-black" style={{ color: '#fb923c' }}>kg</span>
+                          </div>
                           <button
                             onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, weightKg: +((s.weightKg ?? 10) + 2.5).toFixed(1) } : s))}
                             className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 active:scale-95 transition-all text-base font-bold flex-shrink-0">+</button>
@@ -989,9 +1001,21 @@ function ActiveWorkout({
                               return { ...s, bandKg: [...BANDS].reverse().find(v => v < cur) ?? BANDS[0] }
                             }))}
                             className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-white/60 active:scale-95 transition-all text-base font-bold flex-shrink-0">−</button>
-                          <span className="w-14 text-center text-sm font-black tabular-nums" style={{ color: '#c084fc' }}>
-                            ~{bKg}kg
-                          </span>
+                          <div className="flex items-baseline justify-center w-14">
+                            <span className="text-sm font-black" style={{ color: '#c084fc' }}>~</span>
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={bKg}
+                              onChange={e => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, bandKg: Math.max(1, parseFloat(e.target.value) || 1) } : s))}
+                              onFocus={e => e.target.select()}
+                              className="w-8 text-center text-sm font-black tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              style={{ color: '#c084fc' }}
+                              min={1}
+                              step={1}
+                            />
+                            <span className="text-sm font-black" style={{ color: '#c084fc' }}>kg</span>
+                          </div>
                           <button
                             onClick={() => setPopupSets(prev => prev.map((s, i) => {
                               if (i !== si) return s
@@ -1241,9 +1265,19 @@ function ActiveWorkout({
                     <div className="flex items-center justify-center gap-6">
                       <button onClick={() => setLogWeight(w => Math.max(0, +(w - 2.5).toFixed(1)))}
                         className="w-12 h-12 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-2xl font-bold active:scale-95 transition-transform">−</button>
-                      <span className="w-24 text-center text-4xl font-black text-white tabular-nums">
-                        {logWeight}<span className="text-lg text-orange-400/60"> kg</span>
-                      </span>
+                      <div className="flex items-baseline justify-center w-24">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={logWeight}
+                          onChange={e => setLogWeight(Math.max(0, parseFloat(e.target.value) || 0))}
+                          onFocus={e => e.target.select()}
+                          className="w-16 text-center text-4xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          min={0}
+                          step={0.5}
+                        />
+                        <span className="text-lg text-orange-400/60"> kg</span>
+                      </div>
                       <button onClick={() => setLogWeight(w => +(w + 2.5).toFixed(1))}
                         className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-white text-2xl font-bold active:scale-95 transition-transform">+</button>
                     </div>
@@ -1260,9 +1294,19 @@ function ActiveWorkout({
                       <div className="flex items-center justify-center gap-6">
                         <button onClick={bandDown}
                           className="w-12 h-12 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-2xl font-bold active:scale-95 transition-transform">−</button>
-                        <span className="w-24 text-center text-4xl font-black text-white tabular-nums">
-                          {logBandKg}<span className="text-lg text-purple-400/60"> kg</span>
-                        </span>
+                        <div className="flex items-baseline justify-center w-24">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            value={logBandKg}
+                            onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v > 0) setLogBandKg(v) }}
+                            onFocus={e => e.target.select()}
+                            className="w-16 text-center text-4xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            min={1}
+                            step={1}
+                          />
+                          <span className="text-lg text-purple-400/60"> kg</span>
+                        </div>
                         <button onClick={bandUp}
                           className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-2xl font-bold active:scale-95 transition-transform">+</button>
                       </div>
