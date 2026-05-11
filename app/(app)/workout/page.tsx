@@ -9,13 +9,15 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
 import { awardCoins, checkWorkoutMilestones } from '@/lib/gamification/coins'
-import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star, Share2, Search, ImagePlus } from 'lucide-react'
+import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star, Share2, Search, ImagePlus, Camera } from 'lucide-react'
 import Link from 'next/link'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
 import { DEFAULT_EXERCISE_CATALOGUE, getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
+import RepCounterModal from '@/components/workout/RepCounterModal'
+import type { ExerciseType } from '@/lib/ml/form-coach'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -73,6 +75,15 @@ function localDate(d: Date): string {
 /** Normalize string for diacritic-insensitive search. */
 function norm(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+/** Map exercise name to a supported camera-counting type, or null if unsupported. */
+function getExerciseType(name: string): ExerciseType | null {
+  const n = norm(name)
+  if (n.includes('tractiuni') || n.includes('chin-up') || n.includes('chinup') || n.includes('australian') || n.includes('muscle-up')) return 'pullup'
+  if (n.includes('flotari') || n.includes('flotare') || n.includes('push-up') || n.includes('pushup') || n.includes('diamond') || n.includes('pike')) return 'pushup'
+  if (n.includes('squat')) return 'squat'
+  return null
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
@@ -601,6 +612,7 @@ function ActiveWorkout({
   const [logWeight, setLogWeight] = useState(10)
   const [logBandOn, setLogBandOn] = useState(false)
   const [logBandKg, setLogBandKg] = useState(5)
+  const [showRepCounter, setShowRepCounter] = useState(false)
 
   const totalReps = totalRepsInWorkout(exercises)
 
@@ -1144,7 +1156,7 @@ function ActiveWorkout({
                 {metric === 'reps' && (
                   <div className="mb-5">
                     <p className="text-[10px] font-bold text-white/35 tracking-widest text-center mb-4">REPETĂRI</p>
-                    <div className="flex items-center justify-center gap-6">
+                    <div className="flex items-center justify-center gap-4">
                       <button onClick={() => setLogReps(r => Math.max(1, r - 1))}
                         className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform">−</button>
                       <input
@@ -1158,6 +1170,15 @@ function ActiveWorkout({
                       />
                       <button onClick={() => setLogReps(r => r + 1)}
                         className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform">+</button>
+                      {logExercise && getExerciseType(logExercise) !== null && (
+                        <button
+                          onClick={() => setShowRepCounter(true)}
+                          className="w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center active:scale-95 transition-transform"
+                          title="Numără cu camera"
+                        >
+                          <Camera size={17} className="text-white/60" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1265,6 +1286,16 @@ function ActiveWorkout({
           </div>
         )
       })()}
+
+      {/* ── Rep counter camera modal ── */}
+      {showRepCounter && logExercise && getExerciseType(logExercise) !== null && (
+        <RepCounterModal
+          exerciseType={getExerciseType(logExercise)!}
+          exerciseName={logExercise}
+          onConfirm={(reps) => { setLogReps(reps); setShowRepCounter(false) }}
+          onCancel={() => setShowRepCounter(false)}
+        />
+      )}
     </div>
   )
 }

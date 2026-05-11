@@ -17,58 +17,14 @@ import { PULLUP_NORM_PARAMS, PUSHUP_NORM_PARAMS } from '@/lib/ml/normalization'
 import type { FormLabel } from '@/lib/ml/pullup-classifier'
 import type { RepState } from '@/lib/ml/rep-counter'
 import type { Landmark } from '@/lib/ml/pose-math'
+import { FormCoach } from '@/lib/ml/form-coach'
+import type { FormCue } from '@/lib/ml/form-coach'
+import { drawSkeleton } from '@/lib/ml/skeleton-draw'
 
 // MediaPipe pose landmarker model — loaded from Google's CDN so no local file
 // is required. The `connect-src *.googleapis.com` CSP directive covers this.
 const POSE_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task'
-
-// ── Skeleton drawing ──────────────────────────────────────────────────────────
-
-const POSE_CONNECTIONS = [
-  [MP.LEFT_SHOULDER, MP.RIGHT_SHOULDER],
-  [MP.LEFT_SHOULDER, MP.LEFT_ELBOW],
-  [MP.LEFT_ELBOW, MP.LEFT_WRIST],
-  [MP.RIGHT_SHOULDER, MP.RIGHT_ELBOW],
-  [MP.RIGHT_ELBOW, MP.RIGHT_WRIST],
-  [MP.LEFT_SHOULDER, MP.LEFT_HIP],
-  [MP.RIGHT_SHOULDER, MP.RIGHT_HIP],
-  [MP.LEFT_HIP, MP.RIGHT_HIP],
-  [MP.LEFT_HIP, MP.LEFT_KNEE],
-  [MP.RIGHT_HIP, MP.RIGHT_KNEE],
-  [MP.LEFT_KNEE, MP.LEFT_ANKLE],
-  [MP.RIGHT_KNEE, MP.RIGHT_ANKLE],
-]
-
-function drawSkeleton(
-  ctx: CanvasRenderingContext2D,
-  landmarks: Landmark[],
-  w: number,
-  h: number,
-  color: string
-) {
-  ctx.strokeStyle = color
-  ctx.lineWidth = 2.5
-  for (const [a, b] of POSE_CONNECTIONS) {
-    const la = landmarks[a]
-    const lb = landmarks[b]
-    if (!la || !lb || (la.visibility ?? 1) < 0.3 || (lb.visibility ?? 1) < 0.3) continue
-    ctx.beginPath()
-    ctx.moveTo(la.x * w, la.y * h)
-    ctx.lineTo(lb.x * w, lb.y * h)
-    ctx.stroke()
-  }
-  for (const lm of landmarks) {
-    if ((lm.visibility ?? 1) < 0.3) continue
-    ctx.beginPath()
-    ctx.arc(lm.x * w, lm.y * h, 4, 0, Math.PI * 2)
-    ctx.fillStyle = '#ffffff'
-    ctx.fill()
-    ctx.strokeStyle = color
-    ctx.lineWidth = 1.5
-    ctx.stroke()
-  }
-}
 
 // ── Exercise types ─────────────────────────────────────────────────────────────
 
@@ -93,6 +49,7 @@ export default function FormCheckPage() {
   const repCounterRef = useRef(new RepCounter())
   const pushupCounterRef = useRef(new PushupCounter())
   const squatCounterRef = useRef(new SquatCounter())
+  const formCoachRef = useRef(new FormCoach())
   const frameBufferRef = useRef<Landmark[][]>([])
   const detectorRef = useRef<unknown>(null)
   const lastHapticRepRef = useRef(0)
@@ -111,6 +68,7 @@ export default function FormCheckPage() {
   const [classifying, setClassifying] = useState(false)
   const [stateLabel, setStateLabel] = useState('Pregătire...')
   const [stateColor, setStateColor] = useState('#6B7280')
+  const [formCues, setFormCues] = useState<FormCue[]>([])
 
   // Models are loaded lazily inside startCamera() — not on mount —
   // to avoid downloading TF.js bundles until the user actually starts a session.
@@ -128,10 +86,12 @@ export default function FormCheckPage() {
     repCounterRef.current.reset()
     pushupCounterRef.current.reset()
     squatCounterRef.current.reset()
+    formCoachRef.current.reset()
     frameBufferRef.current = []
     setRepCount(0)
     setRepState('IDLE')
     setFormLabel('UNKNOWN')
+    setFormCues([])
 
     try {
       const [pullupOk, pushupOk] = await Promise.all([
@@ -211,6 +171,7 @@ export default function FormCheckPage() {
               setPrimaryAngle(Math.round(elbow))
               setStateLabel(STATE_LABELS[counterState.state])
               setStateColor(STATE_COLORS[counterState.state])
+              setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', counterState.state))
               frameBufferRef.current.push(lms)
               if (frameBufferRef.current.length > 150) frameBufferRef.current.shift()
             } else if (exerciseType === 'pushup') {
@@ -229,6 +190,7 @@ export default function FormCheckPage() {
               setPrimaryAngle(Math.round(elbow))
               setStateLabel(PUSHUP_STATE_LABELS[counterState.state])
               setStateColor(counterState.state === 'UP' ? '#1ED75F' : counterState.state === 'DOWN' ? '#F59E0B' : '#6B7280')
+              setFormCues(formCoachRef.current.getFormCues(lms, 'pushup', counterState.state))
               frameBufferRef.current.push(lms)
               if (frameBufferRef.current.length > 150) frameBufferRef.current.shift()
             } else {
@@ -246,6 +208,7 @@ export default function FormCheckPage() {
               setPrimaryAngle(Math.round(knee))
               setStateLabel(SQUAT_STATE_LABELS[counterState.state])
               setStateColor(counterState.state === 'UP' ? '#1ED75F' : counterState.state === 'DOWN' ? '#F59E0B' : '#6B7280')
+              setFormCues(formCoachRef.current.getFormCues(lms, 'squat', counterState.state))
             }
           }
         }
@@ -376,6 +339,24 @@ export default function FormCheckPage() {
                 {stateLabel}
               </span>
             </div>
+
+            {/* Real-time form cue banners */}
+            {formCues.length > 0 && (
+              <div className="absolute bottom-16 left-4 right-4 flex flex-col gap-1.5">
+                {formCues.map(cue => (
+                  <div
+                    key={cue.id}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                    style={{
+                      backgroundColor: cue.severity === 'error' ? 'rgba(239,68,68,0.88)' : 'rgba(245,158,11,0.88)',
+                      border: `1px solid ${cue.severity === 'error' ? '#ef444480' : '#f59e0b80'}`,
+                    }}
+                  >
+                    <span className="text-white text-xs font-bold leading-tight">{cue.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="absolute bottom-4 left-4 flex flex-col">
               <span className="text-xs text-white/40 mb-0.5">{angleLabel}</span>
