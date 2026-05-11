@@ -41,7 +41,9 @@
       "Bash(pip show:*)",
       "Bash(pip install:*)",
       "Bash(python -m pip install tensorflowjs)",
-      "Bash(python convert_models.py)"
+      "Bash(python convert_models.py)",
+      "Bash(python -c \"import json; m=json.load\\(open\\('public/models/pushup_tfjs/model.json'\\)\\); sig=m.get\\('signature',{}\\); print\\('inputs:', list\\(sig.get\\('inputs',{}\\).keys\\(\\)\\)\\); print\\('outputs:', list\\(sig.get\\('outputs',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(python -c \"import json; m=json.load\\(open\\('public/models/pullup_tfjs/model.json'\\)\\); sig=m.get\\('signature',{}\\); print\\('inputs:', list\\(sig.get\\('inputs',{}\\).keys\\(\\)\\)\\); print\\('outputs:', list\\(sig.get\\('outputs',{}\\).keys\\(\\)\\)\\)\")"
     ]
   }
 }

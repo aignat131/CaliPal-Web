@@ -48,10 +48,9 @@ export async function classifyForm(flat: Float32Array): Promise<ClassificationRe
 
   const input = tf.tensor(flat, [1, TARGET_FRAMES, FEATURES_PER_FRAME])
   try {
-    const result = await model!.executeAsync(input)
-    const rawOutput = (Array.isArray(result) ? result[0] : result) as tf.Tensor
-    const probs = Array.from(await tf.softmax(rawOutput).data() as Float32Array) as number[]
-    rawOutput.dispose()
+    const result = await model!.executeAsync({ 'input_2': input }) as tf.Tensor
+    const probs = Array.from(await tf.softmax(result).data() as Float32Array) as number[]
+    result.dispose()
 
     const goodProb = probs[0] ?? 0
     const badProb  = probs[1] ?? 0
