@@ -119,7 +119,7 @@ def convert_model(tflite_path, output_dir, input_features):
     x   = tf.keras.layers.Conv1D(128, kernel_size=4, padding='same', activation='relu', use_bias=True)(x)
     x   = fused_bn(bn3_scale, bn3_offset)(x)
     x   = tf.keras.layers.MaxPooling1D(2)(x)
-    x   = tf.keras.layers.LSTM(128)(x)
+    x   = tf.keras.layers.LSTM(128, unroll=True)(x)
     x   = tf.keras.layers.Dense(32, activation='relu')(x)
     out = tf.keras.layers.Dense(5)(x)
 
