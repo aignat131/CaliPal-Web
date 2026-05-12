@@ -30,6 +30,7 @@ self.addEventListener('fetch', event => {
   const SKIP_CACHE_DOMAINS = [
     'firebaseio.com', 'firebase.google.com', 'googleapis.com',
     'googleusercontent.com', 'accounts.google.com',
+    'apis.google.com', 'google.com',
     'cartocdn.com', 'basemaps.cartocdn.com',
     'mediapipe.dev', 'cdn.jsdelivr.net', 'unpkg.com',
     'nominatim.openstreetmap.org',

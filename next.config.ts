@@ -43,6 +43,9 @@ const GLOBAL_SECURITY_HEADERS = [
         "https://*.cloudfunctions.net",
         "https://identitytoolkit.googleapis.com",
         "https://securetoken.googleapis.com",
+        // Google OAuth & API loader (needed by Firebase Auth + Google Sign-In)
+        "https://apis.google.com",
+        "https://accounts.google.com",
         // Map tile search
         "https://nominatim.openstreetmap.org",
         // MediaPipe WASM
