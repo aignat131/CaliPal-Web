@@ -248,9 +248,24 @@ export default function WorkoutPage() {
   }
 
   // Step 1: snapshot context state, stop timer, show postdetails
-  function captureWorkout() {
+  function captureWorkout(doneKeys: Set<string>) {
     if (exercises.length === 0) return
-    const snap = [...exercises]
+
+    // Filter to only exercises/sets the user checked off.
+    // If nothing was checked at all (user didn't use the checkmarks), include everything.
+    let snap: typeof exercises
+    if (doneKeys.size === 0) {
+      snap = [...exercises]
+    } else {
+      snap = exercises
+        .map((ex, ei) => ({
+          ...ex,
+          sets: ex.sets.filter((_, si) => doneKeys.has(`${ei}-${si}`)),
+        }))
+        .filter(ex => ex.sets.length > 0)
+      if (snap.length === 0) snap = [...exercises]  // safety fallback
+    }
+
     const secs = seconds
     const startAt = startedAt ?? Date.now() - seconds * 1000
     setCapturedExercises(snap)
@@ -454,7 +469,7 @@ export default function WorkoutPage() {
           onReplaceExerciseSets={replaceExerciseSets}
           onAddExercise={(name, set) => addExercise(name, set)}
           onRemoveExercise={removeExercise}
-          onFinish={captureWorkout}
+          onFinish={(dk) => captureWorkout(dk)}
           onCancel={() => { ctxStop(); setScreen('home') }}
           favorites={profile?.favoriteExercises ?? []}
           onToggleFavorite={toggleFavorite}
@@ -603,7 +618,7 @@ function ActiveWorkout({
   onReplaceExerciseSets: (ei: number, sets: WorkoutSet[]) => void
   onAddExercise: (name: string, set: WorkoutSet) => void
   onRemoveExercise: (idx: number) => void
-  onFinish: () => void
+  onFinish: (doneKeys: Set<string>) => void
   onCancel: () => void
   favorites: string[]
   onToggleFavorite: (name: string) => void
@@ -864,7 +879,7 @@ function ActiveWorkout({
             <div className="flex gap-3">
               <button onClick={() => setShowFinishConfirm(false)}
                 className="flex-1 h-11 rounded-xl border border-white/20 text-sm text-white/80">Continuă</button>
-              <button onClick={() => { setShowFinishConfirm(false); onFinish() }}
+              <button onClick={() => { setShowFinishConfirm(false); onFinish(doneKeys) }}
                 className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-bold">
                 Da, finalizează
               </button>
