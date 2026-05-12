@@ -17,7 +17,6 @@ import { useDebounce } from '@/lib/hooks/useDebounce'
 import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
 import { DEFAULT_EXERCISE_CATALOGUE, getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 import RepCounterModal from '@/components/workout/RepCounterModal'
-import MuscleMap from '@/components/workout/MuscleMap'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -662,6 +661,16 @@ function ActiveWorkout({
   const totalSets = exercises.reduce((a, e) => a + e.sets.length, 0)
   const doneCount = doneKeys.size
 
+  // Stats shown in the confirm dialog — only checked sets/exercises
+  const confirmedReps = doneKeys.size > 0
+    ? exercises.reduce((total, ex, ei) =>
+        total + ex.sets.reduce((s, set, si) =>
+          doneKeys.has(`${ei}-${si}`) ? s + (set.reps ?? 0) : s, 0), 0)
+    : totalReps
+  const confirmedExCount = doneKeys.size > 0
+    ? exercises.filter((ex, ei) => ex.sets.some((_, si) => doneKeys.has(`${ei}-${si}`))).length
+    : exercises.length
+
   const debouncedQuery = useDebounce(searchQuery, 150)
 
   // Build filtered exercise list — diacritic-insensitive
@@ -874,7 +883,7 @@ function ActiveWorkout({
           <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
             <p className="font-bold text-white text-base mb-1">Finalizezi antrenamentul?</p>
             <p className="text-sm text-white/50 mb-5">
-              {exercises.length} exerciți{exercises.length === 1 ? 'u' : 'i'} · {formatDuration(seconds)} · {totalReps} rep
+              {confirmedExCount} exerciți{confirmedExCount === 1 ? 'u' : 'i'} · {formatDuration(seconds)} · {confirmedReps} rep
             </p>
             <div className="flex gap-3">
               <button onClick={() => setShowFinishConfirm(false)}
@@ -1448,71 +1457,78 @@ function PostWorkoutDetails({
     reader.readAsDataURL(file)
   }
 
+  const totalReps = totalRepsInWorkout(exercises)
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--app-bg)' }}>
-      <div className="flex-1 max-w-sm mx-auto w-full px-4 pt-10 pb-8 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--app-bg)' }}>
 
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="w-20 h-20 rounded-full bg-brand-green flex items-center justify-center mx-auto mb-4">
-            <Check size={40} className="text-black" strokeWidth={3} />
-          </div>
-          <h2 className="text-2xl font-black text-white mb-1">Bravo! 💪</h2>
-          <p className="text-sm text-white/50">
-            {formatDuration(seconds)} · {totalRepsInWorkout(exercises)} rep · {exercises.length} exerciți{exercises.length === 1 ? 'u' : 'i'}
-          </p>
+      {/* Top bar */}
+      <div className="flex-shrink-0 px-5 pt-12 pb-5 border-b border-white/8">
+        <h2 className="text-2xl font-black text-white mb-1">Cum a mers?</h2>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold text-white/40">⏱ {formatDuration(seconds)}</span>
+          <span className="text-white/20">·</span>
+          <span className="text-xs font-semibold text-white/40">🔁 {totalReps} rep</span>
+          <span className="text-white/20">·</span>
+          <span className="text-xs font-semibold text-white/40">{exercises.length} exerciți{exercises.length === 1 ? 'u' : 'i'}</span>
         </div>
+      </div>
 
-        {/* Photo picker */}
-        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-        {photoPreview ? (
-          <div className="relative rounded-2xl overflow-hidden mb-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photoPreview} alt="" className="w-full object-cover max-h-52" />
+      {/* Scrollable form */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-sm mx-auto w-full px-5 pt-5 pb-8 flex flex-col">
+
+          {/* Description — prominent, Strava-style */}
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Descrie antrenamentul..."
+            rows={4}
+            autoFocus
+            className="w-full rounded-2xl px-4 py-3.5 text-sm text-white placeholder:text-white/30 outline-none border border-white/10 bg-white/5 resize-none mb-4"
+          />
+
+          {/* Photo picker */}
+          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+          {photoPreview ? (
+            <div className="relative rounded-2xl overflow-hidden mb-5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photoPreview} alt="" className="w-full object-cover max-h-52" />
+              <button
+                onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
+              >
+                <X size={13} className="text-white" />
+              </button>
+            </div>
+          ) : (
             <button
-              onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
-              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
+              onClick={() => photoInputRef.current?.click()}
+              className="w-full h-20 rounded-2xl border border-dashed border-white/15 flex items-center justify-center gap-3 text-white/30 mb-5 hover:border-brand-green/35 hover:text-brand-green/50 transition-colors"
             >
-              <X size={13} className="text-white" />
+              <ImagePlus size={18} />
+              <span className="text-sm">Adaugă o fotografie</span>
             </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => photoInputRef.current?.click()}
-            className="w-full h-28 rounded-2xl border-2 border-dashed border-white/15 flex flex-col items-center justify-center gap-2 text-white/35 mb-3 hover:border-brand-green/40 hover:text-brand-green/60 transition-colors"
-          >
-            <ImagePlus size={22} />
-            <span className="text-sm">Adaugă o fotografie</span>
-            <span className="text-xs opacity-60">opțional</span>
-          </button>
-        )}
+          )}
 
-        {/* Description */}
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          placeholder="Cum a fost antrenamentul? (opțional)"
-          rows={3}
-          className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/10 bg-white/5 resize-none mb-4"
-        />
-
-        {/* Actions */}
-        <button
-          onClick={() => onSave(photoFile, description)}
-          className="w-full rounded-full font-black text-black bg-brand-green mb-3"
-          style={{ height: 52 }}
-        >
-          Salvează antrenamentul
-        </button>
-        {hasJoinedCommunities && (
+          {/* Actions */}
           <button
-            onClick={() => onShare(photoFile, description)}
-            className="w-full rounded-full font-bold border border-white/20 text-white/70 flex items-center justify-center gap-2"
-            style={{ height: 48 }}
+            onClick={() => onSave(photoFile, description)}
+            className="w-full rounded-full font-black text-black bg-brand-green mb-3"
+            style={{ height: 52 }}
           >
-            <Share2 size={16} /> Postează în comunitate
+            Salvează
           </button>
-        )}
+          {hasJoinedCommunities && (
+            <button
+              onClick={() => onShare(photoFile, description)}
+              className="w-full rounded-full font-bold border border-white/20 text-white/70 flex items-center justify-center gap-2"
+              style={{ height: 48 }}
+            >
+              <Share2 size={16} /> Postează în comunitate
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -1618,13 +1634,19 @@ function WorkoutSummary({
     <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="flex-1 max-w-sm mx-auto w-full px-4 py-8 flex flex-col">
 
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="w-20 h-20 rounded-full bg-brand-green flex items-center justify-center mx-auto mb-4">
-            <Check size={40} className="text-black" strokeWidth={3} />
+        {/* Celebration header */}
+        <div className="text-center mb-8 pt-4">
+          <div className="relative w-24 h-24 mx-auto mb-5">
+            {/* Ripple rings */}
+            <div className="absolute inset-0 rounded-full bg-brand-green/20 animate-ping" style={{ animationDuration: '1.2s' }} />
+            <div className="absolute inset-2 rounded-full bg-brand-green/15 animate-ping" style={{ animationDuration: '1.2s', animationDelay: '0.15s' }} />
+            {/* Icon */}
+            <div className="relative w-24 h-24 rounded-full bg-brand-green flex items-center justify-center animate-pop-in">
+              <Check size={44} className="text-black" strokeWidth={3} />
+            </div>
           </div>
-          <h2 className="text-2xl font-black text-white mb-1">Bravo! 💪</h2>
-          <p className="text-white/50 text-sm">Antrenament finalizat</p>
+          <h2 className="text-3xl font-black text-white mb-1.5 animate-fade-in-up">Bravo! 💪</h2>
+          <p className="text-white/45 text-sm animate-fade-in-up stagger-1">Antrenament finalizat</p>
         </div>
 
         {/* Stats row */}
@@ -1662,13 +1684,6 @@ function WorkoutSummary({
             </div>
           ))}
         </div>
-
-        {/* Muscle map */}
-        {workout.exercises.length > 0 && (
-          <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <MuscleMap exercises={workout.exercises} />
-          </div>
-        )}
 
         {/* Description (read-only, from postdetails) */}
         {description.trim() ? (
