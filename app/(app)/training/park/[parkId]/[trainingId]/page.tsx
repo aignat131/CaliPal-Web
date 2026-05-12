@@ -148,13 +148,15 @@ export default function StandaloneParkTrainingPage() {
     else { setGuestConfirmed(false) }
   }, [training, guestId])
 
-  // Fetch profiles for attendees that are not the current user
+  // Fetch profiles for attendees without rsvpNames (old RSVPs) — auth-only, silent fail
   useEffect(() => {
-    if (!training) return
+    if (!training || !user) return
     const goingUids = Object.entries(training.rsvps ?? {})
       .filter(([, s]) => s === 'GOING')
       .map(([uid]) => uid)
-    const uidsToFetch = goingUids.filter(uid => uid !== user?.uid)
+    const uidsToFetch = goingUids.filter(uid =>
+      uid !== user.uid && !training.rsvpNames?.[uid] && uid !== training.authorId
+    )
     if (!uidsToFetch.length) return
     Promise.all(
       uidsToFetch.map(uid =>
@@ -165,12 +167,14 @@ export default function StandaloneParkTrainingPage() {
         }))
       )
     ).then(results => {
-      const map: Record<string, { name: string; photoUrl: string | null }> = {}
-      results.forEach(r => { map[r.uid] = { name: r.name, photoUrl: r.photoUrl } })
-      setProfiles(map)
+      setProfiles(prev => {
+        const next = { ...prev }
+        results.forEach(r => { next[r.uid] = { name: r.name, photoUrl: r.photoUrl } })
+        return next
+      })
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [training?.id, user?.uid])
+  }, [training?.id, training?.rsvpNames, user?.uid])
 
   async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
     if (!user || !training) return

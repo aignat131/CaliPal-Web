@@ -79,6 +79,8 @@ export default function PublicTrainingPage() {
   const [isMember, setIsMember] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  const [profiles, setProfiles] = useState<Record<string, { name: string; photoUrl: string | null }>>({})
+
   // Guest state
   const [guestId, setGuestId] = useState<string>('')
   const [guestName, setGuestName] = useState('')
@@ -113,6 +115,34 @@ export default function PublicTrainingPage() {
       if (user) setIsMember(list.some(m => m.userId === user.uid))
     }).catch(() => {})
   }, [communityId, user])
+
+  // Fetch profiles for attendees not in rsvpNames (old RSVPs) — auth-only, silent fail
+  useEffect(() => {
+    if (!training || !user) return
+    const goingUids = Object.entries(training.rsvps ?? {})
+      .filter(([, s]) => s === 'GOING')
+      .map(([uid]) => uid)
+    const uidsToFetch = goingUids.filter(uid =>
+      uid !== user.uid && !training.rsvpNames?.[uid] && uid !== training.authorId
+    )
+    if (!uidsToFetch.length) return
+    Promise.all(
+      uidsToFetch.map(uid =>
+        getDoc(doc(db, 'users', uid)).then(snap => ({
+          uid,
+          name: (snap.data()?.displayName as string | undefined) ?? '',
+          photoUrl: (snap.data()?.photoUrl as string | null | undefined) ?? null,
+        }))
+      )
+    ).then(results => {
+      setProfiles(prev => {
+        const next = { ...prev }
+        results.forEach(r => { next[r.uid] = { name: r.name, photoUrl: r.photoUrl } })
+        return next
+      })
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [training?.id, training?.rsvpNames, user])
 
   // Load training (real-time)
   useEffect(() => {
@@ -375,12 +405,14 @@ export default function PublicTrainingPage() {
             <div className="flex flex-col gap-2">
               {goingUids.map(uid => {
                 const isMe = user?.uid === uid
+                const m = members.find(mem => mem.userId === uid)
                 const name = training.rsvpNames?.[uid]
                   ?? (uid === training.authorId ? training.authorName : undefined)
                   ?? (isMe ? myDisplayName : undefined)
+                  ?? m?.displayName
+                  ?? profiles[uid]?.name
                   ?? 'Participant'
-                const m = members.find(mem => mem.userId === uid)
-                const photo = m?.photoUrl ?? null
+                const photo = m?.photoUrl ?? profiles[uid]?.photoUrl ?? null
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
                     <MemberAvatar photoUrl={photo} name={name} size={32} />
