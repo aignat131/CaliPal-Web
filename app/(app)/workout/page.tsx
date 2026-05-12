@@ -611,6 +611,18 @@ function ActiveWorkout({
   const [showCancel, setShowCancel] = useState(false)
   const [showFinishConfirm, setShowFinishConfirm] = useState(false)
 
+  // Per-set completion tracking (local only, resets when workout ends)
+  const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
+
+  function toggleSet(ei: number, si: number) {
+    const key = `${ei}-${si}`
+    setDoneKeys(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
   // Edit existing exercise sets popup
   const [popupExIdx, setPopupExIdx] = useState<number | null>(null)
   const [popupSets, setPopupSets] = useState<WorkoutSet[]>([])
@@ -632,6 +644,8 @@ function ActiveWorkout({
   const [showRepCounter, setShowRepCounter] = useState(false)
 
   const totalReps = totalRepsInWorkout(exercises)
+  const totalSets = exercises.reduce((a, e) => a + e.sets.length, 0)
+  const doneCount = doneKeys.size
 
   const debouncedQuery = useDebounce(searchQuery, 150)
 
@@ -705,6 +719,11 @@ function ActiveWorkout({
           <div className="text-center">
             <p className="text-2xl font-black text-brand-green tabular-nums">{formatDuration(seconds)}</p>
             <p className="text-xs text-white/35">{totalReps} rep</p>
+            {totalSets > 0 && (
+              <p className="text-[10px] font-bold mt-0.5" style={{ color: doneCount === totalSets ? '#1ED75F' : 'rgba(255,255,255,0.25)' }}>
+                {doneCount}/{totalSets} serii
+              </p>
+            )}
           </div>
           <button
             onClick={() => setShowFinishConfirm(true)}
@@ -730,17 +749,23 @@ function ActiveWorkout({
             const hasWeight = ex.sets.some(s => s.weightKg != null)
             const hasBand   = ex.sets.some(s => s.bandKg   != null)
             const accentColor = hasWeight ? '#f97316' : hasBand ? '#a855f7' : null
+            const allDone = ex.sets.length > 0 && ex.sets.every((_, si) => doneKeys.has(`${ei}-${si}`))
             return (
               <div
                 key={`${ex.name}-${ei}`}
-                className="rounded-2xl mb-3 overflow-hidden"
+                className="rounded-2xl mb-3 overflow-hidden border transition-all"
                 style={{
                   backgroundColor: 'var(--app-surface)',
-                  boxShadow: accentColor ? `inset 3px 0 0 ${accentColor}` : undefined,
+                  boxShadow: allDone
+                    ? 'inset 3px 0 0 #1ED75F'
+                    : accentColor
+                    ? `inset 3px 0 0 ${accentColor}`
+                    : undefined,
+                  borderColor: allDone ? '#1ED75F22' : 'transparent',
                 }}
               >
                 {/* Modifier header strip */}
-                {accentColor && (
+                {accentColor && !allDone && (
                   <div className="flex items-center gap-1.5 px-4 py-1.5"
                     style={{ backgroundColor: `${accentColor}18` }}>
                     {hasWeight && (
@@ -762,8 +787,13 @@ function ActiveWorkout({
                       className="flex-1 flex items-center justify-between cursor-pointer select-none min-w-0"
                       onPointerDown={() => openExPopup(ei, ex.sets)}
                     >
-                      <p className="font-bold text-white text-sm">{ex.name}</p>
-                      <ChevronRight size={16} className="text-white/30 flex-shrink-0 ml-2" />
+                      <p className={`font-bold text-sm transition-colors ${allDone ? 'text-white/50' : 'text-white'}`}>{ex.name}</p>
+                      {allDone
+                        ? <span className="text-[10px] font-black text-brand-green animate-fade-in-up flex items-center gap-0.5 flex-shrink-0 ml-2">
+                            <Check size={10} strokeWidth={3} /> completat
+                          </span>
+                        : <ChevronRight size={16} className="text-white/30 flex-shrink-0 ml-2" />
+                      }
                     </div>
                     <button
                       onPointerDown={() => onRemoveExercise(ei)}
@@ -772,17 +802,30 @@ function ActiveWorkout({
                       <Trash2 size={13} />
                     </button>
                   </div>
-                  {/* Per-set summary */}
+                  {/* Per-set interactive checklist */}
                   <div className="flex flex-col gap-0.5">
                     {ex.sets.map((s, si) => {
+                      const key = `${ei}-${si}`
+                      const done = doneKeys.has(key)
                       const val = s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
                       const mod = s.weightKg ? ` · +${s.weightKg}kg` : s.bandKg ? ` · ~${s.bandKg}kg` : ''
                       return (
-                        <p key={si} className="text-xs text-white/45">
-                          <span className="text-white/20 mr-1">{si + 1}.</span>
-                          {val}
-                          {mod && <span style={{ color: s.weightKg ? '#fb923c99' : '#c084fc99' }}>{mod}</span>}
-                        </p>
+                        <button
+                          key={si}
+                          onPointerDown={() => toggleSet(ei, si)}
+                          className={`flex items-center gap-2.5 w-full text-left rounded-xl px-2 py-1.5 transition-all active:scale-[0.97] select-none ${done ? 'bg-brand-green/8' : 'hover:bg-white/4'}`}
+                        >
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${done ? 'bg-brand-green animate-pop-in' : 'border border-white/20'}`}>
+                            {done
+                              ? <Check size={12} strokeWidth={3} className="text-black" />
+                              : <span className="text-[10px] font-black text-white/30">{si + 1}</span>
+                            }
+                          </div>
+                          <span className={`text-xs font-semibold transition-colors ${done ? 'text-white/30 line-through' : 'text-white/55'}`}>
+                            {val}
+                            {mod && <span style={{ color: done ? undefined : s.weightKg ? '#fb923c99' : '#c084fc99' }}>{mod}</span>}
+                          </span>
+                        </button>
                       )
                     })}
                   </div>
