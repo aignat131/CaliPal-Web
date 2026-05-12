@@ -12,9 +12,11 @@ import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import type {
   UserDoc, CommunityDoc, WeeklyChallenge, UserChallengeProgress,
   PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress,
+  WorkoutDoc,
 } from '@/types'
-import { Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield } from 'lucide-react'
+import { Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, Play, BookOpen } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
+import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 
 const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
@@ -31,6 +33,7 @@ export default function HomePage() {
   const [showStreakCalendar, setShowStreakCalendar] = useState(false)
   const [workoutDates, setWorkoutDates] = useState<Set<string>>(new Set())
   const [latestFavTraining, setLatestFavTraining] = useState<PlannedTraining | null>(null)
+  const [recommendation, setRecommendation] = useState<DailyRecommendation | null>(null)
   // Ref for nested community challenge progress subscription (B1-4)
   const unsubCommProgressRef = useRef<(() => void) | null>(null)
 
@@ -55,6 +58,16 @@ export default function HomePage() {
       setWorkoutDates(dates)
     })
   }, [user, showStreakCalendar])
+
+  // Daily recommendation — built from last 7 workouts
+  useEffect(() => {
+    if (!user || !userDoc) return
+    getDocs(query(collection(db, 'users', user.uid, 'workouts'), orderBy('createdAt', 'desc'), limit(7))).then(snap => {
+      const recent = snap.docs.map(d => d.data() as WorkoutDoc)
+      const rec = buildDailyRecommendation(recent, userDoc)
+      setRecommendation(rec)
+    }).catch(() => {})
+  }, [user, userDoc?.uid]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Latest training + community challenge from favorite community
   useEffect(() => {
@@ -302,6 +315,11 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Daily recommendation */}
+        {recommendation && userDoc?.assessmentCompleted !== false && (
+          <RecommendationCard recommendation={recommendation} />
         )}
 
         {/* Challenges section (replaces recent activity) */}
@@ -568,6 +586,71 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
             <div className="w-4 h-4 rounded-full border border-brand-green" />
             <span className="text-xs text-white/50">Azi</span>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Recommendation Card ────────────────────────────────────────────────────────
+
+function RecommendationCard({ recommendation }: { recommendation: DailyRecommendation }) {
+  function startRecommendation() {
+    const payload = {
+      name: recommendation.title,
+      exercises: recommendation.exercises.map(e => ({
+        name: e.name,
+        sets: e.suggestedSets,
+        repsPerSet: e.suggestedValue,
+      })),
+    }
+    sessionStorage.setItem('calipal_load_training', JSON.stringify(payload))
+    window.location.href = '/workout'
+  }
+
+  return (
+    <div className="mb-5">
+      <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">RECOMANDAT AZI</p>
+      <div className="rounded-2xl p-4 border border-brand-green/20" style={{ backgroundColor: '#1ED75F08' }}>
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1 min-w-0 pr-3">
+            <p className="font-black text-white text-[15px] leading-tight">{recommendation.title}</p>
+            <p className="text-xs text-white/45 mt-1 leading-relaxed">{recommendation.rationale}</p>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Clock size={11} className="text-white/35" />
+            <span className="text-xs text-white/40">~{recommendation.estimatedMinutes}min</span>
+          </div>
+        </div>
+
+        {/* Exercise chips */}
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {recommendation.exercises.slice(0, 4).map(ex => (
+            <span key={ex.name} className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: '#1ED75F18', color: '#1ED75F' }}>
+              {ex.name}
+            </span>
+          ))}
+          {recommendation.exercises.length > 4 && (
+            <span className="text-[11px] text-white/30 py-0.5">+{recommendation.exercises.length - 4} mai mult</span>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={startRecommendation}
+            className="flex-1 h-9 rounded-xl font-black text-black text-xs flex items-center justify-center gap-1.5"
+            style={{ backgroundColor: '#1ED75F' }}
+          >
+            <Play size={13} className="fill-black" />
+            Începe
+          </button>
+          <Link href="/training/programs">
+            <button className="h-9 px-3 rounded-xl text-xs font-semibold border border-white/15 text-white/60 flex items-center gap-1.5">
+              <BookOpen size={13} />
+              Programe
+            </button>
+          </Link>
         </div>
       </div>
     </div>

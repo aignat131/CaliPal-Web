@@ -9,7 +9,7 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
 import { awardCoins, checkWorkoutMilestones } from '@/lib/gamification/coins'
-import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star, Share2, Search, ImagePlus, Camera } from 'lucide-react'
+import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star, Share2, Search, ImagePlus, Camera, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
@@ -17,6 +17,7 @@ import { useDebounce } from '@/lib/hooks/useDebounce'
 import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
 import { DEFAULT_EXERCISE_CATALOGUE, getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 import RepCounterModal from '@/components/workout/RepCounterModal'
+import MuscleMap from '@/components/workout/MuscleMap'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -512,6 +513,20 @@ export default function WorkoutPage() {
                   </div>
                 </Link>
               </div>
+
+              {/* Programs card */}
+              <Link href="/training/programs">
+                <div className="rounded-2xl p-4 mb-4 border border-blue-500/20 hover:border-blue-500/40 transition-colors" style={{ backgroundColor: '#3B82F610' }}>
+                  <div className="flex items-center gap-3">
+                    <BookOpen size={18} className="text-blue-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white">Programe Structurate</p>
+                      <p className="text-xs text-white/50 mt-0.5">Planuri de 4 săptămâni pentru progres real</p>
+                    </div>
+                    <ChevronRight size={16} className="text-white/25 flex-shrink-0" />
+                  </div>
+                </div>
+              </Link>
 
               {/* Master Coach card */}
               {!profile?.isCoach && (
@@ -1589,6 +1604,13 @@ function WorkoutSummary({
             </div>
           ))}
         </div>
+
+        {/* Muscle map */}
+        {workout.exercises.length > 0 && (
+          <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <MuscleMap exercises={workout.exercises} />
+          </div>
+        )}
 
         {/* Description (read-only, from postdetails) */}
         {description.trim() ? (
