@@ -199,6 +199,14 @@ export default function RegisterPage() {
             Intră în cont
           </Link>
         </p>
+
+        {/* Security trust strip */}
+        <div className="flex items-center justify-center gap-1.5 mt-5">
+          <span className="text-brand-green/60 text-xs">🔒</span>
+          <p className="text-[10px] font-bold tracking-[1.2px] text-white/30 uppercase">
+            Conexiune securizată · Date criptate · Firebase Auth
+          </p>
+        </div>
       </div>
     </div>
   )

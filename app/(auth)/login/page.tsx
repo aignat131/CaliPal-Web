@@ -176,6 +176,14 @@ export default function LoginPage() {
             Nu ai cont? Creează unul rapid!
           </button>
         </Link>
+
+        {/* Security trust strip */}
+        <div className="flex items-center justify-center gap-1.5 mt-6">
+          <span className="text-brand-green/60 text-xs">🔒</span>
+          <p className="text-[10px] font-bold tracking-[1.2px] text-white/30 uppercase">
+            Conexiune securizată · Date criptate · Firebase Auth
+          </p>
+        </div>
       </div>
     </div>
   )
