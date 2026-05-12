@@ -1679,6 +1679,7 @@ function AddParkTrainingModal({
         official:        false,
         reminderMinutes: 30,
         rsvps:           { [uid]: 'GOING' },
+        rsvpNames:       { [uid]: userName },
         exercises:       [],
         createdAt:       serverTimestamp(),
       }

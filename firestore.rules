@@ -140,13 +140,13 @@ service cloud.firestore {
         allow delete: if isSuperAdmin()
           || isCommunityStaff(communityId)
           || (isCommunityMember(communityId) && request.auth.uid == resource.data.authorId);
-        // Members: update own rsvp (+ optionally lastRsvpNotifAt in same write)
+        // Members: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt in same write)
         // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200 entries
         allow update: if isSuperAdmin()
           || isCommunityStaff(communityId)
           || (isCommunityMember(communityId)
               && request.resource.data.diff(resource.data).affectedKeys()
-                  .hasOnly(['rsvps', 'lastRsvpNotifAt']))
+                  .hasOnly(['rsvps', 'rsvpNames', 'lastRsvpNotifAt']))
           || (request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
               && request.resource.data.guestRsvps.size() <= 200);
@@ -224,14 +224,14 @@ service cloud.firestore {
           && request.resource.data.description.size() <= 1000;
         allow delete: if isSuperAdmin()
           || (isAuth() && request.auth.uid == resource.data.authorId);
-        // Authenticated users: update own rsvp (+ optionally lastRsvpNotifAt)
+        // Authenticated users: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt)
         // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200
         // Author: update anything
         allow update: if isSuperAdmin()
           || (isAuth() && request.auth.uid == resource.data.authorId)
           || (isAuth()
               && request.resource.data.diff(resource.data).affectedKeys()
-                  .hasOnly(['rsvps', 'lastRsvpNotifAt']))
+                  .hasOnly(['rsvps', 'rsvpNames', 'lastRsvpNotifAt']))
           || (request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
               && request.resource.data.guestRsvps.size() <= 200);

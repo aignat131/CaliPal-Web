@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
@@ -66,6 +67,7 @@ function GuestAvatar({ size = 32 }: { size?: number }) {
 
 export default function PublicTrainingPage() {
   const { user } = useAuth()
+  const { displayName: myDisplayName } = useMyProfile()
   const router = useRouter()
   const params = useParams()
   const communityId = params.communityId as string
@@ -78,8 +80,6 @@ export default function PublicTrainingPage() {
   const [loading, setLoading] = useState(true)
 
   // Guest state
-  const [profiles, setProfiles] = useState<Record<string, { name: string; photoUrl: string | null }>>({})
-
   const [guestId, setGuestId] = useState<string>('')
   const [guestName, setGuestName] = useState('')
   const [guestInput, setGuestInput] = useState('')
@@ -130,30 +130,6 @@ export default function PublicTrainingPage() {
     )
     return unsub
   }, [communityId, trainingId])
-
-  // Fetch profiles for attendees not found in members list
-  useEffect(() => {
-    if (!training || !members.length) return
-    const goingUids = Object.entries(training.rsvps ?? {})
-      .filter(([, s]) => s === 'GOING')
-      .map(([uid]) => uid)
-    const uidsToFetch = goingUids.filter(uid => !members.some(m => m.userId === uid))
-    if (!uidsToFetch.length) return
-    Promise.all(
-      uidsToFetch.map(uid =>
-        getDoc(doc(db, 'users', uid)).then(snap => ({
-          uid,
-          name: (snap.data()?.displayName as string | undefined) ?? '',
-          photoUrl: (snap.data()?.photoUrl as string | null | undefined) ?? null,
-        }))
-      )
-    ).then(results => {
-      const map: Record<string, { name: string; photoUrl: string | null }> = {}
-      results.forEach(r => { map[r.uid] = { name: r.name, photoUrl: r.photoUrl } })
-      setProfiles(map)
-    }).catch(() => {})
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [training?.id, members])
 
   // Sync guest RSVP state from training
   useEffect(() => {
@@ -218,8 +194,12 @@ export default function PublicTrainingPage() {
   async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
     if (!user || !training) return
     const wasGoing = training.rsvps?.[user.uid] === 'GOING'
+    const nameUpdate = status === 'GOING'
+      ? { [`rsvpNames.${user.uid}`]: myDisplayName }
+      : { [`rsvpNames.${user.uid}`]: deleteField() }
     await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
       [`rsvps.${user.uid}`]: status,
+      ...nameUpdate,
     })
     if (status === 'GOING' && !wasGoing && user.uid !== training.authorId) {
       const now = Date.now()
@@ -232,7 +212,7 @@ export default function PublicTrainingPage() {
           training.authorId,
           'TRAINING_RSVP',
           'Cineva participă la antrenamentul tău! 💪',
-          `${user.displayName ?? 'Un utilizator'} a confirmat că merge la „${training.name}".`,
+          `${myDisplayName} a confirmat că merge la „${training.name}".`,
           trainingId,
         )
       }
@@ -394,14 +374,17 @@ export default function PublicTrainingPage() {
             <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3">PARTICIPANȚI ({totalGoing})</p>
             <div className="flex flex-col gap-2">
               {goingUids.map(uid => {
-                const m = members.find(mem => mem.userId === uid)
                 const isMe = user?.uid === uid
-                const name = m?.displayName ?? profiles[uid]?.name ?? (isMe ? (user?.displayName ?? '') : '')
-                const photo = m?.photoUrl ?? profiles[uid]?.photoUrl ?? null
+                const name = training.rsvpNames?.[uid]
+                  ?? (uid === training.authorId ? training.authorName : undefined)
+                  ?? (isMe ? myDisplayName : undefined)
+                  ?? 'Participant'
+                const m = members.find(mem => mem.userId === uid)
+                const photo = m?.photoUrl ?? null
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
-                    <MemberAvatar photoUrl={photo} name={name || '?'} size={32} />
-                    <span className="text-sm font-semibold text-white/80 flex-1">{name || '—'}</span>
+                    <MemberAvatar photoUrl={photo} name={name} size={32} />
+                    <span className="text-sm font-semibold text-white/80 flex-1">{name}</span>
                     {isMe && <span className="text-[10px] text-brand-green">Tu</span>}
                   </div>
                 )

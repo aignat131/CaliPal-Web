@@ -1294,6 +1294,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
         official,
         reminderMinutes: 30,
         rsvps:           userId ? { [userId]: 'GOING' } : {},
+        rsvpNames:       userId ? { [userId]: userName } : {},
         ...(selectedEquipment.length > 0 || customEquipment.trim() ? {
         equipment: customEquipment.trim()
           ? [...selectedEquipment, customEquipment.trim()]

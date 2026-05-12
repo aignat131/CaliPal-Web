@@ -94,6 +94,7 @@ export interface PlannedTraining {
   reminderMinutes: number
   exercises: TrainingExercise[]
   rsvps: Record<string, 'GOING' | 'NOT_GOING' | 'MAYBE'>
+  rsvpNames?: Record<string, string>
   guestRsvps?: Record<string, { name: string; status: 'GOING' }>
   equipment?: string[]
   createdAt: Timestamp | null

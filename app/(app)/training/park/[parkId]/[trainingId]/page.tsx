@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { PlannedTraining } from '@/types'
 import {
@@ -87,6 +88,7 @@ async function maybeNotifyAuthor(
 
 export default function StandaloneParkTrainingPage() {
   const { user } = useAuth()
+  const { displayName: myDisplayName } = useMyProfile()
   const router = useRouter()
   const params = useParams()
   const parkId = params.parkId as string
@@ -173,11 +175,15 @@ export default function StandaloneParkTrainingPage() {
   async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
     if (!user || !training) return
     const wasGoing = training.rsvps?.[user.uid] === 'GOING'
+    const nameUpdate = status === 'GOING'
+      ? { [`rsvpNames.${user.uid}`]: myDisplayName }
+      : { [`rsvpNames.${user.uid}`]: deleteField() }
     await updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), {
       [`rsvps.${user.uid}`]: status,
+      ...nameUpdate,
     })
     if (status === 'GOING' && !wasGoing && user.uid !== training.authorId) {
-      await maybeNotifyAuthor(training, parkId, user.displayName ?? 'Un utilizator', training.authorId)
+      await maybeNotifyAuthor(training, parkId, myDisplayName, training.authorId)
     }
   }
 
@@ -359,7 +365,11 @@ export default function StandaloneParkTrainingPage() {
               {goingUids.map(uid => {
                 const isMe = user?.uid === uid
                 const profile = profiles[uid]
-                const name = isMe ? (user.displayName ?? '') : (profile?.name || uid.slice(0, 8))
+                const name = training.rsvpNames?.[uid]
+                  ?? (uid === training.authorId ? training.authorName : undefined)
+                  ?? (isMe ? myDisplayName : undefined)
+                  ?? profile?.name
+                  ?? 'Participant'
                 const photoUrl = isMe ? (user.photoURL ?? null) : (profile?.photoUrl ?? null)
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
