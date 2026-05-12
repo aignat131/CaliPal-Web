@@ -369,15 +369,18 @@ export default function StandaloneParkTrainingPage() {
                   </div>
                 )
               })}
-              {guestGoing.map(([gid, g]) => (
-                <div key={gid} className="flex items-center gap-2.5">
-                  <GuestAvatar size={32} />
-                  <span className="text-sm font-semibold text-white/70 flex-1">{g.name}</span>
-                  <span className="text-[10px] text-white/30 flex items-center gap-1">
-                    <User size={9} /> invitat
-                  </span>
-                </div>
-              ))}
+              {guestGoing.map(([gid, g]) => {
+                const displayName = g.name.length > 15 ? g.name.slice(0, 15) + '…' : g.name
+                return (
+                  <div key={gid} className="flex items-center gap-2.5">
+                    <GuestAvatar size={32} />
+                    <span className="text-sm font-semibold text-white/70 flex-1">{displayName}</span>
+                    <span className="text-[10px] text-white/30 flex items-center gap-1">
+                      <User size={9} /> invitat
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
@@ -428,14 +431,14 @@ export default function StandaloneParkTrainingPage() {
                   <p className="text-xs text-white/45 mb-3">
                     Nu ai un cont? Participă ca invitat cu numele tău.
                   </p>
-                  <div className="flex gap-2 mb-3">
+                  <div className="flex gap-2">
                     <input
                       ref={inputRef}
                       value={guestInput}
                       onChange={e => setGuestInput(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && confirmGuestRsvp()}
                       placeholder="Numele tău *"
-                      maxLength={80}
+                      maxLength={15}
                       className="flex-1 h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
                     />
                     <button onClick={confirmGuestRsvp} disabled={savingGuest || !guestInput.trim()}
@@ -444,7 +447,10 @@ export default function StandaloneParkTrainingPage() {
                       {savingGuest ? '...' : 'Merg'}
                     </button>
                   </div>
-                  <p className="text-[11px] text-white/30 text-center">sau</p>
+                  {guestInput.length >= 12 && (
+                    <p className="text-[10px] text-white/30 text-right mt-1 mb-2">{guestInput.length}/15</p>
+                  )}
+                  <p className="text-[11px] text-white/30 text-center mt-3">sau</p>
                   <div className="flex gap-2 mt-3">
                     <Link href="/login" className="flex-1">
                       <span className="flex items-center justify-center h-10 rounded-xl border border-white/15 text-sm text-white/60 font-semibold">

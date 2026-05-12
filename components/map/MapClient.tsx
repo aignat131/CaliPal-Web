@@ -22,6 +22,7 @@ function parseMapTrainingDate(t: PlannedTraining): Date | null {
 }
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useTheme } from '@/lib/hooks/useTheme'
 import type { ParkDoc, ParkPresenceMember, CommunityDoc, LocationSharingMode, ParkCommunityRequest, PlannedTraining } from '@/types'
 import { MapPin, X, Navigation, ChevronRight } from 'lucide-react'
@@ -408,6 +409,7 @@ const LOCATION_CONSENT_KEY = 'calipal_location_consent'
 
 export default function MapClient() {
   const { user } = useAuth()
+  const { displayName: myDisplayName } = useMyProfile()
   const { theme } = useTheme()
 
   const [parks, setParks] = useState<ParkDoc[]>([])
@@ -1038,7 +1040,7 @@ export default function MapClient() {
           liveLocations={liveLocations}
           onClose={() => { setSelectedPark(null); setShowParkCommModal(false); setShowParkTrainingForm(false) }}
           uid={user?.uid ?? null}
-          userName={user?.displayName ?? ''}
+          userName={myDisplayName}
           parkTrainings={parkTrainings}
           parkStandaloneTrainings={parkStandaloneTrainings}
           onStandaloneTrainingAdded={t => setParkStandaloneTrainings(prev => [...prev, t])}

@@ -78,6 +78,8 @@ export default function PublicTrainingPage() {
   const [loading, setLoading] = useState(true)
 
   // Guest state
+  const [profiles, setProfiles] = useState<Record<string, { name: string; photoUrl: string | null }>>({})
+
   const [guestId, setGuestId] = useState<string>('')
   const [guestName, setGuestName] = useState('')
   const [guestInput, setGuestInput] = useState('')
@@ -128,6 +130,30 @@ export default function PublicTrainingPage() {
     )
     return unsub
   }, [communityId, trainingId])
+
+  // Fetch profiles for attendees not found in members list
+  useEffect(() => {
+    if (!training || !members.length) return
+    const goingUids = Object.entries(training.rsvps ?? {})
+      .filter(([, s]) => s === 'GOING')
+      .map(([uid]) => uid)
+    const uidsToFetch = goingUids.filter(uid => !members.some(m => m.userId === uid))
+    if (!uidsToFetch.length) return
+    Promise.all(
+      uidsToFetch.map(uid =>
+        getDoc(doc(db, 'users', uid)).then(snap => ({
+          uid,
+          name: (snap.data()?.displayName as string | undefined) ?? '',
+          photoUrl: (snap.data()?.photoUrl as string | null | undefined) ?? null,
+        }))
+      )
+    ).then(results => {
+      const map: Record<string, { name: string; photoUrl: string | null }> = {}
+      results.forEach(r => { map[r.uid] = { name: r.name, photoUrl: r.photoUrl } })
+      setProfiles(map)
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [training?.id, members])
 
   // Sync guest RSVP state from training
   useEffect(() => {
@@ -369,26 +395,29 @@ export default function PublicTrainingPage() {
             <div className="flex flex-col gap-2">
               {goingUids.map(uid => {
                 const m = members.find(mem => mem.userId === uid)
-                const name = m?.displayName ?? uid.slice(0, 8)
-                const photo = m?.photoUrl ?? null
                 const isMe = user?.uid === uid
+                const name = m?.displayName ?? profiles[uid]?.name ?? (isMe ? (user?.displayName ?? '') : '')
+                const photo = m?.photoUrl ?? profiles[uid]?.photoUrl ?? null
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
-                    <MemberAvatar photoUrl={photo} name={name} size={32} />
-                    <span className="text-sm font-semibold text-white/80 flex-1">{name}</span>
+                    <MemberAvatar photoUrl={photo} name={name || '?'} size={32} />
+                    <span className="text-sm font-semibold text-white/80 flex-1">{name || '—'}</span>
                     {isMe && <span className="text-[10px] text-brand-green">Tu</span>}
                   </div>
                 )
               })}
-              {guestGoing.map(([gid, g]) => (
-                <div key={gid} className="flex items-center gap-2.5">
-                  <GuestAvatar size={32} />
-                  <span className="text-sm font-semibold text-white/70 flex-1">{g.name}</span>
-                  <span className="text-[10px] text-white/30 flex items-center gap-1">
-                    <User size={9} /> invitat
-                  </span>
-                </div>
-              ))}
+              {guestGoing.map(([gid, g]) => {
+                const displayName = g.name.length > 15 ? g.name.slice(0, 15) + '…' : g.name
+                return (
+                  <div key={gid} className="flex items-center gap-2.5">
+                    <GuestAvatar size={32} />
+                    <span className="text-sm font-semibold text-white/70 flex-1">{displayName}</span>
+                    <span className="text-[10px] text-white/30 flex items-center gap-1">
+                      <User size={9} /> invitat
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
@@ -442,14 +471,14 @@ export default function PublicTrainingPage() {
                   <p className="text-xs text-white/45 mb-3">
                     Nu ai un cont? Participă ca invitat cu numele tău.
                   </p>
-                  <div className="flex gap-2 mb-3">
+                  <div className="flex gap-2">
                     <input
                       ref={inputRef}
                       value={guestInput}
                       onChange={e => setGuestInput(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && confirmGuestRsvp()}
                       placeholder="Numele tău *"
-                      maxLength={80}
+                      maxLength={15}
                       className="flex-1 h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
                     />
                     <button
@@ -461,7 +490,10 @@ export default function PublicTrainingPage() {
                       {savingGuest ? '...' : 'Merg'}
                     </button>
                   </div>
-                  <p className="text-[11px] text-white/30 text-center">sau</p>
+                  {guestInput.length >= 12 && (
+                    <p className="text-[10px] text-white/30 text-right mt-1 mb-2">{guestInput.length}/15</p>
+                  )}
+                  <p className="text-[11px] text-white/30 text-center mt-3">sau</p>
                   <div className="flex gap-2 mt-3">
                     <Link href="/login" className="flex-1">
                       <span className="flex items-center justify-center h-10 rounded-xl border border-white/15 text-sm text-white/60 font-semibold">
