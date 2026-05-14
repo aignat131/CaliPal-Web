@@ -23,7 +23,7 @@ import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
   Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut, UserX, Share2,
-  Pencil, Camera,
+  Pencil, Camera, Info,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -102,6 +102,7 @@ export default function CommunityDetailPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   // Three-dots community menu (leave)
   const [showCommunityMenu, setShowCommunityMenu] = useState(false)
+  const [showDescription, setShowDescription] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
   // Join state
@@ -509,6 +510,12 @@ export default function CommunityDetailPage() {
                     className="absolute right-0 top-10 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[200px]"
                     style={{ backgroundColor: 'var(--app-bg)' }}
                   >
+                    <button
+                      onClick={() => { setShowDescription(true); setShowCommunityMenu(false) }}
+                      className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
+                    >
+                      <Info size={14} /> Descriere
+                    </button>
                     {(isSuperAdmin || myRole === 'ADMIN') && (
                       <button
                         onClick={() => { setShowEditCommunity(true); setShowCommunityMenu(false) }}
@@ -581,6 +588,12 @@ export default function CommunityDetailPage() {
                     className="absolute right-0 top-10 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[200px]"
                     style={{ backgroundColor: 'var(--app-bg)' }}
                   >
+                    <button
+                      onClick={() => { setShowDescription(true); setShowCommunityMenu(false) }}
+                      className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
+                    >
+                      <Info size={14} /> Descriere
+                    </button>
                     {(isSuperAdmin || myRole === 'ADMIN') && (
                       <button
                         onClick={() => { setShowEditCommunity(true); setShowCommunityMenu(false) }}
@@ -635,13 +648,6 @@ export default function CommunityDetailPage() {
               </Link>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Community description */}
-      {community?.description && (
-        <div className="max-w-lg mx-auto px-4 pt-3">
-          <p className="text-sm text-white/55 leading-relaxed">{community.description}</p>
         </div>
       )}
 
@@ -881,6 +887,39 @@ export default function CommunityDetailPage() {
         ))}
 
       </div>
+
+      {/* Description bottom sheet */}
+      {showDescription && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+          onClick={() => setShowDescription(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-t-3xl p-6 pb-10"
+            style={{ backgroundColor: 'var(--app-bg)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-5" />
+            <p className="text-xs font-bold text-white/30 tracking-widest mb-3">DESCRIERE</p>
+            {community?.description ? (
+              <p className="text-sm text-white/75 leading-relaxed whitespace-pre-line">{community.description}</p>
+            ) : (
+              <div>
+                <p className="text-sm text-white/40 leading-relaxed mb-3">
+                  Nicio descriere adăugată încă.
+                </p>
+                {(isSuperAdmin || myRole === 'ADMIN') && (
+                  <p className="text-xs text-brand-green/70">
+                    Adaugă o descriere din „Editează comunitatea" pentru a informa membrii despre
+                    regulile, nivelul și programul comunității.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1717,6 +1756,7 @@ function EditCommunityModal({ community, onClose }: {
           </div>
         </div>
       </div>
+
     </div>
   )
 }

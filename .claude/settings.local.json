@@ -46,7 +46,8 @@
       "Bash(python -c \"import json; m=json.load\\(open\\('public/models/pullup_tfjs/model.json'\\)\\); sig=m.get\\('signature',{}\\); print\\('inputs:', list\\(sig.get\\('inputs',{}\\).keys\\(\\)\\)\\); print\\('outputs:', list\\(sig.get\\('outputs',{}\\).keys\\(\\)\\)\\)\")",
       "Bash(grep -r \"android\\\\|kotlin\\\\|java\\\\|mobile\\\\|apk\" /e/Web_Apps/CaliPal-Web --include=\"*.md\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.json\" ! -path \"*/node_modules/*\")",
       "WebSearch",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npm list:*)"
     ]
   }
 }

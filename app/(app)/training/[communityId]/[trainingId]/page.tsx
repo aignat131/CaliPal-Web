@@ -67,7 +67,7 @@ function GuestAvatar({ size = 32 }: { size?: number }) {
 
 export default function PublicTrainingPage() {
   const { user } = useAuth()
-  const { displayName: myDisplayName } = useMyProfile()
+  const { displayName: myDisplayName, photoUrl: myPhotoUrl } = useMyProfile()
   const router = useRouter()
   const params = useParams()
   const communityId = params.communityId as string
@@ -116,14 +116,14 @@ export default function PublicTrainingPage() {
     }).catch(() => {})
   }, [communityId, user])
 
-  // Fetch profiles for attendees not in rsvpNames (old RSVPs) — auth-only, silent fail
+  // Fetch profiles for all attendees (name + photo) — auth-only, silent fail
   useEffect(() => {
     if (!training || !user) return
     const goingUids = Object.entries(training.rsvps ?? {})
       .filter(([, s]) => s === 'GOING')
       .map(([uid]) => uid)
     const uidsToFetch = goingUids.filter(uid =>
-      uid !== user.uid && !training.rsvpNames?.[uid] && uid !== training.authorId
+      uid !== user.uid && uid !== training.authorId && !profiles[uid]
     )
     if (!uidsToFetch.length) return
     Promise.all(
@@ -142,7 +142,7 @@ export default function PublicTrainingPage() {
       })
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [training?.id, training?.rsvpNames, user])
+  }, [training?.id, training?.rsvps, user])
 
   // Load training (real-time)
   useEffect(() => {
@@ -194,6 +194,17 @@ export default function PublicTrainingPage() {
           `${name} a confirmat că merge la „${training.name}".`,
           trainingId,
         )
+        // Also send FCM push to creator's device (fire-and-forget)
+        fetch('/api/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toUid: training.authorId,
+            title: 'Cineva participă la antrenamentul tău! 💪',
+            body: `${name} a confirmat că merge la „${training.name}".`,
+            url: `/training/${communityId}/${trainingId}`,
+          }),
+        }).catch(() => {})
       }
       setGuestName(name)
       setGuestConfirmed(true)
@@ -224,8 +235,9 @@ export default function PublicTrainingPage() {
   async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
     if (!user || !training) return
     const wasGoing = training.rsvps?.[user.uid] === 'GOING'
+    const storedName = members.find(m => m.userId === user.uid)?.displayName || myDisplayName
     const nameUpdate = status === 'GOING'
-      ? { [`rsvpNames.${user.uid}`]: myDisplayName }
+      ? { [`rsvpNames.${user.uid}`]: storedName }
       : { [`rsvpNames.${user.uid}`]: deleteField() }
     await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
       [`rsvps.${user.uid}`]: status,
@@ -242,7 +254,7 @@ export default function PublicTrainingPage() {
           training.authorId,
           'TRAINING_RSVP',
           'Cineva participă la antrenamentul tău! 💪',
-          `${myDisplayName} a confirmat că merge la „${training.name}".`,
+          `${storedName} a confirmat că merge la „${training.name}".`,
           trainingId,
         )
       }
@@ -412,7 +424,7 @@ export default function PublicTrainingPage() {
                   ?? m?.displayName
                   ?? profiles[uid]?.name
                   ?? 'Participant'
-                const photo = m?.photoUrl ?? profiles[uid]?.photoUrl ?? null
+                const photo = (isMe ? myPhotoUrl || null : null) ?? m?.photoUrl ?? profiles[uid]?.photoUrl ?? null
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
                     <MemberAvatar photoUrl={photo} name={name} size={32} />
