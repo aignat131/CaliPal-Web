@@ -911,7 +911,7 @@ export default function CommunityDetailPage() {
                 </p>
                 {(isSuperAdmin || myRole === 'ADMIN') && (
                   <p className="text-xs text-brand-green/70">
-                    Adaugă o descriere din „Editează comunitatea" pentru a informa membrii despre
+                    Adaugă o descriere din &ldquo;Editează comunitatea&rdquo; pentru a informa membrii despre
                     regulile, nivelul și programul comunității.
                   </p>
                 )}
