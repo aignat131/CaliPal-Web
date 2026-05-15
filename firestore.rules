@@ -97,8 +97,8 @@ service cloud.firestore {
       match /posts/{postId} {
         allow read: if isAuth();
         allow create: if isCommunityMember(communityId)
-          && request.resource.data.text is string
-          && request.resource.data.text.size() <= 2000;
+          && request.resource.data.content is string
+          && request.resource.data.content.size() <= 2000;
         allow update: if isAuth() && (
           request.auth.uid == resource.data.authorId ||
           isCommunityStaff(communityId) ||
