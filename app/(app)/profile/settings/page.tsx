@@ -12,7 +12,7 @@ import { db } from '@/lib/firebase/firestore'
 import type { LocationSharingMode } from '@/types'
 import {
   ArrowLeft, ChevronRight, User, LogOut, Lock, Info, Bell,
-  Shield, Sun, Moon, Globe, Ruler, MapPin,
+  Shield, Sun, Moon, MapPin,
 } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
 
@@ -32,15 +32,8 @@ export default function SettingsPage() {
   const { status: pushStatus, requestPermission } = usePushNotifications(user?.uid)
   const { theme, toggle } = useTheme()
 
-  const [language, setLanguage] = useState<'RO' | 'EN'>('RO')
-  const [units, setUnits] = useState<'Metric' | 'Imperial'>('Metric')
   const [locationMode, setLocationMode] = useState<LocationSharingMode>('EVERYWHERE')
   const [isCoach, setIsCoach] = useState(false)
-
-  useEffect(() => {
-    setLanguage((localStorage.getItem('calipal_lang') as 'RO' | 'EN') ?? 'RO')
-    setUnits((localStorage.getItem('calipal_units') as 'Metric' | 'Imperial') ?? 'Metric')
-  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -51,16 +44,6 @@ export default function SettingsPage() {
     })
     return unsub
   }, [user])
-
-  function setLang(lang: 'RO' | 'EN') {
-    setLanguage(lang)
-    localStorage.setItem('calipal_lang', lang)
-  }
-
-  function setUnit(u: 'Metric' | 'Imperial') {
-    setUnits(u)
-    localStorage.setItem('calipal_units', u)
-  }
 
   async function setLocMode(mode: LocationSharingMode) {
     const prev = locationMode
@@ -179,33 +162,6 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          {/* Language */}
-          <div className="flex items-center gap-3 px-4 py-3.5">
-            <span className="text-brand-green"><Globe size={17} /></span>
-            <span className="flex-1 text-sm font-medium text-white">Limbă</span>
-            <div className="flex gap-1.5">
-              {(['RO', 'EN'] as const).map(l => (
-                <button key={l} onClick={() => setLang(l)}
-                  className={`h-7 px-3 rounded-full text-xs font-bold transition-colors ${
-                    language === l ? 'bg-brand-green text-black' : 'border border-white/20 text-white/50'
-                  }`}>{l}</button>
-              ))}
-            </div>
-          </div>
-
-          {/* Units */}
-          <div className="flex items-center gap-3 px-4 py-3.5">
-            <span className="text-brand-green"><Ruler size={17} /></span>
-            <span className="flex-1 text-sm font-medium text-white">Unități</span>
-            <div className="flex gap-1.5">
-              {(['Metric', 'Imperial'] as const).map(u => (
-                <button key={u} onClick={() => setUnit(u)}
-                  className={`h-7 px-3 rounded-full text-xs font-bold transition-colors ${
-                    units === u ? 'bg-brand-green text-black' : 'border border-white/20 text-white/50'
-                  }`}>{u === 'Metric' ? 'kg' : 'lbs'}</button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* About */}
