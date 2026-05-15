@@ -96,6 +96,7 @@ export interface PlannedTraining {
   exercises: TrainingExercise[]
   rsvps: Record<string, 'GOING' | 'NOT_GOING' | 'MAYBE'>
   rsvpNames?: Record<string, string>
+  rsvpPhotos?: Record<string, string>
   guestRsvps?: Record<string, { name: string; status: 'GOING' }>
   equipment?: string[]
   createdAt: Timestamp | null

@@ -13,7 +13,6 @@ import type { PlannedTraining } from '@/types'
 import {
   Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Trash2,
 } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -37,13 +36,15 @@ function formatDate(timeStart: string): string {
 // ── Avatars ───────────────────────────────────────────────────────────────────
 
 function MemberAvatar({ photoUrl, name, size = 32 }: { photoUrl?: string | null; name: string; size?: number }) {
+  const [imgError, setImgError] = useState(false)
   return (
     <div
       className="rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
       style={{ width: size, height: size, backgroundColor: '#1ED75F22', border: '2px solid #1ED75F44' }}
     >
-      {photoUrl
-        ? <Image src={photoUrl} alt={name} width={size} height={size} className="object-cover" />
+      {photoUrl && !imgError
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={photoUrl} alt={name} width={size} height={size} className="object-cover w-full h-full" onError={() => setImgError(true)} />
         : <span className="font-bold text-brand-green" style={{ fontSize: size * 0.38 }}>{name.charAt(0).toUpperCase()}</span>}
     </div>
   )
@@ -88,7 +89,7 @@ async function maybeNotifyAuthor(
 
 export default function StandaloneParkTrainingPage() {
   const { user } = useAuth()
-  const { displayName: myDisplayName } = useMyProfile()
+  const { displayName: myDisplayName, photoUrl: myPhotoUrl } = useMyProfile()
   const router = useRouter()
   const params = useParams()
   const parkId = params.parkId as string
@@ -155,7 +156,7 @@ export default function StandaloneParkTrainingPage() {
       .filter(([, s]) => s === 'GOING')
       .map(([uid]) => uid)
     const uidsToFetch = goingUids.filter(uid =>
-      uid !== user.uid && !training.rsvpNames?.[uid] && uid !== training.authorId
+      uid !== user.uid && (!training.rsvpNames?.[uid] || !training.rsvpPhotos?.[uid]) && uid !== training.authorId
     )
     if (!uidsToFetch.length) return
     Promise.all(
@@ -172,9 +173,12 @@ export default function StandaloneParkTrainingPage() {
         results.forEach(r => { next[r.uid] = { name: r.name, photoUrl: r.photoUrl } })
         return next
       })
-      // Patch rsvpNames so non-auth users can also see participant names
+      // Patch rsvpNames/rsvpPhotos so non-auth users can see participant names and photos
       const patch: Record<string, string> = {}
-      results.forEach(r => { if (r.name) patch[`rsvpNames.${r.uid}`] = r.name })
+      results.forEach(r => {
+        if (r.name && !training.rsvpNames?.[r.uid]) patch[`rsvpNames.${r.uid}`] = r.name
+        if (r.photoUrl && !training.rsvpPhotos?.[r.uid]) patch[`rsvpPhotos.${r.uid}`] = r.photoUrl
+      })
       if (Object.keys(patch).length) {
         updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), patch).catch(() => {})
       }
@@ -188,9 +192,13 @@ export default function StandaloneParkTrainingPage() {
     const nameUpdate = status === 'GOING'
       ? { [`rsvpNames.${user.uid}`]: myDisplayName }
       : { [`rsvpNames.${user.uid}`]: deleteField() }
+    const photoUpdate = status === 'GOING' && myPhotoUrl
+      ? { [`rsvpPhotos.${user.uid}`]: myPhotoUrl }
+      : { [`rsvpPhotos.${user.uid}`]: deleteField() }
     await updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), {
       [`rsvps.${user.uid}`]: status,
       ...nameUpdate,
+      ...photoUpdate,
     })
     if (status === 'GOING' && !wasGoing && user.uid !== training.authorId) {
       await maybeNotifyAuthor(training, parkId, myDisplayName, training.authorId)
@@ -372,7 +380,7 @@ export default function StandaloneParkTrainingPage() {
                   ?? (isMe ? myDisplayName : undefined)
                   ?? profile?.name
                   ?? 'Participant'
-                const photoUrl = isMe ? (user.photoURL ?? null) : (profile?.photoUrl ?? null)
+                const photoUrl = training.rsvpPhotos?.[uid] ?? (isMe ? (myPhotoUrl || user.photoURL || null) : null) ?? profile?.photoUrl ?? null
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
                     <MemberAvatar photoUrl={photoUrl} name={name} size={32} />

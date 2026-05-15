@@ -146,7 +146,7 @@ service cloud.firestore {
           || isCommunityStaff(communityId)
           || (isCommunityMember(communityId)
               && request.resource.data.diff(resource.data).affectedKeys()
-                  .hasOnly(['rsvps', 'rsvpNames', 'lastRsvpNotifAt']))
+                  .hasOnly(['rsvps', 'rsvpNames', 'rsvpPhotos', 'lastRsvpNotifAt']))
           || (request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
               && request.resource.data.guestRsvps.size() <= 200);
@@ -231,7 +231,7 @@ service cloud.firestore {
           || (isAuth() && request.auth.uid == resource.data.authorId)
           || (isAuth()
               && request.resource.data.diff(resource.data).affectedKeys()
-                  .hasOnly(['rsvps', 'rsvpNames', 'lastRsvpNotifAt']))
+                  .hasOnly(['rsvps', 'rsvpNames', 'rsvpPhotos', 'lastRsvpNotifAt']))
           || (request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
               && request.resource.data.guestRsvps.size() <= 200);

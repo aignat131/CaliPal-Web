@@ -13,7 +13,6 @@ import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
   Calendar, Clock, MapPin, Dumbbell, Users, User, Check,
 } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -38,13 +37,15 @@ function formatDate(timeStart: string, legacyDate?: string): string {
 // ── Member Avatar ─────────────────────────────────────────────────────────────
 
 function MemberAvatar({ photoUrl, name, size = 32 }: { photoUrl?: string | null; name: string; size?: number }) {
+  const [imgError, setImgError] = useState(false)
   return (
     <div
       className="rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
       style={{ width: size, height: size, backgroundColor: '#1ED75F22', border: '2px solid #1ED75F44' }}
     >
-      {photoUrl
-        ? <Image src={photoUrl} alt={name} width={size} height={size} className="object-cover" />
+      {photoUrl && !imgError
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={photoUrl} alt={name} width={size} height={size} className="object-cover w-full h-full" onError={() => setImgError(true)} />
         : <span className="font-bold text-brand-green" style={{ fontSize: size * 0.38 }}>{name.charAt(0).toUpperCase()}</span>}
     </div>
   )
@@ -144,18 +145,17 @@ export default function PublicTrainingPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [training?.id, training?.rsvps, user])
 
-  // Patch missing rsvpNames so non-auth users can see participant names
+  // Patch missing rsvpNames/rsvpPhotos so non-auth users can see participant names and photos
   useEffect(() => {
     if (!training || !user || !members.length) return
     const goingUids = Object.entries(training.rsvps ?? {})
       .filter(([, s]) => s === 'GOING')
       .map(([uid]) => uid)
-    const missing = goingUids.filter(uid => !training.rsvpNames?.[uid])
-    if (!missing.length) return
     const patch: Record<string, string> = {}
-    missing.forEach(uid => {
+    goingUids.forEach(uid => {
       const m = members.find(mem => mem.userId === uid)
-      if (m?.displayName) patch[`rsvpNames.${uid}`] = m.displayName
+      if (!training.rsvpNames?.[uid] && m?.displayName) patch[`rsvpNames.${uid}`] = m.displayName
+      if (!training.rsvpPhotos?.[uid] && m?.photoUrl) patch[`rsvpPhotos.${uid}`] = m.photoUrl
     })
     if (!Object.keys(patch).length) return
     updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), patch).catch(() => {})
@@ -254,12 +254,17 @@ export default function PublicTrainingPage() {
     if (!user || !training) return
     const wasGoing = training.rsvps?.[user.uid] === 'GOING'
     const storedName = members.find(m => m.userId === user.uid)?.displayName || myDisplayName
+    const storedPhoto = members.find(m => m.userId === user.uid)?.photoUrl || myPhotoUrl || null
     const nameUpdate = status === 'GOING'
       ? { [`rsvpNames.${user.uid}`]: storedName }
       : { [`rsvpNames.${user.uid}`]: deleteField() }
+    const photoUpdate = status === 'GOING' && storedPhoto
+      ? { [`rsvpPhotos.${user.uid}`]: storedPhoto }
+      : { [`rsvpPhotos.${user.uid}`]: deleteField() }
     await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
       [`rsvps.${user.uid}`]: status,
       ...nameUpdate,
+      ...photoUpdate,
     })
     if (status === 'GOING' && !wasGoing && user.uid !== training.authorId) {
       const now = Date.now()
@@ -434,7 +439,7 @@ export default function PublicTrainingPage() {
                   ?? m?.displayName
                   ?? profiles[uid]?.name
                   ?? 'Participant'
-                const photo = (isMe ? myPhotoUrl || null : null) ?? m?.photoUrl ?? profiles[uid]?.photoUrl ?? null
+                const photo = training.rsvpPhotos?.[uid] ?? (isMe ? myPhotoUrl || null : null) ?? m?.photoUrl ?? profiles[uid]?.photoUrl ?? null
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
                     <MemberAvatar photoUrl={photo} name={name} size={32} />
