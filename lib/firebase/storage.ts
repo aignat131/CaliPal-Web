@@ -24,12 +24,15 @@ function validateVideo(file: File) {
     throw new Error(`Videoclipul depășește limita de 100 MB.`)
 }
 
-// Profile photos arrive already cropped + compressed from the crop modal
+// Profile photos arrive already cropped + compressed from the crop modal.
+// We return a stable token-free URL (works because storage rules allow public read).
+// This URL never changes when the file is overwritten, so all stored references stay valid.
 export async function uploadProfilePhoto(uid: string, file: File): Promise<string> {
   validateImage(file)
   const storageRef = ref(storage, `profile_photos/${uid}/photo.jpg`)
   await uploadBytes(storageRef, file, { contentType: 'image/jpeg' })
-  return getDownloadURL(storageRef)
+  const stableUrl = `https://firebasestorage.googleapis.com/v0/b/${storageRef.bucket}/o/${encodeURIComponent(storageRef.fullPath)}?alt=media`
+  return stableUrl
 }
 
 export async function uploadCommunityPhoto(communityId: string, file: File): Promise<string> {
