@@ -156,7 +156,7 @@ export default function StandaloneParkTrainingPage() {
       .filter(([, s]) => s === 'GOING')
       .map(([uid]) => uid)
     const uidsToFetch = goingUids.filter(uid =>
-      uid !== user.uid && (!training.rsvpNames?.[uid] || !training.rsvpPhotos?.[uid]) && uid !== training.authorId
+      (!training.rsvpNames?.[uid] || !training.rsvpPhotos?.[uid]) && uid !== training.authorId
     )
     if (!uidsToFetch.length) return
     Promise.all(
@@ -380,7 +380,7 @@ export default function StandaloneParkTrainingPage() {
                   ?? (isMe ? myDisplayName : undefined)
                   ?? profile?.name
                   ?? 'Participant'
-                const photoUrl = (isMe ? myPhotoUrl || null : null) ?? profile?.photoUrl ?? training.rsvpPhotos?.[uid] ?? null
+                const photoUrl = profile?.photoUrl || (isMe ? myPhotoUrl || null : null) || training.rsvpPhotos?.[uid] || null
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
                     <MemberAvatar photoUrl={photoUrl} name={name} size={32} />

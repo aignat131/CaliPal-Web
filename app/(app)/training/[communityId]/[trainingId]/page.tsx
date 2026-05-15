@@ -124,7 +124,7 @@ export default function PublicTrainingPage() {
       .filter(([, s]) => s === 'GOING')
       .map(([uid]) => uid)
     const uidsToFetch = goingUids.filter(uid =>
-      uid !== user.uid && uid !== training.authorId && !profiles[uid]
+      uid !== training.authorId && !profiles[uid]
     )
     if (!uidsToFetch.length) return
     Promise.all(
@@ -439,7 +439,7 @@ export default function PublicTrainingPage() {
                   ?? m?.displayName
                   ?? profiles[uid]?.name
                   ?? 'Participant'
-                const photo = (isMe ? myPhotoUrl || null : null) ?? profiles[uid]?.photoUrl ?? training.rsvpPhotos?.[uid] ?? m?.photoUrl ?? null
+                const photo = profiles[uid]?.photoUrl || (isMe ? myPhotoUrl || null : null) || training.rsvpPhotos?.[uid] || m?.photoUrl || null
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
                     <MemberAvatar photoUrl={photo} name={name} size={32} />
