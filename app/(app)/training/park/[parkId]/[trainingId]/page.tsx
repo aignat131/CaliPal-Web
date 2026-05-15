@@ -11,7 +11,7 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { PlannedTraining } from '@/types'
 import {
-  ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Trash2,
+  Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Trash2,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -172,6 +172,12 @@ export default function StandaloneParkTrainingPage() {
         results.forEach(r => { next[r.uid] = { name: r.name, photoUrl: r.photoUrl } })
         return next
       })
+      // Patch rsvpNames so non-auth users can also see participant names
+      const patch: Record<string, string> = {}
+      results.forEach(r => { if (r.name) patch[`rsvpNames.${r.uid}`] = r.name })
+      if (Object.keys(patch).length) {
+        updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), patch).catch(() => {})
+      }
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [training?.id, training?.rsvpNames, user?.uid])
@@ -261,14 +267,6 @@ export default function StandaloneParkTrainingPage() {
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="max-w-lg mx-auto px-4 py-4">
-
-        {/* Back */}
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-white/50 hover:text-white/80 transition-colors mb-5 text-sm"
-        >
-          <ArrowLeft size={16} /> Înapoi
-        </button>
 
         {/* Park link */}
         {parkName && (

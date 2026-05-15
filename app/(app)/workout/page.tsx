@@ -1715,13 +1715,6 @@ function WorkoutSummary({
           <p className="text-xs text-brand-green text-center mb-3">✓ Postat în comunitate!</p>
         )}
 
-        <button
-          onClick={onDone}
-          className="w-full rounded-full font-bold text-black bg-brand-green"
-          style={{ height: 52 }}
-        >
-          Înapoi la antrenamente
-        </button>
       </div>
 
       {showShare && (

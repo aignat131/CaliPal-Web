@@ -11,7 +11,7 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
-  ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, User, Check,
+  Calendar, Clock, MapPin, Dumbbell, Users, User, Check,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -143,6 +143,24 @@ export default function PublicTrainingPage() {
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [training?.id, training?.rsvps, user])
+
+  // Patch missing rsvpNames so non-auth users can see participant names
+  useEffect(() => {
+    if (!training || !user || !members.length) return
+    const goingUids = Object.entries(training.rsvps ?? {})
+      .filter(([, s]) => s === 'GOING')
+      .map(([uid]) => uid)
+    const missing = goingUids.filter(uid => !training.rsvpNames?.[uid])
+    if (!missing.length) return
+    const patch: Record<string, string> = {}
+    missing.forEach(uid => {
+      const m = members.find(mem => mem.userId === uid)
+      if (m?.displayName) patch[`rsvpNames.${uid}`] = m.displayName
+    })
+    if (!Object.keys(patch).length) return
+    updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), patch).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [training?.id, training?.rsvps, members])
 
   // Load training (real-time)
   useEffect(() => {
@@ -294,14 +312,6 @@ export default function PublicTrainingPage() {
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="max-w-lg mx-auto px-4 py-4">
-
-        {/* Back */}
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-white/50 hover:text-white/80 transition-colors mb-5 text-sm"
-        >
-          <ArrowLeft size={16} /> Înapoi
-        </button>
 
         {/* Community link */}
         {community && (
