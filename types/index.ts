@@ -65,6 +65,7 @@ export interface CommunityPost {
   authorId: string
   authorName: string
   authorRole: MemberRole
+  authorPhotoUrl?: string | null
   content: string
   likesCount: number
   commentsCount: number

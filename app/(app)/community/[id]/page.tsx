@@ -308,6 +308,7 @@ export default function CommunityDetailPage() {
         authorId: user.uid,
         authorName: myName,
         authorRole: myRole,
+        ...(myPhoto && { authorPhotoUrl: myPhoto }),
         content: postText.trim(),
         likesCount: 0,
         commentsCount: 0,
@@ -1506,11 +1507,12 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
     <div className="rounded-2xl p-4 mb-3" style={{ backgroundColor: 'var(--app-surface)' }}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center"
+          <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: '#1ED75F22', border: `1.5px solid ${roleColor}` }}>
-            <span className="text-xs font-black" style={{ color: roleColor }}>
-              {post.authorName.charAt(0).toUpperCase()}
-            </span>
+            {post.authorPhotoUrl
+              ? <Image src={post.authorPhotoUrl} alt={post.authorName} width={32} height={32} className="object-cover w-full h-full" />
+              : <span className="text-xs font-black" style={{ color: roleColor }}>{post.authorName.charAt(0).toUpperCase()}</span>
+            }
           </div>
           <div>
             <span className="text-sm font-bold text-white">{post.authorName}</span>

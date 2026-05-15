@@ -449,6 +449,7 @@ export default function WorkoutPage() {
           onDone={() => { setScreen('home'); setTab(1); setAutoOpenShare(false) }}
           userId={user?.uid ?? ''}
           userDisplayName={profile?.displayName ?? user?.displayName ?? ''}
+          userPhotoURL={profile?.photoUrl ?? user?.photoURL ?? null}
           joinedCommunityIds={profile?.joinedCommunityIds ?? []}
           favoriteCommunityId={profile?.favoriteCommunityId}
           startedAt={workoutStartedAt}
@@ -1537,7 +1538,7 @@ function PostWorkoutDetails({
 // ── Workout Summary ────────────────────────────────────────────────────────────
 
 function WorkoutSummary({
-  workout, coinsEarned, onDone, userId, userDisplayName, joinedCommunityIds, favoriteCommunityId, startedAt,
+  workout, coinsEarned, onDone, userId, userDisplayName, userPhotoURL, joinedCommunityIds, favoriteCommunityId, startedAt,
   photoFile, autoOpenShare,
 }: {
   workout: WorkoutDoc
@@ -1545,6 +1546,7 @@ function WorkoutSummary({
   onDone: () => void
   userId: string
   userDisplayName: string
+  userPhotoURL?: string | null
   joinedCommunityIds: string[]
   favoriteCommunityId?: string | null
   startedAt: number | null
@@ -1616,6 +1618,7 @@ function WorkoutSummary({
         authorId: userId,
         authorName: userDisplayName,
         authorRole: role,
+        ...(userPhotoURL && { authorPhotoUrl: userPhotoURL }),
         content,
         likesCount: 0,
         commentsCount: 0,
