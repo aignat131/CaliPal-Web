@@ -1607,12 +1607,13 @@ function WorkoutSummary({
 
       const memberSnap = await getDoc(doc(db, 'communities', selectedCommId, 'members', userId))
       const role = memberSnap.exists() ? memberSnap.data().role : 'MEMBER'
+      const workoutDate = new Date(startedAt ?? Date.now())
+      const dateStr = workoutDate.toLocaleDateString('ro', { day: '2-digit', month: 'long', year: 'numeric' })
+      const timeStr = workoutDate.toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })
       const descLine = description.trim() ? `\n${description.trim()}` : ''
       const content = [
-        '💪 Antrenament finalizat!' + descLine,
-        `⏱ ${formatDuration(workout.durationSeconds)} · 🔁 ${workout.totalReps} rep`,
-        '',
-        ...workout.exercises.map(e => exerciseOneLiner(e)),
+        `${dateStr}, ${timeStr}` + descLine,
+        `⏱ ${formatDuration(workout.durationSeconds)}`,
       ].join('\n')
       await addDoc(collection(db, 'communities', selectedCommId, 'posts'), {
         authorId: userId,
