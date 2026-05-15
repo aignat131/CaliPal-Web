@@ -380,7 +380,7 @@ export default function StandaloneParkTrainingPage() {
                   ?? (isMe ? myDisplayName : undefined)
                   ?? profile?.name
                   ?? 'Participant'
-                const photoUrl = training.rsvpPhotos?.[uid] ?? (isMe ? (myPhotoUrl || user.photoURL || null) : null) ?? profile?.photoUrl ?? null
+                const photoUrl = (isMe ? myPhotoUrl || null : null) ?? profile?.photoUrl ?? training.rsvpPhotos?.[uid] ?? null
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
                     <MemberAvatar photoUrl={photoUrl} name={name} size={32} />

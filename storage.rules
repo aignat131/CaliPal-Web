@@ -14,9 +14,9 @@ service firebase.storage {
       return isAuth() && member != null && member.data.role in ['ADMIN', 'MODERATOR'];
     }
 
-    // Profile photos — owner writes, any auth user reads
+    // Profile photos — owner writes, publicly readable (needed for shared training pages)
     match /profile_photos/{uid}/{fileName} {
-      allow read: if isAuth();
+      allow read: if true;
       allow write: if isOwner(uid)
         && request.resource.contentType.matches('image/.*')
         && request.resource.size <= 8 * 1024 * 1024;

@@ -439,7 +439,7 @@ export default function PublicTrainingPage() {
                   ?? m?.displayName
                   ?? profiles[uid]?.name
                   ?? 'Participant'
-                const photo = training.rsvpPhotos?.[uid] ?? (isMe ? myPhotoUrl || null : null) ?? m?.photoUrl ?? profiles[uid]?.photoUrl ?? null
+                const photo = (isMe ? myPhotoUrl || null : null) ?? profiles[uid]?.photoUrl ?? training.rsvpPhotos?.[uid] ?? m?.photoUrl ?? null
                 return (
                   <div key={uid} className="flex items-center gap-2.5">
                     <MemberAvatar photoUrl={photo} name={name} size={32} />

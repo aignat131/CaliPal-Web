@@ -1,5 +1,6 @@
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { app } from './config'
+import { compressImage } from '@/lib/utils/imageUtils'
 
 if (!app) throw new Error('Firebase failed to initialize. Check NEXT_PUBLIC_FIREBASE_* env vars.')
 export const storage = getStorage(app)
@@ -23,24 +24,27 @@ function validateVideo(file: File) {
     throw new Error(`Videoclipul depășește limita de 100 MB.`)
 }
 
+// Profile photos arrive already cropped + compressed from the crop modal
 export async function uploadProfilePhoto(uid: string, file: File): Promise<string> {
   validateImage(file)
   const storageRef = ref(storage, `profile_photos/${uid}/photo.jpg`)
-  await uploadBytes(storageRef, file)
+  await uploadBytes(storageRef, file, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)
 }
 
 export async function uploadCommunityPhoto(communityId: string, file: File): Promise<string> {
   validateImage(file)
+  const compressed = await compressImage(file, { maxDimension: 1200, quality: 0.82 })
   const storageRef = ref(storage, `community_photos/${communityId}/photo.jpg`)
-  await uploadBytes(storageRef, file)
+  await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)
 }
 
 export async function uploadWorkoutPhoto(userId: string, timestamp: number, file: File): Promise<string> {
   validateImage(file)
+  const compressed = await compressImage(file, { maxDimension: 1080, quality: 0.82 })
   const storageRef = ref(storage, `workout_photos/${userId}/${timestamp}.jpg`)
-  await uploadBytes(storageRef, file)
+  await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)
 }
 
