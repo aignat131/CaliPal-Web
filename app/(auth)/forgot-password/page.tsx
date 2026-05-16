@@ -4,12 +4,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { sendPasswordResetEmail, AuthError } from 'firebase/auth'
 import { auth } from '@/lib/firebase/auth'
+import { useT } from '@/lib/context/LanguageContext'
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
 export default function ForgotPasswordPage() {
+  const t = useT()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -20,7 +22,7 @@ export default function ForgotPasswordPage() {
   async function handleSend() {
     setErrorMessage('')
     if (!isValidEmail(email)) {
-      setErrorMessage('Introdu un email valid.')
+      setErrorMessage(t('auth.invalid_email_error'))
       return
     }
     setLoading(true)
@@ -33,7 +35,7 @@ export default function ForgotPasswordPage() {
         // Don't reveal if email exists — just show success
         setEmailSent(true)
       } else {
-        setErrorMessage('A apărut o eroare. Încearcă din nou.')
+        setErrorMessage(t('auth.error_generic'))
       }
     } finally {
       setLoading(false)
@@ -47,7 +49,7 @@ export default function ForgotPasswordPage() {
       await sendPasswordResetEmail(auth, email)
       setResendDone(true)
     } catch {
-      setResendError('Retrimite a eșuat. Încearcă din nou.')
+      setResendError(t('auth.resend_failed'))
     }
   }
 
@@ -66,7 +68,7 @@ export default function ForgotPasswordPage() {
         {/* Back button */}
         <Link href="/login">
           <span className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-[14px] bg-white/8 text-[13px] font-semibold text-white/70 hover:text-white/90 transition-colors">
-            ← Înapoi la login
+            {t('auth.back_to_login')}
           </span>
         </Link>
 
@@ -80,9 +82,9 @@ export default function ForgotPasswordPage() {
               <span className="text-[30px]">🔑</span>
             </div>
 
-            <h1 className="text-[26px] font-black text-white tracking-tight mb-2.5">Ai uitat parola?</h1>
+            <h1 className="text-[26px] font-black text-white tracking-tight mb-2.5">{t('auth.forgot_title')}</h1>
             <p className="text-[14px] text-white/55 leading-relaxed mb-8">
-              Introdu adresa de email asociată contului tău și îți trimitem un link de resetare.
+              {t('auth.forgot_desc')}
             </p>
 
             {/* Error */}
@@ -92,7 +94,7 @@ export default function ForgotPasswordPage() {
               </div>
             )}
 
-            <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">EMAIL</p>
+            <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">{t('auth.email_label')}</p>
             <input
               type="email"
               value={email}
@@ -101,7 +103,7 @@ export default function ForgotPasswordPage() {
               className="w-full h-[54px] rounded-[14px] px-4 text-[17px] font-semibold text-white placeholder:text-white/22 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 focus:bg-brand-green/8 transition-colors"
             />
             <p className="text-xs text-white/35 mt-2 mb-6 leading-relaxed">
-              Verifică și folderul de spam dacă nu primești emailul în câteva minute.
+              {t('auth.spam_check')}
             </p>
 
             <button
@@ -112,7 +114,7 @@ export default function ForgotPasswordPage() {
             >
               {loading
                 ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : 'Trimite link de resetare →'}
+                : t('auth.send_reset')}
             </button>
           </div>
         ) : (
@@ -122,14 +124,14 @@ export default function ForgotPasswordPage() {
               <span className="text-[36px]">✉️</span>
             </div>
 
-            <h2 className="text-[26px] font-black text-white tracking-tight mb-3">Email trimis!</h2>
+            <h2 className="text-[26px] font-black text-white tracking-tight mb-3">{t('auth.email_sent_title')}</h2>
 
             <span className="px-4 py-1.5 rounded-full bg-brand-green/15 text-brand-green text-[13px] font-bold mb-4">
               {email}
             </span>
 
             <p className="text-[14px] text-white/55 leading-relaxed text-center mb-9">
-              Am trimis un link de resetare a parolei. Verifică inbox-ul și urmează instrucțiunile.
+              {t('auth.email_sent_desc')}
             </p>
 
             <Link href="/login" className="w-full">
@@ -137,19 +139,19 @@ export default function ForgotPasswordPage() {
                 className="w-full border border-white/20 rounded-full font-bold text-sm text-white/80 hover:bg-white/5 transition-colors"
                 style={{ height: 52 }}
               >
-                Înapoi la login
+                {t('auth.back_login_btn')}
               </button>
             </Link>
 
             <div className="h-4" />
 
             <div className="flex items-center gap-1.5">
-              <span className="text-[13px] text-white/35">Nu ai primit emailul?</span>
+              <span className="text-[13px] text-white/35">{t('auth.no_email')}</span>
               <button
                 onClick={handleResend}
                 className={`text-[13px] font-bold transition-colors ${resendDone ? 'text-brand-green' : 'text-brand-green/80 hover:text-brand-green'}`}
               >
-                {resendDone ? 'Trimis ✓' : 'Retrimite'}
+                {resendDone ? t('auth.resent') : t('auth.resend')}
               </button>
             </div>
             {resendError && (

@@ -10,19 +10,20 @@ import {
 } from 'firebase/auth'
 import { auth, googleProvider } from '@/lib/firebase/auth'
 import { ensureUserDoc } from '@/lib/firebase/firestore'
+import { useT } from '@/lib/context/LanguageContext'
 
-function authErrorMessage(e: AuthError): string {
+function authErrorMessage(e: AuthError, t: (key: string) => string): string {
   switch (e.code) {
     case 'auth/user-not-found':
     case 'auth/wrong-password':
     case 'auth/invalid-credential':
-      return 'Email sau parolă incorectă.'
+      return t('auth.error_wrong_creds')
     case 'auth/too-many-requests':
-      return 'Prea multe încercări. Încearcă din nou mai târziu.'
+      return t('auth.error_too_many')
     case 'auth/network-request-failed':
-      return 'Eroare de rețea. Verifică conexiunea.'
+      return t('auth.error_network')
     default:
-      return 'A apărut o eroare. Încearcă din nou.'
+      return t('auth.error_generic')
   }
 }
 
@@ -32,6 +33,7 @@ function isValidEmail(email: string) {
 
 export default function LoginPage() {
   const router = useRouter()
+  const t = useT()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -45,14 +47,14 @@ export default function LoginPage() {
     setEmailError('')
     setPasswordError('')
     setErrorMessage('')
-    if (!email) { setEmailError('Email-ul este obligatoriu.'); valid = false }
-    else if (!isValidEmail(email)) { setEmailError('Email invalid.'); valid = false }
-    if (!password) { setPasswordError('Parola este obligatorie.'); valid = false }
+    if (!email) { setEmailError(t('auth.email_required')); valid = false }
+    else if (!isValidEmail(email)) { setEmailError(t('auth.email_invalid')); valid = false }
+    if (!password) { setPasswordError(t('auth.password_required')); valid = false }
     return valid
   }
 
   async function handleLogin() {
-    if (!auth) { setErrorMessage('Firebase nu este configurat.'); return }
+    if (!auth) { setErrorMessage(t('auth.firebase_not_configured')); return }
     if (!validate()) return
     setLoading(true)
     try {
@@ -60,14 +62,14 @@ export default function LoginPage() {
       await ensureUserDoc(credential.user)
       router.replace('/home')
     } catch (e) {
-      setErrorMessage(authErrorMessage(e as AuthError))
+      setErrorMessage(authErrorMessage(e as AuthError, t))
     } finally {
       setLoading(false)
     }
   }
 
   async function handleGoogle() {
-    if (!auth) { setErrorMessage('Firebase nu este configurat.'); return }
+    if (!auth) { setErrorMessage(t('auth.firebase_not_configured')); return }
     setLoading(true)
     setErrorMessage('')
     try {
@@ -75,7 +77,7 @@ export default function LoginPage() {
       await ensureUserDoc(result.user)
       router.replace('/home')
     } catch (e) {
-      setErrorMessage(authErrorMessage(e as AuthError))
+      setErrorMessage(authErrorMessage(e as AuthError, t))
     } finally {
       setLoading(false)
     }
@@ -98,7 +100,7 @@ export default function LoginPage() {
             <span className="text-4xl">🏋️</span>
           </div>
           <h1 className="text-[26px] font-black text-white tracking-tight">CaliPal</h1>
-          <p className="text-[13px] text-white/50 mt-0.5">Bine ai revenit</p>
+          <p className="text-[13px] text-white/50 mt-0.5">{t('auth.welcome_back')}</p>
         </div>
 
         {/* Error */}
@@ -110,7 +112,7 @@ export default function LoginPage() {
 
         {/* Email */}
         <Field
-          label="EMAIL"
+          label={t('auth.email_label')}
           value={email}
           placeholder="andrei@yahoo.com"
           type="email"
@@ -121,6 +123,7 @@ export default function LoginPage() {
 
         {/* Password */}
         <PasswordField
+          label={t('auth.password_label')}
           value={password}
           show={showPassword}
           onToggle={() => setShowPassword(!showPassword)}
@@ -131,7 +134,7 @@ export default function LoginPage() {
         {/* Forgot */}
         <div className="flex justify-end mt-1 mb-6">
           <Link href="/forgot-password" className="text-xs font-semibold text-brand-green/80 hover:text-brand-green">
-            Ai uitat parola?
+            {t('auth.forgot_password_link')}
           </Link>
         </div>
 
@@ -144,13 +147,13 @@ export default function LoginPage() {
         >
           {loading
             ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            : 'Intră în cont'}
+            : t('auth.login_btn')}
         </button>
 
         {/* Divider */}
         <div className="flex items-center gap-3 my-5">
           <div className="flex-1 h-px bg-white/10" />
-          <span className="text-xs font-bold text-white/30 tracking-widest">SAU</span>
+          <span className="text-xs font-bold text-white/30 tracking-widest">{t('auth.or')}</span>
           <div className="flex-1 h-px bg-white/10" />
         </div>
 
@@ -162,7 +165,7 @@ export default function LoginPage() {
           style={{ height: 50 }}
         >
           <span className="text-lg font-extrabold text-[#4285F4]">G</span>
-          Continuă cu Google
+          {t('auth.continue_google')}
         </button>
 
         <div className="h-3" />
@@ -173,7 +176,7 @@ export default function LoginPage() {
             className="w-full border border-white/20 rounded-full font-bold text-sm text-white/80 hover:bg-white/5 transition-colors"
             style={{ height: 50 }}
           >
-            Nu ai cont? Creează unul rapid!
+            {t('auth.no_account')}
           </button>
         </Link>
 
@@ -181,7 +184,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-center gap-1.5 mt-6">
           <span className="text-brand-green/60 text-xs">🔒</span>
           <p className="text-[10px] font-bold tracking-[1.2px] text-white/30 uppercase">
-            Conexiune securizată · Date criptate · Firebase Auth
+            {t('auth.secure_strip')}
           </p>
         </div>
       </div>
@@ -216,15 +219,15 @@ function Field({
 }
 
 function PasswordField({
-  value, show, onToggle, onChange, error,
+  label, value, show, onToggle, onChange, error,
 }: {
-  value: string; show: boolean; onToggle: () => void
+  label: string; value: string; show: boolean; onToggle: () => void
   onChange: (v: string) => void; error?: string
 }) {
   return (
     <div>
       <p className={`text-[11px] font-bold tracking-[1.5px] mb-1.5 ${error ? 'text-red-400' : 'text-white/45'}`}>
-        PAROLĂ
+        {label}
       </p>
       <div className="relative">
         <input

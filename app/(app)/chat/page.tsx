@@ -8,15 +8,16 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { ConversationDoc } from '@/types'
 import { ArrowLeft, MessageSquare } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
-function formatTs(ts: { toDate?: () => Date } | null | undefined): string {
+function formatTs(ts: { toDate?: () => Date } | null | undefined, yesterdayLabel: string): string {
   if (!ts) return ''
   const date = ts.toDate ? ts.toDate() : new Date()
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
   if (diffDays === 0) return date.toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })
-  if (diffDays === 1) return 'Ieri'
+  if (diffDays === 1) return yesterdayLabel
   if (diffDays < 7) return date.toLocaleDateString('ro', { weekday: 'short' })
   return date.toLocaleDateString('ro', { day: '2-digit', month: '2-digit' })
 }
@@ -24,6 +25,7 @@ function formatTs(ts: { toDate?: () => Date } | null | undefined): string {
 export default function ChatListPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const t = useT()
   const [conversations, setConversations] = useState<ConversationDoc[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -57,7 +59,7 @@ export default function ChatListPage() {
           <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
             <ArrowLeft size={18} className="text-white/80" />
           </button>
-          <h1 className="text-lg font-black text-white">Mesaje</h1>
+          <h1 className="text-lg font-black text-white">{t('chat.title')}</h1>
         </div>
 
         {loading
@@ -66,8 +68,8 @@ export default function ChatListPage() {
             ? (
               <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
                 <MessageSquare size={56} className="text-white/15 mb-4" />
-                <p className="text-base font-semibold text-white/60 mb-1">Nicio conversație încă</p>
-                <p className="text-sm text-white/35">Trimite un mesaj unui membru din comunitate.</p>
+                <p className="text-base font-semibold text-white/60 mb-1">{t('chat.no_convs')}</p>
+                <p className="text-sm text-white/35">{t('chat.no_convs_sub')}</p>
               </div>
             )
             : conversations.map(conv => {
@@ -87,11 +89,11 @@ export default function ChatListPage() {
                       {otherName}
                     </p>
                     <p className={`text-xs truncate mt-0.5 ${hasUnread ? 'text-white/80 font-semibold' : 'text-white/40'}`}>
-                      {conv.lastMessage || 'Începe o conversație'}
+                      {conv.lastMessage || t('chat.start')}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <span className="text-[11px] text-white/35">{formatTs(conv.lastMessageTimestamp)}</span>
+                    <span className="text-[11px] text-white/35">{formatTs(conv.lastMessageTimestamp, t('chat.yesterday'))}</span>
                     {hasUnread && (
                       <span className="w-5 h-5 rounded-full bg-brand-green flex items-center justify-center text-[10px] font-black text-black">
                         {unread > 99 ? '99+' : unread}

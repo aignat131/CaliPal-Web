@@ -6,15 +6,16 @@ import { markAllRead, deleteNotification } from '@/lib/firebase/notifications'
 import { useNotifications } from '@/lib/context/NotificationContext'
 import type { AppNotification } from '@/types'
 import { X, Bell, MessageSquare, UserPlus, UserCheck, Dumbbell, MapPin, Trash2, Users } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
-function timeAgo(ts: { toDate?: () => Date } | null | undefined): string {
+function timeAgo(ts: { toDate?: () => Date } | null | undefined, nowLabel: string, daySuffix: string): string {
   if (!ts) return ''
   const date = ts.toDate ? ts.toDate() : new Date()
   const diff = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (diff < 60) return 'acum'
+  if (diff < 60) return nowLabel
   if (diff < 3600) return `${Math.floor(diff / 60)}m`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-  return `${Math.floor(diff / 86400)}z`
+  return `${Math.floor(diff / 86400)}${daySuffix}`
 }
 
 function notifIcon(type: AppNotification['type']) {
@@ -102,6 +103,7 @@ export function NotificationBell({ uid }: { uid: string }) {
 
 function NotificationPanel({ uid, onClose }: { uid: string; onClose: () => void }) {
   const router = useRouter()
+  const t = useT()
   const { notifications } = useNotifications()
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -144,7 +146,7 @@ function NotificationPanel({ uid, onClose }: { uid: string; onClose: () => void 
         <div className="flex items-center justify-between px-4 pt-5 pb-3 border-b border-white/8 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Bell size={16} className="text-brand-green" />
-            <span className="font-black text-white text-sm">Notificări</span>
+            <span className="font-black text-white text-sm">{t('notif.title')}</span>
           </div>
           <button
             onClick={onClose}
@@ -159,8 +161,8 @@ function NotificationPanel({ uid, onClose }: { uid: string; onClose: () => void 
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
               <Bell size={40} className="text-white/15" />
-              <p className="text-sm text-white/40 font-medium">Nicio notificare</p>
-              <p className="text-xs text-white/25">Vei primi notificări când prietenii tăi sunt activi.</p>
+              <p className="text-sm text-white/40 font-medium">{t('notif.empty')}</p>
+              <p className="text-xs text-white/25">{t('notif.empty_desc')}</p>
             </div>
           ) : (
             <div className="divide-y divide-white/6">
@@ -186,7 +188,9 @@ function NotificationPanel({ uid, onClose }: { uid: string; onClose: () => void 
                       <p className={`text-xs font-bold truncate ${n.isRead ? 'text-white/70' : 'text-white'}`}>
                         {n.title}
                       </p>
-                      <span className="text-[10px] text-white/30 flex-shrink-0">{timeAgo(n.createdAt)}</span>
+                      <span className="text-[10px] text-white/30 flex-shrink-0">
+                        {timeAgo(n.createdAt, t('notif.now'), t('notif.day_suffix'))}
+                      </span>
                     </div>
                     <p className="text-[11px] text-white/50 leading-relaxed mt-0.5 line-clamp-2">{n.body}</p>
                   </div>

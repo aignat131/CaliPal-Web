@@ -9,7 +9,9 @@ import AppNav from '@/components/layout/AppNav'
 import OfflineBanner from '@/components/layout/OfflineBanner'
 import { WorkoutProvider, useWorkout } from '@/lib/context/WorkoutContext'
 import { NotificationProvider } from '@/lib/context/NotificationContext'
+import { LanguageProvider } from '@/lib/context/LanguageContext'
 import { ChevronRight, Dumbbell } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -37,6 +39,7 @@ function WorkoutMiniBar() {
   const { isActive, seconds } = useWorkout()
   const pathname = usePathname()
   const router = useRouter()
+  const t = useT()
 
   if (!isActive || pathname === '/workout') return null
 
@@ -49,7 +52,7 @@ function WorkoutMiniBar() {
       <span className="w-2 h-2 rounded-full bg-black animate-pulse flex-shrink-0" />
       <Dumbbell size={14} className="text-black flex-shrink-0" />
       <span className="text-sm font-black text-black whitespace-nowrap">
-        Antrenament activ · {formatDuration(seconds)}
+        {t('layout.active_workout')} · {formatDuration(seconds)}
       </span>
       <ChevronRight size={15} className="text-black flex-shrink-0" />
     </button>
@@ -97,12 +100,14 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider>
-      <WorkoutProvider>
-        <NotificationProvider>
-          <AppLayoutInner>{children}</AppLayoutInner>
-        </NotificationProvider>
-      </WorkoutProvider>
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <WorkoutProvider>
+          <NotificationProvider>
+            <AppLayoutInner>{children}</AppLayoutInner>
+          </NotificationProvider>
+        </WorkoutProvider>
+      </ThemeProvider>
+    </LanguageProvider>
   )
 }

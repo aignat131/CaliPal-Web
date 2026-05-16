@@ -8,10 +8,12 @@ import { uploadProfilePhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { ArrowLeft, Camera } from 'lucide-react'
 import ImageCropModal from '@/components/ui/ImageCropModal'
+import { useT } from '@/lib/context/LanguageContext'
 
 export default function EditProfilePage() {
   const { user } = useAuth()
   const router = useRouter()
+  const t = useT()
   const fileRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [bio, setBio] = useState('')
@@ -45,7 +47,7 @@ export default function EditProfilePage() {
     e.target.value = ''  // allow re-selecting same file
     const ALLOWED = ['image/jpeg', 'image/png', 'image/webp']
     if (!ALLOWED.includes(file.type)) {
-      setError('Doar imagini JPEG, PNG sau WebP.')
+      setError(t('edit.error_file'))
       return
     }
     setError('')
@@ -85,7 +87,7 @@ export default function EditProfilePage() {
       await updateProfile(user, { displayName: name.trim(), photoURL: finalPhotoUrl })
       router.back()
     } catch {
-      setError('A apărut o eroare. Încearcă din nou.')
+      setError(t('edit.error_save'))
     } finally {
       setSaving(false)
     }
@@ -119,7 +121,7 @@ export default function EditProfilePage() {
             <button onClick={() => router.back()} className="w-9 h-9 rounded-full flex items-center justify-center bg-white/8 hover:bg-white/12 transition-colors">
               <ArrowLeft size={18} className="text-white/80" />
             </button>
-            <h1 className="text-lg font-black text-white">Date Personale</h1>
+            <h1 className="text-lg font-black text-white">{t('edit.title')}</h1>
           </div>
 
           {/* Avatar picker */}
@@ -137,7 +139,7 @@ export default function EditProfilePage() {
               </div>
             </div>
             <p className="text-xs text-brand-green mt-2">
-              {displayUrl ? 'Schimbă fotografia' : 'Adaugă fotografie'}
+              {displayUrl ? t('edit.change_photo') : t('edit.add_photo')}
             </p>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
           </div>
@@ -145,21 +147,21 @@ export default function EditProfilePage() {
           {/* Fields */}
           <div className="flex flex-col gap-4">
             <div>
-              <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">NUME</p>
+              <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">{t('edit.name_label')}</p>
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="Numele tău"
+                placeholder={t('edit.name_placeholder')}
                 className="w-full h-[54px] rounded-[14px] px-4 text-[16px] font-semibold text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 focus:bg-brand-green/8 transition-colors"
               />
             </div>
 
             <div>
-              <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">BIO</p>
+              <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">{t('edit.bio_label')}</p>
               <textarea
                 value={bio}
                 onChange={e => setBio(e.target.value)}
-                placeholder="Câteva cuvinte despre tine..."
+                placeholder={t('edit.bio_placeholder')}
                 rows={3}
                 className="w-full rounded-[14px] px-4 py-3 text-[15px] text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 focus:bg-brand-green/8 transition-colors resize-none"
               />
@@ -175,7 +177,7 @@ export default function EditProfilePage() {
             >
               {saving
                 ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : 'Salvează'}
+                : t('edit.save')}
             </button>
           </div>
         </div>

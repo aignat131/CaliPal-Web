@@ -17,12 +17,14 @@ import type {
 import { Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, Play, BookOpen } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
+import { useT } from '@/lib/context/LanguageContext'
 
 const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth()
   const { status: pushStatus, requestPermission } = usePushNotifications(user?.uid)
+  const t = useT()
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null)
   const [joinedCommunities, setJoinedCommunities] = useState<CommunityDoc[]>([])
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
@@ -147,7 +149,7 @@ export default function HomePage() {
   const streak = userDoc?.currentStreak ?? 0
 
   const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Bună dimineața' : hour < 18 ? 'Bună ziua' : 'Bună seara'
+  const greeting = hour < 12 ? t('home.greeting_morning') : hour < 18 ? t('home.greeting_afternoon') : t('home.greeting_evening')
 
   const showPushBanner = pushStatus === 'idle' && !dismissedPush
 
@@ -169,7 +171,7 @@ export default function HomePage() {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-black text-white">Acasă</h1>
+          <h1 className="text-2xl font-black text-white">{t('home.title')}</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowStreakCalendar(true)}
@@ -196,10 +198,10 @@ export default function HomePage() {
           <div className="flex items-center gap-3 p-3 rounded-2xl mb-4 border border-brand-green/20"
             style={{ backgroundColor: '#1ED75F10' }}>
             <Bell size={18} className="text-brand-green flex-shrink-0" />
-            <p className="text-xs text-white/70 flex-1">Activează notificările pentru a fi la curent cu activitatea comunității.</p>
+            <p className="text-xs text-white/70 flex-1">{t('home.push_text')}</p>
             <div className="flex gap-2 flex-shrink-0">
-              <button onClick={() => setDismissedPush(true)} className="text-xs text-white/35">Nu</button>
-              <button onClick={requestPermission} className="text-xs font-bold text-brand-green">Da</button>
+              <button onClick={() => setDismissedPush(true)} className="text-xs text-white/35">{t('home.push_no')}</button>
+              <button onClick={requestPermission} className="text-xs font-bold text-brand-green">{t('home.push_yes')}</button>
             </div>
           </div>
         )}
@@ -223,14 +225,12 @@ export default function HomePage() {
                 <span className="text-2xl">🏋️</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-black text-white text-sm leading-tight">Bun venit în CaliPal!</p>
-                <p className="text-xs text-white/55 mt-1 leading-relaxed">
-                  Alătură-te unei comunități din orașul tău și antrenează-te împreună cu alți pasionați de calistenie.
-                </p>
+                <p className="font-black text-white text-sm leading-tight">{t('home.welcome_title')}</p>
+                <p className="text-xs text-white/55 mt-1 leading-relaxed">{t('home.welcome_text')}</p>
                 <Link href="/community">
                   <button className="mt-3 h-9 px-4 rounded-xl bg-brand-green text-black text-xs font-black flex items-center gap-1.5">
                     <Users size={13} />
-                    Explorează comunitățile
+                    {t('home.welcome_cta')}
                   </button>
                 </Link>
               </div>
@@ -242,13 +242,11 @@ export default function HomePage() {
         {userDoc && userDoc.assessmentCompleted === false && (
           <div className="rounded-2xl p-4 mb-4 border border-brand-green/30"
             style={{ backgroundColor: '#1ED75F08' }}>
-            <p className="font-black text-white text-sm">Completează evaluarea inițială 🎯</p>
-            <p className="text-xs text-white/60 mt-1">
-              Descoperă-ți nivelul și deblochează skill-uri personalizate. Durează 2 minute.
-            </p>
+            <p className="font-black text-white text-sm">{t('home.assessment_title')}</p>
+            <p className="text-xs text-white/60 mt-1">{t('home.assessment_text')}</p>
             <Link href="/profile/assessment">
               <button className="mt-3 h-9 px-5 rounded-xl bg-brand-green text-black text-sm font-bold">
-                Începe evaluarea
+                {t('home.assessment_cta')}
               </button>
             </Link>
           </div>
@@ -269,7 +267,7 @@ export default function HomePage() {
           if (!fav) return null
           return (
             <div className="mb-5">
-              <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">COMUNITATE FAVORITĂ</p>
+              <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">{t('home.fav_community')}</p>
               <Link href={`/community/${fav.id}`}>
                 <div className="rounded-2xl p-4 flex items-center gap-3 border border-yellow-400/20"
                   style={{ backgroundColor: '#FFB80010' }}>
@@ -284,7 +282,7 @@ export default function HomePage() {
                       <p className="font-bold text-white text-[15px] truncate">{fav.name}</p>
                       <Star size={12} fill="#FFB800" className="text-yellow-400 flex-shrink-0" />
                     </div>
-                    <p className="text-xs text-white/40 mt-0.5">{fav.memberCount} membri</p>
+                    <p className="text-xs text-white/40 mt-0.5">{fav.memberCount} {t('common.members')}</p>
                   </div>
                 </div>
               </Link>
@@ -296,8 +294,8 @@ export default function HomePage() {
         {joinedCommunities.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-bold text-white/40 tracking-widest">COMUNITĂȚILE MELE</p>
-              <Link href="/community" className="text-xs text-brand-green font-semibold">Vezi toate</Link>
+              <p className="text-[11px] font-bold text-white/40 tracking-widest">{t('home.my_communities')}</p>
+              <Link href="/community" className="text-xs text-brand-green font-semibold">{t('common.see_all')}</Link>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {joinedCommunities.slice(0, 6).map(c => (
@@ -324,12 +322,12 @@ export default function HomePage() {
 
         {/* Challenges section (replaces recent activity) */}
         <div>
-          <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">PROVOCĂRI</p>
+          <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">{t('home.challenges')}</p>
           <div className="flex flex-col gap-3">
             {challenge && (
               <Link href="/workout">
                 <ChallengeCard
-                  label="PROVOCARE SĂPTĂMÂNALĂ"
+                  label={t('home.weekly_challenge')}
                   title={challenge.title}
                   exerciseName={challenge.exerciseName}
                   targetReps={challenge.targetReps}
@@ -342,7 +340,7 @@ export default function HomePage() {
             {commChallenge && userDoc?.favoriteCommunityId && (
               <Link href="/community">
                 <ChallengeCard
-                  label="PROVOCARE COMUNITATE"
+                  label={t('home.community_challenge')}
                   title={commChallenge.title}
                   exerciseName={commChallenge.exerciseName}
                   targetReps={commChallenge.targetReps}
@@ -357,7 +355,7 @@ export default function HomePage() {
               <div className="rounded-2xl p-6 flex flex-col items-center gap-2 text-center"
                 style={{ backgroundColor: 'var(--app-surface)' }}>
                 <Trophy size={28} className="text-white/20" />
-                <p className="text-sm text-white/40">Nicio provocare activă momentan.</p>
+                <p className="text-sm text-white/40">{t('home.no_challenges')}</p>
               </div>
             )}
           </div>
@@ -380,13 +378,14 @@ function ChallengeCard({
   completed: boolean
   accent?: string
 }) {
+  const t = useT()
   const pct = Math.min(100, Math.round((current / targetReps) * 100))
   return (
     <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
       <div className="flex items-center gap-2 mb-2">
         <Trophy size={14} className="text-yellow-400" />
         <p className="text-xs font-bold text-white/45 tracking-widest">{label}</p>
-        {completed && <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/20 text-brand-green">FINALIZAT ✓</span>}
+        {completed && <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/20 text-brand-green">{t('common.completed')}</span>}
       </div>
       <p className="font-black text-white text-sm mb-0.5">{title}</p>
       <div className="flex items-center justify-between text-xs text-white/40 mb-1.5">
@@ -402,6 +401,7 @@ function ChallengeCard({
 }
 
 function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; favId: string; uid: string }) {
+  const t = useT()
   const myRsvp = training.rsvps?.[uid] ?? null
   const goingCount = training.rsvps
     ? Object.values(training.rsvps).filter(v => v === 'GOING').length
@@ -441,7 +441,7 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
         {goingCount > 0 && (
           <span className="flex items-center gap-1 text-xs text-white/50">
             <Users size={11} className="text-white/35" />
-            {goingCount} {goingCount === 1 ? 'merge' : 'merg'}
+            {goingCount === 1 ? t('common.going_1') : t('common.going_n', { n: goingCount })}
           </span>
         )}
       </div>
@@ -458,7 +458,7 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
             ? { backgroundColor: '#1ED75F', color: '#000' }
             : { backgroundColor: '#1ED75F18', color: '#1ED75F' }}
         >
-          <Check size={13} /> Merg
+          <Check size={13} /> {t('home.rsvp_going')}
         </button>
         <button
           onPointerDown={() => setRsvp('MAYBE')}
@@ -467,7 +467,7 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
             ? { backgroundColor: '#F59E0B', color: '#000' }
             : { backgroundColor: '#F59E0B18', color: '#F59E0B' }}
         >
-          <HelpCircle size={13} /> Poate
+          <HelpCircle size={13} /> {t('home.rsvp_maybe')}
         </button>
         <button
           onPointerDown={() => setRsvp('NOT_GOING')}
@@ -476,7 +476,7 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
             ? { backgroundColor: '#EF4444', color: '#fff' }
             : { backgroundColor: '#EF444418', color: '#EF4444' }}
         >
-          <X size={13} /> Nu merg
+          <X size={13} /> {t('home.rsvp_not_going')}
         </button>
       </div>
     </div>
@@ -490,6 +490,7 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
   workoutDates: Set<string>
   onClose: () => void
 }) {
+  const t = useT()
   const today = new Date()
   const [viewDate, setViewDate] = useState(() => {
     const d = new Date()
@@ -524,6 +525,8 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
 
   const canGoNext = new Date(year, month + 1, 1) <= today
 
+  const calDays = t('home.calendar_days').split(',')
+
   return (
     <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div
@@ -533,8 +536,10 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-base font-black text-white">Streak activ</p>
-            <p className="text-sm font-bold" style={{ color: '#FF6B2B' }}>🔥 {streak} {streak === 1 ? 'zi' : 'zile'} consecutiv{streak === 1 ? 'ă' : 'e'}</p>
+            <p className="text-base font-black text-white">{t('home.streak_title')}</p>
+            <p className="text-sm font-bold" style={{ color: '#FF6B2B' }}>
+              {streak === 1 ? t('home.streak_1') : t('home.streak_n', { n: streak })}
+            </p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
             <X size={15} className="text-white/60" />
@@ -553,7 +558,7 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
         </div>
 
         <div className="grid grid-cols-7 mb-1">
-          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
+          {calDays.map((d, i) => (
             <div key={i} className="text-center text-[10px] font-bold text-white/30 py-1">{d}</div>
           ))}
         </div>
@@ -580,11 +585,11 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
         <div className="flex items-center gap-4 mt-4 justify-center">
           <div className="flex items-center gap-1.5">
             <span className="text-sm">🔥</span>
-            <span className="text-xs text-white/50">Antrenament efectuat</span>
+            <span className="text-xs text-white/50">{t('home.calendar_trained')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-4 h-4 rounded-full border border-brand-green" />
-            <span className="text-xs text-white/50">Azi</span>
+            <span className="text-xs text-white/50">{t('home.calendar_today')}</span>
           </div>
         </div>
       </div>
@@ -595,6 +600,8 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
 // ── Recommendation Card ────────────────────────────────────────────────────────
 
 function RecommendationCard({ recommendation }: { recommendation: DailyRecommendation }) {
+  const t = useT()
+
   function startRecommendation() {
     const payload = {
       name: recommendation.title,
@@ -610,7 +617,7 @@ function RecommendationCard({ recommendation }: { recommendation: DailyRecommend
 
   return (
     <div className="mb-5">
-      <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">RECOMANDAT AZI</p>
+      <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">{t('home.recommended_today')}</p>
       <div className="rounded-2xl p-4 border border-brand-green/20" style={{ backgroundColor: '#1ED75F08' }}>
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1 min-w-0 pr-3">
@@ -632,7 +639,7 @@ function RecommendationCard({ recommendation }: { recommendation: DailyRecommend
             </span>
           ))}
           {recommendation.exercises.length > 4 && (
-            <span className="text-[11px] text-white/30 py-0.5">+{recommendation.exercises.length - 4} mai mult</span>
+            <span className="text-[11px] text-white/30 py-0.5">{t('home.more_exercises', { n: recommendation.exercises.length - 4 })}</span>
           )}
         </div>
 
@@ -643,12 +650,12 @@ function RecommendationCard({ recommendation }: { recommendation: DailyRecommend
             style={{ backgroundColor: '#1ED75F' }}
           >
             <Play size={13} className="fill-black" />
-            Începe
+            {t('home.start')}
           </button>
           <Link href="/training/programs">
             <button className="h-9 px-3 rounded-xl text-xs font-semibold border border-white/15 text-white/60 flex items-center gap-1.5">
               <BookOpen size={13} />
-              Programe
+              {t('home.programs')}
             </button>
           </Link>
         </div>
@@ -660,6 +667,7 @@ function RecommendationCard({ recommendation }: { recommendation: DailyRecommend
 // ── Guest Home Page ────────────────────────────────────────────────────────────
 
 function GuestHomePage() {
+  const t = useT()
   const [communities, setCommunities] = useState<CommunityDoc[]>([])
 
   useEffect(() => {
@@ -674,8 +682,8 @@ function GuestHomePage() {
 
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-black text-white">Explorează CaliPal</h1>
-          <p className="text-sm text-white/50 mt-1">Descoperă comunități, parcuri și antrenamente</p>
+          <h1 className="text-2xl font-black text-white">{t('home.guest_title')}</h1>
+          <p className="text-sm text-white/50 mt-1">{t('home.guest_subtitle')}</p>
         </div>
 
         {/* Map CTA */}
@@ -687,8 +695,8 @@ function GuestHomePage() {
               <MapPin size={22} className="text-brand-green" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-black text-white text-sm">Harta parcurilor</p>
-              <p className="text-xs text-white/50 mt-0.5">Vezi parcurile cu bare din apropierea ta</p>
+              <p className="font-black text-white text-sm">{t('home.parks_map')}</p>
+              <p className="text-xs text-white/50 mt-0.5">{t('home.parks_map_desc')}</p>
             </div>
             <ChevronRight size={18} className="text-white/30 flex-shrink-0" />
           </div>
@@ -697,7 +705,7 @@ function GuestHomePage() {
         {/* Top communities */}
         {communities.length > 0 && (
           <div className="mb-6">
-            <p className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Comunități populare</p>
+            <p className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3">{t('home.popular_communities')}</p>
             <div className="flex flex-col gap-2">
               {communities.map(c => (
                 <Link key={c.id} href={`/community/${c.id}`}>
@@ -711,7 +719,7 @@ function GuestHomePage() {
                     }
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-white text-sm truncate">{c.name}</p>
-                      <p className="text-xs text-white/40">{c.memberCount ?? 0} membri</p>
+                      <p className="text-xs text-white/40">{c.memberCount ?? 0} {t('common.members')}</p>
                     </div>
                     <ChevronRight size={16} className="text-white/25 flex-shrink-0" />
                   </div>
@@ -726,13 +734,13 @@ function GuestHomePage() {
           <Link href="/register" className="block">
             <button className="w-full h-12 rounded-2xl font-black text-black text-sm"
               style={{ backgroundColor: '#1ED75F' }}>
-              Creează cont gratuit
+              {t('home.create_account')}
             </button>
           </Link>
           <Link href="/login" className="block">
             <button className="w-full h-12 rounded-2xl font-bold text-white text-sm border border-white/15"
               style={{ backgroundColor: 'transparent' }}>
-              Intră în cont
+              {t('home.login')}
             </button>
           </Link>
         </div>

@@ -6,17 +6,18 @@ import Link from 'next/link'
 import { createUserWithEmailAndPassword, updateProfile, AuthError } from 'firebase/auth'
 import { auth } from '@/lib/firebase/auth'
 import { ensureUserDoc } from '@/lib/firebase/firestore'
+import { useT } from '@/lib/context/LanguageContext'
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
-function authErrorMessage(e: AuthError): string {
+function authErrorMessage(e: AuthError, t: (key: string) => string): string {
   switch (e.code) {
-    case 'auth/email-already-in-use': return 'Există deja un cont cu acest email.'
-    case 'auth/weak-password': return 'Parola trebuie să aibă cel puțin 6 caractere.'
-    case 'auth/network-request-failed': return 'Eroare de rețea. Verifică conexiunea.'
-    default: return 'A apărut o eroare. Încearcă din nou.'
+    case 'auth/email-already-in-use': return t('auth.email_in_use')
+    case 'auth/weak-password': return t('auth.password_weak')
+    case 'auth/network-request-failed': return t('auth.error_network')
+    default: return t('auth.error_generic')
   }
 }
 
@@ -24,6 +25,7 @@ const ages = Array.from({ length: 69 }, (_, i) => String(i + 12))
 
 export default function RegisterPage() {
   const router = useRouter()
+  const t = useT()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -40,11 +42,11 @@ export default function RegisterPage() {
   function validate() {
     let valid = true
     setNameError(''); setEmailError(''); setPasswordError(''); setErrorMessage('')
-    if (!name.trim()) { setNameError('Numele este obligatoriu.'); valid = false }
-    if (!email) { setEmailError('Email-ul este obligatoriu.'); valid = false }
-    else if (!isValidEmail(email)) { setEmailError('Email invalid.'); valid = false }
-    if (!password) { setPasswordError('Parola este obligatorie.'); valid = false }
-    else if (password.length < 8) { setPasswordError('Minim 8 caractere.'); valid = false }
+    if (!name.trim()) { setNameError(t('auth.name_required')); valid = false }
+    if (!email) { setEmailError(t('auth.email_required')); valid = false }
+    else if (!isValidEmail(email)) { setEmailError(t('auth.email_invalid')); valid = false }
+    if (!password) { setPasswordError(t('auth.password_required')); valid = false }
+    else if (password.length < 8) { setPasswordError(t('auth.password_min_8')); valid = false }
     return valid
   }
 
@@ -57,11 +59,16 @@ export default function RegisterPage() {
       await ensureUserDoc({ ...credential.user, displayName: name.trim() })
       router.replace('/home')
     } catch (e) {
-      setErrorMessage(authErrorMessage(e as AuthError))
+      setErrorMessage(authErrorMessage(e as AuthError, t))
     } finally {
       setLoading(false)
     }
   }
+
+  const genderOptions: [string, string, string][] = [
+    ['Masculin', t('auth.male'), '♂'],
+    ['Feminin', t('auth.female'), '♀'],
+  ]
 
   return (
     <div
@@ -81,7 +88,7 @@ export default function RegisterPage() {
             <span className="text-2xl">🏋️</span>
           </div>
           <h1 className="text-[22px] font-black text-white tracking-tight">Calipal</h1>
-          <p className="text-xs text-white/45">Creează-ți contul gratuit</p>
+          <p className="text-xs text-white/45">{t('auth.create_account_title')}</p>
         </div>
 
         {/* Step indicator */}
@@ -98,24 +105,24 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {/* Section: Informații personale */}
-        <p className="text-[11px] font-bold text-white/35 tracking-[1.5px] mb-3.5">INFORMAȚII PERSONALE</p>
+        {/* Section: Personal info */}
+        <p className="text-[11px] font-bold text-white/35 tracking-[1.5px] mb-3.5">{t('auth.personal_info')}</p>
 
-        <Field label="NUME COMPLET" value={name} placeholder="John Doe" type="text" onChange={setName} error={nameError} />
+        <Field label={t('auth.full_name')} value={name} placeholder="John Doe" type="text" onChange={setName} error={nameError} />
         <div className="h-3" />
-        <Field label="EMAIL" value={email} placeholder="john@yahoo.com" type="email" onChange={setEmail} error={emailError} />
+        <Field label={t('auth.email_label')} value={email} placeholder="john@yahoo.com" type="email" onChange={setEmail} error={emailError} />
         <div className="h-3" />
 
         {/* Password */}
         <div>
           <p className={`text-[11px] font-bold tracking-[1.5px] mb-1.5 ${passwordError ? 'text-red-400' : 'text-white/45'}`}>
-            PAROLĂ
+            {t('auth.password_label')}
           </p>
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
-              placeholder="Minim 8 caractere"
+              placeholder={t('auth.password_min_placeholder')}
               onChange={e => setPassword(e.target.value)}
               className={`w-full h-[54px] rounded-[14px] px-4 pr-12 text-[17px] font-semibold text-white placeholder:text-white/22 outline-none transition-colors
                 ${passwordError ? 'border border-red-400 bg-red-500/8' : 'border border-white/12 bg-white/7 focus:border-brand-green/60 focus:bg-brand-green/8'}`}
@@ -131,28 +138,28 @@ export default function RegisterPage() {
         {/* Divider */}
         <div className="h-px bg-white/8 my-4" />
 
-        {/* Section: Profil fitness */}
-        <p className="text-[11px] font-bold text-white/35 tracking-[1.5px] mb-3.5">PROFIL FITNESS</p>
+        {/* Section: Fitness profile */}
+        <p className="text-[11px] font-bold text-white/35 tracking-[1.5px] mb-3.5">{t('auth.fitness_profile')}</p>
 
         {/* Gender */}
-        <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">GEN</p>
+        <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">{t('auth.gender')}</p>
         <div className="flex gap-2 mb-3">
-          {[['Masculin', '♂'], ['Feminin', '♀']].map(([g, icon]) => (
+          {genderOptions.map(([value, label, icon]) => (
             <button
-              key={g}
-              onClick={() => setGender(g)}
+              key={value}
+              onClick={() => setGender(value)}
               className={`flex-1 h-[46px] rounded-[14px] font-bold text-sm transition-all border
-                ${gender === g
+                ${gender === value
                   ? 'border-brand-green bg-brand-green/15 text-brand-green'
                   : 'border-white/12 bg-white/7 text-white/60 hover:bg-white/10'}`}
             >
-              {icon} {g}
+              {icon} {label}
             </button>
           ))}
         </div>
 
         {/* Age */}
-        <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">VÂRSTĂ</p>
+        <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">{t('auth.age')}</p>
         <div className="relative mb-7">
           <button
             onClick={() => setAgeOpen(!ageOpen)}
@@ -160,7 +167,7 @@ export default function RegisterPage() {
               ${ageOpen ? 'border-brand-green/60 bg-brand-green/8' : 'border-white/12 bg-white/7'}
               ${age ? 'text-white' : 'text-white/25'}`}
           >
-            <span>{age ? `${age} ani` : 'Selectează vârsta'}</span>
+            <span>{age ? `${age} ${t('auth.years_suffix')}` : t('auth.age_placeholder')}</span>
             <span className="text-xs text-white/40">{ageOpen ? '▲' : '▼'}</span>
           </button>
           {ageOpen && (
@@ -172,7 +179,7 @@ export default function RegisterPage() {
                   className={`w-full px-3.5 py-2.5 text-sm text-left hover:bg-white/5 transition-colors
                     ${age === a ? 'font-bold text-brand-green' : 'text-white/85'}`}
                 >
-                  {a} ani
+                  {a} {t('auth.years_suffix')}
                 </button>
               ))}
             </div>
@@ -188,15 +195,15 @@ export default function RegisterPage() {
         >
           {loading
             ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            : 'Creează cont →'}
+            : t('auth.create_btn')}
         </button>
 
         <div className="h-4" />
 
         <p className="text-center text-sm text-white/40">
-          Ai deja cont?{' '}
+          {t('auth.already_account')}{' '}
           <Link href="/login" className="text-brand-green font-semibold hover:text-brand-green/80">
-            Intră în cont
+            {t('auth.login_btn')}
           </Link>
         </p>
 
@@ -204,7 +211,7 @@ export default function RegisterPage() {
         <div className="flex items-center justify-center gap-1.5 mt-5">
           <span className="text-brand-green/60 text-xs">🔒</span>
           <p className="text-[10px] font-bold tracking-[1.2px] text-white/30 uppercase">
-            Conexiune securizată · Date criptate · Firebase Auth
+            {t('auth.secure_strip')}
           </p>
         </div>
       </div>

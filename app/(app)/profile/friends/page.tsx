@@ -12,10 +12,12 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { FriendRequest, FriendEntry } from '@/types'
 import { ArrowLeft, Check, X, UserMinus, Search } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
 export default function FriendsPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const t = useT()
   const [tab, setTab] = useState(0)
   const [requests, setRequests] = useState<FriendRequest[]>([])
   const [friends, setFriends] = useState<FriendEntry[]>([])
@@ -52,7 +54,6 @@ export default function FriendsPage() {
     setLoadingUids(s => new Set(s).add(req.fromUid))
     try {
       await updateDoc(doc(db, 'friend_requests', req.id), { status: 'ACCEPTED' })
-      // Bidirectional friend entries
       await setDoc(doc(db, 'users', user.uid, 'friends', req.fromUid), {
         friendUid: req.fromUid,
         friendName: req.fromName,
@@ -65,10 +66,8 @@ export default function FriendsPage() {
         friendPhotoUrl: user.photoURL ?? '',
         since: serverTimestamp(),
       })
-      // Increment both friendCounts
       await updateDoc(doc(db, 'users', user.uid), { friendCount: increment(1) })
       await updateDoc(doc(db, 'users', req.fromUid), { friendCount: increment(1) })
-      // Notify sender
       await createNotification(req.fromUid, 'FRIEND_REQUEST_ACCEPTED',
         'Cerere acceptată! 🎉',
         `${user.displayName || 'Cineva'} ți-a acceptat cererea de prietenie.`,
@@ -101,9 +100,9 @@ export default function FriendsPage() {
     try {
       const q = query(collection(db, 'users'), where('email', '==', searchEmail.trim().toLowerCase()))
       const snap = await getDocs(q)
-      if (snap.empty) { setSearchError('Utilizatorul nu a fost găsit.'); return }
+      if (snap.empty) { setSearchError(t('friends.not_found')); return }
       const found = snap.docs[0]
-      if (found.id === user.uid) { setSearchError('Ăsta ești tu 😄'); return }
+      if (found.id === user.uid) { setSearchError(t('friends.thats_you')); return }
       setSearchResult({ uid: found.id, name: found.data().displayName, photoUrl: found.data().photoUrl ?? '' })
     } finally {
       setSearching(false)
@@ -139,18 +138,18 @@ export default function FriendsPage() {
           <button onClick={() => router.back()} className="w-9 h-9 rounded-full flex items-center justify-center bg-white/8">
             <ArrowLeft size={18} className="text-white/80" />
           </button>
-          <h1 className="text-lg font-black text-white">Prieteni</h1>
+          <h1 className="text-lg font-black text-white">{t('friends.title')}</h1>
         </div>
 
         {/* Search */}
         <div className="mb-5 rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          <p className="text-[11px] font-bold text-white/40 tracking-[1.5px] mb-2">CAUTĂ UTILIZATOR (EMAIL)</p>
+          <p className="text-[11px] font-bold text-white/40 tracking-[1.5px] mb-2">{t('friends.search_label')}</p>
           <div className="flex gap-2">
             <input
               value={searchEmail}
               onChange={e => setSearchEmail(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && searchUser()}
-              placeholder="email@exemplu.com"
+              placeholder={t('friends.search_placeholder')}
               type="email"
               className="flex-1 h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
             />
@@ -173,7 +172,7 @@ export default function FriendsPage() {
                 onClick={() => sendRequest(searchResult.uid, searchResult.name)}
                 className="px-3 h-8 rounded-lg text-xs font-bold text-black bg-brand-green"
               >
-                Adaugă
+                {t('friends.add')}
               </button>
             </div>
           )}
@@ -181,10 +180,13 @@ export default function FriendsPage() {
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 mb-4">
-          {[`Cereri (${requests.length})`, `Prieteni (${friends.length})`].map((t, i) => (
+          {[
+            t('friends.requests_tab', { n: String(requests.length) }),
+            t('friends.friends_tab', { n: String(friends.length) }),
+          ].map((label, i) => (
             <button key={i} onClick={() => setTab(i)}
               className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${tab === i ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/45'}`}>
-              {t}
+              {label}
             </button>
           ))}
         </div>
@@ -192,7 +194,7 @@ export default function FriendsPage() {
         {tab === 0 && (
           <div className="flex flex-col gap-2">
             {requests.length === 0
-              ? <p className="text-sm text-white/35 text-center py-6">Nicio cerere în așteptare.</p>
+              ? <p className="text-sm text-white/35 text-center py-6">{t('friends.no_requests')}</p>
               : requests.map(req => (
                 <div key={req.id} className="flex items-center gap-3 p-3 rounded-2xl" style={{ backgroundColor: 'var(--app-surface)' }}>
                   <Avatar name={req.fromName} photoUrl={req.fromPhotoUrl} size={40} />
@@ -218,7 +220,7 @@ export default function FriendsPage() {
         {tab === 1 && (
           <div className="flex flex-col gap-2">
             {friends.length === 0
-              ? <p className="text-sm text-white/35 text-center py-6">Nu ai prieteni adăugați încă.</p>
+              ? <p className="text-sm text-white/35 text-center py-6">{t('friends.no_friends')}</p>
               : friends.map(f => (
                 <div key={f.friendUid} className="flex items-center gap-3 p-3 rounded-2xl" style={{ backgroundColor: 'var(--app-surface)' }}>
                   <button onClick={() => router.push(`/profile/${f.friendUid}`)}>

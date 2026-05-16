@@ -12,6 +12,7 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { uploadCommunityPhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useT } from '@/lib/context/LanguageContext'
 import type { ParkDoc } from '@/types'
 import { ArrowLeft, Camera, Search, MapPin, Map, HelpCircle, Check, X, Loader } from 'lucide-react'
 
@@ -36,6 +37,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ city: string;
 export default function CreateCommunityPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const t = useT()
 
   // Form fields
   const [name, setName] = useState('')
@@ -190,7 +192,7 @@ export default function CreateCommunityPage() {
       })
       router.replace(`/community/${communityRef.id}`)
     } catch {
-      setError('A apărut o eroare. Încearcă din nou.')
+      setError(t('auth.error_generic'))
     } finally {
       setCreating(false)
     }
@@ -208,7 +210,7 @@ export default function CreateCommunityPage() {
         <div className="fixed inset-0 z-[500] flex flex-col bg-black/80">
           <div className="flex items-center justify-between px-4 py-3"
             style={{ backgroundColor: 'var(--app-bg)' }}>
-            <p className="text-sm font-bold text-white">Alege locația de pe hartă</p>
+            <p className="text-sm font-bold text-white">{t('create.pick_location')}</p>
             <button onClick={() => setShowMapPicker(false)} className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
               <X size={15} className="text-white/60" />
             </button>
@@ -217,17 +219,17 @@ export default function CreateCommunityPage() {
             <MapPickerInner lat={mapLat} lng={mapLng} onPick={handleMapPick} />
           </div>
           <div className="px-4 py-4" style={{ backgroundColor: 'var(--app-bg)' }}>
-            {geocodingMap && <p className="text-xs text-white/40 mb-2 text-center">Se determină adresa...</p>}
+            {geocodingMap && <p className="text-xs text-white/40 mb-2 text-center">{t('create.detecting_address')}</p>}
             {mapAddress && !geocodingMap && (
               <p className="text-xs text-white/60 mb-2 text-center line-clamp-2">{mapAddress}</p>
             )}
-            {!mapLat && <p className="text-xs text-white/35 mb-2 text-center">Apasă pe hartă pentru a selecta locația</p>}
+            {!mapLat && <p className="text-xs text-white/35 mb-2 text-center">{t('create.tap_map')}</p>}
             <button
               onClick={confirmMapPick}
               disabled={!mapLat || geocodingMap}
               className="w-full h-11 rounded-2xl bg-brand-green text-black font-black text-sm disabled:opacity-40"
             >
-              Confirmă locația
+              {t('create.confirm_location')}
             </button>
           </div>
         </div>
@@ -243,7 +245,7 @@ export default function CreateCommunityPage() {
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <p className="font-black text-white text-sm">Solicită adăugarea unui parc</p>
+              <p className="font-black text-white text-sm">{t('create.suggest_park')}</p>
               <button onClick={() => setShowParkRequest(false)} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
                 <X size={13} className="text-white/50" />
               </button>
@@ -253,35 +255,35 @@ export default function CreateCommunityPage() {
                 <div className="w-12 h-12 rounded-2xl bg-brand-green/20 flex items-center justify-center">
                   <Check size={22} className="text-brand-green" />
                 </div>
-                <p className="font-black text-white">Cerere trimisă!</p>
-                <p className="text-xs text-white/50">Vei fi notificat când parcul este adăugat.</p>
+                <p className="font-black text-white">{t('create.request_sent')}</p>
+                <p className="text-xs text-white/50">{t('create.request_sent_desc')}</p>
                 <button
                   onClick={() => { setShowParkRequest(false); setReqSent(false) }}
                   className="mt-2 h-10 px-6 rounded-xl bg-brand-green text-black font-bold text-sm"
                 >
-                  Închide
+                  {t('common.close')}
                 </button>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                <input value={reqName} onChange={e => setReqName(e.target.value)} placeholder="Numele parcului *"
+                <input value={reqName} onChange={e => setReqName(e.target.value)} placeholder={t('create.req_park_name')}
                   className="h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60" />
-                <input value={reqAddress} onChange={e => setReqAddress(e.target.value)} placeholder="Adresa"
+                <input value={reqAddress} onChange={e => setReqAddress(e.target.value)} placeholder={t('create.req_address')}
                   className="h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60" />
                 <input
                   value={reqCity}
                   onChange={e => setReqCity(e.target.value)}
-                  placeholder={detectedCity ? `Oraș (${detectedCity})` : 'Oraș'}
+                  placeholder={detectedCity ? t('create.req_city_with_default', { city: detectedCity }) : t('create.req_city')}
                   className="h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
                 />
-                <textarea value={reqDesc} onChange={e => setReqDesc(e.target.value)} placeholder="Descriere (opțional)"
+                <textarea value={reqDesc} onChange={e => setReqDesc(e.target.value)} placeholder={t('create.req_desc')}
                   rows={2} className="rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 resize-none" />
                 <button
                   onClick={submitParkRequest}
                   disabled={reqSending || !reqName.trim()}
                   className="w-full h-11 rounded-2xl bg-brand-green text-black font-black text-sm disabled:opacity-40 mt-1"
                 >
-                  {reqSending ? '...' : 'Trimite cererea'}
+                  {reqSending ? '...' : t('create.send_request_btn')}
                 </button>
               </div>
             )}
@@ -294,7 +296,7 @@ export default function CreateCommunityPage() {
           <button onClick={() => router.back()} className="w-9 h-9 rounded-full flex items-center justify-center bg-white/8">
             <ArrowLeft size={18} className="text-white/80" />
           </button>
-          <h1 className="text-lg font-black text-white">Crează Comunitate</h1>
+          <h1 className="text-lg font-black text-white">{t('create.title')}</h1>
         </div>
 
         <div className="flex flex-col gap-5">
@@ -317,19 +319,19 @@ export default function CreateCommunityPage() {
                 <Camera size={20} className="text-white" />
               </div>
             </button>
-            <p className="text-xs text-white/35">Adaugă o fotografie</p>
+            <p className="text-xs text-white/35">{t('create.add_photo')}</p>
           </div>
 
           {/* Name */}
-          <Field label="NUME COMUNITATE *" value={name} onChange={setName} placeholder="ex: Pull-Up Kings București" />
+          <Field label={t('create.community_name_label')} value={name} onChange={setName} placeholder={t('create.community_name_placeholder')} />
 
           {/* Description */}
           <div>
-            <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">DESCRIERE</p>
+            <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-1.5">{t('create.description_label')}</p>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Despre ce este această comunitate?"
+              placeholder={t('create.description_placeholder')}
               rows={3}
               className="w-full rounded-[14px] px-4 py-3 text-[15px] text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors resize-none"
             />
@@ -337,7 +339,7 @@ export default function CreateCommunityPage() {
 
           {/* Park selection */}
           <div>
-            <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-2">PARC / LOCAȚIE *</p>
+            <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-2">{t('create.park_label')}</p>
 
             {selectedPark ? (
               /* Selected park display */
@@ -360,7 +362,7 @@ export default function CreateCommunityPage() {
               <div className="rounded-[14px] px-4 py-4 border border-white/12 flex items-center gap-2"
                 style={{ backgroundColor: 'var(--app-surface)' }}>
                 <Loader size={14} className="text-brand-green animate-spin" />
-                <p className="text-sm text-white/40">Detectăm orașul tău...</p>
+                <p className="text-sm text-white/40">{t('create.detect_city')}</p>
               </div>
             ) : (
               /* Park list */
@@ -368,7 +370,7 @@ export default function CreateCommunityPage() {
                 {detectedCity && (
                   <div className="flex items-center gap-2 text-xs text-white/40 mb-1">
                     <MapPin size={11} className="text-brand-green" />
-                    <span>Parcuri în <span className="text-white/70 font-semibold">{detectedCity}</span></span>
+                    <span>{t('create.parks_in', { city: detectedCity })}</span>
                   </div>
                 )}
 
@@ -378,7 +380,7 @@ export default function CreateCommunityPage() {
                   <input
                     value={parkSearch}
                     onChange={e => setParkSearch(e.target.value)}
-                    placeholder="Caută parc..."
+                    placeholder={t('create.search_park')}
                     className="w-full h-10 pl-9 pr-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50"
                   />
                 </div>
@@ -403,8 +405,8 @@ export default function CreateCommunityPage() {
                 ) : (
                   <p className="text-xs text-white/35 text-center py-3">
                     {detectedCity
-                      ? `Niciun parc găsit în ${detectedCity}.`
-                      : 'Nu s-a putut detecta orașul. Folosiți harta.'}
+                      ? t('create.no_park_city', { city: detectedCity })
+                      : t('create.no_city')}
                   </p>
                 )}
 
@@ -414,13 +416,13 @@ export default function CreateCommunityPage() {
                     onClick={() => setShowMapPicker(true)}
                     className="flex-1 h-10 rounded-xl border border-white/15 text-xs font-semibold text-white/60 hover:bg-white/8 flex items-center justify-center gap-1.5 transition-colors"
                   >
-                    <Map size={13} /> Alege de pe hartă
+                    <Map size={13} /> {t('create.pick_map')}
                   </button>
                   <button
                     onClick={() => setShowParkRequest(true)}
                     className="flex-1 h-10 rounded-xl border border-white/15 text-xs font-semibold text-white/60 hover:bg-white/8 flex items-center justify-center gap-1.5 transition-colors"
                   >
-                    <HelpCircle size={13} /> Nu găsesc parcul
+                    <HelpCircle size={13} /> {t('create.park_not_found')}
                   </button>
                 </div>
               </div>
@@ -437,7 +439,7 @@ export default function CreateCommunityPage() {
           >
             {creating
               ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : 'Crează comunitatea →'}
+              : t('create.create_btn')}
           </button>
         </div>
       </div>

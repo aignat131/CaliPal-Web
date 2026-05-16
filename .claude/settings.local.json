@@ -47,7 +47,8 @@
       "Bash(grep -r \"android\\\\|kotlin\\\\|java\\\\|mobile\\\\|apk\" /e/Web_Apps/CaliPal-Web --include=\"*.md\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.json\" ! -path \"*/node_modules/*\")",
       "WebSearch",
       "Bash(find:*)",
-      "Bash(npm list:*)"
+      "Bash(npm list:*)",
+      "Bash(grep -l \"Romanian\\\\|'Nicio\\\\|'Bun\\\\|'Merg\\\\|'Nu merg\\\\|'Poate\\\\|'Anulează\\\\|'Deconect\\\\|'Prieteni\\\\|'Antrenam\\\\|'Monede\\\\|'Comunitate\\\\|'Mesaje\\\\|'Acasă\\\\|'Începe\\\\|'Salut\\\\|'Bună\" E:/Web_Apps/CaliPal-Web/app/**/*.tsx E:/Web_Apps/CaliPal-Web/components/**/*.tsx)"
     ]
   }
 }

@@ -2,9 +2,11 @@
 
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Heart, Code2, Globe } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
 export default function AboutPage() {
   const router = useRouter()
+  const t = useT()
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -13,7 +15,7 @@ export default function AboutPage() {
           <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
             <ArrowLeft size={18} className="text-white/80" />
           </button>
-          <h1 className="text-lg font-black text-white">Despre aplicație</h1>
+          <h1 className="text-lg font-black text-white">{t('about.title')}</h1>
         </div>
 
         {/* Logo block */}
@@ -22,26 +24,23 @@ export default function AboutPage() {
             <span className="text-4xl font-black text-brand-green">C</span>
           </div>
           <p className="text-xl font-black text-white">CaliPal</p>
-          <p className="text-xs text-white/40 mt-1">Versiunea 1.0.0</p>
+          <p className="text-xs text-white/40 mt-1">{t('about.version_full')}</p>
         </div>
 
         {/* Info cards */}
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          <Row icon={<Globe size={16} />} label="Versiune" value="1.0.0" />
-          <Row icon={<Heart size={16} />} label="Realizat cu" value="Next.js · Firebase · MediaPipe" />
-          <Row icon={<Code2 size={16} />} label="Platformă" value="Vercel" />
+          <Row icon={<Globe size={16} />} label={t('about.version')} value="1.0.0" />
+          <Row icon={<Heart size={16} />} label={t('about.made_with')} value="Next.js · Firebase · MediaPipe" />
+          <Row icon={<Code2 size={16} />} label={t('about.platform')} value="Vercel" />
         </div>
 
         <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          <p className="text-xs font-bold text-white/40 tracking-widest mb-2">DESCRIERE</p>
-          <p className="text-sm text-white/70 leading-relaxed">
-            CaliPal este aplicația de antrenament pentru calistenie care te conectează cu comunitatea,
-            urmărește progresul tău și analizează forma cu AI în timp real.
-          </p>
+          <p className="text-xs font-bold text-white/40 tracking-widest mb-2">{t('about.desc_title')}</p>
+          <p className="text-sm text-white/70 leading-relaxed">{t('about.desc_text')}</p>
         </div>
 
         <p className="text-center text-xs text-white/25 mt-6">
-          © {new Date().getFullYear()} CaliPal. Toate drepturile rezervate.
+          {t('about.copyright', { year: new Date().getFullYear() })}
         </p>
       </div>
     </div>

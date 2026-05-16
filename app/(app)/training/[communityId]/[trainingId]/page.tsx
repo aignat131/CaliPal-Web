@@ -566,6 +566,13 @@ export default function PublicTrainingPage() {
           )}
         </div>
 
+        {/* Back to Home */}
+        <Link href="/home" className="mt-4 block">
+          <span className="flex items-center justify-center w-full h-11 rounded-2xl bg-white/8 text-white/60 text-sm font-semibold hover:bg-white/12 transition-colors">
+            Înapoi acasă
+          </span>
+        </Link>
+
       </div>
     </div>
   )

@@ -1055,7 +1055,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
 
         {/* Header */}
         <div className="flex items-start justify-between mb-2">
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 mr-2">
             {training.official && (
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="text-[10px] font-black px-2 py-0.5 rounded-full tracking-widest"
@@ -1064,12 +1064,20 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
                 </span>
               </div>
             )}
-            <p className={`font-black text-white ${training.official ? 'text-base' : 'text-sm'}`}>{training.name}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className={`font-black text-white ${training.official ? 'text-base' : 'text-sm'} flex-1 min-w-0`}>{training.name}</p>
+              {(training.timeStart || training.date) && (
+                <span className="text-[11px] text-white/45 font-semibold flex-shrink-0 text-right leading-tight mt-0.5 whitespace-nowrap">
+                  {formatTrainingDate(training.timeStart, training.date)}
+                  {training.timeStart && <span className="text-white/30"> · {training.timeStart.slice(-5)}</span>}
+                </span>
+              )}
+            </div>
             {training.authorName && (
               <p className="text-[10px] text-white/35 mt-0.5">de {training.authorName}</p>
             )}
           </div>
-          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={handleShare}
               title="Distribuie pe WhatsApp"
@@ -1104,29 +1112,22 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
         )}
 
         {/* Meta */}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2.5">
-          {(training.timeStart || training.date) && (
-            <div className="flex items-center gap-1 text-xs text-white/50">
-              <Calendar size={11} />
-              <span>{formatTrainingDate(training.timeStart, training.date)}</span>
-            </div>
-          )}
-          {(training.timeStart || training.timeEnd) && (
-            <div className="flex items-center gap-1 text-xs text-white/50">
-              <Clock size={11} />
-              <span>
-                {training.timeStart?.slice(-5)}
-                {training.timeEnd ? ` – ${training.timeEnd.slice(-5)}` : ''}
-              </span>
-            </div>
-          )}
-          {training.location && (
-            <div className="flex items-center gap-1 text-xs text-white/50">
-              <MapPin size={11} />
-              <span>{training.location}</span>
-            </div>
-          )}
-        </div>
+        {(training.location || training.timeEnd) && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2.5">
+            {training.timeEnd && (
+              <div className="flex items-center gap-1 text-xs text-white/50">
+                <Clock size={11} />
+                <span>{training.timeStart?.slice(-5)}{` – ${training.timeEnd.slice(-5)}`}</span>
+              </div>
+            )}
+            {training.location && (
+              <div className="flex items-center gap-1 text-xs text-white/50">
+                <MapPin size={11} />
+                <span>{training.location}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {training.description && (
           <p className="text-xs text-white/50 mb-2.5 leading-relaxed">{training.description}</p>
@@ -1286,6 +1287,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
   const [rateError, setRateError] = useState('')
   const [showEquipment, setShowEquipment] = useState(false)
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
+  const [exercises, setExercises] = useState<{ name: string; sets: string; repsPerSet: string }[]>([])
 
   const EQUIPMENT_OPTIONS = [
     { id: 'rings', label: '🪢 Inele' },
@@ -1321,6 +1323,13 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
         setSaving(false)
         return
       }
+      const validExercises = exercises
+        .filter(ex => ex.name.trim())
+        .map(ex => ({
+          name: ex.name.trim(),
+          sets: parseInt(ex.sets) || 1,
+          repsPerSet: parseInt(ex.repsPerSet) || 10,
+        }))
       await addDoc(collection(db, 'communities', communityId, 'trainings'), {
         name:            name.trim(),
         description:     desc.trim(),
@@ -1335,6 +1344,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
         reminderMinutes: 30,
         rsvps:           userId ? { [userId]: 'GOING' } : {},
         rsvpNames:       userId ? { [userId]: userName } : {},
+        ...(validExercises.length > 0 ? { exercises: validExercises } : {}),
         ...(selectedEquipment.length > 0 || customEquipment.trim() ? {
         equipment: customEquipment.trim()
           ? [...selectedEquipment, customEquipment.trim()]
@@ -1380,6 +1390,54 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
             <span className="text-xs text-white/35">(anunț oficial al comunității)</span>
           </label>
         )}
+
+        {/* Exercises */}
+        <div className="mt-1">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs text-white/45">Exerciții</span>
+            <button
+              type="button"
+              onClick={() => setExercises(prev => [...prev, { name: '', sets: '3', repsPerSet: '10' }])}
+              className="text-xs text-brand-green font-bold hover:text-brand-green/80 transition-colors"
+            >
+              + Adaugă
+            </button>
+          </div>
+          {exercises.map((ex, i) => (
+            <div key={i} className="flex gap-1.5 mb-1.5 items-center">
+              <input
+                value={ex.name}
+                onChange={e => setExercises(prev => prev.map((ex2, j) => j === i ? { ...ex2, name: e.target.value } : ex2))}
+                placeholder="Exercițiu"
+                className="flex-1 min-w-0 h-9 rounded-lg px-2.5 text-xs text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
+              />
+              <input
+                value={ex.sets}
+                onChange={e => setExercises(prev => prev.map((ex2, j) => j === i ? { ...ex2, sets: e.target.value } : ex2))}
+                placeholder="Set"
+                type="number"
+                min="1"
+                className="w-12 h-9 rounded-lg px-1 text-xs text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 text-center"
+              />
+              <span className="text-white/30 text-xs flex-shrink-0">×</span>
+              <input
+                value={ex.repsPerSet}
+                onChange={e => setExercises(prev => prev.map((ex2, j) => j === i ? { ...ex2, repsPerSet: e.target.value } : ex2))}
+                placeholder="Rep"
+                type="number"
+                min="1"
+                className="w-12 h-9 rounded-lg px-1 text-xs text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 text-center"
+              />
+              <button
+                type="button"
+                onClick={() => setExercises(prev => prev.filter((_, j) => j !== i))}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-red-400/50 hover:text-red-400 flex-shrink-0 text-base leading-none"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
 
         {/* Equipment selector */}
         <div className="mt-1">

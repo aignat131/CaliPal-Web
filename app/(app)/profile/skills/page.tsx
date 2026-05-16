@@ -11,24 +11,7 @@ import type {
   CalisthenicsLevel, PushupType, PullupType, CardioFrequency,
 } from '@/types'
 import { ArrowLeft } from 'lucide-react'
-
-// ── Level label helpers ───────────────────────────────────────────────────────
-
-const LEVEL_LABELS: Record<CalisthenicsLevel, string> = {
-  beginner:     '⚔️ Începător',
-  intermediate: '🔵 Intermediar',
-  advanced:     '🟣 Avansat',
-  elite:        '🏆 Elite',
-}
-const PUSHUP_LABELS: Record<PushupType, string> = {
-  none: '—', knee: 'Cu genunchii', regular: 'Normale',
-}
-const PULLUP_LABELS: Record<PullupType, string> = {
-  none: '—', australian: 'Australian', regular: 'Complete',
-}
-const CARDIO_LABELS: Record<CardioFrequency, string> = {
-  never: 'Niciodată', rarely: 'Rar', regular: 'Regulat', daily: 'Zilnic',
-}
+import { useT } from '@/lib/context/LanguageContext'
 
 type SkillZone = 'NONE' | 'HAVE' | 'WANT' | 'CLOSE'
 
@@ -46,11 +29,30 @@ function getZone(assignments: SkillsByCategory, catId: string, skillId: string):
 export default function SkillsPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const t = useT()
+
+  const LEVEL_LABELS: Record<CalisthenicsLevel, string> = {
+    beginner:     t('skills.level_beginner'),
+    intermediate: t('skills.level_intermediate'),
+    advanced:     t('skills.level_advanced'),
+    elite:        t('skills.level_elite'),
+  }
+  const PUSHUP_LABELS: Record<PushupType, string> = {
+    none: '—', knee: t('skills.pushup_knee'), regular: t('skills.pushup_regular'),
+  }
+  const PULLUP_LABELS: Record<PullupType, string> = {
+    none: '—', australian: t('skills.pullup_australian'), regular: t('skills.pullup_regular'),
+  }
+  const CARDIO_LABELS: Record<CardioFrequency, string> = {
+    never: t('skills.cardio_never'), rarely: t('skills.cardio_rarely'),
+    regular: t('skills.cardio_regular'), daily: t('skills.cardio_daily'),
+  }
 
   const [basicStrength, setBasicStrength] = useState<BasicStrength | null>(null)
   const [assignments, setAssignments] = useState<SkillsByCategory>({})
   const [assessmentCompleted, setAssessmentCompleted] = useState(false)
   const [selectedCatId, setSelectedCatId] = useState<string>(DEFAULT_SKILL_CATEGORIES[0].id)
+
   useEffect(() => {
     if (!user) return
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
@@ -71,13 +73,13 @@ export default function SkillsPage() {
     return (
       <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center px-6 text-center" style={{ backgroundColor: 'var(--app-bg)' }}>
         <p className="text-4xl mb-4">🏋️</p>
-        <h2 className="text-xl font-black text-white mb-2">Fă evaluarea mai întâi</h2>
+        <h2 className="text-xl font-black text-white mb-2">{t('skills.no_assessment_title')}</h2>
         <p className="text-white/50 text-sm mb-6 max-w-xs">
-          Completează evaluarea fizică pentru a vedea și gestiona skill-urile tale.
+          {t('skills.no_assessment_text')}
         </p>
         <button onClick={() => router.push('/profile/assessment')}
           className="h-12 px-8 rounded-full bg-brand-green text-black font-bold">
-          Începe evaluarea →
+          {t('skills.no_assessment_cta')}
         </button>
       </div>
     )
@@ -93,29 +95,29 @@ export default function SkillsPage() {
             className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
             <ArrowLeft size={18} className="text-white/80" />
           </button>
-          <h1 className="text-lg font-black text-white">Skill-urile mele</h1>
+          <h1 className="text-lg font-black text-white">{t('skills.title')}</h1>
         </div>
 
         {/* Basic strength summary card */}
         {basicStrength && (
           <div className="rounded-2xl p-4 mb-5" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <p className="text-xs font-bold text-white/40 tracking-widest mb-3">PROFIL FIZIC</p>
+            <p className="text-xs font-bold text-white/40 tracking-widest mb-3">{t('skills.physical_profile')}</p>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <StatItem label="Nivel" value={LEVEL_LABELS[basicStrength.level] ?? basicStrength.level} />
-              <StatItem label="Cardio" value={CARDIO_LABELS[basicStrength.cardio] ?? basicStrength.cardio} />
+              <StatItem label={t('skills.level')} value={LEVEL_LABELS[basicStrength.level] ?? basicStrength.level} />
+              <StatItem label={t('skills.cardio')} value={CARDIO_LABELS[basicStrength.cardio] ?? basicStrength.cardio} />
               <StatItem
-                label="Flotări"
+                label={t('skills.pushups')}
                 value={basicStrength.pushups.type === 'none'
                   ? '—'
                   : `${PUSHUP_LABELS[basicStrength.pushups.type]} × ${basicStrength.pushups.count}`}
               />
               <StatItem
-                label="Tracțiuni"
+                label={t('skills.pullups')}
                 value={basicStrength.pullups.type === 'none'
                   ? '—'
                   : `${PULLUP_LABELS[basicStrength.pullups.type]} × ${basicStrength.pullups.count}`}
               />
-              <StatItem label="Squats" value={`${basicStrength.squats.count} rep`} />
+              <StatItem label={t('skills.squats')} value={`${basicStrength.squats.count} rep`} />
             </div>
           </div>
         )}
@@ -124,16 +126,16 @@ export default function SkillsPage() {
         <div className="flex gap-3 mb-5">
           <div className="flex-1 rounded-xl p-3 text-center" style={{ backgroundColor: 'var(--app-surface)' }}>
             <p className="text-2xl font-black text-brand-green">{totalHave}</p>
-            <p className="text-xs text-white/50">stăpânite</p>
+            <p className="text-xs text-white/50">{t('skills.mastered')}</p>
           </div>
           <div className="flex-1 rounded-xl p-3 text-center" style={{ backgroundColor: 'var(--app-surface)' }}>
             <p className="text-2xl font-black text-blue-400">{totalWant}</p>
-            <p className="text-xs text-white/50">de învățat</p>
+            <p className="text-xs text-white/50">{t('skills.learning')}</p>
           </div>
           {totalClose > 0 && (
             <div className="flex-1 rounded-xl p-3 text-center" style={{ backgroundColor: 'var(--app-surface)' }}>
               <p className="text-2xl font-black text-amber-400">{totalClose}</p>
-              <p className="text-xs text-white/50">aproape</p>
+              <p className="text-xs text-white/50">{t('skills.close')}</p>
             </div>
           )}
         </div>
@@ -174,15 +176,15 @@ export default function SkillsPage() {
               <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-4 text-xs text-white/50">
                 <span className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-brand-green inline-block" />
-                  Stăpânesc
+                  {t('skills.legend_mastered')}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
-                  Vreau să învăț
+                  {t('skills.legend_learning')}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
-                  Aproape
+                  {t('skills.legend_close')}
                 </span>
               </div>
 
@@ -207,7 +209,7 @@ export default function SkillsPage() {
               </div>
 
               <p className="text-xs text-white/30 mt-4">
-                Refă evaluarea pentru a modifica skill-urile tale.
+                {t('skills.locked_text')}
               </p>
             </div>
           )
@@ -215,10 +217,10 @@ export default function SkillsPage() {
 
         {/* Re-assess CTA */}
         <div className="mt-8 pt-4 border-t border-white/8">
-          <p className="text-xs text-white/35 text-center mb-3">Skill-urile sunt blocate după evaluare. Refă testul pentru a le actualiza.</p>
+          <p className="text-xs text-white/35 text-center mb-3">{t('skills.locked_note')}</p>
           <button onClick={() => router.push('/profile/assessment')}
             className="w-full h-11 rounded-2xl bg-brand-green text-black text-sm font-black">
-            Refă evaluarea →
+            {t('skills.redo_assessment')}
           </button>
         </div>
 

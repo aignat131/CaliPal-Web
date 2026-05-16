@@ -13,6 +13,7 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { ChatMessage, ConversationDoc } from '@/types'
 import { ArrowLeft, Send, Check, CheckCheck } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
 function formatTs(ts: { toDate?: () => Date } | null | undefined): string {
   if (!ts) return ''
@@ -26,6 +27,7 @@ export default function ChatDetailPage() {
   const { user } = useAuth()
   const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
   const router = useRouter()
+  const t = useT()
   const params = useParams()
   const searchParams = useSearchParams()
   const conversationId = params.conversationId as string
@@ -33,7 +35,7 @@ export default function ChatDetailPage() {
   const otherNameParam = searchParams.get('otherName') ?? ''
 
   const [otherUserId, setOtherUserId] = useState(otherUserIdParam)
-  const [otherName, setOtherName] = useState(otherNameParam || 'Utilizator')
+  const [otherName, setOtherName] = useState(otherNameParam || t('common.user_fallback'))
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [otherPhoto, setOtherPhoto] = useState('')
   const [text, setText] = useState('')
@@ -55,11 +57,11 @@ export default function ChatDetailPage() {
       const otherId = data.participantIds.find(id => id !== user.uid) ?? ''
       if (otherId) {
         setOtherUserId(otherId)
-        setOtherName(data.participantNames?.[otherId] || 'Utilizator')
+        setOtherName(data.participantNames?.[otherId] || t('common.user_fallback'))
         setOtherPhoto(data.participantPhotos?.[otherId] || '')
       }
     })
-  }, [user, conversationId, otherUserIdParam])
+  }, [user, conversationId, otherUserIdParam, t])
 
   // Load other user photo (when otherUserId comes from URL params)
   useEffect(() => {
@@ -119,7 +121,6 @@ export default function ChatDetailPage() {
       [`unreadCount.${user.uid}`]: 0,
     }).catch(() => {})
 
-    // Batch-mark the other user's messages as read so they see double-check
     const unread = messages.filter(m => m.senderId !== user.uid && !m.isRead)
     if (unread.length === 0) return
     const batch = writeBatch(db)
@@ -163,7 +164,6 @@ export default function ChatDetailPage() {
     setText('')
     setSending(true)
 
-    // Clear typing indicator immediately on send
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
     typingActiveRef.current = false
     setDoc(doc(db, 'conversations', conversationId, 'typing', user.uid), { at: null }).catch(() => {})
@@ -215,8 +215,8 @@ export default function ChatDetailPage() {
   if (notFound) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-3" style={{ backgroundColor: 'var(--app-bg)' }}>
-        <p className="text-white/50 text-sm">Conversație negăsită.</p>
-        <button onClick={() => router.back()} className="text-brand-green text-sm font-semibold">Înapoi</button>
+        <p className="text-white/50 text-sm">{t('chat.conv_not_found')}</p>
+        <button onClick={() => router.back()} className="text-brand-green text-sm font-semibold">{t('chat.back')}</button>
       </div>
     )
   }
@@ -237,7 +237,7 @@ export default function ChatDetailPage() {
         <div className="flex flex-col min-w-0">
           <span className="font-semibold text-white leading-tight">{otherName}</span>
           {otherIsTyping && (
-            <span className="text-[11px] text-brand-green animate-pulse">scrie...</span>
+            <span className="text-[11px] text-brand-green animate-pulse">{t('chat.typing')}</span>
           )}
         </div>
       </div>
@@ -250,7 +250,7 @@ export default function ChatDetailPage() {
           </div>
         )}
         {!loading && messages.length === 0 && (
-          <p className="text-center text-sm text-white/35 py-8">Trimite primul mesaj!</p>
+          <p className="text-center text-sm text-white/35 py-8">{t('chat.send_first')}</p>
         )}
         {messages.map((msg, i) => {
           const isMe = msg.senderId === user?.uid
@@ -328,7 +328,7 @@ export default function ChatDetailPage() {
           value={text}
           onChange={e => { setText(e.target.value); handleTyping() }}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-          placeholder="Scrie un mesaj..."
+          placeholder={t('chat.placeholder')}
           maxLength={4000}
           className="flex-1 h-11 rounded-full px-4 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/40 transition-colors"
         />

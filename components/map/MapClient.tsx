@@ -24,6 +24,7 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useTheme } from '@/lib/hooks/useTheme'
+import { useT } from '@/lib/context/LanguageContext'
 import type { ParkDoc, ParkPresenceMember, CommunityDoc, LocationSharingMode, ParkCommunityRequest, PlannedTraining } from '@/types'
 import { MapPin, X, Navigation, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
@@ -165,6 +166,7 @@ function LocationPermissionSheet({
   denied: boolean
 }) {
   const { theme } = useTheme()
+  const t = useT()
   return (
     <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-black/60 px-0">
       <div
@@ -182,40 +184,37 @@ function LocationPermissionSheet({
           <Navigation size={28} className="text-brand-green" />
         </div>
         <h2 className="text-base font-black text-white mb-1">
-          {denied ? 'Locație blocată' : 'Accesează locația ta'}
+          {denied ? t('map.location_blocked_title') : t('map.location_access_title')}
         </h2>
         {denied ? (
           <>
             <p className="text-sm text-white/60 leading-relaxed mb-5">
-              Locația a fost blocată în browser. Pentru a o activa, deschide{' '}
-              <strong className="text-white/80">Setări browser → Permisiuni site</strong>{' '}
-              și permite accesul la locație pentru această pagină.
+              {t('map.location_blocked_text')}
             </p>
             <button
               onClick={onDeny}
               className="w-full h-12 rounded-2xl text-sm font-bold border border-white/20 text-white/70"
             >
-              Continuă fără locație
+              {t('map.continue_without')}
             </button>
           </>
         ) : (
           <>
             <p className="text-sm text-white/60 leading-relaxed mb-5">
-              CaliPal folosește locația ta pentru a-ți arăta parcurile din apropiere și
-              pentru a te marca ca prezent în parcul în care te antrenezi.
+              {t('map.location_desc')}
             </p>
             <div className="flex flex-col gap-2">
               <button
                 onClick={onAllow}
                 className="w-full h-12 rounded-2xl bg-brand-green text-black text-sm font-bold"
               >
-                Permite accesul la locație
+                {t('map.allow_location')}
               </button>
               <button
                 onClick={onDeny}
                 className="w-full h-12 rounded-2xl text-sm font-semibold text-white/50"
               >
-                Nu acum
+                {t('map.not_now')}
               </button>
             </div>
           </>
@@ -254,6 +253,7 @@ function MapOnboardingSheet({
   onSkip: () => void
 }) {
   const { theme } = useTheme()
+  const t = useT()
   const [showCities, setShowCities] = useState(false)
   const [locating, setLocating] = useState(false)
 
@@ -294,10 +294,10 @@ function MapOnboardingSheet({
 
         {/* Headline */}
         <h2 className="text-xl font-black text-white mb-1">
-          Unde vrei să te antrenezi?
+          {t('map.onboarding_title')}
         </h2>
         <p className="text-sm text-white/50 leading-relaxed mb-5">
-          Găsim parcurile și comunitățile din zona ta.
+          {t('map.onboarding_subtitle')}
         </p>
 
         {/* Buttons */}
@@ -310,14 +310,14 @@ function MapOnboardingSheet({
               style={{ backgroundColor: '#1ED75F', color: '#111' }}
             >
               <Navigation size={16} />
-              {locating ? 'Se detectează...' : 'Folosește locația mea'}
+              {locating ? t('map.detecting') : t('map.use_location')}
             </button>
             <button
               onClick={() => setShowCities(true)}
               className="w-full h-12 rounded-2xl font-semibold text-sm border text-white/70 transition-colors hover:text-white/90"
               style={{ borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'transparent' }}
             >
-              Alege un oraș
+              {t('map.choose_city')}
             </button>
           </div>
         )}
@@ -326,7 +326,7 @@ function MapOnboardingSheet({
         {showCities && (
           <div>
             <p className="text-[10px] font-bold tracking-widest text-white/40 uppercase mb-3">
-              Selectează orașul tău
+              {t('map.select_city_title')}
             </p>
             <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto">
               {CITIES.map(city => (
@@ -347,7 +347,7 @@ function MapOnboardingSheet({
               onClick={() => setShowCities(false)}
               className="mt-3 text-xs text-white/30 hover:text-white/50 transition-colors"
             >
-              ← Înapoi
+              {t('map.back')}
             </button>
           </div>
         )}
@@ -357,7 +357,7 @@ function MapOnboardingSheet({
           onClick={onSkip}
           className="mt-4 w-full text-center text-xs text-white/25 hover:text-white/45 transition-colors"
         >
-          Explorează fără locație
+          {t('map.explore_no_location')}
         </button>
       </div>
     </div>
@@ -411,6 +411,7 @@ export default function MapClient() {
   const { user } = useAuth()
   const { displayName: myDisplayName } = useMyProfile()
   const { theme } = useTheme()
+  const t = useT()
 
   const [parks, setParks] = useState<ParkDoc[]>([])
   const [presence, setPresence] = useState<Record<string, ParkPresenceMember[]>>({})
@@ -815,7 +816,7 @@ export default function MapClient() {
               }}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-              placeholder="Caută parc sau oraș..."
+              placeholder={t('map.search_placeholder')}
               className="w-full h-10 rounded-xl px-4 text-sm outline-none backdrop-blur-sm focus:border-brand-green/50 transition-colors"
               style={{
                 backgroundColor: theme === 'light' ? 'rgba(255,255,255,0.92)' : 'rgba(13,46,43,0.92)',
@@ -855,9 +856,9 @@ export default function MapClient() {
           </div>
           <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
             {([
-              ['all', 'Toate'],
-              ['community', 'Cu comunitate'],
-              ['nocommunity', 'Fără comunitate'],
+              ['all', t('map.filter_all')],
+              ['community', t('map.filter_community')],
+              ['nocommunity', t('map.filter_nocommunity')],
             ] as [Filter, string][]).map(([f, label]) => (
               <button
                 key={f}
@@ -957,7 +958,7 @@ export default function MapClient() {
           >
             <div className="flex items-start justify-between gap-1 mb-1">
               <span className="text-[10px] font-black tracking-widest uppercase" style={{ color: '#1ED75F' }}>
-                Comunitate activă
+                {t('map.callout_community')}
               </span>
               <button
                 onClick={e => { e.stopPropagation(); dismissCallout() }}
@@ -967,7 +968,7 @@ export default function MapClient() {
               </button>
             </div>
             <p className="text-[12px] text-white/75 leading-snug">
-              O echipă se adună regulat la acest parc. Dă tap să afli mai mult 💪
+              {t('map.callout_text')}
             </p>
           </div>
           {/* Arrow pointing down toward pin */}
@@ -987,13 +988,13 @@ export default function MapClient() {
       {/* Location sharing FAB (authenticated only) */}
       {user && (locationSharingMode === 'OFF' ? (
         <div className="absolute bottom-4 left-4 z-[1000] h-10 px-4 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg bg-white/10 border border-white/15 text-white/40">
-          <Navigation size={14} />Locație oprită
+          <Navigation size={14} />{t('map.location_off')}
         </div>
       ) : sharing ? (
         /* Active sharing indicator — no stop button */
         <div className="absolute bottom-4 left-4 z-[1000] h-10 px-4 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg bg-brand-green/15 border border-brand-green/30 text-brand-green">
           <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
-          {locationSharingMode === 'FRIENDS_ONLY' ? 'Distribuie (prieteni)' : 'Locație activă'}
+          {locationSharingMode === 'FRIENDS_ONLY' ? t('map.sharing_friends') : t('map.location_active')}
         </div>
       ) : (
         <button
@@ -1008,7 +1009,7 @@ export default function MapClient() {
           }}
           className="absolute bottom-4 left-4 z-[1000] h-10 px-4 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg bg-brand-green text-black"
         >
-          <Navigation size={14} />{locationSharingMode === 'FRIENDS_ONLY' ? 'Distribuie (prieteni)' : 'Distribuie locația'}
+          <Navigation size={14} />{locationSharingMode === 'FRIENDS_ONLY' ? t('map.sharing_friends') : t('map.share_location')}
         </button>
       ))}
 
@@ -1019,7 +1020,7 @@ export default function MapClient() {
         className="absolute bottom-16 left-4 z-[1000] h-9 px-3 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-md"
         style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.65)' }}
       >
-        <MapPin size={12} className="text-brand-green" /> Solicită un parc
+        <MapPin size={12} className="text-brand-green" /> {t('map.request_park')}
       </button>
       )}
 
@@ -1093,6 +1094,7 @@ function ParkBottomSheet({
   onDirectAssociated: () => void
 }) {
   const { theme } = useTheme()
+  const t = useT()
   const [showCommChoice, setShowCommChoice] = useState(false)
   const [showCreateCommForm, setShowCreateCommForm] = useState(false)
   return (
@@ -1160,7 +1162,7 @@ function ParkBottomSheet({
                       style={{ backgroundColor: '#3B82F625', color: '#3B82F6' }}>✓</span>
                   )}
                 </div>
-                <p className="text-xs text-white/45">{community.memberCount} membri</p>
+                <p className="text-xs text-white/45">{community.memberCount} {t('common.members')}</p>
               </div>
               <ChevronRight size={16} className="text-brand-green flex-shrink-0" />
             </div>
@@ -1169,7 +1171,7 @@ function ParkBottomSheet({
           {/* Upcoming trainings */}
           {parkTrainings.length > 0 && (
             <div className="mt-2 flex flex-col gap-1.5">
-              <p className="text-[9px] font-bold text-brand-green/70 tracking-widest">ANTRENAMENTE</p>
+              <p className="text-[9px] font-bold text-brand-green/70 tracking-widest">{t('map.trainings_section')}</p>
               {parkTrainings.map(t => {
                 const memberGoing = Object.values(t.rsvps ?? {}).filter(s => s === 'GOING').length
                 const guestGoing = Object.values(t.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
@@ -1186,7 +1188,7 @@ function ParkBottomSheet({
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{t.name}</p>
                       {totalGoing > 0 && (
-                        <span className="text-xs text-brand-green font-bold flex-shrink-0">{totalGoing} {totalGoing === 1 ? 'merge' : 'merg'}</span>
+                        <span className="text-xs text-brand-green font-bold flex-shrink-0">{totalGoing} {t(totalGoing === 1 ? 'map.going_singular' : 'map.going_plural')}</span>
                       )}
                     </div>
                     <p className="text-xs text-white/45 mt-0.5">
@@ -1205,7 +1207,7 @@ function ParkBottomSheet({
               <button
                 className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors"
               >
-                <span className="text-base">🕓</span> Istoric antrenamente
+                <span className="text-base">🕓</span> {t('map.training_history')}
               </button>
             </Link>
           </div>
@@ -1215,7 +1217,7 @@ function ParkBottomSheet({
           {/* Standalone upcoming trainings */}
           {parkStandaloneTrainings.length > 0 && (
             <div className="mb-3">
-              <p className="text-[9px] font-bold text-brand-green/70 tracking-widest mb-1.5">ANTRENAMENTE PLANIFICATE</p>
+              <p className="text-[9px] font-bold text-brand-green/70 tracking-widest mb-1.5">{t('map.planned_trainings')}</p>
               <div className="flex flex-col gap-1.5">
                 {parkStandaloneTrainings.map(t => {
                   const dateObj = parseMapTrainingDate(t)
@@ -1242,7 +1244,7 @@ function ParkBottomSheet({
                           <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{t.name}</p>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             {totalGoing > 0 && (
-                              <span className="text-xs text-brand-green font-bold">{totalGoing} {totalGoing === 1 ? 'merge' : 'merg'}</span>
+                              <span className="text-xs text-brand-green font-bold">{totalGoing} {t(totalGoing === 1 ? 'map.going_singular' : 'map.going_plural')}</span>
                             )}
                             {isAuthor && (
                               <button
@@ -1273,7 +1275,7 @@ function ParkBottomSheet({
               className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-brand-green/30 text-brand-green text-sm font-bold hover:bg-brand-green/10 transition-colors mb-2"
               style={{ backgroundColor: '#0D3D2810' }}
             >
-              <span className="text-base">📅</span> Planifică antrenament
+              <span className="text-base">📅</span> {t('map.plan_training')}
             </button>
           )}
 
@@ -1282,7 +1284,7 @@ function ParkBottomSheet({
             <button
               className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors mb-2"
             >
-              <span className="text-base">🕓</span> Istoric antrenamente
+              <span className="text-base">🕓</span> {t('map.training_history')}
             </button>
           </Link>
 
@@ -1290,12 +1292,12 @@ function ParkBottomSheet({
             <div className="flex items-center gap-2 p-3 rounded-2xl border border-yellow-400/25"
               style={{ backgroundColor: '#F9731610' }}>
               <span className="text-sm">⏳</span>
-              <p className="text-xs text-yellow-400 font-semibold">Cerere în așteptare</p>
+              <p className="text-xs text-yellow-400 font-semibold">{t('map.pending_req')}</p>
             </div>
           ) : uid ? (
             showCommChoice ? (
               <div className="flex flex-col gap-2">
-                <p className="text-[10px] font-bold text-white/35 tracking-widest px-1">ADAUGĂ COMUNITATE</p>
+                <p className="text-[10px] font-bold text-white/35 tracking-widest px-1">{t('map.add_community_title')}</p>
                 <button
                   onClick={() => { setShowCommChoice(false); setShowCreateCommForm(true) }}
                   className="w-full flex items-center gap-3 p-3 rounded-2xl border border-brand-green/30 text-left hover:bg-brand-green/10 transition-colors"
@@ -1303,8 +1305,8 @@ function ParkBottomSheet({
                 >
                   <span className="text-xl">🏗️</span>
                   <div>
-                    <p className="text-sm font-bold text-white">Creează comunitate nouă</p>
-                    <p className="text-xs text-white/45">Pornești o comunitate pentru acest parc</p>
+                    <p className="text-sm font-bold text-white">{t('map.create_new_comm')}</p>
+                    <p className="text-xs text-white/45">{t('map.create_new_comm_desc')}</p>
                   </div>
                 </button>
                 <button
@@ -1313,11 +1315,11 @@ function ParkBottomSheet({
                 >
                   <span className="text-xl">🔗</span>
                   <div>
-                    <p className="text-sm font-bold text-white">Asociază comunitate existentă</p>
-                    <p className="text-xs text-white/45">Leagă o comunitate pe care o administrezi</p>
+                    <p className="text-sm font-bold text-white">{t('map.assoc_comm')}</p>
+                    <p className="text-xs text-white/45">{t('map.assoc_comm_desc')}</p>
                   </div>
                 </button>
-                <button onClick={() => setShowCommChoice(false)} className="text-xs text-white/35 text-center py-1">Anulează</button>
+                <button onClick={() => setShowCommChoice(false)} className="text-xs text-white/35 text-center py-1">{t('map.cancel')}</button>
               </div>
             ) : (
               <button
@@ -1325,14 +1327,14 @@ function ParkBottomSheet({
                 className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl border border-brand-green/30 text-brand-green text-sm font-bold hover:bg-brand-green/10 transition-colors"
                 style={{ backgroundColor: '#1ED75F08' }}
               >
-                <span className="text-base">＋</span> Adaugă comunitate
+                {t('map.add_community_btn')}
               </button>
             )
           ) : (
             <div className="flex items-center gap-2 p-3 rounded-2xl border border-white/10"
               style={{ backgroundColor: 'var(--app-bg)' }}>
               <MapPin size={14} className="text-white/30" />
-              <p className="text-xs text-white/40">Nicio comunitate asociată acestui parc</p>
+              <p className="text-xs text-white/40">{t('map.no_community')}</p>
             </div>
           )}
         </div>
@@ -1341,7 +1343,7 @@ function ParkBottomSheet({
       {members.length > 0 && (
         <div>
           <p className="text-xs font-bold text-white/45 tracking-widest mb-2">
-            ACTIVI ACUM ({members.length})
+            {t('map.active_now', { n: members.length })}
           </p>
           <div className="flex flex-col gap-2">
             {members.map(m => (
@@ -1404,6 +1406,7 @@ function ParkCommunityModal({
   onSubmitted: (req: ParkCommunityRequest) => void
   onDirectAssociated: () => void
 }) {
+  const t = useT()
   const [selectedCommunityId, setSelectedCommunityId] = useState(userAdminCommunities[0]?.id ?? '')
   const [submitting, setSubmitting] = useState(false)
 
@@ -1428,7 +1431,7 @@ function ParkCommunityModal({
         style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-black text-white">Asociază comunitate</p>
+          <p className="text-sm font-black text-white">{t('map.assoc_modal_title')}</p>
           <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
             <X size={13} className="text-white/60" />
           </button>
@@ -1437,17 +1440,17 @@ function ParkCommunityModal({
 
         {userAdminCommunities.length === 0 ? (
           <div className="text-center py-4">
-            <p className="text-sm text-white/50 mb-3">Nu ești admin în nicio comunitate.</p>
+            <p className="text-sm text-white/50 mb-3">{t('map.no_admin_comms')}</p>
             <Link href="/community/create">
               <button className="h-9 px-4 rounded-full bg-brand-green text-black text-xs font-bold">
-                Creează o comunitate
+                {t('map.create_community')}
               </button>
             </Link>
           </div>
         ) : (
           <div>
-            <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1">SELECTEAZĂ COMUNITATEA</p>
-            <p className="text-xs text-white/35 mb-3">Ca administrator, asocierea este directă și imediată.</p>
+            <p className="text-[10px] font-bold text-white/40 tracking-widest mb-1">{t('map.select_community')}</p>
+            <p className="text-xs text-white/35 mb-3">{t('map.assoc_direct_note')}</p>
             <div className="flex flex-col gap-2 mb-4">
               {userAdminCommunities.map(c => (
                 <button key={c.id}
@@ -1461,14 +1464,14 @@ function ParkCommunityModal({
                     style={{ backgroundColor: selectedCommunityId === c.id ? '#1ED75F' : '#ffffff30' }} />
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-white truncate">{c.name}</p>
-                    <p className="text-xs text-white/40">{c.memberCount} membri</p>
+                    <p className="text-xs text-white/40">{c.memberCount} {t('common.members')}</p>
                   </div>
                 </button>
               ))}
             </div>
             <button onClick={submit} disabled={submitting || !selectedCommunityId}
               className="w-full h-11 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-40">
-              {submitting ? '...' : 'Asociează direct'}
+              {submitting ? '...' : t('map.assoc_direct_btn')}
             </button>
           </div>
         )}
@@ -1488,6 +1491,7 @@ function CreateCommunityForParkModal({
   onClose: () => void
   onPending: (req: ParkCommunityRequest) => void
 }) {
+  const t = useT()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isPublic, setIsPublic] = useState(true)
@@ -1514,7 +1518,7 @@ function CreateCommunityForParkModal({
         return ts && ts >= todayStart
       }).length
       if (todayCount >= 3) {
-        setError('Ai atins limita de 3 cereri pe zi.')
+        setError(t('map.rate_limit_3'))
         setSaving(false)
         return
       }
@@ -1580,17 +1584,17 @@ function CreateCommunityForParkModal({
         style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
         <div className="flex items-center justify-between mb-1">
-          <p className="text-sm font-black text-white">Comunitate nouă</p>
+          <p className="text-sm font-black text-white">{t('map.new_comm_title')}</p>
           <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
             <X size={13} className="text-white/60" />
           </button>
         </div>
-        <p className="text-xs text-white/40 mb-4">Parc: {park.name}</p>
+        <p className="text-xs text-white/40 mb-4">{t('map.park_label', { name: park.name })}</p>
         <div className="flex flex-col gap-2.5">
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Numele comunității *"
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={t('map.comm_name_placeholder')}
             maxLength={80} className={inputCls} />
           <textarea value={description} onChange={e => setDescription(e.target.value)}
-            placeholder="Descriere (opțional)"
+            placeholder={t('map.comm_desc_placeholder')}
             rows={2}
             maxLength={1000}
             className="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50 transition-colors resize-none" />
@@ -1599,17 +1603,17 @@ function CreateCommunityForParkModal({
             <div className={`w-8 h-5 rounded-full transition-colors relative ${isPublic ? 'bg-brand-green' : 'bg-white/20'}`}>
               <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${isPublic ? 'left-3.5' : 'left-0.5'}`} />
             </div>
-            <span className="text-sm text-white/70">{isPublic ? 'Publică' : 'Privată'}</span>
+            <span className="text-sm text-white/70">{isPublic ? t('map.public_label') : t('map.private_label')}</span>
           </button>
           <p className="text-[11px] text-white/35 px-1">
-            Cererea va fi trimisă administratorului. Parcul va fi asociat și comunitatea verificată după aprobare.
+            {t('map.comm_request_note')}
           </p>
           {error && <p className="text-xs text-red-400 px-1">{error}</p>}
           <div className="flex gap-2 mt-1">
-            <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-white/15 text-sm text-white/60">Anulează</button>
+            <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-white/15 text-sm text-white/60">{t('map.cancel')}</button>
             <button onClick={create} disabled={saving || !name.trim()}
               className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-40">
-              {saving ? '...' : 'Trimite cererea'}
+              {saving ? '...' : t('create.send_request_btn')}
             </button>
           </div>
         </div>
@@ -1632,6 +1636,7 @@ function AddParkTrainingModal({
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
 
+  const t = useT()
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
   const [date, setDate] = useState(tomorrow.toISOString().split('T')[0])
@@ -1662,7 +1667,7 @@ function AddParkTrainingModal({
         return ts && ts >= todayStart
       }).length
       if (todayCount >= 5) {
-        setRateError('Ai atins limita de 5 antrenamente pe zi pentru acest parc.')
+        setRateError(t('map.train_rate_limit'))
         setSaving(false)
         return
       }
@@ -1701,16 +1706,16 @@ function AddParkTrainingModal({
         style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-black text-white">📅 Planifică antrenament</p>
+          <p className="text-sm font-black text-white">{t('map.train_modal_title')}</p>
           <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
             <X size={13} className="text-white/60" />
           </button>
         </div>
         <p className="text-xs text-white/40 mb-4">{park.name}</p>
         <div className="flex flex-col gap-2">
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Nume antrenament *"
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={t('map.train_name_placeholder')}
             maxLength={120} className={inputCls} />
-          <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descriere (opțional)"
+          <input value={desc} onChange={e => setDesc(e.target.value)} placeholder={t('map.train_desc_placeholder')}
             maxLength={1000} className={inputCls} />
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
           <div className="flex gap-2">
@@ -1721,11 +1726,11 @@ function AddParkTrainingModal({
           </div>
           {rateError && <p className="text-xs text-red-400 text-center">{rateError}</p>}
           <div className="flex gap-2 mt-1">
-            <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-white/15 text-sm text-white/60">Anulează</button>
+            <button onClick={onClose} className="flex-1 h-11 rounded-xl border border-white/15 text-sm text-white/60">{t('map.cancel')}</button>
             <button onClick={save} disabled={saving || !name.trim()}
               className="flex-1 h-11 rounded-xl text-black text-sm font-black disabled:opacity-40"
               style={{ backgroundColor: '#1ED75F' }}>
-              {saving ? '...' : 'Salvează'}
+              {saving ? '...' : t('map.save')}
             </button>
           </div>
         </div>

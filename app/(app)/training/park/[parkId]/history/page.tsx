@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase/firestore'
 import type { PlannedTraining, ParkDoc } from '@/types'
 import { ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
+import { useT } from '@/lib/context/LanguageContext'
 
 function parseDateTime(str: string): Date | null {
   if (!str) return null
@@ -32,6 +33,7 @@ type TrainingWithId = PlannedTraining & { id: string }
 
 function TrainingCard({ training, parkId }: { training: TrainingWithId; parkId: string }) {
   const [expanded, setExpanded] = useState(false)
+  const t = useT()
   const goingCount = Object.values(training.rsvps ?? {}).filter(s => s === 'GOING').length
   const guestCount = Object.values(training.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
   const total = goingCount + guestCount
@@ -72,14 +74,16 @@ function TrainingCard({ training, parkId }: { training: TrainingWithId; parkId: 
           {total > 0 && (
             <span className="flex items-center gap-1 text-xs text-brand-green font-semibold">
               <Users size={11} />
-              {total} {total === 1 ? 'participant' : 'participanți'}
+              {total === 1
+                ? t('training.participant_1')
+                : t('training.participant_n', { n: String(total) })}
             </span>
           )}
         </div>
 
         {training.authorName && (
           <p className="text-xs text-white/35 mb-2">
-            Organizat de <span className="text-white/60 font-semibold">{training.authorName}</span>
+            {t('training.organized_by')} <span className="text-white/60 font-semibold">{training.authorName}</span>
           </p>
         )}
 
@@ -91,7 +95,7 @@ function TrainingCard({ training, parkId }: { training: TrainingWithId; parkId: 
 
             {training.exercises && training.exercises.length > 0 && (
               <div className="mb-3">
-                <p className="text-[9px] font-bold text-brand-green/70 tracking-widest mb-1.5">EXERCIȚII</p>
+                <p className="text-[9px] font-bold text-brand-green/70 tracking-widest mb-1.5">{t('training.exercises_section')}</p>
                 <div className="flex flex-col gap-1">
                   {training.exercises.map((ex, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs text-white/70">
@@ -106,7 +110,7 @@ function TrainingCard({ training, parkId }: { training: TrainingWithId; parkId: 
 
             {training.equipment && training.equipment.length > 0 && (
               <div>
-                <p className="text-[9px] font-bold text-brand-green/70 tracking-widest mb-1.5">ECHIPAMENT</p>
+                <p className="text-[9px] font-bold text-brand-green/70 tracking-widest mb-1.5">{t('training.equipment_section')}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {training.equipment.map((eq, i) => (
                     <span key={i}
@@ -128,6 +132,7 @@ function TrainingCard({ training, parkId }: { training: TrainingWithId; parkId: 
 export default function ParkTrainingHistoryPage() {
   const { parkId } = useParams() as { parkId: string }
   const router = useRouter()
+  const t = useT()
 
   const [park, setPark] = useState<ParkDoc | null>(null)
   const [trainings, setTrainings] = useState<TrainingWithId[]>([])
@@ -171,7 +176,7 @@ export default function ParkTrainingHistoryPage() {
           <ArrowLeft size={18} className="text-white/80" />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-black text-white truncate">Istoric antrenamente</p>
+          <p className="text-sm font-black text-white truncate">{t('training.history_title')}</p>
           {park && <p className="text-[10px] text-white/40 truncate">{park.name}</p>}
         </div>
       </div>
@@ -186,17 +191,21 @@ export default function ParkTrainingHistoryPage() {
         ) : trainings.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
             <Dumbbell size={36} className="text-white/15" />
-            <p className="text-sm text-white/35 text-center">Niciun antrenament trecut.<br />Fii primul care planifică!</p>
+            <p className="text-sm text-white/35 text-center whitespace-pre-line">{t('training.no_past_park')}</p>
             <button onClick={() => router.back()}
               className="mt-2 h-9 px-5 rounded-full bg-brand-green text-black text-xs font-bold">
-              Înapoi la hartă
+              {t('training.back_map')}
             </button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <p className="text-xs text-white/35 mb-1">{trainings.length} antrenament{trainings.length !== 1 ? 'e' : ''} trecut{trainings.length !== 1 ? 'e' : ''}</p>
-            {trainings.map(t => (
-              <TrainingCard key={t.id} training={t} parkId={parkId} />
+            <p className="text-xs text-white/35 mb-1">
+              {trainings.length === 1
+                ? t('training.n_past_1')
+                : t('training.n_past_n', { n: String(trainings.length) })}
+            </p>
+            {trainings.map(tr => (
+              <TrainingCard key={tr.id} training={tr} parkId={parkId} />
             ))}
           </div>
         )}

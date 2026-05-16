@@ -8,15 +8,16 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { ConversationDoc } from '@/types'
 import { MessageSquare } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
-function formatTs(ts: { toDate?: () => Date } | null | undefined): string {
+function formatTs(ts: { toDate?: () => Date } | null | undefined, yesterdayLabel: string): string {
   if (!ts) return ''
   const date = ts.toDate ? ts.toDate() : new Date()
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
   if (diffDays === 0) return date.toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })
-  if (diffDays === 1) return 'Ieri'
+  if (diffDays === 1) return yesterdayLabel
   if (diffDays < 7) return date.toLocaleDateString('ro', { weekday: 'short' })
   return date.toLocaleDateString('ro', { day: '2-digit', month: '2-digit' })
 }
@@ -36,6 +37,7 @@ export default function ChatListPane() {
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const t = useT()
   const [conversations, setConversations] = useState<ConversationDoc[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -70,7 +72,7 @@ export default function ChatListPane() {
   return (
     <div className="h-full flex flex-col" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="px-4 pt-5 pb-3 border-b border-white/8">
-        <h1 className="text-lg font-black text-white">Mesaje</h1>
+        <h1 className="text-lg font-black text-white">{t('chat.title')}</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -80,7 +82,7 @@ export default function ChatListPane() {
             ? (
               <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
                 <MessageSquare size={40} className="text-white/15 mb-3" />
-                <p className="text-sm font-semibold text-white/50">Nicio conversație</p>
+                <p className="text-sm font-semibold text-white/50">{t('chat.no_convs')}</p>
               </div>
             )
             : conversations.map(conv => {
@@ -103,11 +105,11 @@ export default function ChatListPane() {
                       {otherName}
                     </p>
                     <p className={`text-xs truncate mt-0.5 ${hasUnread ? 'text-white/80 font-semibold' : 'text-white/40'}`}>
-                      {conv.lastMessage || 'Începe o conversație'}
+                      {conv.lastMessage || t('chat.start')}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <span className="text-[11px] text-white/35">{formatTs(conv.lastMessageTimestamp)}</span>
+                    <span className="text-[11px] text-white/35">{formatTs(conv.lastMessageTimestamp, t('chat.yesterday'))}</span>
                     {hasUnread && (
                       <span className="w-5 h-5 rounded-full bg-brand-green flex items-center justify-center text-[10px] font-black text-black">
                         {unread > 99 ? '99+' : unread}

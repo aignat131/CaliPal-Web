@@ -5,28 +5,29 @@ import { usePathname } from 'next/navigation'
 import { Home, Users, Dumbbell, Map, User, LogIn } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useAuth } from '@/lib/hooks/useAuth'
-
-const tabs = [
-  { href: '/home',      label: 'Acasă',      Icon: Home },
-  { href: '/community', label: 'Comunitate', Icon: Users },
-  { href: '/workout',   label: 'Workout',    Icon: Dumbbell },
-  { href: '/map',       label: 'Hartă',      Icon: Map },
-  { href: '/profile',   label: 'Profil',     Icon: User },
-]
-
-const guestTabs = [
-  { href: '/home',      label: 'Acasă',      Icon: Home },
-  { href: '/community', label: 'Comunitate', Icon: Users },
-  { href: '/workout',   label: 'Workout',    Icon: Dumbbell },
-  { href: '/map',       label: 'Hartă',      Icon: Map },
-  { href: '/login',     label: 'Cont',       Icon: LogIn },
-]
+import { useT } from '@/lib/context/LanguageContext'
 
 export default function AppNav() {
   const pathname = usePathname()
   const { theme } = useTheme()
   const { user, loading } = useAuth()
+  const t = useT()
   const inactiveColor = theme === 'light' ? 'rgba(13,27,26,0.40)' : 'rgba(255,255,255,0.45)'
+
+  const tabs = [
+    { href: '/home',      label: t('nav.home'),      Icon: Home },
+    { href: '/community', label: t('nav.community'), Icon: Users },
+    { href: '/workout',   label: t('nav.workout'),   Icon: Dumbbell },
+    { href: '/map',       label: t('nav.map'),       Icon: Map },
+    { href: '/profile',   label: t('nav.profile'),   Icon: User },
+  ]
+  const guestTabs = [
+    { href: '/home',      label: t('nav.home'),      Icon: Home },
+    { href: '/community', label: t('nav.community'), Icon: Users },
+    { href: '/workout',   label: t('nav.workout'),   Icon: Dumbbell },
+    { href: '/map',       label: t('nav.map'),       Icon: Map },
+    { href: '/login',     label: t('nav.account'),   Icon: LogIn },
+  ]
   const navTabs = (!loading && !user) ? guestTabs : tabs
 
   return (

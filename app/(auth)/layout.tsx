@@ -1,3 +1,5 @@
+import { LanguageProvider } from '@/lib/context/LanguageContext'
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+  return <LanguageProvider>{children}</LanguageProvider>
 }

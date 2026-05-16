@@ -14,6 +14,7 @@ import { createNotification } from '@/lib/firebase/notifications'
 import type { UserDoc, WorkoutDoc } from '@/types'
 import { conversationId } from '@/types'
 import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell, X } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -27,7 +28,7 @@ function formatDate(ts: { toDate?: () => Date } | null | undefined): string {
   return d.toLocaleDateString('ro', { day: '2-digit', month: 'short' })
 }
 
-function exercisePreview(ex: import('@/types').WorkoutExercise): string {
+function exercisePreview(ex: import('@/types').WorkoutExercise, nSetsLabel: (n: number) => string): string {
   const n = ex.sets.length
   if (n === 0) return ex.name
   const first = ex.sets[0]
@@ -37,7 +38,7 @@ function exercisePreview(ex: import('@/types').WorkoutExercise): string {
   }
   const allSame = ex.sets.every(s => s.reps === first.reps && s.durationSeconds === first.durationSeconds)
   if (allSame) {
-    const v = first.reps != null ? `${n}×${first.reps}` : first.durationSeconds != null ? `${n}×${first.durationSeconds}s` : `${n} serii`
+    const v = first.reps != null ? `${n}×${first.reps}` : first.durationSeconds != null ? `${n}×${first.durationSeconds}s` : nSetsLabel(n)
     return `${ex.name} ${v}`
   }
   const total = ex.sets.reduce((s, set) => s + (set.reps ?? 0), 0)
@@ -51,7 +52,15 @@ export default function UserProfilePage() {
   const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
   const router = useRouter()
   const params = useParams()
+  const t = useT()
   const uid = params.uid as string
+
+  const LEVEL_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+    beginner:     { label: t('profile.badge_beginner'),     color: 'rgba(255,255,255,0.7)', bg: '#ffffff15' },
+    intermediate: { label: t('profile.badge_intermediate'), color: '#60A5FA',               bg: '#3B82F622' },
+    advanced:     { label: t('profile.badge_advanced'),     color: '#F97316',               bg: '#F9731622' },
+    elite:        { label: t('profile.badge_elite'),        color: '#FFB800',               bg: '#FFB80022' },
+  }
 
   const [profile, setProfile] = useState<UserDoc | null>(null)
   const [loading, setLoading] = useState(true)
@@ -128,14 +137,13 @@ export default function UserProfilePage() {
     setFriendLoading(true)
     setFriendError(null)
     try {
-      // Spam guard: check if a request was already sent in the last 24 hours
       const reqId = `${user.uid}_${uid}`
       const existing = await getDoc(doc(db, 'friend_requests', reqId))
       if (existing.exists()) {
         const sentAt: { toDate?: () => Date } | undefined = existing.data()?.sentAt
         const sentMs = sentAt?.toDate?.()?.getTime() ?? 0
         if (Date.now() - sentMs < 24 * 60 * 60 * 1000) {
-          setFriendError('Ai trimis deja o cerere în ultimele 24h. Mai încearcă mâine.')
+          setFriendError(t('pub_profile.spam_guard'))
           setFriendLoading(false)
           return
         }
@@ -157,7 +165,7 @@ export default function UserProfilePage() {
       )
       setFriendStatus('sent')
     } catch (e: unknown) {
-      setFriendError(e instanceof Error ? e.message : 'Eroare necunoscută')
+      setFriendError(e instanceof Error ? e.message : t('common.unknown_error'))
     } finally {
       setFriendLoading(false)
     }
@@ -211,7 +219,8 @@ export default function UserProfilePage() {
   function goToChat() {
     if (!user) return
     const convId = conversationId(user.uid, uid)
-    router.push(`/chat/${convId}?otherUserId=${uid}&otherName=${encodeURIComponent(profile?.displayName ?? 'Utilizator')}`)
+    const fallback = t('common.user_fallback')
+    router.push(`/chat/${convId}?otherUserId=${uid}&otherName=${encodeURIComponent(profile?.displayName ?? fallback)}`)
   }
 
   if (loading) {
@@ -225,17 +234,20 @@ export default function UserProfilePage() {
   if (!profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-6" style={{ backgroundColor: 'var(--app-bg)' }}>
-        <p className="text-white/60 font-semibold">Utilizatorul nu a fost găsit.</p>
-        <button onClick={() => router.back()} className="mt-4 text-brand-green text-sm font-bold">Înapoi</button>
+        <p className="text-white/60 font-semibold">{t('pub_profile.not_found')}</p>
+        <button onClick={() => router.back()} className="mt-4 text-brand-green text-sm font-bold">{t('pub_profile.back')}</button>
       </div>
     )
   }
 
-  const displayName = (profile.displayName && profile.displayName !== 'Utilizator')
+  const userFallback = t('common.user_fallback')
+  const displayName = (profile.displayName && profile.displayName !== userFallback)
     ? profile.displayName
-    : (profile.email?.split('@')[0] || profile.displayName || 'Utilizator')
+    : (profile.email?.split('@')[0] || profile.displayName || userFallback)
   const photoUrl = profile.photoUrl
   const initial = displayName.charAt(0).toUpperCase()
+
+  const nSetsLabel = (n: number) => t('common.n_sets', { n: String(n) })
 
   // Skills from assessment
   const allMasteredSkills = Object.values(profile.skillsByCategory ?? {}).flatMap(cat => cat.have)
@@ -246,12 +258,6 @@ export default function UserProfilePage() {
 
   // Badge based on assessment level
   const assessmentLevel = profile.basicStrength?.level
-  const LEVEL_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-    beginner:     { label: '⚔️ Începător',   color: 'rgba(255,255,255,0.7)', bg: '#ffffff15' },
-    intermediate: { label: '🥈 Intermediar', color: '#60A5FA',               bg: '#3B82F622' },
-    advanced:     { label: '🥇 Avansat',     color: '#F97316',               bg: '#F9731622' },
-    elite:        { label: '👑 Elite',        color: '#FFB800',               bg: '#FFB80022' },
-  }
   const badge = profile.isCoach
     ? { label: '⭐ Master Coach', color: '#1ED75F', bg: '#1ED75F22' }
     : LEVEL_BADGE[assessmentLevel ?? 'beginner'] ?? LEVEL_BADGE.beginner
@@ -279,15 +285,15 @@ export default function UserProfilePage() {
 
           <div className="flex-1">
             <div className="flex justify-around mb-2">
-              <Stat value={String(profile.totalWorkouts ?? 0)} label="Antrenamente" />
-              <Stat value={String(profile.coins ?? 0)} label="Monede" />
-              <Stat value={String(profile.friendCount ?? 0)} label="Prieteni" />
+              <Stat value={String(profile.totalWorkouts ?? 0)} label={t('pub_profile.workouts')} />
+              <Stat value={String(profile.coins ?? 0)} label={t('pub_profile.coins')} />
+              <Stat value={String(profile.friendCount ?? 0)} label={t('pub_profile.friends')} />
             </div>
             {(profile.currentStreak ?? 0) > 0 && (
               <div className="flex justify-end">
                 <span className="px-3 py-1 rounded-full text-xs font-bold"
                   style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
-                  🔥 {profile.currentStreak} zile
+                  {t('pub_profile.streak', { n: String(profile.currentStreak) })}
                 </span>
               </div>
             )}
@@ -322,14 +328,14 @@ export default function UserProfilePage() {
               disabled={friendLoading}
               className="flex-1 h-11 rounded-xl border border-brand-green/50 text-brand-green text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-green/10 transition-colors disabled:opacity-50"
             >
-              <UserCheck size={16} /> Prieten
+              <UserCheck size={16} /> {t('pub_profile.friend_label')}
             </button>
           ) : friendStatus === 'sent' ? (
             <button
               disabled
               className="flex-1 h-11 rounded-xl border border-white/20 text-white/40 text-sm font-semibold flex items-center justify-center gap-2"
             >
-              <Clock size={16} /> Cerere trimisă
+              <Clock size={16} /> {t('pub_profile.request_sent')}
             </button>
           ) : friendStatus === 'received' ? (
             <button
@@ -337,7 +343,7 @@ export default function UserProfilePage() {
               disabled={friendLoading}
               className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <UserPlus size={16} /> Acceptă cererea
+              <UserPlus size={16} /> {t('pub_profile.accept_request')}
             </button>
           ) : (
             <button
@@ -345,7 +351,7 @@ export default function UserProfilePage() {
               disabled={friendLoading}
               className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <UserPlus size={16} /> Adaugă prieten
+              <UserPlus size={16} /> {t('pub_profile.add_friend')}
             </button>
           )}
 
@@ -360,11 +366,11 @@ export default function UserProfilePage() {
 
         {/* Recent workouts */}
         <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          <p className="text-sm font-bold text-white mb-3">Antrenamente recente</p>
+          <p className="text-sm font-bold text-white mb-3">{t('pub_profile.recent_workouts')}</p>
           {recentWorkouts.length === 0 ? (
             <div className="flex items-center gap-2 py-2">
               <Dumbbell size={20} className="text-white/20" />
-              <p className="text-xs text-white/35">Niciun antrenament înregistrat.</p>
+              <p className="text-xs text-white/35">{t('pub_profile.no_workouts')}</p>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
@@ -373,7 +379,7 @@ export default function UserProfilePage() {
                   className="w-full flex items-center justify-between py-1.5 text-left hover:bg-white/5 rounded-xl px-1 transition-colors">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-white truncate">
-                      {w.exercises.map(e => exercisePreview(e)).join(' · ')}
+                      {w.exercises.map(e => exercisePreview(e, nSetsLabel)).join(' · ')}
                     </p>
                     <p className="text-[10px] text-white/35 mt-0.5">
                       ⏱ {formatDuration(w.durationSeconds)} · 🔁 {w.totalReps} rep
@@ -395,14 +401,16 @@ export default function UserProfilePage() {
               onClick={e => e.stopPropagation()}>
               <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-black text-white">Antrenament · {formatDate(selectedWorkout.createdAt)}</p>
+                <p className="text-sm font-black text-white">
+                  {t('pub_profile.workout_modal', { date: formatDate(selectedWorkout.createdAt) })}
+                </p>
                 <button onClick={() => setSelectedWorkout(null)}
                   className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
                   <X size={13} className="text-white/60" />
                 </button>
               </div>
               <p className="text-[10px] text-white/40 mb-3">
-                ⏱ {formatDuration(selectedWorkout.durationSeconds)} · 🔁 {selectedWorkout.totalReps} rep total
+                ⏱ {formatDuration(selectedWorkout.durationSeconds)} · 🔁 {selectedWorkout.totalReps} {t('pub_profile.rep_total')}
               </p>
               <div className="flex flex-col gap-3">
                 {selectedWorkout.exercises.map((ex, i) => (
@@ -412,7 +420,7 @@ export default function UserProfilePage() {
                     <div className="flex flex-col gap-1">
                       {ex.sets.map((s, si) => (
                         <div key={si} className="flex items-center gap-2 text-xs text-white/60">
-                          <span className="w-12 text-white/30">Seria {si + 1}</span>
+                          <span className="w-12 text-white/30">{t('pub_profile.set_n', { n: String(si + 1) })}</span>
                           {s.reps != null && <span>{s.reps} rep</span>}
                           {s.durationSeconds != null && <span>{s.durationSeconds}s</span>}
                           {s.weightKg != null && <span className="text-brand-green">+{s.weightKg}kg</span>}
@@ -435,7 +443,9 @@ export default function UserProfilePage() {
           <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-white">Skills</p>
-              <span className="text-xs text-white/40">{allMasteredSkills.length} stăpânite</span>
+              <span className="text-xs text-white/40">
+                {t('pub_profile.mastered_count', { n: String(allMasteredSkills.length) })}
+              </span>
             </div>
             <div className="flex flex-wrap gap-2">
               {displaySkills.map(s => (
@@ -447,7 +457,7 @@ export default function UserProfilePage() {
               ))}
               {allMasteredSkills.length > 5 && (
                 <span className="h-7 px-2.5 rounded-full text-xs font-semibold text-white/40 border border-white/15 flex items-center">
-                  +{allMasteredSkills.length - 5} mai multe
+                  {t('pub_profile.more_skills', { n: String(allMasteredSkills.length - 5) })}
                 </span>
               )}
             </div>

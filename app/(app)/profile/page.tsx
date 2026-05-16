@@ -11,6 +11,7 @@ import { collection, query, orderBy, limit, where, onSnapshot, doc } from 'fireb
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { UserDoc, WorkoutDoc } from '@/types'
 import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -41,25 +42,42 @@ function exercisePreview(ex: import('@/types').WorkoutExercise): string {
   return total > 0 ? `${ex.name} ${total} rep` : ex.name
 }
 
+const COIN_TASK_KEYS: Record<string, string> = {
+  FIRST_WORKOUT:        'profile.task_first_workout',
+  COMPLETE_WORKOUT:     'profile.task_complete_workout',
+  STREAK_3:             'profile.task_streak_3',
+  STREAK_7:             'profile.task_streak_7',
+  STREAK_30:            'profile.task_streak_30',
+  COMPLETE_ASSESSMENT:  'profile.task_complete_assessment',
+  JOIN_COMMUNITY:       'profile.task_join_community',
+  ADD_FRIEND:           'profile.task_add_friend',
+  WORKOUTS_10:          'profile.task_workouts_10',
+  WORKOUTS_50:          'profile.task_workouts_50',
+  WORKOUTS_100:         'profile.task_workouts_100',
+  SKILLS_5:             'profile.task_skills_5',
+  SKILLS_10:            'profile.task_skills_10',
+}
+
 const COIN_TASKS = [
-  { id: 'FIRST_WORKOUT', label: 'Primul antrenament', coins: 20, icon: '🏋️' },
-  { id: 'COMPLETE_WORKOUT', label: 'Finalizează un antrenament', coins: 10, icon: '✅' },
-  { id: 'STREAK_3', label: '3 zile consecutiv', coins: 15, icon: '🔥' },
-  { id: 'STREAK_7', label: '7 zile consecutiv', coins: 50, icon: '🔥' },
-  { id: 'STREAK_30', label: '30 zile consecutiv', coins: 200, icon: '🔥' },
-  { id: 'COMPLETE_ASSESSMENT', label: 'Finalizează evaluarea', coins: 25, icon: '📋' },
-  { id: 'JOIN_COMMUNITY', label: 'Alătură-te unei comunități', coins: 5, icon: '👥' },
-  { id: 'ADD_FRIEND', label: 'Adaugă un prieten', coins: 5, icon: '🤝' },
-  { id: 'WORKOUTS_10', label: '10 antrenamente totale', coins: 30, icon: '💪' },
-  { id: 'WORKOUTS_50', label: '50 antrenamente totale', coins: 100, icon: '💪' },
-  { id: 'WORKOUTS_100', label: '100 antrenamente totale', coins: 250, icon: '💪' },
-  { id: 'SKILLS_5', label: '5 skill-uri deblocate', coins: 30, icon: '⭐' },
-  { id: 'SKILLS_10', label: '10 skill-uri deblocate', coins: 75, icon: '🌟' },
+  { id: 'FIRST_WORKOUT',        coins: 20,  icon: '🏋️' },
+  { id: 'COMPLETE_WORKOUT',     coins: 10,  icon: '✅' },
+  { id: 'STREAK_3',             coins: 15,  icon: '🔥' },
+  { id: 'STREAK_7',             coins: 50,  icon: '🔥' },
+  { id: 'STREAK_30',            coins: 200, icon: '🔥' },
+  { id: 'COMPLETE_ASSESSMENT',  coins: 25,  icon: '📋' },
+  { id: 'JOIN_COMMUNITY',       coins: 5,   icon: '👥' },
+  { id: 'ADD_FRIEND',           coins: 5,   icon: '🤝' },
+  { id: 'WORKOUTS_10',          coins: 30,  icon: '💪' },
+  { id: 'WORKOUTS_50',          coins: 100, icon: '💪' },
+  { id: 'WORKOUTS_100',         coins: 250, icon: '💪' },
+  { id: 'SKILLS_5',             coins: 30,  icon: '⭐' },
+  { id: 'SKILLS_10',            coins: 75,  icon: '🌟' },
 ]
 
 export default function ProfilePage() {
   const { user } = useAuth()
   const router = useRouter()
+  const t = useT()
   const [profile, setProfile] = useState<UserDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState(0)
@@ -148,14 +166,16 @@ export default function ProfilePage() {
   // Badge based on assessment level
   const assessmentLevel = profile?.basicStrength?.level
   const LEVEL_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-    beginner:     { label: '⚔️ Începător',   color: 'rgba(255,255,255,0.7)', bg: '#ffffff15' },
-    intermediate: { label: '🥈 Intermediar', color: '#60A5FA',               bg: '#3B82F622' },
-    advanced:     { label: '🥇 Avansat',     color: '#F97316',               bg: '#F9731622' },
-    elite:        { label: '👑 Elite',        color: '#FFB800',               bg: '#FFB80022' },
+    beginner:     { label: t('profile.badge_beginner'),     color: 'rgba(255,255,255,0.7)', bg: '#ffffff15' },
+    intermediate: { label: t('profile.badge_intermediate'), color: '#60A5FA',               bg: '#3B82F622' },
+    advanced:     { label: t('profile.badge_advanced'),     color: '#F97316',               bg: '#F9731622' },
+    elite:        { label: t('profile.badge_elite'),        color: '#FFB800',               bg: '#FFB80022' },
   }
   const badge = profile?.isCoach
     ? { label: '⭐ Master Coach', color: '#1ED75F', bg: '#1ED75F22' }
     : LEVEL_BADGE[assessmentLevel ?? 'beginner'] ?? LEVEL_BADGE.beginner
+
+  const tabs = [t('profile.tab_progress'), t('profile.tab_tasks')]
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -163,16 +183,16 @@ export default function ProfilePage() {
       {showLogout && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
           <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <h2 className="text-lg font-bold text-white mb-2">Deconectare</h2>
-            <p className="text-sm text-white/60 mb-6">Ești sigur că vrei să te deconectezi?</p>
+            <h2 className="text-lg font-bold text-white mb-2">{t('common.logout_title')}</h2>
+            <p className="text-sm text-white/60 mb-6">{t('common.logout_text')}</p>
             <div className="flex gap-3">
               <button onClick={() => setShowLogout(false)}
                 className="flex-1 h-11 rounded-xl border border-white/20 text-sm font-semibold text-white/80">
-                Anulează
+                {t('common.cancel')}
               </button>
               <button onClick={handleLogout}
                 className="flex-1 h-11 rounded-xl bg-red-500/80 text-white text-sm font-bold">
-                Deconectare
+                {t('common.logout')}
               </button>
             </div>
           </div>
@@ -219,15 +239,15 @@ export default function ProfilePage() {
 
           <div className="flex-1">
             <div className="flex justify-around mb-2">
-              <Link href="/workout"><Stat value={String(profile?.totalWorkouts ?? 0)} label="Antrenamente" /></Link>
-              <Stat value={String(profile?.coins ?? 0)} label="Monede" />
-              <Link href="/profile/friends"><Stat value={String(profile?.friendCount ?? 0)} label="Prieteni" /></Link>
+              <Link href="/workout"><Stat value={String(profile?.totalWorkouts ?? 0)} label={t('profile.workouts')} /></Link>
+              <Stat value={String(profile?.coins ?? 0)} label={t('profile.coins')} />
+              <Link href="/profile/friends"><Stat value={String(profile?.friendCount ?? 0)} label={t('profile.friends')} /></Link>
             </div>
             {(profile?.currentStreak ?? 0) > 0 && (
               <div className="flex justify-end">
                 <span className="px-3 py-1 rounded-full text-xs font-bold"
                   style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
-                  🔥 {profile?.currentStreak} zile
+                  🔥 {t('profile.days_streak', { n: profile?.currentStreak ?? 0 })}
                 </span>
               </div>
             )}
@@ -258,34 +278,34 @@ export default function ProfilePage() {
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 mb-4">
-          {['Progres', 'Sarcini'].map((t, i) => (
-            <button key={t} onClick={() => setTab(i)}
+          {tabs.map((label, i) => (
+            <button key={label} onClick={() => setTab(i)}
               className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${
                 tab === i ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/45'
               }`}>
-              {t}
+              {label}
             </button>
           ))}
         </div>
 
-        {/* ── Progres tab ── */}
+        {/* ── Progress tab ── */}
         {tab === 0 && (
           <div>
             {/* Recent workouts */}
             <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-bold text-white">Antrenamente recente</p>
+                <p className="text-sm font-bold text-white">{t('profile.recent_workouts')}</p>
                 <Link href="/workout">
-                  <span className="text-xs text-brand-green font-semibold">Vezi tot</span>
+                  <span className="text-xs text-brand-green font-semibold">{t('common.see_all_short')}</span>
                 </Link>
               </div>
               {recentWorkouts.length === 0 ? (
                 <div className="text-center py-4">
                   <Dumbbell size={28} className="text-white/15 mx-auto mb-2" />
-                  <p className="text-xs text-white/35">Niciun antrenament încă. Hai la muncă! 💪</p>
+                  <p className="text-xs text-white/35">{t('profile.no_workouts')}</p>
                   <Link href="/workout">
                     <button className="mt-3 h-8 px-4 rounded-full bg-brand-green text-black text-xs font-bold">
-                      Începe primul antrenament
+                      {t('profile.start_first')}
                     </button>
                   </Link>
                 </div>
@@ -311,7 +331,7 @@ export default function ProfilePage() {
             {/* Skills preview */}
             <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-bold text-white">Skills</p>
+                <p className="text-sm font-bold text-white">{t('profile.skills')}</p>
                 <Link href="/profile/skills">
                   <span className="text-xs text-brand-green font-semibold flex items-center gap-0.5">
                     {totalMastered}/{totalAssessmentSkills} <ChevronRight size={12} />
@@ -321,17 +341,17 @@ export default function ProfilePage() {
 
               {!profile?.assessmentCompleted ? (
                 <div>
-                  <p className="text-sm text-white/80 font-semibold mb-1">Descoperă nivelul tău!</p>
-                  <p className="text-xs text-white/45 mb-3">Răspunde la câteva întrebări și personalizăm skill tree-ul.</p>
+                  <p className="text-sm text-white/80 font-semibold mb-1">{t('profile.assess_discover')}</p>
+                  <p className="text-xs text-white/45 mb-3">{t('profile.assess_text')}</p>
                   <Link href="/profile/assessment">
                     <button className="w-full h-10 rounded-xl bg-brand-green text-black font-bold text-sm">
-                      Evaluează-te acum →
+                      {t('profile.assess_cta')}
                     </button>
                   </Link>
                 </div>
               ) : displaySkills.length === 0 ? (
                 <p className="text-xs text-white/35 text-center py-2">
-                  Niciun skill marcat. <Link href="/profile/skills" className="text-brand-green">Deschide skill-urile →</Link>
+                  {t('profile.no_skills')} <Link href="/profile/skills" className="text-brand-green">{t('profile.open_skills')}</Link>
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
@@ -345,7 +365,7 @@ export default function ProfilePage() {
                   {totalMastered > 5 && (
                     <Link href="/profile/skills">
                       <span className="h-7 px-2.5 rounded-full text-xs font-semibold bg-white/8 text-white/50 flex items-center">
-                        +{totalMastered - 5} mai multe
+                        {t('profile.more_skills', { n: totalMastered - 5 })}
                       </span>
                     </Link>
                   )}
@@ -356,15 +376,15 @@ export default function ProfilePage() {
             {/* Logout */}
             <button onClick={() => setShowLogout(true)}
               className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-white bg-red-500/20 border border-red-500/30">
-              <LogOut size={16} /> Deconectare
+              <LogOut size={16} /> {t('common.logout')}
             </button>
           </div>
         )}
 
-        {/* ── Sarcini tab ── */}
+        {/* ── Tasks tab ── */}
         {tab === 1 && (
           <div className="flex flex-col gap-2">
-            <p className="text-xs text-white/35 mb-2">Completează sarcini pentru a câștiga monede 🪙</p>
+            <p className="text-xs text-white/35 mb-2">{t('profile.tasks_desc')}</p>
             {COIN_TASKS.map(task => {
               const done = completedTasks.has(task.id)
               return (
@@ -374,7 +394,7 @@ export default function ProfilePage() {
                   <span className="text-xl flex-shrink-0">{task.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-semibold ${done ? 'text-white/50 line-through' : 'text-white'}`}>
-                      {task.label}
+                      {t(COIN_TASK_KEYS[task.id])}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">

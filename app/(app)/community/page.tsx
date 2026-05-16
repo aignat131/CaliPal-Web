@@ -15,6 +15,7 @@ import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import type { CommunityDoc, CommunityMember, PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress } from '@/types'
 import { ROLE_LABELS } from '@/types'
 import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search, Bell, X, ArrowRight } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
 function formatDate(str: string | undefined): string {
   if (!str) return ''
@@ -34,6 +35,7 @@ function formatDate(str: string | undefined): string {
 export default function CommunityPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const t = useT()
   const { requestPermission } = usePushNotifications(user?.uid)
   const [communities, setCommunities] = useState<CommunityDoc[]>([])
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set())
@@ -253,7 +255,7 @@ export default function CommunityPage() {
       <div className="max-w-lg mx-auto px-4 pt-8 pb-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-black text-white">Comunitate</h1>
+          <h1 className="text-2xl font-black text-white">{t('community.title')}</h1>
           <div className="flex items-center gap-2">
             {tab === 0 && !!user && (
               <Link href="/community/create">
@@ -269,9 +271,9 @@ export default function CommunityPage() {
         {!!user && (
           <div className="flex border-b border-white/10 mb-4">
             {[
-              { label: 'Comunitate', Icon: Users },
-              { label: 'Evenimente', Icon: Calendar },
-              { label: 'Provocari', Icon: Trophy },
+              { label: t('community.tab_community'), Icon: Users },
+              { label: t('community.tab_events'), Icon: Calendar },
+              { label: t('community.tab_challenges'), Icon: Trophy },
             ].map(({ label, Icon }, i) => (
               <button key={i} onClick={() => changeTab(i)}
                 className={`flex-1 py-2.5 text-xs font-bold transition-colors flex flex-col items-center gap-0.5 ${
@@ -304,7 +306,7 @@ export default function CommunityPage() {
                       <input
                         value={citySearch}
                         onChange={e => setCitySearch(e.target.value)}
-                        placeholder="Caută după oraș..."
+                        placeholder={t('community.search')}
                         className="w-full h-10 pl-9 pr-3 rounded-xl text-sm text-white placeholder:text-white/35 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50 transition-colors"
                       />
                     </div>
@@ -312,7 +314,7 @@ export default function CommunityPage() {
                     {/* My communities */}
                     {myCommunities.length > 0 && (
                       <div className="mb-5">
-                        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">COMUNITĂȚILE MELE</p>
+                        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">{t('community.section_mine')}</p>
                         <div className="flex flex-col gap-3">
                           {myCommunities.map(c => (
                             <MemberCommunityCard
@@ -329,7 +331,7 @@ export default function CommunityPage() {
                     {/* Discover section */}
                     {discover.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">DESCOPERĂ</p>
+                        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">{t('community.section_disc')}</p>
                         <div className="flex flex-col gap-3">
                           {discover.map(c => (
                             <DiscoverCommunityCard
@@ -345,7 +347,7 @@ export default function CommunityPage() {
                     {allFiltered.length === 0 && (
                       <div className="flex flex-col items-center gap-3 py-12 text-center">
                         <Search size={32} className="text-white/20" />
-                        <p className="text-sm text-white/40">Nicio comunitate în &quot;{citySearch}&quot;.</p>
+                        <p className="text-sm text-white/40">{t('community.not_found', { q: citySearch })}</p>
                       </div>
                     )}
                   </div>
@@ -361,7 +363,7 @@ export default function CommunityPage() {
             ) : eventi.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12 text-center">
                 <Calendar size={32} className="text-white/20" />
-                <p className="text-sm text-white/40">Niciun eveniment viitor în comunitățile tale.</p>
+                <p className="text-sm text-white/40">{t('community.no_events')}</p>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
@@ -381,7 +383,7 @@ export default function CommunityPage() {
             ) : provChallenges.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12 text-center">
                 <Trophy size={32} className="text-white/20" />
-                <p className="text-sm text-white/40">Nicio provocare activă în comunitățile tale.</p>
+                <p className="text-sm text-white/40">{t('community.no_challenges')}</p>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
@@ -395,7 +397,7 @@ export default function CommunityPage() {
                       <div className="flex items-center gap-2 mb-1">
                         <Trophy size={13} className="text-yellow-400" />
                         <p className="text-[10px] font-bold text-white/40 tracking-widest flex-1">{c.communityName.toUpperCase()}</p>
-                        {completed && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/20 text-brand-green">FINALIZAT ✓</span>}
+                        {completed && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/20 text-brand-green">{t('common.completed')}</span>}
                       </div>
                       <p className="font-black text-white text-sm mb-0.5">{c.title}</p>
                       <div className="flex items-center justify-between text-xs text-white/40 mb-1.5">
@@ -427,6 +429,7 @@ function MemberCommunityCard({
   isFavorite: boolean
   onToggleFavorite: (e: React.MouseEvent) => void
 }) {
+  const t = useT()
   return (
     <Link href={`/community/${community.id}`}>
       <div className="rounded-2xl p-4 active:opacity-80 transition-opacity" style={{ backgroundColor: 'var(--app-surface)' }}>
@@ -452,7 +455,7 @@ function MemberCommunityCard({
             <div className="flex items-center gap-3 mt-1">
               <span className="flex items-center gap-1 text-xs text-white/40">
                 <Users size={11} />
-                {community.memberCount} membri
+                {community.memberCount} {t('common.members')}
               </span>
               {community.location && (
                 <span className="flex items-center gap-1 text-xs text-white/40">
@@ -466,7 +469,7 @@ function MemberCommunityCard({
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button onClick={onToggleFavorite}
               className="w-8 h-8 rounded-lg flex items-center justify-center border border-white/15 hover:bg-white/8 transition-colors"
-              title={isFavorite ? 'Elimină favorit' : 'Marchează favorit'}>
+              title={isFavorite ? t('community.fav_remove') : t('community.fav_add')}>
               <Star size={14} fill={isFavorite ? '#FFB800' : 'none'} className={isFavorite ? 'text-yellow-400' : 'text-white/40'} />
             </button>
             <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center">
@@ -487,6 +490,7 @@ function DiscoverCommunityCard({
   community: CommunityDoc
   onPreview?: () => void
 }) {
+  const t = useT()
   const inner = (
       <div className="rounded-2xl p-4 active:opacity-80 transition-opacity border border-white/5" style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="flex items-center gap-3">
@@ -511,7 +515,7 @@ function DiscoverCommunityCard({
             <div className="flex items-center gap-3 mt-1">
               <span className="flex items-center gap-1 text-xs text-white/40">
                 <Users size={11} />
-                {community.memberCount} membri
+                {community.memberCount} {t('common.members')}
               </span>
               {community.location && (
                 <span className="flex items-center gap-1 text-xs text-white/40">
@@ -525,7 +529,7 @@ function DiscoverCommunityCard({
           <div className="flex-shrink-0">
             <div className="h-8 px-3 rounded-lg text-xs font-bold flex items-center"
               style={{ backgroundColor: '#1ED75F18', color: '#1ED75F' }}>
-              {onPreview ? 'Intru' : 'Vezi'}
+              {onPreview ? t('community.join_btn') : t('community.view_btn')}
             </div>
           </div>
         </div>
@@ -545,6 +549,7 @@ function MembersPreviewModal({
   onJoin: () => void
   onClose: () => void
 }) {
+  const t = useT()
   const [members, setMembers] = useState<CommunityMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(true)
 
@@ -595,7 +600,7 @@ function MembersPreviewModal({
                     style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
                 )}
               </div>
-              <p className="text-xs text-white/45 mt-0.5">{community.memberCount} membri · {community.location}</p>
+              <p className="text-xs text-white/45 mt-0.5">{community.memberCount} {t('common.members')} · {community.location}</p>
             </div>
             <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
               <X size={14} className="text-white/50" />
@@ -608,13 +613,13 @@ function MembersPreviewModal({
 
         {/* Members list */}
         <div className="flex-1 overflow-y-auto px-5 py-3">
-          <p className="text-[10px] font-bold text-white/30 tracking-widest mb-2">MEMBRI</p>
+          <p className="text-[10px] font-bold text-white/30 tracking-widest mb-2">{t('community.section_members')}</p>
           {loadingMembers ? (
             <div className="flex justify-center py-6">
               <div className="w-5 h-5 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
             </div>
           ) : members.length === 0 ? (
-            <p className="text-xs text-white/30 text-center py-4">{community.memberCount} membri</p>
+            <p className="text-xs text-white/30 text-center py-4">{community.memberCount} {t('common.members')}</p>
           ) : (
             <div className="flex flex-col gap-2">
               {members.map(m => {
@@ -648,7 +653,7 @@ function MembersPreviewModal({
             disabled={joining}
             className="w-full h-12 rounded-2xl bg-brand-green text-black font-black text-sm disabled:opacity-50"
           >
-            {joining ? '...' : 'Intru în comunitate'}
+            {joining ? '...' : t('community.join_community')}
           </button>
         </div>
       </div>
@@ -665,6 +670,7 @@ function JoinNotificationModal({
   onRequestNotifications: () => void
   onDismiss: () => void
 }) {
+  const t = useT()
   return (
     <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/60" onClick={onDismiss}>
       <div
@@ -683,10 +689,8 @@ function JoinNotificationModal({
             <Bell size={24} className="text-brand-green" />
           </div>
           <div>
-            <p className="font-black text-white text-base">Ai intrat în {communityName}!</p>
-            <p className="text-sm text-white/55 mt-1.5 leading-relaxed">
-              Vrei să primești notificări despre antrenamente și noutăți din această comunitate?
-            </p>
+            <p className="font-black text-white text-base">{t('community.joined_title', { name: communityName })}</p>
+            <p className="text-sm text-white/55 mt-1.5 leading-relaxed">{t('community.joined_notif')}</p>
           </div>
         </div>
         <div className="flex flex-col gap-2">
@@ -694,13 +698,13 @@ function JoinNotificationModal({
             onClick={onRequestNotifications}
             className="w-full h-12 rounded-2xl bg-brand-green text-black font-black text-sm"
           >
-            Da, activează notificările
+            {t('community.enable_notif')}
           </button>
           <button
             onClick={onDismiss}
             className="w-full h-10 rounded-2xl text-white/45 text-sm font-semibold"
           >
-            Nu, mulțumesc
+            {t('community.no_thanks')}
           </button>
         </div>
       </div>
@@ -709,6 +713,7 @@ function JoinNotificationModal({
 }
 
 function EventCard({ event }: { event: PlannedTraining & { communityId: string; communityName: string } }) {
+  const t = useT()
   const goingCount = event.rsvps ? Object.values(event.rsvps).filter(v => v === 'GOING').length : 0
   return (
     <Link href={`/community/${event.communityId}`}>
@@ -734,7 +739,7 @@ function EventCard({ event }: { event: PlannedTraining & { communityId: string; 
           {goingCount > 0 && (
             <span className="flex items-center gap-1 text-xs text-white/45">
               <Check size={10} className="text-brand-green/60" />
-              {goingCount} {goingCount === 1 ? 'merge' : 'merg'}
+              {goingCount === 1 ? t('community.going_1') : t('community.going_n', { n: goingCount })}
             </span>
           )}
         </div>

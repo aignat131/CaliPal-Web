@@ -12,18 +12,12 @@ import { db } from '@/lib/firebase/firestore'
 import type { LocationSharingMode } from '@/types'
 import {
   ArrowLeft, ChevronRight, User, LogOut, Lock, Info, Bell,
-  Shield, Sun, Moon, MapPin,
+  Shield, Sun, Moon, MapPin, Globe,
 } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
+import { useLanguage } from '@/lib/context/LanguageContext'
 
 const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
-
-const LOCATION_MODE_LABELS: Record<LocationSharingMode, string> = {
-  OFF: 'Oprit',
-  FRIENDS_ONLY: 'Doar prieteni',
-  EVERYWHERE: 'Toată lumea',
-  TRAINING_ONLY: 'Antrenamente',
-}
 
 export default function SettingsPage() {
   const { user } = useAuth()
@@ -31,9 +25,17 @@ export default function SettingsPage() {
   const [showLogout, setShowLogout] = useState(false)
   const { status: pushStatus, requestPermission } = usePushNotifications(user?.uid)
   const { theme, toggle } = useTheme()
+  const { lang, setLang, t } = useLanguage()
 
   const [locationMode, setLocationMode] = useState<LocationSharingMode>('EVERYWHERE')
   const [isCoach, setIsCoach] = useState(false)
+
+  const LOCATION_MODE_LABELS: Record<LocationSharingMode, string> = {
+    OFF: t('settings.loc_off'),
+    FRIENDS_ONLY: t('settings.loc_friends'),
+    EVERYWHERE: t('settings.loc_everyone'),
+    TRAINING_ONLY: t('settings.loc_workouts'),
+  }
 
   useEffect(() => {
     if (!user) return
@@ -62,25 +64,25 @@ export default function SettingsPage() {
   }
 
   const pushLabel =
-    pushStatus === 'granted'     ? 'Active' :
-    pushStatus === 'denied'      ? 'Blocate (din browser)' :
-    pushStatus === 'unsupported' ? 'Nesuportate' : 'Inactive'
+    pushStatus === 'granted'     ? t('settings.push_active') :
+    pushStatus === 'denied'      ? t('settings.push_blocked') :
+    pushStatus === 'unsupported' ? t('settings.push_unsupported') : t('settings.push_inactive')
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       {showLogout && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
           <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <h2 className="text-lg font-bold text-white mb-2">Deconectare</h2>
-            <p className="text-sm text-white/60 mb-6">Ești sigur că vrei să te deconectezi?</p>
+            <h2 className="text-lg font-bold text-white mb-2">{t('common.logout_title')}</h2>
+            <p className="text-sm text-white/60 mb-6">{t('common.logout_text')}</p>
             <div className="flex gap-3">
               <button onClick={() => setShowLogout(false)}
                 className="flex-1 h-11 rounded-xl border border-white/20 text-sm font-semibold text-white/80">
-                Anulează
+                {t('common.cancel')}
               </button>
               <button onClick={handleLogout}
                 className="flex-1 h-11 rounded-xl bg-red-500/80 text-white text-sm font-bold">
-                Deconectare
+                {t('common.logout')}
               </button>
             </div>
           </div>
@@ -93,26 +95,26 @@ export default function SettingsPage() {
             className="w-9 h-9 rounded-full flex items-center justify-center bg-white/8">
             <ArrowLeft size={18} className="text-white/80" />
           </button>
-          <h1 className="text-lg font-black text-white">Setări</h1>
+          <h1 className="text-lg font-black text-white">{t('settings.title')}</h1>
         </div>
 
         {/* Account */}
-        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">CONT</p>
+        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_account')}</p>
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          <SettingsRow icon={<User size={17} />} label="Date Personale" href="/profile/edit" />
-          <SettingsRow icon={<Lock size={17} />} label="Confidențialitate" href="/profile/privacy" />
+          <SettingsRow icon={<User size={17} />} label={t('settings.personal_data')} href="/profile/edit" />
+          <SettingsRow icon={<Lock size={17} />} label={t('settings.privacy')} href="/profile/privacy" />
         </div>
 
         {/* Notifications */}
-        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">NOTIFICĂRI</p>
+        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_notif')}</p>
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           <div className="flex items-center gap-3 px-4 py-3.5">
             <span className="text-brand-green"><Bell size={17} /></span>
-            <span className="flex-1 text-sm font-medium text-white">Notificări Push</span>
+            <span className="flex-1 text-sm font-medium text-white">{t('settings.push')}</span>
             {pushStatus === 'idle' ? (
               <button onClick={requestPermission}
                 className="h-7 px-3 rounded-full bg-brand-green text-black text-xs font-bold">
-                Activează
+                {t('settings.push_enable')}
               </button>
             ) : (
               <span className={`text-xs font-semibold ${pushStatus === 'granted' ? 'text-brand-green' : 'text-white/35'}`}>
@@ -123,11 +125,11 @@ export default function SettingsPage() {
         </div>
 
         {/* Location sharing */}
-        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">LOCAȚIE</p>
+        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_location')}</p>
         <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           <div className="px-4 pt-3.5 pb-1 flex items-center gap-3">
             <span className="text-brand-green"><MapPin size={17} /></span>
-            <span className="text-sm font-medium text-white">Partajare locație</span>
+            <span className="text-sm font-medium text-white">{t('settings.location_share')}</span>
           </div>
           <div className="px-4 pb-3.5 grid grid-cols-2 gap-1.5 mt-2">
             {(['OFF', 'FRIENDS_ONLY', 'EVERYWHERE', 'TRAINING_ONLY'] as LocationSharingMode[]).map(mode => (
@@ -144,7 +146,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Preferences */}
-        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">PREFERINȚE</p>
+        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_pref')}</p>
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           {/* Theme */}
           <div className="flex items-center gap-3 px-4 py-3.5">
@@ -152,7 +154,7 @@ export default function SettingsPage() {
               {theme === 'light' ? <Sun size={17} /> : <Moon size={17} />}
             </span>
             <span className="flex-1 text-sm font-medium text-white">
-              {theme === 'light' ? 'Mod luminos' : 'Mod întunecat'}
+              {theme === 'light' ? t('settings.light_mode') : t('settings.dark_mode')}
             </span>
             <button onClick={toggle}
               className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
@@ -161,21 +163,46 @@ export default function SettingsPage() {
                 style={{ left: theme === 'light' ? '22px' : '2px' }} />
             </button>
           </div>
+        </div>
 
+        {/* Language */}
+        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_lang')}</p>
+        <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <div className="flex items-center gap-3 px-4 py-3.5">
+            <span className="text-brand-green"><Globe size={17} /></span>
+            <span className="flex-1 text-sm font-medium text-white">
+              {lang === 'RO' ? 'Română' : 'English'}
+            </span>
+            <div className="flex gap-1.5">
+              {(['RO', 'EN'] as const).map(l => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={`h-7 px-3 rounded-full text-xs font-bold transition-colors ${
+                    lang === l
+                      ? 'bg-brand-green text-black'
+                      : 'border border-white/20 text-white/50'
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* About */}
-        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">ALTELE</p>
+        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_other')}</p>
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          <SettingsRow icon={<Info size={17} />} label="Despre aplicație" value="v1.0.0" href="/profile/about" />
+          <SettingsRow icon={<Info size={17} />} label={t('settings.about')} value="v1.0.0" href="/profile/about" />
         </div>
 
         {/* Coach Hub */}
         {isCoach && (
           <>
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">ANTRENOR</p>
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_trainer')}</p>
             <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-              <SettingsRow icon={<Shield size={17} />} label="Coach Hub" href="/coach" />
+              <SettingsRow icon={<Shield size={17} />} label={t('settings.coach_hub')} href="/coach" />
             </div>
           </>
         )}
@@ -183,16 +210,16 @@ export default function SettingsPage() {
         {/* Admin Hub */}
         {user?.email === SUPERADMIN && (
           <>
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">ADMIN</p>
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_admin')}</p>
             <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-              <SettingsRow icon={<Shield size={17} />} label="Admin Hub" href="/admin" />
+              <SettingsRow icon={<Shield size={17} />} label={t('settings.admin_hub')} href="/admin" />
             </div>
           </>
         )}
 
         <button onClick={() => setShowLogout(true)}
           className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-white bg-red-500/20 border border-red-500/30">
-          <LogOut size={16} /> Deconectare
+          <LogOut size={16} /> {t('common.logout')}
         </button>
       </div>
     </div>
