@@ -165,6 +165,7 @@ export interface WorkoutExercise {
   name: string
   category: string
   sets: WorkoutSet[]
+  fromProgram?: boolean   // true only when pre-loaded from a community/program training card
 }
 
 export interface WorkoutDoc {

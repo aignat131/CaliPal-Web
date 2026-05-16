@@ -168,6 +168,7 @@ export default function WorkoutPage() {
           name: e.name,
           category: getCategory(e.name, catalogue),
           sets: Array.from({ length: e.sets }, () => ({ reps: e.repsPerSet })),
+          fromProgram: true,
         }))
       if (mapped.length > 0) {
         ctxStart(mapped)
@@ -661,16 +662,25 @@ function ActiveWorkout({
 
   const totalReps = totalRepsInWorkout(exercises)
   const totalSets = exercises.reduce((a, e) => a + e.sets.length, 0)
-  const doneCount = doneKeys.size
 
-  // Stats shown in the confirm dialog — only checked sets/exercises
-  const confirmedReps = doneKeys.size > 0
+  // Effective done keys: manual (non-program) sets are always considered done
+  const effectiveDoneKeys = new Set(doneKeys)
+  exercises.forEach((ex, ei) => {
+    if (!ex.fromProgram) {
+      ex.sets.forEach((_, si) => effectiveDoneKeys.add(`${ei}-${si}`))
+    }
+  })
+  const doneCount = effectiveDoneKeys.size
+
+  // Stats shown in the confirm dialog — only checked/effective sets
+  const programDoneAny = exercises.some((ex, ei) => ex.fromProgram && ex.sets.some((_, si) => doneKeys.has(`${ei}-${si}`)))
+  const confirmedReps = programDoneAny
     ? exercises.reduce((total, ex, ei) =>
         total + ex.sets.reduce((s, set, si) =>
-          doneKeys.has(`${ei}-${si}`) ? s + (set.reps ?? 0) : s, 0), 0)
+          effectiveDoneKeys.has(`${ei}-${si}`) ? s + (set.reps ?? 0) : s, 0), 0)
     : totalReps
-  const confirmedExCount = doneKeys.size > 0
-    ? exercises.filter((ex, ei) => ex.sets.some((_, si) => doneKeys.has(`${ei}-${si}`))).length
+  const confirmedExCount = programDoneAny
+    ? exercises.filter((ex, ei) => ex.sets.some((_, si) => effectiveDoneKeys.has(`${ei}-${si}`))).length
     : exercises.length
 
   const debouncedQuery = useDebounce(searchQuery, 150)
@@ -775,7 +785,8 @@ function ActiveWorkout({
             const hasWeight = ex.sets.some(s => s.weightKg != null)
             const hasBand   = ex.sets.some(s => s.bandKg   != null)
             const accentColor = hasWeight ? '#f97316' : hasBand ? '#a855f7' : null
-            const allDone = ex.sets.length > 0 && ex.sets.every((_, si) => doneKeys.has(`${ei}-${si}`))
+            const isManual = !ex.fromProgram
+            const allDone = ex.sets.length > 0 && ex.sets.every((_, si) => effectiveDoneKeys.has(`${ei}-${si}`))
             return (
               <div
                 key={`${ex.name}-${ei}`}
@@ -828,18 +839,18 @@ function ActiveWorkout({
                       <Trash2 size={13} />
                     </button>
                   </div>
-                  {/* Per-set interactive checklist */}
+                  {/* Per-set list — toggleable for program exercises, always-done for manual ones */}
                   <div className="flex flex-col gap-0.5">
                     {ex.sets.map((s, si) => {
                       const key = `${ei}-${si}`
-                      const done = doneKeys.has(key)
+                      const done = isManual || doneKeys.has(key)
                       const val = s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
                       const mod = s.weightKg ? ` · +${s.weightKg}kg` : s.bandKg ? ` · ~${s.bandKg}kg` : ''
                       return (
                         <button
                           key={si}
-                          onPointerDown={() => toggleSet(ei, si)}
-                          className={`flex items-center gap-2.5 w-full text-left rounded-xl px-2 py-1.5 transition-all active:scale-[0.97] select-none ${done ? 'bg-brand-green/8' : 'hover:bg-white/4'}`}
+                          onPointerDown={isManual ? undefined : () => toggleSet(ei, si)}
+                          className={`flex items-center gap-2.5 w-full text-left rounded-xl px-2 py-1.5 transition-all select-none ${done ? 'bg-brand-green/8' : 'hover:bg-white/4'} ${!isManual ? 'active:scale-[0.97]' : 'cursor-default'}`}
                         >
                           <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${done ? 'bg-brand-green animate-pop-in' : 'border border-white/20'}`}>
                             {done
@@ -890,7 +901,7 @@ function ActiveWorkout({
             <div className="flex gap-3">
               <button onClick={() => setShowFinishConfirm(false)}
                 className="flex-1 h-11 rounded-xl border border-white/20 text-sm text-white/80">Continuă</button>
-              <button onClick={() => { setShowFinishConfirm(false); onFinish(doneKeys) }}
+              <button onClick={() => { setShowFinishConfirm(false); onFinish(effectiveDoneKeys) }}
                 className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-bold">
                 Da, finalizează
               </button>
