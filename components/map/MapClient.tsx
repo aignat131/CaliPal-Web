@@ -623,8 +623,8 @@ export default function MapClient() {
               try {
                 const trainSnap = await getDocs(collection(db, 'communities', park.communityId!, 'trainings'))
                 const hasUpcoming = trainSnap.docs.some(d => {
-                  const t = d.data() as PlannedTraining
-                  const s = parseMapTrainingDate(t)
+                  const tr = d.data() as PlannedTraining
+                  const s = parseMapTrainingDate(tr)
                   return !s || s >= now
                 })
                 if (hasUpcoming) {
@@ -754,8 +754,8 @@ export default function MapClient() {
   // Auto-dismiss callout after 6 seconds
   useEffect(() => {
     if (!calloutData || calloutDismissed) return
-    const t = setTimeout(dismissCallout, 6000)
-    return () => clearTimeout(t)
+    const timer = setTimeout(dismissCallout, 6000)
+    return () => clearTimeout(timer)
   }, [calloutData, calloutDismissed])
 
   // Filter + search
@@ -1172,28 +1172,28 @@ function ParkBottomSheet({
           {parkTrainings.length > 0 && (
             <div className="mt-2 flex flex-col gap-1.5">
               <p className="text-[9px] font-bold text-brand-green/70 tracking-widest">{t('map.trainings_section')}</p>
-              {parkTrainings.map(t => {
-                const memberGoing = Object.values(t.rsvps ?? {}).filter(s => s === 'GOING').length
-                const guestGoing = Object.values(t.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
+              {parkTrainings.map(tr => {
+                const memberGoing = Object.values(tr.rsvps ?? {}).filter(s => s === 'GOING').length
+                const guestGoing = Object.values(tr.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
                 const totalGoing = memberGoing + guestGoing
-                const dateObj = parseMapTrainingDate(t)
+                const dateObj = parseMapTrainingDate(tr)
                 const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' }) : ''
-                const timeLabel = t.timeStart?.slice(-5) ?? ''
+                const timeLabel = tr.timeStart?.slice(-5) ?? ''
                 return (
                   <div
-                    key={t.id}
+                    key={tr.id}
                     className="p-2.5 rounded-xl border border-brand-green/20"
                     style={{ backgroundColor: '#0D3D2820' }}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{t.name}</p>
+                      <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{tr.name}</p>
                       {totalGoing > 0 && (
                         <span className="text-xs text-brand-green font-bold flex-shrink-0">{totalGoing} {t(totalGoing === 1 ? 'map.going_singular' : 'map.going_plural')}</span>
                       )}
                     </div>
                     <p className="text-xs text-white/45 mt-0.5">
                       {dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
-                      {t.location ? ` · ${t.location}` : ''}
+                      {tr.location ? ` · ${tr.location}` : ''}
                     </p>
                   </div>
                 )
@@ -1219,29 +1219,29 @@ function ParkBottomSheet({
             <div className="mb-3">
               <p className="text-[9px] font-bold text-brand-green/70 tracking-widest mb-1.5">{t('map.planned_trainings')}</p>
               <div className="flex flex-col gap-1.5">
-                {parkStandaloneTrainings.map(t => {
-                  const dateObj = parseMapTrainingDate(t)
+                {parkStandaloneTrainings.map(tr => {
+                  const dateObj = parseMapTrainingDate(tr)
                   const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' }) : ''
-                  const timeLabel = t.timeStart?.slice(-5) ?? ''
-                  const totalGoing = Object.values(t.rsvps ?? {}).filter(s => s === 'GOING').length
-                  const isAuthor = uid === t.authorId
+                  const timeLabel = tr.timeStart?.slice(-5) ?? ''
+                  const totalGoing = Object.values(tr.rsvps ?? {}).filter(s => s === 'GOING').length
+                  const isAuthor = uid === tr.authorId
 
                   async function handleDelete(e: React.MouseEvent) {
                     e.preventDefault()
                     e.stopPropagation()
                     try {
-                      await deleteDoc(doc(db, 'parks', park.id, 'trainings', t.id))
+                      await deleteDoc(doc(db, 'parks', park.id, 'trainings', tr.id))
                       await updateDoc(doc(db, 'parks', park.id), { upcomingTrainingCount: increment(-1) })
-                      onStandaloneTrainingDeleted(t.id)
+                      onStandaloneTrainingDeleted(tr.id)
                     } catch { /* ignore */ }
                   }
 
                   return (
-                    <Link key={t.id} href={`/training/park/${park.id}/${t.id}`}>
+                    <Link key={tr.id} href={`/training/park/${park.id}/${tr.id}`}>
                       <div className="p-2.5 rounded-xl border border-brand-green/20 hover:bg-brand-green/5 transition-colors cursor-pointer"
                         style={{ backgroundColor: '#0D3D2810' }}>
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{t.name}</p>
+                          <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{tr.name}</p>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             {totalGoing > 0 && (
                               <span className="text-xs text-brand-green font-bold">{totalGoing} {t(totalGoing === 1 ? 'map.going_singular' : 'map.going_plural')}</span>
@@ -1258,7 +1258,7 @@ function ParkBottomSheet({
                           </div>
                         </div>
                         <p className="text-xs text-white/45 mt-0.5">
-                          {t.authorName && `${t.authorName} · `}{dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
+                          {tr.authorName && `${tr.authorName} · `}{dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
                         </p>
                       </div>
                     </Link>
