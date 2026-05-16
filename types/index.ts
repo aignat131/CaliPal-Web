@@ -72,6 +72,11 @@ export interface CommunityPost {
   photoUrl?: string
   feeling?: number   // 1–5
   createdAt: Timestamp | null
+  // Optional workout-specific structured fields (set when sharing from workout)
+  workoutNote?: string
+  workoutDuration?: number            // seconds
+  workoutReps?: number
+  workoutExercises?: { name: string; summary: string }[]
 }
 
 export interface TrainingExercise {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   collection, query, orderBy, limit, onSnapshot,
   addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, getDocs, deleteDoc, setDoc, runTransaction,
@@ -1553,6 +1554,7 @@ function WorkoutSummary({
   photoFile?: File | null
   autoOpenShare?: boolean
 }) {
+  const router = useRouter()
   const description = workout.note
   const [showShare, setShowShare] = useState(false)
   const [communities, setCommunities] = useState<{ id: string; name: string }[]>([])
@@ -1610,17 +1612,20 @@ function WorkoutSummary({
       const workoutDate = new Date(startedAt ?? Date.now())
       const dateStr = workoutDate.toLocaleDateString('ro', { day: '2-digit', month: 'long', year: 'numeric' })
       const timeStr = workoutDate.toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })
-      const descLine = description.trim() ? `\n${description.trim()}` : ''
-      const content = [
-        `${dateStr}, ${timeStr}` + descLine,
-        `⏱ ${formatDuration(workout.durationSeconds)}`,
-      ].join('\n')
+      const workoutExercises = workout.exercises.map(ex => ({
+        name: ex.name,
+        summary: exerciseOneLiner(ex),
+      }))
       await addDoc(collection(db, 'communities', selectedCommId, 'posts'), {
         authorId: userId,
         authorName: userDisplayName,
         authorRole: role,
         ...(userPhotoURL && { authorPhotoUrl: userPhotoURL }),
-        content,
+        content: description.trim(),
+        workoutNote: description.trim(),
+        workoutDuration: workout.durationSeconds,
+        workoutReps: workout.totalReps,
+        workoutExercises,
         likesCount: 0,
         commentsCount: 0,
         ...(photoUrl && { photoUrl }),
@@ -1714,6 +1719,14 @@ function WorkoutSummary({
         {shared && (
           <p className="text-xs text-brand-green text-center mb-3">✓ Postat în comunitate!</p>
         )}
+
+        {/* Go home */}
+        <button
+          onClick={() => { onDone(); router.push('/home') }}
+          className="w-full h-12 rounded-full font-black text-black bg-brand-green mt-2"
+        >
+          Mergi acasă
+        </button>
 
       </div>
 

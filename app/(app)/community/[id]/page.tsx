@@ -1492,6 +1492,25 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
 
 // ── Post Card (likes + comments) ──────────────────────────────────────────────
 
+function formatPostDate(createdAt: CommunityPost['createdAt']): string {
+  if (!createdAt) return ''
+  const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt as unknown as number)
+  const now = Date.now()
+  const diff = now - date.getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'acum'
+  if (mins < 60) return `acum ${mins} min`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `acum ${hours}h`
+  return date.toLocaleDateString('ro', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function formatPostDuration(s: number): string {
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
 function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDelete }: {
   post: CommunityPost
   communityId: string
@@ -1531,6 +1550,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
   }, [showComments, post.id, communityId])
 
   const isOwnPost = post.authorId === myUid
+  const isWorkoutPost = post.workoutExercises !== undefined
 
   async function toggleLike() {
     if (!myUid || isOwnPost) return
@@ -1563,31 +1583,67 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
 
   return (
     <div className="rounded-2xl p-4 mb-3" style={{ backgroundColor: 'var(--app-surface)' }}>
-      <div className="flex items-center justify-between mb-2">
+
+      {/* Header: avatar + name + date */}
+      <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+          <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: '#1ED75F22', border: `1.5px solid ${roleColor}` }}>
             {post.authorPhotoUrl
-              ? <Image src={post.authorPhotoUrl} alt={post.authorName} width={32} height={32} className="object-cover w-full h-full" />
-              : <span className="text-xs font-black" style={{ color: roleColor }}>{post.authorName.charAt(0).toUpperCase()}</span>
+              ? <Image src={post.authorPhotoUrl} alt={post.authorName} width={36} height={36} className="object-cover w-full h-full" />
+              : <span className="text-sm font-black" style={{ color: roleColor }}>{post.authorName.charAt(0).toUpperCase()}</span>
             }
           </div>
-          <div>
-            <span className="text-sm font-bold text-white">{post.authorName}</span>
-            <span className="text-[10px] font-semibold ml-1.5 px-1.5 py-0.5 rounded-md"
-              style={{ backgroundColor: `${roleColor}22`, color: roleColor }}>
-              {ROLE_LABELS[post.authorRole as MemberRole]}
-            </span>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold text-white leading-none">{post.authorName}</span>
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md leading-none"
+                style={{ backgroundColor: `${roleColor}22`, color: roleColor }}>
+                {ROLE_LABELS[post.authorRole as MemberRole]}
+              </span>
+            </div>
+            <span className="text-[11px] text-white/35">{formatPostDate(post.createdAt)}</span>
           </div>
         </div>
         {(post.authorId === myUid || myRole === 'ADMIN' || isSuperAdmin) && (
-          <button onClick={onDelete} className="text-red-400/60 hover:text-red-400 transition-colors p-1">
+          <button onClick={onDelete} className="text-red-400/60 hover:text-red-400 transition-colors p-1 mt-0.5">
             <Trash2 size={13} />
           </button>
         )}
       </div>
 
-      <p className="text-sm text-white/80 leading-relaxed mb-3 whitespace-pre-line">{post.content}</p>
+      {/* Description — more prominent (workout note or regular content) */}
+      {(isWorkoutPost ? post.workoutNote : post.content) && (
+        <p className="text-[15px] text-white/90 leading-snug mb-3 whitespace-pre-line font-medium">
+          {isWorkoutPost ? post.workoutNote : post.content}
+        </p>
+      )}
+
+      {/* Workout training block */}
+      {isWorkoutPost && (
+        <div className="rounded-xl border border-white/10 bg-white/4 p-3 mb-3">
+          {/* Stats chips */}
+          <div className="flex items-center gap-3 mb-2.5">
+            {post.workoutDuration != null && (
+              <span className="text-xs font-semibold text-white/60">⏱ {formatPostDuration(post.workoutDuration)}</span>
+            )}
+            {post.workoutReps != null && post.workoutReps > 0 && (
+              <span className="text-xs font-semibold text-white/60">🔁 {post.workoutReps} rep</span>
+            )}
+          </div>
+          {/* Exercises */}
+          {post.workoutExercises && post.workoutExercises.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {post.workoutExercises.map((ex, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-brand-green/60 flex-shrink-0" />
+                  <span className="text-xs text-white/70">{ex.summary}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {post.photoUrl && (
         <div className="relative mb-3 rounded-xl overflow-hidden" style={{ maxHeight: 288 }}>
