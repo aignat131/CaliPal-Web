@@ -214,11 +214,9 @@ export default function CommunityDetailPage() {
     if (tab === 2) loadSocialStatus()
   }, [tab, id, loadSocialStatus])
 
-  // Auto-delete expired trainings (staff/superAdmin only)
+  // Auto-delete expired trainings (any member can trigger cleanup)
   useEffect(() => {
-    if (!trainings.length) return
-    const canDelete = isSuperAdmin || myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER'
-    if (!canDelete) return
+    if (!trainings.length || !user) return
     const now = new Date()
     trainings.forEach(t => {
       if (!t.timeEnd) return
@@ -227,7 +225,7 @@ export default function CommunityDetailPage() {
         deleteDoc(doc(db, 'communities', id, 'trainings', t.id)).catch(() => {})
       }
     })
-  }, [trainings, isSuperAdmin, myRole, id])
+  }, [trainings, user, id])
 
   async function joinCommunity() {
     if (!user || joining) return
@@ -737,6 +735,11 @@ export default function CommunityDetailPage() {
                 </div>
               )
               : [...trainings]
+                  .filter(t => {
+                    if (!t.timeEnd) return true
+                    const end = parseTrainingDateTime(t.timeEnd, t.date)
+                    return !end || end >= new Date()
+                  })
                   .sort((a, b) => {
                     if (a.official && !b.official) return -1
                     if (!a.official && b.official) return 1
