@@ -9,7 +9,6 @@ import {
   increment, arrayRemove, arrayUnion, writeBatch, limit,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
-import { auth } from '@/lib/firebase/auth'
 import { uploadCommunityPhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
@@ -749,6 +748,7 @@ export default function CommunityDetailPage() {
                 userName={myName}
                 isStaff={myRole === 'ADMIN' || myRole === 'TRAINER' || myRole === 'MODERATOR' || isSuperAdmin}
                 defaultLocation={community?.location ?? ''}
+                firebaseUser={user ?? null}
                 onClose={() => setShowAddTraining(false)}
               />
             )}
@@ -1390,8 +1390,8 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
 
 // ── Add Training Form ─────────────────────────────────────────────────────────
 
-function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocation, onClose }: {
-  communityId: string; userId: string; userName: string; isStaff: boolean; defaultLocation?: string; onClose: () => void
+function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocation, firebaseUser, onClose }: {
+  communityId: string; userId: string; userName: string; isStaff: boolean; defaultLocation?: string; firebaseUser: import('firebase/auth').User | null; onClose: () => void
 }) {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
@@ -1476,7 +1476,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
         createdAt:       serverTimestamp(),
       })
       if (sendEmail) {
-        const idToken = await auth.currentUser?.getIdToken()
+        const idToken = await firebaseUser?.getIdToken()
         if (idToken) {
           fetch('/api/email/training', {
             method: 'POST',
