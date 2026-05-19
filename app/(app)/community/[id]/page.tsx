@@ -9,6 +9,7 @@ import {
   increment, arrayRemove, arrayUnion, writeBatch, limit,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
+import { auth } from '@/lib/firebase/auth'
 import { uploadCommunityPhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
@@ -1476,7 +1477,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
         createdAt:       serverTimestamp(),
       })
       if (sendEmail) {
-        const idToken = await firebaseUser?.getIdToken()
+        const idToken = await (firebaseUser ?? auth.currentUser)?.getIdToken(true)
         if (idToken) {
           fetch('/api/email/training', {
             method: 'POST',
