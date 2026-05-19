@@ -11,7 +11,7 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
-  Calendar, Clock, MapPin, Dumbbell, Users, User, Check,
+  Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -64,6 +64,25 @@ function GuestAvatar({ size = 32 }: { size?: number }) {
   )
 }
 
+// ── Edit helpers ──────────────────────────────────────────────────────────────
+
+function toDateInputValue(str: string): string {
+  const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})/)
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`
+  return ''
+}
+
+function toTimeInputValue(str: string): string {
+  const m = str.match(/(\d{2}:\d{2})$/)
+  return m ? m[1] : ''
+}
+
+function toAndroidDateTime(date: string, time: string): string {
+  if (!date || !time) return ''
+  const [yyyy, mm, dd] = date.split('-')
+  return `${dd}/${mm}/${yyyy} ${time}`
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PublicTrainingPage() {
@@ -81,6 +100,15 @@ export default function PublicTrainingPage() {
   const [loading, setLoading] = useState(true)
 
   const [profiles, setProfiles] = useState<Record<string, { name: string; photoUrl: string | null }>>({})
+
+  // Edit state
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editTimeStart, setEditTimeStart] = useState('')
+  const [editTimeEnd, setEditTimeEnd] = useState('')
+  const [saving, setSaving] = useState(false)
 
   // Guest state
   const [guestId, setGuestId] = useState<string>('')
@@ -250,6 +278,33 @@ export default function PublicTrainingPage() {
     }
   }
 
+  function openEdit() {
+    if (!training) return
+    setEditName(training.name)
+    setEditDesc(training.description ?? '')
+    setEditDate(toDateInputValue(training.timeStart))
+    setEditTimeStart(toTimeInputValue(training.timeStart))
+    setEditTimeEnd(training.timeEnd ? toTimeInputValue(training.timeEnd) : '')
+    setEditing(true)
+  }
+
+  async function saveEdit() {
+    if (!training || saving || !editName.trim() || !editDate || !editTimeStart) return
+    setSaving(true)
+    try {
+      const newTimeStart = toAndroidDateTime(editDate, editTimeStart)
+      const newTimeEnd = editTimeEnd ? toAndroidDateTime(editDate, editTimeEnd) : ''
+      await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
+        name: editName.trim(),
+        description: editDesc.trim(),
+        timeStart: newTimeStart,
+        ...(newTimeEnd ? { timeEnd: newTimeEnd } : {}),
+      })
+      setEditing(false)
+    } catch (e) { console.error(e) }
+    finally { setSaving(false) }
+  }
+
   async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
     if (!user || !training) return
     const wasGoing = training.rsvps?.[user.uid] === 'GOING'
@@ -308,6 +363,7 @@ export default function PublicTrainingPage() {
   const totalGoing = goingUids.length + guestGoing.length
 
   const myMemberStatus = user ? training.rsvps?.[user.uid] : undefined
+  const isAuthor = user?.uid === training.authorId
 
   const officialStyle = training.official ? {
     background: 'linear-gradient(135deg, #0D3D28 0%, #164742 100%)',
@@ -565,6 +621,87 @@ export default function PublicTrainingPage() {
             </div>
           )}
         </div>
+
+        {/* Edit panel (author only) */}
+        {isAuthor && editing && (
+          <div className="rounded-2xl p-4 mt-4 border border-brand-green/20" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <p className="text-sm font-black text-white mb-3">Editează antrenamentul</p>
+
+            <div className="mb-3">
+              <label className="text-[10px] font-bold text-white/40 tracking-widest mb-1 block">NUME</label>
+              <input
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                maxLength={120}
+                className="w-full h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[10px] font-bold text-white/40 tracking-widest mb-1 block">DESCRIERE</label>
+              <textarea
+                value={editDesc}
+                onChange={e => setEditDesc(e.target.value)}
+                maxLength={1000}
+                rows={3}
+                className="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors resize-none"
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[10px] font-bold text-white/40 tracking-widest mb-1 block">DATA</label>
+              <input
+                type="date"
+                value={editDate}
+                onChange={e => setEditDate(e.target.value)}
+                className="w-full h-11 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
+              />
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-white/40 tracking-widest mb-1 block">ORA START</label>
+                <input
+                  type="time"
+                  value={editTimeStart}
+                  onChange={e => setEditTimeStart(e.target.value)}
+                  className="w-full h-11 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-white/40 tracking-widest mb-1 block">ORA FINAL</label>
+                <input
+                  type="time"
+                  value={editTimeEnd}
+                  onChange={e => setEditTimeEnd(e.target.value)}
+                  className="w-full h-11 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => setEditing(false)}
+                className="flex-1 h-10 rounded-xl border border-white/15 text-sm text-white/60 font-semibold hover:bg-white/8 transition-colors">
+                Anulează
+              </button>
+              <button onClick={saveEdit} disabled={saving || !editName.trim() || !editDate || !editTimeStart}
+                className="flex-1 h-10 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-40">
+                {saving ? 'Se salvează...' : 'Salvează'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Edit button (author only) */}
+        {isAuthor && !editing && (
+          <button
+            onClick={openEdit}
+            className="mt-4 w-full flex items-center justify-center gap-2 h-11 rounded-2xl border border-brand-green/30 text-brand-green text-sm font-bold hover:bg-brand-green/10 transition-colors"
+          >
+            <Pencil size={15} />
+            Editează antrenamentul
+          </button>
+        )}
 
         {/* Back to Home */}
         <Link href="/home" className="mt-4 block">
