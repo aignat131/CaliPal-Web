@@ -87,15 +87,17 @@ export async function POST(req: NextRequest) {
     .collection('members')
     .get()
 
-  const memberUids = membersSnap.docs
-    .filter(d => {
-      // Skip members who opted out (emailNotifications explicitly false)
-      if (d.data().emailNotifications === false) return false
-      // Skip the sender themselves
-      if (d.id === callerUid) return false
-      return true
-    })
-    .map(d => d.id)
+  // TODO: remove TEST_MODE when ready to send to all members
+  const TEST_MODE = true
+  const memberUids = TEST_MODE
+    ? [callerUid]
+    : membersSnap.docs
+        .filter(d => {
+          if (d.data().emailNotifications === false) return false
+          if (d.id === callerUid) return false
+          return true
+        })
+        .map(d => d.id)
 
   if (memberUids.length === 0) {
     return NextResponse.json({ ok: true, sent: 0 })
