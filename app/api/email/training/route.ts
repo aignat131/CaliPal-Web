@@ -24,6 +24,7 @@ function formatDateLabel(ts: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  try {
   // ── 1. Auth: require valid Firebase ID token ───────────────────────────────
   const authHeader = req.headers.get('authorization') ?? ''
   const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
@@ -170,4 +171,8 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, sent })
+  } catch (err) {
+    console.error('[email/training] unhandled error:', err)
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  }
 }

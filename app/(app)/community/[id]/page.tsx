@@ -1495,8 +1495,8 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
                 authorName: userName,
               }),
             })
-            const data = await res.json()
-            console.log('[email] response:', res.status, data)
+            const text = await res.text()
+            console.log('[email] response:', res.status, text)
           }
         } catch (err) {
           console.error('[email] error:', err)
