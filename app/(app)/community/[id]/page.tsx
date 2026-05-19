@@ -1477,22 +1477,29 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
         createdAt:       serverTimestamp(),
       })
       if (sendEmail) {
-        const idToken = await (firebaseUser ?? auth.currentUser)?.getIdToken(true)
-        if (idToken) {
-          fetch('/api/email/training', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify({
-              communityId,
-              trainingId: docRef.id,
-              trainingName: name.trim(),
-              description: desc.trim(),
-              timeStart: trainingTimeStart,
-              timeEnd: trainingTimeEnd,
-              location: location.trim(),
-              authorName: userName,
-            }),
-          }).catch(() => {})
+        try {
+          const idToken = await (firebaseUser ?? auth.currentUser)?.getIdToken(true)
+          console.log('[email] idToken:', idToken ? 'ok' : 'null')
+          if (idToken) {
+            const res = await fetch('/api/email/training', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+              body: JSON.stringify({
+                communityId,
+                trainingId: docRef.id,
+                trainingName: name.trim(),
+                description: desc.trim(),
+                timeStart: trainingTimeStart,
+                timeEnd: trainingTimeEnd,
+                location: location.trim(),
+                authorName: userName,
+              }),
+            })
+            const data = await res.json()
+            console.log('[email] response:', res.status, data)
+          }
+        } catch (err) {
+          console.error('[email] error:', err)
         }
       }
       onClose()

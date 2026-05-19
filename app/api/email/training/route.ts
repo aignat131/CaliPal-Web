@@ -33,7 +33,8 @@ export async function POST(req: NextRequest) {
   try {
     const decoded = await adminAuth().verifyIdToken(idToken)
     callerUid = decoded.uid
-  } catch {
+  } catch (err) {
+    console.error('[email/training] verifyIdToken failed:', err)
     return NextResponse.json({ ok: false }, { status: 401 })
   }
 
