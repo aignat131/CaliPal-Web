@@ -754,9 +754,11 @@ export default function CommunityDetailPage() {
                   members={members}
                   canLoad={isMember && (t.exercises?.length ?? 0) > 0}
                   canDelete={isSuperAdmin || myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER' || t.authorId === user?.uid}
+                  canEdit={t.authorId === user?.uid}
                   onRsvp={status => rsvp(t.id, status)}
                   onLoad={() => loadTraining(t)}
                   onDelete={() => deleteDoc(doc(db, 'communities', id, 'trainings', t.id))}
+                  onEdit={fields => updateDoc(doc(db, 'communities', id, 'trainings', t.id), fields)}
                 />
               ))}
           </div>
@@ -996,19 +998,60 @@ function MemberAvatar({ photoUrl, name, size = 28 }: { photoUrl?: string | null;
   )
 }
 
-function TrainingCard({ training, communityId, myUid, members, canLoad, canDelete, onRsvp, onLoad, onDelete }: {
+function toDateInputValue(str: string): string {
+  const m = str?.match(/^(\d{2})\/(\d{2})\/(\d{4})/)
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`
+  return ''
+}
+function toTimeInputValue(str: string): string {
+  const m = str?.match(/(\d{2}:\d{2})$/)
+  return m ? m[1] : ''
+}
+
+function TrainingCard({ training, communityId, myUid, members, canLoad, canDelete, canEdit, onRsvp, onLoad, onDelete, onEdit }: {
   training: PlannedTraining
   communityId: string
   myUid: string
   members: CommunityMember[]
   canLoad: boolean
   canDelete: boolean
+  canEdit: boolean
   onRsvp: (s: 'GOING' | 'NOT_GOING' | 'MAYBE') => void
   onLoad: () => void
   onDelete: () => void
+  onEdit: (fields: { name: string; description: string; timeStart: string; timeEnd: string }) => void
 }) {
   const [showAllGoing, setShowAllGoing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editTimeStart, setEditTimeStart] = useState('')
+  const [editTimeEnd, setEditTimeEnd] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  function openEdit() {
+    setEditName(training.name)
+    setEditDesc(training.description ?? '')
+    setEditDate(toDateInputValue(training.timeStart))
+    setEditTimeStart(toTimeInputValue(training.timeStart))
+    setEditTimeEnd(training.timeEnd ? toTimeInputValue(training.timeEnd) : '')
+    setShowEdit(true)
+  }
+
+  async function submitEdit() {
+    if (savingEdit || !editName.trim() || !editDate || !editTimeStart) return
+    setSavingEdit(true)
+    try {
+      const newTimeStart = toAndroidDateTime(editDate, editTimeStart)
+      const newTimeEnd = editTimeEnd ? toAndroidDateTime(editDate, editTimeEnd) : ''
+      onEdit({ name: editName.trim(), description: editDesc.trim(), timeStart: newTimeStart, timeEnd: newTimeEnd })
+      setShowEdit(false)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
 
   const myStatus = training.rsvps?.[myUid]
   const rsvpEntries = Object.entries(training.rsvps ?? {})
@@ -1088,13 +1131,62 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
             >
               <Share2 size={14} />
             </button>
-            {canDelete && !showDeleteConfirm && (
+            {canEdit && !showEdit && !showDeleteConfirm && (
+              <button onClick={openEdit} className="w-8 h-8 flex items-center justify-center rounded-full text-brand-green/50 hover:text-brand-green hover:bg-brand-green/10 transition-colors">
+                <Pencil size={14} />
+              </button>
+            )}
+            {canDelete && !showEdit && !showDeleteConfirm && (
               <button onClick={() => setShowDeleteConfirm(true)} className="w-8 h-8 flex items-center justify-center rounded-full text-red-400/50 hover:text-red-400 hover:bg-red-400/10 transition-colors">
                 <Trash2 size={14} />
               </button>
             )}
           </div>
         </div>
+
+        {/* Edit form */}
+        {showEdit && (
+          <div className="mb-3 p-3 rounded-xl border border-brand-green/25" style={{ backgroundColor: 'rgba(30,215,95,0.05)' }}>
+            <p className="text-xs font-black text-white mb-2">Editează antrenamentul</p>
+            <div className="mb-2">
+              <label className="text-[10px] font-bold text-white/40 tracking-widest mb-1 block">NUME</label>
+              <input value={editName} onChange={e => setEditName(e.target.value)} maxLength={120}
+                className="w-full h-9 rounded-lg px-2.5 text-xs text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors" />
+            </div>
+            <div className="mb-2">
+              <label className="text-[10px] font-bold text-white/40 tracking-widest mb-1 block">DESCRIERE</label>
+              <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} maxLength={1000} rows={2}
+                className="w-full rounded-lg px-2.5 py-2 text-xs text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors resize-none" />
+            </div>
+            <div className="mb-2">
+              <label className="text-[10px] font-bold text-white/40 tracking-widest mb-1 block">DATA</label>
+              <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+                className="w-full h-9 rounded-lg px-2.5 text-xs text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors" />
+            </div>
+            <div className="flex gap-2 mb-3">
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-white/40 tracking-widest mb-1 block">ORA START</label>
+                <input type="time" value={editTimeStart} onChange={e => setEditTimeStart(e.target.value)}
+                  className="w-full h-9 rounded-lg px-2.5 text-xs text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors" />
+              </div>
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-white/40 tracking-widest mb-1 block">ORA FINAL</label>
+                <input type="time" value={editTimeEnd} onChange={e => setEditTimeEnd(e.target.value)}
+                  className="w-full h-9 rounded-lg px-2.5 text-xs text-white outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowEdit(false)}
+                className="flex-1 h-8 rounded-lg border border-white/20 text-xs font-semibold text-white/70 hover:bg-white/8 transition-colors">
+                Anulează
+              </button>
+              <button onClick={submitEdit} disabled={savingEdit || !editName.trim() || !editDate || !editTimeStart}
+                className="flex-1 h-8 rounded-lg bg-brand-green text-black text-xs font-bold disabled:opacity-40">
+                {savingEdit ? '...' : 'Salvează'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Delete confirmation */}
         {showDeleteConfirm && (

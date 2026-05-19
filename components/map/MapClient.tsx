@@ -1180,22 +1180,23 @@ function ParkBottomSheet({
                 const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' }) : ''
                 const timeLabel = tr.timeStart?.slice(-5) ?? ''
                 return (
-                  <div
-                    key={tr.id}
-                    className="p-2.5 rounded-xl border border-brand-green/20"
-                    style={{ backgroundColor: '#0D3D2820' }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{tr.name}</p>
-                      {totalGoing > 0 && (
-                        <span className="text-xs text-brand-green font-bold flex-shrink-0">{totalGoing} {t(totalGoing === 1 ? 'map.going_singular' : 'map.going_plural')}</span>
-                      )}
+                  <Link key={tr.id} href={`/community/${community.id}`} onClick={onClose}>
+                    <div
+                      className="p-2.5 rounded-xl border border-brand-green/20 hover:bg-brand-green/5 transition-colors cursor-pointer"
+                      style={{ backgroundColor: '#0D3D2820' }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{tr.name}</p>
+                        {totalGoing > 0 && (
+                          <span className="text-xs text-brand-green font-bold flex-shrink-0">{totalGoing} {t(totalGoing === 1 ? 'map.going_singular' : 'map.going_plural')}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-white/45 mt-0.5">
+                        {dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
+                        {tr.location ? ` · ${tr.location}` : ''}
+                      </p>
                     </div>
-                    <p className="text-xs text-white/45 mt-0.5">
-                      {dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
-                      {tr.location ? ` · ${tr.location}` : ''}
-                    </p>
-                  </div>
+                  </Link>
                 )
               })}
             </div>
