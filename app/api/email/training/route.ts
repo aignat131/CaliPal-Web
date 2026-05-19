@@ -6,7 +6,6 @@ import { trainingEmailHtml } from '@/lib/email/trainingTemplate'
 
 export const dynamic = 'force-dynamic'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://calipal.ro'
 const FROM_EMAIL = process.env.EMAIL_FROM ?? 'CaliPal <noreply@calipal.ro>'
 const UNSUB_SECRET = process.env.UNSUBSCRIBE_SECRET ?? 'change-me-in-env'
@@ -158,6 +157,7 @@ export async function POST(req: NextRequest) {
     })
 
     try {
+      const resend = new Resend(process.env.RESEND_API_KEY)
       await resend.batch.send(emails)
       sent += slice.length
     } catch (err) {
