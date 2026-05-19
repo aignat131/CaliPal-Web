@@ -2,11 +2,14 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateProfile } from 'firebase/auth'
+import {
+  updateProfile, updateEmail, updatePassword,
+  reauthenticateWithCredential, EmailAuthProvider,
+} from 'firebase/auth'
 import { getUserDoc, updateUserDoc } from '@/lib/firebase/firestore'
 import { uploadProfilePhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { ArrowLeft, Camera } from 'lucide-react'
+import { ArrowLeft, Camera, ChevronDown, ChevronUp } from 'lucide-react'
 import ImageCropModal from '@/components/ui/ImageCropModal'
 import { useT } from '@/lib/context/LanguageContext'
 
@@ -24,6 +27,25 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // Email change
+  const [showEmailSection, setShowEmailSection] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
+  const [emailPassword, setEmailPassword] = useState('')
+  const [emailSaving, setEmailSaving] = useState(false)
+  const [emailError, setEmailError] = useState('')
+  const [emailSuccess, setEmailSuccess] = useState(false)
+
+  // Password change
+  const [showPasswordSection, setShowPasswordSection] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
+
+  const isPasswordUser = user?.providerData.some(p => p.providerId === 'password') ?? false
 
   useEffect(() => {
     if (!user) return
@@ -68,6 +90,68 @@ export default function EditProfilePage() {
   function handleCropCancel() {
     if (cropSrc) URL.revokeObjectURL(cropSrc)
     setCropSrc(null)
+  }
+
+  async function handleEmailChange() {
+    if (!user || !newEmail.trim() || !emailPassword) return
+    setEmailSaving(true)
+    setEmailError('')
+    setEmailSuccess(false)
+    try {
+      const credential = EmailAuthProvider.credential(user.email!, emailPassword)
+      await reauthenticateWithCredential(user, credential)
+      await updateEmail(user, newEmail.trim())
+      await updateUserDoc(user.uid, { email: newEmail.trim() })
+      setEmailSuccess(true)
+      setNewEmail('')
+      setEmailPassword('')
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        setEmailError('Parola introdusă este incorectă.')
+      } else if (code === 'auth/email-already-in-use') {
+        setEmailError('Acest email este deja folosit de un alt cont.')
+      } else if (code === 'auth/invalid-email') {
+        setEmailError('Adresa de email nu este validă.')
+      } else {
+        setEmailError('A apărut o eroare. Încearcă din nou.')
+      }
+    } finally {
+      setEmailSaving(false)
+    }
+  }
+
+  async function handlePasswordChange() {
+    if (!user || !currentPassword || !newPassword || !confirmPassword) return
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Parolele nu coincid.')
+      return
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('Parola trebuie să aibă cel puțin 6 caractere.')
+      return
+    }
+    setPasswordSaving(true)
+    setPasswordError('')
+    setPasswordSuccess(false)
+    try {
+      const credential = EmailAuthProvider.credential(user.email!, currentPassword)
+      await reauthenticateWithCredential(user, credential)
+      await updatePassword(user, newPassword)
+      setPasswordSuccess(true)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        setPasswordError('Parola curentă este incorectă.')
+      } else {
+        setPasswordError('A apărut o eroare. Încearcă din nou.')
+      }
+    } finally {
+      setPasswordSaving(false)
+    }
   }
 
   async function handleSave() {
@@ -180,6 +264,100 @@ export default function EditProfilePage() {
                 : t('edit.save')}
             </button>
           </div>
+
+          {/* Account security — only for email/password accounts */}
+          {isPasswordUser && (
+            <div className="mt-8 flex flex-col gap-3">
+              <p className="text-[11px] font-bold text-white/45 tracking-[1.5px]">SECURITATE CONT</p>
+
+              {/* Change email */}
+              <div className="rounded-[14px] border border-white/10 overflow-hidden" style={{ backgroundColor: 'var(--app-surface)' }}>
+                <button
+                  onClick={() => { setShowEmailSection(v => !v); setEmailError(''); setEmailSuccess(false) }}
+                  className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-semibold text-white/80 hover:bg-white/5 transition-colors"
+                >
+                  <span>Schimbă email</span>
+                  {showEmailSection ? <ChevronUp size={16} className="text-white/40" /> : <ChevronDown size={16} className="text-white/40" />}
+                </button>
+                {showEmailSection && (
+                  <div className="px-4 pb-4 flex flex-col gap-3 border-t border-white/8">
+                    <p className="text-xs text-white/40 pt-3">Email curent: <span className="text-white/60">{user?.email}</span></p>
+                    <input
+                      value={newEmail}
+                      onChange={e => setNewEmail(e.target.value)}
+                      placeholder="Email nou"
+                      type="email"
+                      className="w-full h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
+                    />
+                    <input
+                      value={emailPassword}
+                      onChange={e => setEmailPassword(e.target.value)}
+                      placeholder="Parola curentă (pentru confirmare)"
+                      type="password"
+                      className="w-full h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
+                    />
+                    {emailError && <p className="text-xs text-red-400">{emailError}</p>}
+                    {emailSuccess && <p className="text-xs text-brand-green">Email actualizat cu succes!</p>}
+                    <button
+                      onClick={handleEmailChange}
+                      disabled={emailSaving || !newEmail.trim() || !emailPassword}
+                      className="w-full h-10 rounded-xl text-sm font-bold text-black disabled:opacity-40 flex items-center justify-center"
+                      style={{ backgroundColor: '#1ED75F' }}
+                    >
+                      {emailSaving ? <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : 'Actualizează email'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Change password */}
+              <div className="rounded-[14px] border border-white/10 overflow-hidden" style={{ backgroundColor: 'var(--app-surface)' }}>
+                <button
+                  onClick={() => { setShowPasswordSection(v => !v); setPasswordError(''); setPasswordSuccess(false) }}
+                  className="w-full flex items-center justify-between px-4 py-3.5 text-sm font-semibold text-white/80 hover:bg-white/5 transition-colors"
+                >
+                  <span>Schimbă parola</span>
+                  {showPasswordSection ? <ChevronUp size={16} className="text-white/40" /> : <ChevronDown size={16} className="text-white/40" />}
+                </button>
+                {showPasswordSection && (
+                  <div className="px-4 pb-4 flex flex-col gap-3 border-t border-white/8">
+                    <div className="pt-3" />
+                    <input
+                      value={currentPassword}
+                      onChange={e => setCurrentPassword(e.target.value)}
+                      placeholder="Parola curentă"
+                      type="password"
+                      className="w-full h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
+                    />
+                    <input
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="Parola nouă (min. 6 caractere)"
+                      type="password"
+                      className="w-full h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
+                    />
+                    <input
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="Confirmă parola nouă"
+                      type="password"
+                      className="w-full h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
+                    />
+                    {passwordError && <p className="text-xs text-red-400">{passwordError}</p>}
+                    {passwordSuccess && <p className="text-xs text-brand-green">Parolă schimbată cu succes!</p>}
+                    <button
+                      onClick={handlePasswordChange}
+                      disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
+                      className="w-full h-10 rounded-xl text-sm font-bold text-black disabled:opacity-40 flex items-center justify-center"
+                      style={{ backgroundColor: '#1ED75F' }}
+                    >
+                      {passwordSaving ? <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : 'Schimbă parola'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
