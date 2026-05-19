@@ -49,6 +49,7 @@ export interface CommunityMember {
   points: number
   photoUrl: string | null
   joinedAt: Timestamp | null
+  emailNotifications?: boolean
 }
 
 export type MemberRole = 'ADMIN' | 'MODERATOR' | 'TRAINER' | 'MEMBER'

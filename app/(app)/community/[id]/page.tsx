@@ -9,6 +9,7 @@ import {
   increment, arrayRemove, arrayUnion, writeBatch, limit,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
+import { auth } from '@/lib/firebase/auth'
 import { uploadCommunityPhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
@@ -23,7 +24,7 @@ import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
   Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut, UserX, Share2,
-  Pencil, Camera, Info,
+  Pencil, Camera, Info, Mail, MailX,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -86,6 +87,7 @@ export default function CommunityDetailPage() {
   const [trainings, setTrainings] = useState<PlannedTraining[]>([])
   const [isMember, setIsMember] = useState(false)
   const [myRole, setMyRole] = useState<MemberRole>('MEMBER')
+  const [myEmailNotifications, setMyEmailNotifications] = useState(true)
   const [tab, setTab] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = sessionStorage.getItem(`comm_detail_tab_${params.id}`)
@@ -144,6 +146,7 @@ export default function CommunityDetailPage() {
           const me = list.find(m => m.userId === user.uid)
           setIsMember(!!me)
           setMyRole((me?.role as MemberRole) ?? 'MEMBER')
+          setMyEmailNotifications(me?.emailNotifications !== false)
         }
       },
       () => { /* permission denied — user is not a member */ }
@@ -269,6 +272,14 @@ export default function CommunityDetailPage() {
       setLeaving(false)
       setShowCommunityMenu(false)
     }
+  }
+
+  async function toggleEmailNotifications() {
+    if (!user) return
+    const newVal = !myEmailNotifications
+    setMyEmailNotifications(newVal)
+    await updateDoc(doc(db, 'communities', id, 'members', user.uid), { emailNotifications: newVal })
+    setShowCommunityMenu(false)
   }
 
   async function kickMember(member: CommunityMember) {
@@ -524,6 +535,13 @@ export default function CommunityDetailPage() {
                       </button>
                     )}
                     <button
+                      onClick={toggleEmailNotifications}
+                      className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
+                    >
+                      {myEmailNotifications ? <MailX size={14} /> : <Mail size={14} />}
+                      {myEmailNotifications ? 'Dezactivează emailuri' : 'Activează emailuri'}
+                    </button>
+                    <button
                       onClick={leaveCommunity}
                       disabled={leaving}
                       className="w-full px-4 py-3 text-sm text-red-400 hover:bg-white/8 flex items-center gap-2 text-left disabled:opacity-50"
@@ -601,6 +619,13 @@ export default function CommunityDetailPage() {
                         <Pencil size={14} /> Editează comunitatea
                       </button>
                     )}
+                    <button
+                      onClick={toggleEmailNotifications}
+                      className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
+                    >
+                      {myEmailNotifications ? <MailX size={14} /> : <Mail size={14} />}
+                      {myEmailNotifications ? 'Dezactivează emailuri' : 'Activează emailuri'}
+                    </button>
                     <button
                       onClick={leaveCommunity}
                       disabled={leaving}
@@ -1378,6 +1403,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
   const [end, setEnd] = useState('20:30')
   const [location, setLocation] = useState(defaultLocation ?? '')
   const [official, setOfficial] = useState(false)
+  const [sendEmail, setSendEmail] = useState(false)
   const [saving, setSaving] = useState(false)
   const [rateError, setRateError] = useState('')
   const [showEquipment, setShowEquipment] = useState(false)
@@ -1425,11 +1451,13 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
           sets: parseInt(ex.sets) || 1,
           repsPerSet: parseInt(ex.repsPerSet) || 10,
         }))
-      await addDoc(collection(db, 'communities', communityId, 'trainings'), {
+      const trainingTimeStart = toAndroidDateTime(date, start)
+      const trainingTimeEnd = toAndroidDateTime(date, end)
+      const docRef = await addDoc(collection(db, 'communities', communityId, 'trainings'), {
         name:            name.trim(),
         description:     desc.trim(),
-        timeStart:       toAndroidDateTime(date, start),
-        timeEnd:         toAndroidDateTime(date, end),
+        timeStart:       trainingTimeStart,
+        timeEnd:         trainingTimeEnd,
         location:        location.trim(),
         authorId:        userId,
         authorName:      userName,
@@ -1447,6 +1475,25 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
       } : {}),
         createdAt:       serverTimestamp(),
       })
+      if (sendEmail) {
+        const idToken = await auth.currentUser?.getIdToken()
+        if (idToken) {
+          fetch('/api/email/training', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({
+              communityId,
+              trainingId: docRef.id,
+              trainingName: name.trim(),
+              description: desc.trim(),
+              timeStart: trainingTimeStart,
+              timeEnd: trainingTimeEnd,
+              location: location.trim(),
+              authorName: userName,
+            }),
+          }).catch(() => {})
+        }
+      }
       onClose()
     } finally { setSaving(false) }
   }
@@ -1483,6 +1530,18 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
             />
             <span>Oficial</span>
             <span className="text-xs text-white/35">(anunț oficial al comunității)</span>
+          </label>
+        )}
+        {isStaff && (
+          <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendEmail}
+              onChange={e => setSendEmail(e.target.checked)}
+              className="accent-brand-green w-4 h-4"
+            />
+            <span>Notificare email</span>
+            <span className="text-xs text-white/35">(trimite email membrilor)</span>
           </label>
         )}
 

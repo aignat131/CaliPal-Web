@@ -48,7 +48,8 @@
       "WebSearch",
       "Bash(find:*)",
       "Bash(npm list:*)",
-      "Bash(grep -l \"Romanian\\\\|'Nicio\\\\|'Bun\\\\|'Merg\\\\|'Nu merg\\\\|'Poate\\\\|'Anulează\\\\|'Deconect\\\\|'Prieteni\\\\|'Antrenam\\\\|'Monede\\\\|'Comunitate\\\\|'Mesaje\\\\|'Acasă\\\\|'Începe\\\\|'Salut\\\\|'Bună\" E:/Web_Apps/CaliPal-Web/app/**/*.tsx E:/Web_Apps/CaliPal-Web/components/**/*.tsx)"
+      "Bash(grep -l \"Romanian\\\\|'Nicio\\\\|'Bun\\\\|'Merg\\\\|'Nu merg\\\\|'Poate\\\\|'Anulează\\\\|'Deconect\\\\|'Prieteni\\\\|'Antrenam\\\\|'Monede\\\\|'Comunitate\\\\|'Mesaje\\\\|'Acasă\\\\|'Începe\\\\|'Salut\\\\|'Bună\" E:/Web_Apps/CaliPal-Web/app/**/*.tsx E:/Web_Apps/CaliPal-Web/components/**/*.tsx)",
+      "Bash(xargs head:*)"
     ]
   }
 }
