@@ -1,5 +1,6 @@
 /** Generates the HTML email body for a training announcement. */
 export function trainingEmailHtml({
+  recipientName,
   trainingName,
   communityName,
   dateLabel,
@@ -10,6 +11,7 @@ export function trainingEmailHtml({
   trainingUrl,
   unsubscribeUrl,
 }: {
+  recipientName: string
   trainingName: string
   communityName: string
   dateLabel: string
@@ -20,6 +22,11 @@ export function trainingEmailHtml({
   trainingUrl: string
   unsubscribeUrl: string
 }): string {
+  const firstName = recipientName.split(' ')[0]
+  const greeting = firstName
+    ? `Salut, <strong style="color:#F9FAFB;">${escHtml(firstName)}</strong>! 👋`
+    : 'Salut! 👋'
+
   const descHtml = description
     ? `<p style="margin:0 0 20px;color:#9CA3AF;font-size:14px;line-height:1.6;">${escHtml(description)}</p>`
     : ''
@@ -45,6 +52,10 @@ export function trainingEmailHtml({
 
         <!-- Card -->
         <tr><td style="background:#164742;border-radius:20px;padding:28px;border:1px solid #1ED75F20;">
+
+          <!-- Greeting -->
+          <p style="margin:0 0 20px;color:#9CA3AF;font-size:15px;line-height:1.5;">${greeting}<br>
+          <span style="color:#6B7280;font-size:13px;">Un antrenament nou a fost adăugat în comunitatea ta.</span></p>
 
           <!-- Community badge -->
           <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#1ED75F;letter-spacing:2px;text-transform:uppercase;">${escHtml(communityName)}</p>

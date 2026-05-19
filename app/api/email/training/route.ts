@@ -89,25 +89,21 @@ export async function POST(req: NextRequest) {
     .collection('members')
     .get()
 
-  // TODO: remove TEST_MODE when ready to send to all members
-  const TEST_MODE = true
-  const memberUids = TEST_MODE
-    ? [callerUid]
-    : membersSnap.docs
-        .filter(d => {
-          if (d.data().emailNotifications === false) return false
-          if (d.id === callerUid) return false
-          return true
-        })
-        .map(d => d.id)
+  const memberUids = membersSnap.docs
+    .filter(d => {
+      if (d.data().emailNotifications === false) return false
+      if (d.id === callerUid) return false
+      return true
+    })
+    .map(d => d.id)
 
   if (memberUids.length === 0) {
     return NextResponse.json({ ok: true, sent: 0 })
   }
 
-  // ── 6. Fetch user emails in batches of 30 (Firestore getAll limit is lenient but let's be safe) ─
+  // ── 6. Fetch user emails + names in batches of 30 ─────────────────────────
   const BATCH = 30
-  const emailTargets: { uid: string; email: string }[] = []
+  const emailTargets: { uid: string; email: string; displayName: string }[] = []
 
   for (let i = 0; i < memberUids.length; i += BATCH) {
     const slice = memberUids.slice(i, i + BATCH)
@@ -116,8 +112,9 @@ export async function POST(req: NextRequest) {
     )
     userDocs.forEach((snap, idx) => {
       const email = snap.data()?.email as string | undefined
+      const displayName = (snap.data()?.displayName as string | undefined) ?? ''
       if (email && email.includes('@')) {
-        emailTargets.push({ uid: slice[idx], email })
+        emailTargets.push({ uid: slice[idx], email, displayName })
       }
     })
   }
@@ -139,7 +136,7 @@ export async function POST(req: NextRequest) {
 
   for (let i = 0; i < emailTargets.length; i += MAIL_BATCH) {
     const slice = emailTargets.slice(i, i + MAIL_BATCH)
-    const emails = slice.map(({ uid, email }) => {
+    const emails = slice.map(({ uid, email, displayName }) => {
       const token = unsubToken(uid, communityId)
       const unsubscribeUrl = `${APP_URL}/api/email/unsubscribe?uid=${uid}&cid=${communityId}&t=${token}`
       return {
@@ -147,6 +144,7 @@ export async function POST(req: NextRequest) {
         to: email,
         subject: `📅 ${trainingName} — ${communityName}`,
         html: trainingEmailHtml({
+          recipientName: displayName,
           trainingName,
           communityName,
           dateLabel,
