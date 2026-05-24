@@ -111,8 +111,10 @@ export async function POST(req: NextRequest) {
       slice.map(uid => adminDb().collection('users').doc(uid).get())
     )
     userDocs.forEach((snap, idx) => {
-      const email = snap.data()?.email as string | undefined
-      const displayName = (snap.data()?.displayName as string | undefined) ?? ''
+      const data = snap.data()
+      if (data?.trainingEmailNotifications === false) return  // global opt-out
+      const email = data?.email as string | undefined
+      const displayName = (data?.displayName as string | undefined) ?? ''
       if (email && email.includes('@')) {
         emailTargets.push({ uid: slice[idx], email, displayName })
       }

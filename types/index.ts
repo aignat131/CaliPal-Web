@@ -23,6 +23,8 @@ export interface UserDoc {
   favoriteSkillIds?: string[]
   createdAt: Timestamp | null
   messageEmailNotifications?: boolean
+  trainingEmailNotifications?: boolean
+  newsEmailNotifications?: boolean
 }
 
 export interface CommunityDoc {
