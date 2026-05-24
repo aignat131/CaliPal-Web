@@ -1183,6 +1183,38 @@ function FeedbackTab() {
   const [sentFor, setSentFor]     = useState<string | null>(null)
   const [filterCat, setFilterCat] = useState<string>('all')
 
+  // Manual entry state
+  const [showManual, setShowManual]         = useState(false)
+  const [manualName, setManualName]         = useState('')
+  const [manualEmail, setManualEmail]       = useState('')
+  const [manualSubject, setManualSubject]   = useState('')
+  const [manualMessage, setManualMessage]   = useState('')
+  const [manualCategory, setManualCategory] = useState('feedback')
+  const [manualSaving, setManualSaving]     = useState(false)
+
+  async function saveManualEntry() {
+    if (!manualName.trim() || !manualEmail.trim() || !manualSubject.trim() || !manualMessage.trim()) return
+    setManualSaving(true)
+    try {
+      await addDoc(collection(db, 'feedback'), {
+        uid: '',
+        senderName: manualName.trim(),
+        senderEmail: manualEmail.trim(),
+        category: manualCategory,
+        subject: manualSubject.trim(),
+        message: manualMessage.trim(),
+        rating: null,
+        communities: [],
+        replies: [],
+        createdAt: serverTimestamp(),
+      })
+      setShowManual(false)
+      setManualName(''); setManualEmail(''); setManualSubject(''); setManualMessage(''); setManualCategory('feedback')
+    } finally {
+      setManualSaving(false)
+    }
+  }
+
   useEffect(() => {
     const unsub = onSnapshot(
       query(collection(db, 'feedback'), orderBy('createdAt', 'desc')),
@@ -1243,9 +1275,17 @@ function FeedbackTab() {
 
   return (
     <div>
-      {/* Count + category filter */}
+      {/* Count + category filter + manual button */}
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-        <p className="text-xs text-white/40">{items.length} mesaje primite</p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-white/40">{items.length} mesaje primite</p>
+          <button
+            onClick={() => setShowManual(true)}
+            className="flex items-center gap-1 h-7 px-2.5 rounded-full text-[10px] font-bold bg-white/8 text-white/50 hover:bg-white/12 hover:text-white/70 transition-colors"
+          >
+            <Plus size={10} /> Manual
+          </button>
+        </div>
         <div className="flex gap-1 flex-wrap">
           {(['all', 'improvement', 'bug', 'feedback', 'other'] as const).map(cat => (
             <button
@@ -1425,6 +1465,101 @@ function FeedbackTab() {
           )
         })}
       </div>
+
+      {/* Manual entry modal */}
+      {showManual && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowManual(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-t-3xl p-5 pb-8 flex flex-col gap-3"
+            style={{ backgroundColor: 'var(--app-bg)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div>
+                <p className="text-base font-bold text-white">Adaugă feedback manual</p>
+                <p className="text-xs text-white/35">Importă un feedback primit pe email înainte de această funcționalitate</p>
+              </div>
+              <button
+                onClick={() => setShowManual(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Category */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['improvement', 'bug', 'feedback', 'other'] as const).map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setManualCategory(cat)}
+                  className={`h-8 rounded-xl text-[10px] font-bold transition-colors ${
+                    manualCategory === cat ? 'text-black' : 'bg-white/8 text-white/40'
+                  }`}
+                  style={manualCategory === cat ? { backgroundColor: CATEGORY_COLORS[cat] } : {}}
+                >
+                  {CATEGORY_LABELS[cat]?.split(' ')[0]}
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="text"
+              value={manualName}
+              onChange={e => setManualName(e.target.value)}
+              placeholder="Nume utilizator"
+              className="w-full h-10 px-4 rounded-2xl text-sm text-white placeholder-white/30 outline-none border border-white/10"
+              style={{ backgroundColor: 'var(--app-surface)' }}
+            />
+            <input
+              type="email"
+              value={manualEmail}
+              onChange={e => setManualEmail(e.target.value)}
+              placeholder="Email utilizator"
+              className="w-full h-10 px-4 rounded-2xl text-sm text-white placeholder-white/30 outline-none border border-white/10"
+              style={{ backgroundColor: 'var(--app-surface)' }}
+            />
+            <input
+              type="text"
+              value={manualSubject}
+              onChange={e => setManualSubject(e.target.value)}
+              placeholder="Subiect (din emailul primit)"
+              className="w-full h-10 px-4 rounded-2xl text-sm text-white placeholder-white/30 outline-none border border-white/10"
+              style={{ backgroundColor: 'var(--app-surface)' }}
+            />
+            <textarea
+              value={manualMessage}
+              onChange={e => setManualMessage(e.target.value)}
+              placeholder="Mesajul original (copiază din email)"
+              rows={4}
+              className="w-full px-4 py-3 rounded-2xl text-sm text-white placeholder-white/30 outline-none resize-none border border-white/10"
+              style={{ backgroundColor: 'var(--app-surface)' }}
+            />
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowManual(false)}
+                className="flex-1 h-10 rounded-xl border border-white/15 text-sm text-white/60"
+              >
+                Anulează
+              </button>
+              <button
+                onClick={saveManualEntry}
+                disabled={manualSaving || !manualName.trim() || !manualEmail.trim() || !manualSubject.trim() || !manualMessage.trim()}
+                className="flex-1 h-10 rounded-xl text-sm font-bold text-black flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{ backgroundColor: '#1ED75F' }}
+              >
+                {manualSaving
+                  ? <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  : <><Check size={13} /> Salvează</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
