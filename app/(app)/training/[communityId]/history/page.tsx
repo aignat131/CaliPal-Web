@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { collection, getDocs, getDoc, doc, query, orderBy } from 'firebase/firestore'
+import { collection, getDocs, getDoc, doc, query, deleteDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
-import type { PlannedTraining, CommunityDoc } from '@/types'
-import { ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, ChevronDown, ChevronUp } from 'lucide-react'
+import { useAuth } from '@/lib/hooks/useAuth'
+import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
+import { ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
+
+const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 function parseDateTime(str: string, fallbackDate?: string): Date | null {
   if (!str) return null
@@ -32,29 +35,67 @@ function formatTime(str: string): string {
 
 type TrainingWithId = PlannedTraining & { id: string }
 
-function TrainingCard({ training, communityId }: { training: TrainingWithId; communityId: string }) {
+function TrainingCard({
+  training,
+  communityId,
+  canDelete,
+  onDelete,
+}: {
+  training: TrainingWithId
+  communityId: string
+  canDelete: boolean
+  onDelete: (id: string) => void
+}) {
   const [expanded, setExpanded] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const t = useT()
   const memberGoing = Object.values(training.rsvps ?? {}).filter(s => s === 'GOING').length
   const guestGoing = Object.values(training.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
   const total = memberGoing + guestGoing
 
   return (
-    <Link href={`/training/${communityId}/${training.id}`} onClick={e => { if (expanded) e.preventDefault() }}>
+    <Link href={`/training/${communityId}/${training.id}`} onClick={e => { if (expanded || confirmDelete) e.preventDefault() }}>
       <div
         className="rounded-2xl p-4 border border-white/8 cursor-pointer"
         style={{ backgroundColor: 'var(--app-surface)' }}
       >
         <div className="flex items-start justify-between gap-2 mb-2">
           <p className="text-sm font-bold text-white leading-tight flex-1">{training.name}</p>
-          <button
-            onClick={e => { e.preventDefault(); e.stopPropagation(); setExpanded(v => !v) }}
-            className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0"
-          >
-            {expanded
-              ? <ChevronUp size={14} className="text-white/60" />
-              : <ChevronDown size={14} className="text-white/60" />}
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {canDelete && (
+              confirmDelete ? (
+                <div className="flex items-center gap-1" onClick={e => e.preventDefault()}>
+                  <button
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); onDelete(training.id) }}
+                    className="h-7 px-2 rounded-full bg-red-500/20 border border-red-500/40 text-[10px] font-bold text-red-400 flex items-center gap-1"
+                  >
+                    <Trash2 size={10} /> Șterge
+                  </button>
+                  <button
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(false) }}
+                    className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center text-white/50 text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(true) }}
+                  className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center"
+                >
+                  <Trash2 size={13} className="text-white/40 hover:text-red-400 transition-colors" />
+                </button>
+              )
+            )}
+            <button
+              onClick={e => { e.preventDefault(); e.stopPropagation(); setExpanded(v => !v); setConfirmDelete(false) }}
+              className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center"
+            >
+              {expanded
+                ? <ChevronUp size={14} className="text-white/60" />
+                : <ChevronDown size={14} className="text-white/60" />}
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2">
@@ -137,26 +178,41 @@ function TrainingCard({ training, communityId }: { training: TrainingWithId; com
 export default function CommunityTrainingHistoryPage() {
   const { communityId } = useParams() as { communityId: string }
   const router = useRouter()
+  const { user } = useAuth()
   const t = useT()
 
   const [community, setCommunity] = useState<CommunityDoc | null>(null)
   const [trainings, setTrainings] = useState<TrainingWithId[]>([])
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     async function load() {
       try {
+        // No orderBy — avoids excluding docs where createdAt is absent (e.g. Android-created trainings)
         const [commSnap, trainSnap] = await Promise.all([
           getDoc(doc(db, 'communities', communityId)),
-          getDocs(query(collection(db, 'communities', communityId, 'trainings'), orderBy('createdAt', 'desc'))),
+          getDocs(query(collection(db, 'communities', communityId, 'trainings'))),
         ])
-        if (commSnap.exists()) setCommunity({ id: commSnap.id, ...commSnap.data() } as CommunityDoc)
+
+        if (commSnap.exists()) setCommunity({ id: commSnap.id, ...(commSnap.data() as object) } as CommunityDoc)
+
+        if (user) {
+          const memberSnap = await getDoc(doc(db, 'communities', communityId, 'members', user.uid))
+          const memberData = memberSnap.exists() ? (memberSnap.data() as CommunityMember) : null
+          const role = memberData?.role ?? 'MEMBER'
+          setIsAdmin(role === 'ADMIN' || user.email === SUPERADMIN)
+        }
+
         const now = new Date()
         const past = trainSnap.docs
-          .map(d => ({ id: d.id, ...d.data() } as TrainingWithId))
+          .map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
           .filter(t => {
-            const d = parseDateTime(t.timeStart, t.date)
-            return d && d < now
+            // Use timeEnd to ensure the training fully completed before showing it in history.
+            // Fall back to timeStart if timeEnd is not set.
+            const endStr = t.timeEnd || t.timeStart
+            const end = parseDateTime(endStr, t.date)
+            return end && end < now
           })
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)
@@ -169,7 +225,16 @@ export default function CommunityTrainingHistoryPage() {
       }
     }
     load()
-  }, [communityId])
+  }, [communityId, user])
+
+  async function handleDelete(trainingId: string) {
+    try {
+      await deleteDoc(doc(db, 'communities', communityId, 'trainings', trainingId))
+      setTrainings(prev => prev.filter(t => t.id !== trainingId))
+    } catch (e) {
+      console.error('Failed to delete training', e)
+    }
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -216,7 +281,13 @@ export default function CommunityTrainingHistoryPage() {
                 : t('training.n_past_n', { n: String(trainings.length) })}
             </p>
             {trainings.map(tr => (
-              <TrainingCard key={tr.id} training={tr} communityId={communityId} />
+              <TrainingCard
+                key={tr.id}
+                training={tr}
+                communityId={communityId}
+                canDelete={isAdmin}
+                onDelete={handleDelete}
+              />
             ))}
           </div>
         )}
