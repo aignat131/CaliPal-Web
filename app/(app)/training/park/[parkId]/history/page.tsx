@@ -144,12 +144,14 @@ export default function ParkTrainingHistoryPage() {
   const [park, setPark] = useState<ParkDoc | null>(null)
   const [trainings, setTrainings] = useState<TrainingWithId[]>([])
   const [communityId, setCommunityId] = useState<string | null>(null)
+  // Maps training id → which collection it lives in, so we can build the correct detail URL
+  const [trainingSource, setTrainingSource] = useState<Record<string, 'park' | 'community'>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        // Load park first to determine where trainings are stored
+        // Load park first to know if it has an associated community
         const parkSnap = await getDoc(doc(db, 'parks', parkId))
         let cid: string | null = null
         if (parkSnap.exists()) {
@@ -159,19 +161,41 @@ export default function ParkTrainingHistoryPage() {
           setCommunityId(cid)
         }
 
-        // Parks with a community store trainings in the community subcollection.
-        // Parks without a community store trainings in the park subcollection.
+        // Trainings created from the map → parks/{parkId}/trainings
+        // Trainings created from the community detail page → communities/{cid}/trainings
+        // For parks with a community we read BOTH collections and merge.
         // No orderBy — avoids excluding docs where createdAt is absent (Android-created trainings).
-        const trainingRef = cid
-          ? collection(db, 'communities', cid, 'trainings')
-          : collection(db, 'parks', parkId, 'trainings')
+        const [parkSnap2, commSnap] = await Promise.all([
+          getDocs(collection(db, 'parks', parkId, 'trainings')),
+          cid ? getDocs(collection(db, 'communities', cid, 'trainings')) : Promise.resolve(null),
+        ])
 
-        const trainSnap = await getDocs(trainingRef)
+        const sourceMap: Record<string, 'park' | 'community'> = {}
+        const seen = new Set<string>()
+        const merged: TrainingWithId[] = []
+
+        for (const d of parkSnap2.docs) {
+          if (seen.has(d.id)) continue
+          seen.add(d.id)
+          sourceMap[d.id] = 'park'
+          merged.push({ id: d.id, ...(d.data() as object) } as TrainingWithId)
+        }
+        if (commSnap) {
+          for (const d of commSnap.docs) {
+            if (seen.has(d.id)) continue
+            seen.add(d.id)
+            sourceMap[d.id] = 'community'
+            merged.push({ id: d.id, ...(d.data() as object) } as TrainingWithId)
+          }
+        }
+
+        setTrainingSource(sourceMap)
+
         const now = new Date()
-        const past = trainSnap.docs
-          .map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
+        const past = merged
           .filter(tr => {
             // Only show trainings that have fully completed (past their end time).
+            // Fall back to timeStart when timeEnd is empty.
             const endStr = tr.timeEnd || tr.timeStart
             const end = parseDateTime(endStr, tr.date)
             return end && end < now
@@ -190,9 +214,10 @@ export default function ParkTrainingHistoryPage() {
   }, [parkId])
 
   function trainingHref(training: TrainingWithId): string {
-    return communityId
-      ? `/training/${communityId}/${training.id}`
-      : `/training/park/${parkId}/${training.id}`
+    if (communityId && trainingSource[training.id] === 'community') {
+      return `/training/${communityId}/${training.id}`
+    }
+    return `/training/park/${parkId}/${training.id}`
   }
 
   return (

@@ -3,6 +3,8 @@
 import { createContext, useContext, useRef, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { WorkoutExercise } from '@/types'
 
+const STORAGE_KEY = 'calipal_workout_started_at'
+
 interface WorkoutContextValue {
   isActive: boolean
   seconds: number
@@ -25,21 +27,52 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   const [note, setNoteState] = useState('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Restore timer from localStorage on mount — handles page reload while workout is active
   useEffect(() => {
-    if (isActive) {
-      timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000)
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const ts = parseInt(stored, 10)
+      if (!isNaN(ts)) {
+        setStartedAt(ts)
+        setIsActive(true)
+        setSeconds(Math.floor((Date.now() - ts) / 1000))
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Timer: compute elapsed from startedAt on every tick instead of incrementing a counter.
+  // This prevents drift when the phone screen turns off (JS timers freeze/throttle in background).
+  useEffect(() => {
+    if (isActive && startedAt !== null) {
+      const tick = () => setSeconds(Math.floor((Date.now() - startedAt) / 1000))
+      tick() // sync immediately when starting or resuming
+      timerRef.current = setInterval(tick, 1000)
     } else {
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [isActive])
+  }, [isActive, startedAt])
+
+  // Re-sync the second count whenever the screen wakes up or the tab becomes visible again
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden && isActive && startedAt !== null) {
+        setSeconds(Math.floor((Date.now() - startedAt) / 1000))
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [isActive, startedAt])
 
   const startWorkout = useCallback((exs: WorkoutExercise[] = []) => {
+    const now = Date.now()
     setExercisesState(exs)
     setNoteState('')
-    setSeconds(0)
-    setStartedAt(Date.now())
+    setStartedAt(now)
     setIsActive(true)
+    setSeconds(0)
+    localStorage.setItem(STORAGE_KEY, String(now))
   }, [])
 
   const stopWorkout = useCallback(() => {
@@ -48,6 +81,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     setStartedAt(null)
     setExercisesState([])
     setNoteState('')
+    localStorage.removeItem(STORAGE_KEY)
   }, [])
 
   return (
