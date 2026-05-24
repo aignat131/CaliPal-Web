@@ -14,7 +14,7 @@ import type {
   PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress,
   WorkoutDoc,
 } from '@/types'
-import { Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, Play, BookOpen } from 'lucide-react'
+import { Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, Play, BookOpen, MessageSquarePlus } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 import { useT } from '@/lib/context/LanguageContext'
@@ -360,6 +360,22 @@ export default function HomePage() {
             )}
           </div>
         </div>
+
+        {/* Feedback CTA */}
+        <Link href="/feedback" className="block mt-6">
+          <div className="rounded-2xl p-4 flex items-center gap-3 border border-white/8 cursor-pointer hover:border-brand-green/30 transition-colors"
+            style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: '#1ED75F14', border: '1px solid #1ED75F25' }}>
+              <MessageSquarePlus size={18} className="text-brand-green" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-white text-sm">Share your feedback</p>
+              <p className="text-xs text-white/40 mt-0.5">Help us make CaliPal better</p>
+            </div>
+            <ChevronRight size={16} className="text-white/25 flex-shrink-0" />
+          </div>
+        </Link>
 
       </div>
     </div>

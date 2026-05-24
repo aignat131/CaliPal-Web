@@ -12,7 +12,7 @@ import { db } from '@/lib/firebase/firestore'
 import type { LocationSharingMode } from '@/types'
 import {
   ArrowLeft, ChevronRight, User, LogOut, Lock, Info, Bell,
-  Shield, Sun, Moon, MapPin, Globe,
+  Shield, Sun, Moon, MapPin, Globe, MessageSquarePlus,
 } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useLanguage } from '@/lib/context/LanguageContext'
@@ -195,6 +195,7 @@ export default function SettingsPage() {
         <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_other')}</p>
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           <SettingsRow icon={<Info size={17} />} label={t('settings.about')} value="v1.0.0" href="/profile/about" />
+          <SettingsRow icon={<MessageSquarePlus size={17} />} label="Send Feedback" href="/feedback" />
         </div>
 
         {/* Coach Hub */}
