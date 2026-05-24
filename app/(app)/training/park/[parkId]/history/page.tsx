@@ -9,8 +9,16 @@ import { ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, ChevronDown, Chevr
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
 
-function parseDateTime(str: string, fallbackDate?: string): Date | null {
-  if (!str) return null
+function parseDateTime(str: string | undefined, fallbackDate?: string): Date | null {
+  if (!str) {
+    if (fallbackDate) {
+      try {
+        const d = new Date(fallbackDate)
+        return isNaN(d.getTime()) ? null : d
+      } catch { return null }
+    }
+    return null
+  }
   const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
   if (m) {
     const [, dd, mm, yyyy, hh, min] = m
@@ -195,11 +203,15 @@ export default function ParkTrainingHistoryPage() {
         const past = merged
           .filter(tr => {
             const start = parseDateTime(tr.timeStart, tr.date)
-            return start !== null && !isNaN(start.getTime()) && start < now
+            if (start !== null && !isNaN(start.getTime())) return start < now
+            return true
           })
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)
             const db2 = parseDateTime(b.timeStart, b.date)
+            if (!da && !db2) return 0
+            if (!da) return 1
+            if (!db2) return -1
             return (db2?.getTime() ?? 0) - (da?.getTime() ?? 0)
           })
         setTrainings(past)

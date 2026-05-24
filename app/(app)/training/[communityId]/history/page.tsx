@@ -12,8 +12,17 @@ import { useT } from '@/lib/context/LanguageContext'
 
 const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
-function parseDateTime(str: string, fallbackDate?: string): Date | null {
-  if (!str) return null
+function parseDateTime(str: string | undefined, fallbackDate?: string): Date | null {
+  if (!str) {
+    // No timeStart — try parsing the date field alone
+    if (fallbackDate) {
+      try {
+        const d = new Date(fallbackDate)
+        return isNaN(d.getTime()) ? null : d
+      } catch { return null }
+    }
+    return null
+  }
   const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
   if (m) {
     const [, dd, mm, yyyy, hh, min] = m
@@ -214,11 +223,18 @@ export default function CommunityTrainingHistoryPage() {
           .map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
           .filter(t => {
             const start = parseDateTime(t.timeStart, t.date)
-            return start !== null && !isNaN(start.getTime()) && start < now
+            // If we can determine the date: only include if in the past
+            if (start !== null && !isNaN(start.getTime())) return start < now
+            // If we can't determine the date at all, include it (assumed old)
+            return true
           })
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)
             const db2 = parseDateTime(b.timeStart, b.date)
+            // Undated trainings go to the bottom
+            if (!da && !db2) return 0
+            if (!da) return 1
+            if (!db2) return -1
             return (db2?.getTime() ?? 0) - (da?.getTime() ?? 0)
           })
         setTrainings(past)
