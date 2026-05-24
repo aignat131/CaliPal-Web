@@ -301,5 +301,11 @@ service cloud.firestore {
       allow create: if isAuth();
       allow update, delete: if isSuperAdmin();
     }
+
+    // ── Feedback (user submissions + superadmin replies) ──────────────────────
+    match /feedback/{feedbackId} {
+      allow read, update, delete: if isSuperAdmin();
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+    }
   }
 }
