@@ -104,7 +104,21 @@ export async function POST(req: NextRequest) {
       }),
     })
 
-    // ── 6. Update rate counters ───────────────────────────────────────────────
+    // ── 6. Persist feedback to Firestore ─────────────────────────────────────
+    await adminDb().collection('feedback').add({
+      uid,
+      senderName,
+      senderEmail,
+      category,
+      subject,
+      message,
+      rating: rating ?? null,
+      communities,
+      replies: [],
+      createdAt: FieldValue.serverTimestamp(),
+    })
+
+    // ── 7. Update rate counters ───────────────────────────────────────────────
     const newDayCount  = effectiveDayCount  + 1
     const newWeekCount = effectiveWeekCount + 1
 

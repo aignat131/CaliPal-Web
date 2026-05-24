@@ -49,7 +49,11 @@
       "Bash(find:*)",
       "Bash(npm list:*)",
       "Bash(grep -l \"Romanian\\\\|'Nicio\\\\|'Bun\\\\|'Merg\\\\|'Nu merg\\\\|'Poate\\\\|'Anulează\\\\|'Deconect\\\\|'Prieteni\\\\|'Antrenam\\\\|'Monede\\\\|'Comunitate\\\\|'Mesaje\\\\|'Acasă\\\\|'Începe\\\\|'Salut\\\\|'Bună\" E:/Web_Apps/CaliPal-Web/app/**/*.tsx E:/Web_Apps/CaliPal-Web/components/**/*.tsx)",
-      "Bash(xargs head:*)"
+      "Bash(xargs head:*)",
+      "Bash(grep -E \"\\\\.ts$|types\")",
+      "Bash(python3 \"E:/Web_Apps/CaliPal-Web/append_feedback_tab.py\")",
+      "Bash(python \"E:/Web_Apps/CaliPal-Web/append_feedback_tab.py\")",
+      "Bash(grep -n \"\\\\\\\\\\\\\\\\U\\\\|\\\\\\\\\\\\\\\\u2713\\\\|\\\\\\\\\\\\\\\\u00b7\\\\|\\\\\\\\\\\\\\\\u2605\\\\|\\\\\\\\\\\\\\\\u2606\" \"E:/Web_Apps/CaliPal-Web/app/\\(app\\)/admin/page.tsx\")"
     ]
   }
 }
