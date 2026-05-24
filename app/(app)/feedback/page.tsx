@@ -5,17 +5,28 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Send, CheckCircle, Star } from 'lucide-react'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { auth } from '@/lib/firebase/auth'
-
-const CATEGORIES = [
-  { id: 'improvement', label: '💡 Improvement',  desc: 'Suggest a new feature or enhancement' },
-  { id: 'feedback',    label: '💬 Feedback',      desc: 'Share your experience with CaliPal' },
-  { id: 'bug',         label: '🐛 Bug Report',    desc: 'Something is not working right' },
-  { id: 'other',       label: '📝 Other',         desc: 'Anything else on your mind' },
-]
+import { useT } from '@/lib/context/LanguageContext'
 
 export default function FeedbackPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const t = useT()
+
+  const CATEGORIES = [
+    { id: 'improvement', label: t('feedback.cat_improvement'),  desc: t('feedback.cat_improvement_desc') },
+    { id: 'feedback',    label: t('feedback.cat_feedback'),     desc: t('feedback.cat_feedback_desc') },
+    { id: 'bug',         label: t('feedback.cat_bug'),          desc: t('feedback.cat_bug_desc') },
+    { id: 'other',       label: t('feedback.cat_other'),        desc: t('feedback.cat_other_desc') },
+  ]
+
+  const RATING_LABELS = [
+    '',
+    t('feedback.rating_poor'),
+    t('feedback.rating_fair'),
+    t('feedback.rating_good'),
+    t('feedback.rating_great'),
+    t('feedback.rating_excellent'),
+  ]
 
   const [category, setCategory] = useState<string>('feedback')
   const [subject, setSubject] = useState('')
@@ -51,7 +62,7 @@ export default function FeedbackPage() {
       if (!data.ok) throw new Error(data.reason ?? 'send-failed')
       setSent(true)
     } catch (err) {
-      setError('Something went wrong. Please try again.')
+      setError(t('feedback.error'))
       console.error('[feedback] send error:', err)
     } finally {
       setSending(false)
@@ -67,16 +78,14 @@ export default function FeedbackPage() {
             style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F40' }}>
             <CheckCircle size={36} className="text-brand-green" />
           </div>
-          <h2 className="text-xl font-black text-white">Thank you!</h2>
-          <p className="text-sm text-white/55 leading-relaxed">
-            Your feedback has been sent. We read every message and use it to make CaliPal better.
-          </p>
+          <h2 className="text-xl font-black text-white">{t('feedback.success_title')}</h2>
+          <p className="text-sm text-white/55 leading-relaxed">{t('feedback.success_text')}</p>
           <button
             onClick={() => router.back()}
             className="mt-2 h-11 px-6 rounded-2xl font-bold text-sm text-black"
             style={{ backgroundColor: '#1ED75F' }}
           >
-            Go back
+            {t('feedback.success_back')}
           </button>
         </div>
       </div>
@@ -94,8 +103,8 @@ export default function FeedbackPage() {
             <ArrowLeft size={18} className="text-white/80" />
           </button>
           <div>
-            <h1 className="text-lg font-black text-white leading-tight">Send Feedback</h1>
-            <p className="text-xs text-white/40">Help us improve CaliPal</p>
+            <h1 className="text-lg font-black text-white leading-tight">{t('feedback.title')}</h1>
+            <p className="text-xs text-white/40">{t('feedback.subtitle')}</p>
           </div>
         </div>
 
@@ -103,7 +112,7 @@ export default function FeedbackPage() {
 
           {/* Category picker */}
           <div>
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">CATEGORY</p>
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('feedback.section_category')}</p>
             <div className="grid grid-cols-2 gap-2">
               {CATEGORIES.map(cat => (
                 <button
@@ -128,12 +137,12 @@ export default function FeedbackPage() {
 
           {/* Subject */}
           <div>
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">SUBJECT</p>
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('feedback.section_subject')}</p>
             <input
               type="text"
               value={subject}
               onChange={e => setSubject(e.target.value)}
-              placeholder="Brief title of your feedback…"
+              placeholder={t('feedback.subject_placeholder')}
               maxLength={120}
               required
               className="w-full h-11 px-4 rounded-2xl text-sm text-white placeholder-white/30 outline-none"
@@ -143,11 +152,11 @@ export default function FeedbackPage() {
 
           {/* Message */}
           <div>
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">MESSAGE</p>
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('feedback.section_message')}</p>
             <textarea
               value={message}
               onChange={e => setMessage(e.target.value)}
-              placeholder="Describe your feedback in detail…"
+              placeholder={t('feedback.message_placeholder')}
               maxLength={2000}
               required
               rows={6}
@@ -159,7 +168,7 @@ export default function FeedbackPage() {
 
           {/* Star rating */}
           <div>
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">OVERALL RATING (optional)</p>
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('feedback.section_rating')}</p>
             <div className="flex gap-2 px-1">
               {[1, 2, 3, 4, 5].map(n => (
                 <button
@@ -181,7 +190,7 @@ export default function FeedbackPage() {
               ))}
               {rating > 0 && (
                 <span className="text-xs text-white/35 self-center ml-1">
-                  {['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][rating]}
+                  {RATING_LABELS[rating]}
                 </span>
               )}
             </div>
@@ -204,7 +213,7 @@ export default function FeedbackPage() {
             ) : (
               <>
                 <Send size={15} />
-                Send Feedback
+                {t('feedback.send')}
               </>
             )}
           </button>

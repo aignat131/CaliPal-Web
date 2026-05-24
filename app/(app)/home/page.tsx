@@ -370,8 +370,8 @@ export default function HomePage() {
               <MessageSquarePlus size={18} className="text-brand-green" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-white text-sm">Share your feedback</p>
-              <p className="text-xs text-white/40 mt-0.5">Help us make CaliPal better</p>
+              <p className="font-bold text-white text-sm">{t('home.feedback_title')}</p>
+              <p className="text-xs text-white/40 mt-0.5">{t('home.feedback_desc')}</p>
             </div>
             <ChevronRight size={16} className="text-white/25 flex-shrink-0" />
           </div>
