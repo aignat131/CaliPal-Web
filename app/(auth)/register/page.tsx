@@ -7,6 +7,9 @@ import { createUserWithEmailAndPassword, updateProfile, AuthError } from 'fireba
 import { auth } from '@/lib/firebase/auth'
 import { ensureUserDoc } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
+import Turnstile from 'react-turnstile'
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? ''
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -38,6 +41,7 @@ export default function RegisterPage() {
   const [passwordError, setPasswordError] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState('')
 
   function validate() {
     let valid = true
@@ -52,6 +56,10 @@ export default function RegisterPage() {
 
   async function handleCreate() {
     if (!validate()) return
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setErrorMessage(t('auth.captcha_required'))
+      return
+    }
     setLoading(true)
     try {
       const credential = await createUserWithEmailAndPassword(auth, email, password)
@@ -186,10 +194,22 @@ export default function RegisterPage() {
           )}
         </div>
 
+        {/* Turnstile bot protection */}
+        {TURNSTILE_SITE_KEY && (
+          <div className="flex justify-center mb-1">
+            <Turnstile
+              sitekey={TURNSTILE_SITE_KEY}
+              onVerify={token => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken('')}
+              theme="dark"
+            />
+          </div>
+        )}
+
         {/* Create button */}
         <button
           onClick={handleCreate}
-          disabled={loading}
+          disabled={loading || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
           className="w-full rounded-full font-extrabold text-[15px] tracking-wide text-white disabled:opacity-40 flex items-center justify-center transition-opacity"
           style={{ height: 52, backgroundColor: '#1DB954' }}
         >

@@ -8,6 +8,7 @@ import {
   setDoc, updateDoc, serverTimestamp, increment, getDoc, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
+import { auth } from '@/lib/firebase/auth'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
@@ -242,6 +243,16 @@ export default function ChatDetailPage() {
         content.length > 60 ? content.slice(0, 57) + '...' : content,
         conversationId
       )
+
+      // One-time email reminder — fire-and-forget, never blocks sending
+      auth.currentUser?.getIdToken().then(idToken => {
+        if (!idToken) return
+        fetch('/api/email/message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({ conversationId, recipientUid: otherUserId, preview: content }),
+        }).catch(() => {})
+      }).catch(() => {})
     } finally {
       setSending(false)
     }

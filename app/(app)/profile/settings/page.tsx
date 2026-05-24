@@ -12,7 +12,7 @@ import { db } from '@/lib/firebase/firestore'
 import type { LocationSharingMode } from '@/types'
 import {
   ArrowLeft, ChevronRight, User, LogOut, Lock, Info, Bell,
-  Shield, Sun, Moon, MapPin, Globe, MessageSquarePlus,
+  Shield, Sun, Moon, MapPin, Globe, MessageSquarePlus, Mail,
 } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useLanguage } from '@/lib/context/LanguageContext'
@@ -29,6 +29,7 @@ export default function SettingsPage() {
 
   const [locationMode, setLocationMode] = useState<LocationSharingMode>('EVERYWHERE')
   const [isCoach, setIsCoach] = useState(false)
+  const [msgEmailNotif, setMsgEmailNotif] = useState(true)
 
   const LOCATION_MODE_LABELS: Record<LocationSharingMode, string> = {
     OFF: t('settings.loc_off'),
@@ -43,6 +44,7 @@ export default function SettingsPage() {
       const mode = snap.data()?.locationSharingMode as LocationSharingMode | undefined
       if (mode) setLocationMode(mode)
       setIsCoach(snap.data()?.isCoach ?? false)
+      setMsgEmailNotif(snap.data()?.messageEmailNotifications !== false)
     })
     return unsub
   }, [user])
@@ -55,6 +57,17 @@ export default function SettingsPage() {
     } catch (err) {
       console.error('setLocMode failed', err)
       setLocationMode(prev)
+    }
+  }
+
+  async function toggleMsgEmailNotif() {
+    const newVal = !msgEmailNotif
+    setMsgEmailNotif(newVal)
+    try {
+      if (user) await updateDoc(doc(db, 'users', user.uid), { messageEmailNotifications: newVal })
+    } catch (err) {
+      console.error('toggleMsgEmailNotif failed', err)
+      setMsgEmailNotif(!newVal)
     }
   }
 
@@ -108,6 +121,7 @@ export default function SettingsPage() {
         {/* Notifications */}
         <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_notif')}</p>
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          {/* Push notifications */}
           <div className="flex items-center gap-3 px-4 py-3.5">
             <span className="text-brand-green"><Bell size={17} /></span>
             <span className="flex-1 text-sm font-medium text-white">{t('settings.push')}</span>
@@ -121,6 +135,20 @@ export default function SettingsPage() {
                 {pushLabel}
               </span>
             )}
+          </div>
+          {/* Message email notifications */}
+          <div className="flex items-center gap-3 px-4 py-3.5">
+            <span className="text-brand-green"><Mail size={17} /></span>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-white">{t('settings.msg_email')}</span>
+              <p className="text-[11px] text-white/35 mt-0.5">{t('settings.msg_email_desc')}</p>
+            </div>
+            <button onClick={toggleMsgEmailNotif}
+              className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+              style={{ backgroundColor: msgEmailNotif ? '#1ED75F' : 'rgba(255,255,255,0.2)' }}>
+              <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
+                style={{ left: msgEmailNotif ? '22px' : '2px' }} />
+            </button>
           </div>
         </div>
 

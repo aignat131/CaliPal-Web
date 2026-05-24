@@ -22,6 +22,7 @@ export interface UserDoc {
   skillsByCategory?: SkillsByCategory
   favoriteSkillIds?: string[]
   createdAt: Timestamp | null
+  messageEmailNotifications?: boolean
 }
 
 export interface CommunityDoc {
@@ -120,6 +121,7 @@ export interface ConversationDoc {
   lastMessageSenderId: string
   lastMessageTimestamp: Timestamp | null
   unreadCount: Record<string, number>
+  firstMessageEmailSent?: boolean
 }
 
 export interface ChatMessage {

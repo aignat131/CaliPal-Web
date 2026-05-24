@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Send, CheckCircle, Star } from 'lucide-react'
+import { ArrowLeft, Send, CheckCircle, Star, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { auth } from '@/lib/firebase/auth'
 import { useT } from '@/lib/context/LanguageContext'
@@ -37,6 +37,30 @@ export default function FeedbackPage() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
 
+  // Rate limit state
+  const [weekCount, setWeekCount] = useState(0)
+  const [canSendToday, setCanSendToday] = useState(true)
+  const [rateLoading, setRateLoading] = useState(true)
+
+  // Fetch current rate counts on mount
+  useEffect(() => {
+    if (!user) return
+    auth.currentUser?.getIdToken().then(idToken => {
+      fetch('/api/email/feedback', {
+        headers: { Authorization: `Bearer ${idToken}` },
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            setWeekCount(data.weekCount)
+            setCanSendToday(data.canSendToday)
+          }
+        })
+        .catch(() => {})
+        .finally(() => setRateLoading(false))
+    })
+  }, [user])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!subject.trim() || !message.trim() || !user) return
@@ -59,7 +83,14 @@ export default function FeedbackPage() {
         }),
       })
       const data = await res.json()
-      if (!data.ok) throw new Error(data.reason ?? 'send-failed')
+      if (!data.ok) {
+        if (data.reason === 'daily-limit')  { setError(t('feedback.error_daily_limit'));  return }
+        if (data.reason === 'weekly-limit') { setError(t('feedback.error_weekly_limit')); return }
+        throw new Error(data.reason ?? 'send-failed')
+      }
+      // Update local rate state
+      setWeekCount(data.weekCount)
+      setCanSendToday(false)
       setSent(true)
     } catch (err) {
       setError(t('feedback.error'))
@@ -92,6 +123,27 @@ export default function FeedbackPage() {
     )
   }
 
+  // Hard blocked for the week
+  if (!rateLoading && weekCount >= 3) {
+    return (
+      <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center px-6"
+        style={{ backgroundColor: 'var(--app-bg)' }}>
+        <div className="flex flex-col items-center gap-4 text-center max-w-xs">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: '#F9731618', border: '1px solid #F9731640' }}>
+            <AlertTriangle size={36} className="text-orange-400" />
+          </div>
+          <h2 className="text-xl font-black text-white">{t('feedback.limit_title')}</h2>
+          <p className="text-sm text-white/55 leading-relaxed">{t('feedback.limit_text')}</p>
+          <button onClick={() => router.back()}
+            className="mt-2 h-11 px-6 rounded-2xl font-bold text-sm border border-white/15 text-white/70">
+            {t('feedback.success_back')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="max-w-lg mx-auto px-4 pt-5 pb-12">
@@ -107,6 +159,24 @@ export default function FeedbackPage() {
             <p className="text-xs text-white/40">{t('feedback.subtitle')}</p>
           </div>
         </div>
+
+        {/* Warning: 1 message left this week */}
+        {!rateLoading && weekCount === 2 && (
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl mb-5 border border-orange-500/30"
+            style={{ backgroundColor: '#F9731610' }}>
+            <AlertTriangle size={16} className="text-orange-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-orange-300 leading-relaxed">{t('feedback.warning_last_message')}</p>
+          </div>
+        )}
+
+        {/* Daily limit hit (but week not exhausted) */}
+        {!rateLoading && !canSendToday && weekCount < 3 && (
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl mb-5 border border-white/10"
+            style={{ backgroundColor: 'var(--app-surface)' }}>
+            <AlertTriangle size={16} className="text-white/40 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-white/50 leading-relaxed">{t('feedback.error_daily_limit')}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
@@ -204,7 +274,7 @@ export default function FeedbackPage() {
           {/* Submit */}
           <button
             type="submit"
-            disabled={sending || !subject.trim() || !message.trim()}
+            disabled={sending || !subject.trim() || !message.trim() || !canSendToday || weekCount >= 3}
             className="w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-40"
             style={{ backgroundColor: '#1ED75F', color: '#000' }}
           >

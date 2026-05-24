@@ -748,6 +748,7 @@ export default function CommunityDetailPage() {
                 userId={user?.uid ?? ''}
                 userName={myName}
                 isStaff={myRole === 'ADMIN' || myRole === 'TRAINER' || myRole === 'MODERATOR' || isSuperAdmin}
+                isAdmin={myRole === 'ADMIN' || isSuperAdmin}
                 defaultLocation={community?.location ?? ''}
                 firebaseUser={user ?? null}
                 onClose={() => setShowAddTraining(false)}
@@ -1391,8 +1392,8 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
 
 // ── Add Training Form ─────────────────────────────────────────────────────────
 
-function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocation, firebaseUser, onClose }: {
-  communityId: string; userId: string; userName: string; isStaff: boolean; defaultLocation?: string; firebaseUser: import('firebase/auth').User | null; onClose: () => void
+function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, defaultLocation, firebaseUser, onClose }: {
+  communityId: string; userId: string; userName: string; isStaff: boolean; isAdmin: boolean; defaultLocation?: string; firebaseUser: import('firebase/auth').User | null; onClose: () => void
 }) {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
@@ -1540,7 +1541,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, defaultLocati
             <span className="text-xs text-white/35">(anunț oficial al comunității)</span>
           </label>
         )}
-        {isStaff && (
+        {isAdmin && (
           <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer">
             <input
               type="checkbox"

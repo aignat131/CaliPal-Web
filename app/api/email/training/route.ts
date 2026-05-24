@@ -75,8 +75,8 @@ export async function POST(req: NextRequest) {
   }
   const callerRole = callerMemberSnap.data()?.role as string | undefined
   const isSuperAdmin = (await adminAuth().getUser(callerUid)).customClaims?.superAdmin === true
-  if (!isSuperAdmin && !['ADMIN', 'MODERATOR', 'TRAINER'].includes(callerRole ?? '')) {
-    return NextResponse.json({ ok: false, reason: 'not-staff' }, { status: 403 })
+  if (!isSuperAdmin && callerRole !== 'ADMIN') {
+    return NextResponse.json({ ok: false, reason: 'not-admin' }, { status: 403 })
   }
 
   // ── 4. Fetch community name ────────────────────────────────────────────────
