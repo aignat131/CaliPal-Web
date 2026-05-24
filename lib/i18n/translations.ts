@@ -207,6 +207,9 @@ const T: Record<string, { RO: string; EN: string }> = {
   'chat.no_convs_sub':{ RO: 'Trimite un mesaj unui membru din comunitate.', EN: 'Send a message to a community member.' },
   'chat.start':       { RO: 'Începe o conversație',  EN: 'Start a conversation' },
   'chat.yesterday':   { RO: 'Ieri',                  EN: 'Yesterday' },
+  'chat.today':       { RO: 'Azi',                   EN: 'Today' },
+  'chat.sent':        { RO: 'Trimis',                EN: 'Sent' },
+  'chat.read':        { RO: 'Citit',                 EN: 'Read' },
 
   // ── Workout Page ─────────────────────────────────────────────────────────────
   'workout.title':          { RO: 'Antrenament',        EN: 'Workout' },

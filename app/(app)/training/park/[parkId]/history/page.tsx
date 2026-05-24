@@ -2,25 +2,26 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { collection, getDocs, getDoc, doc, orderBy, query } from 'firebase/firestore'
+import { collection, getDocs, getDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import type { PlannedTraining, ParkDoc } from '@/types'
 import { ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
 
-function parseDateTime(str: string): Date | null {
+function parseDateTime(str: string, fallbackDate?: string): Date | null {
   if (!str) return null
   const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
   if (m) {
     const [, dd, mm, yyyy, hh, min] = m
     return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`)
   }
+  if (fallbackDate && /^\d{2}:\d{2}$/.test(str)) return new Date(`${fallbackDate}T${str}`)
   try { return new Date(str) } catch { return null }
 }
 
-function formatDate(timeStart: string): string {
-  const d = parseDateTime(timeStart)
+function formatDate(timeStart: string, fallbackDate?: string): string {
+  const d = parseDateTime(timeStart, fallbackDate)
   if (!d || isNaN(d.getTime())) return ''
   return d.toLocaleDateString('ro', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
 }
@@ -31,7 +32,13 @@ function formatTime(str: string): string {
 
 type TrainingWithId = PlannedTraining & { id: string }
 
-function TrainingCard({ training, parkId }: { training: TrainingWithId; parkId: string }) {
+function TrainingCard({
+  training,
+  href,
+}: {
+  training: TrainingWithId
+  href: string
+}) {
   const [expanded, setExpanded] = useState(false)
   const t = useT()
   const goingCount = Object.values(training.rsvps ?? {}).filter(s => s === 'GOING').length
@@ -39,7 +46,7 @@ function TrainingCard({ training, parkId }: { training: TrainingWithId; parkId: 
   const total = goingCount + guestCount
 
   return (
-    <Link href={`/training/park/${parkId}/${training.id}`} onClick={e => { if (expanded) e.preventDefault() }}>
+    <Link href={href} onClick={e => { if (expanded) e.preventDefault() }}>
       <div
         className="rounded-2xl p-4 border border-white/8 cursor-pointer"
         style={{ backgroundColor: 'var(--app-surface)' }}
@@ -59,7 +66,7 @@ function TrainingCard({ training, parkId }: { training: TrainingWithId; parkId: 
         <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2">
           <span className="flex items-center gap-1 text-xs text-white/50">
             <Calendar size={11} />
-            {formatDate(training.timeStart)}
+            {formatDate(training.timeStart, training.date)}
           </span>
           <span className="flex items-center gap-1 text-xs text-white/50">
             <Clock size={11} />
@@ -136,26 +143,42 @@ export default function ParkTrainingHistoryPage() {
 
   const [park, setPark] = useState<ParkDoc | null>(null)
   const [trainings, setTrainings] = useState<TrainingWithId[]>([])
+  const [communityId, setCommunityId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const [parkSnap, trainSnap] = await Promise.all([
-          getDoc(doc(db, 'parks', parkId)),
-          getDocs(query(collection(db, 'parks', parkId, 'trainings'), orderBy('createdAt', 'desc'))),
-        ])
-        if (parkSnap.exists()) setPark({ id: parkSnap.id, ...parkSnap.data() } as ParkDoc)
+        // Load park first to determine where trainings are stored
+        const parkSnap = await getDoc(doc(db, 'parks', parkId))
+        let cid: string | null = null
+        if (parkSnap.exists()) {
+          const parkData = { id: parkSnap.id, ...(parkSnap.data() as object) } as ParkDoc
+          setPark(parkData)
+          cid = parkData.communityId ?? null
+          setCommunityId(cid)
+        }
+
+        // Parks with a community store trainings in the community subcollection.
+        // Parks without a community store trainings in the park subcollection.
+        // No orderBy — avoids excluding docs where createdAt is absent (Android-created trainings).
+        const trainingRef = cid
+          ? collection(db, 'communities', cid, 'trainings')
+          : collection(db, 'parks', parkId, 'trainings')
+
+        const trainSnap = await getDocs(trainingRef)
         const now = new Date()
         const past = trainSnap.docs
-          .map(d => ({ id: d.id, ...d.data() } as TrainingWithId))
-          .filter(t => {
-            const d = parseDateTime(t.timeStart)
-            return d && d < now
+          .map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
+          .filter(tr => {
+            // Only show trainings that have fully completed (past their end time).
+            const endStr = tr.timeEnd || tr.timeStart
+            const end = parseDateTime(endStr, tr.date)
+            return end && end < now
           })
           .sort((a, b) => {
-            const da = parseDateTime(a.timeStart)
-            const db2 = parseDateTime(b.timeStart)
+            const da = parseDateTime(a.timeStart, a.date)
+            const db2 = parseDateTime(b.timeStart, b.date)
             return (db2?.getTime() ?? 0) - (da?.getTime() ?? 0)
           })
         setTrainings(past)
@@ -165,6 +188,12 @@ export default function ParkTrainingHistoryPage() {
     }
     load()
   }, [parkId])
+
+  function trainingHref(training: TrainingWithId): string {
+    return communityId
+      ? `/training/${communityId}/${training.id}`
+      : `/training/park/${parkId}/${training.id}`
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -179,6 +208,12 @@ export default function ParkTrainingHistoryPage() {
           <p className="text-sm font-black text-white truncate">{t('training.history_title')}</p>
           {park && <p className="text-[10px] text-white/40 truncate">{park.name}</p>}
         </div>
+        {communityId && (
+          <Link href={`/community/${communityId}`}
+            className="text-xs text-brand-green font-semibold flex-shrink-0">
+            {t('training.community_link')}
+          </Link>
+        )}
       </div>
 
       <div className="px-4 py-4 max-w-lg mx-auto">
@@ -205,7 +240,7 @@ export default function ParkTrainingHistoryPage() {
                 : t('training.n_past_n', { n: String(trainings.length) })}
             </p>
             {trainings.map(tr => (
-              <TrainingCard key={tr.id} training={tr} parkId={parkId} />
+              <TrainingCard key={tr.id} training={tr} href={trainingHref(tr)} />
             ))}
           </div>
         )}

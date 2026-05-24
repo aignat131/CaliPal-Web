@@ -13,21 +13,58 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { ChatMessage, ConversationDoc } from '@/types'
 import { ArrowLeft, Send, Check, CheckCheck } from 'lucide-react'
-import { useT } from '@/lib/context/LanguageContext'
+import { useLanguage } from '@/lib/context/LanguageContext'
 
-function formatTs(ts: { toDate?: () => Date } | null | undefined): string {
+// ── Time helpers ──────────────────────────────────────────────────────────────
+
+function formatTime(ts: { toDate?: () => Date } | null | undefined, locale: string): string {
   if (!ts) return ''
   const date = ts.toDate ? ts.toDate() : new Date()
-  return date.toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
 }
 
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate()
+}
+
+function formatDateSeparator(
+  ts: { toDate?: () => Date } | null | undefined,
+  todayLabel: string,
+  yesterdayLabel: string,
+  locale: string,
+): string {
+  if (!ts) return ''
+  const date = ts.toDate ? ts.toDate() : new Date()
+  const now = new Date()
+  if (isSameDay(date, now)) return todayLabel
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (isSameDay(date, yesterday)) return yesterdayLabel
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays < 7) return date.toLocaleDateString(locale, { weekday: 'long' })
+  return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function msgDayKey(ts: { toDate?: () => Date } | null | undefined): string {
+  if (!ts) return 'unknown'
+  const d = ts.toDate ? ts.toDate() : new Date()
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
 const TYPING_EXPIRY_MS = 4000
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ChatDetailPage() {
   const { user } = useAuth()
   const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
   const router = useRouter()
-  const t = useT()
+  const { lang, t } = useLanguage()
+  const locale = lang === 'RO' ? 'ro-RO' : 'en-US'
   const params = useParams()
   const searchParams = useSearchParams()
   const conversationId = params.conversationId as string
@@ -211,6 +248,8 @@ export default function ChatDetailPage() {
   }
 
   const otherInitial = otherName.charAt(0).toUpperCase()
+  const todayLabel = t('chat.today')
+  const yesterdayLabel = t('chat.yesterday')
 
   if (notFound) {
     return (
@@ -254,46 +293,70 @@ export default function ChatDetailPage() {
         )}
         {messages.map((msg, i) => {
           const isMe = msg.senderId === user?.uid
-          const showAvatar = i === 0 || messages[i - 1]?.senderId !== msg.senderId
-          const isLastFromMe = isMe && (i === messages.length - 1 || messages[i + 1]?.senderId !== user?.uid)
+          const showAvatar = !isMe && (i === 0 || messages[i - 1]?.senderId !== msg.senderId)
+
+          // Show a date separator when the day changes between messages
+          const prevMsg = i > 0 ? messages[i - 1] : null
+          const showDateSep = !prevMsg || msgDayKey(msg.timestamp) !== msgDayKey(prevMsg.timestamp)
+          const dateSepLabel = showDateSep
+            ? formatDateSeparator(msg.timestamp, todayLabel, yesterdayLabel, locale)
+            : null
+
           return (
-            <div key={msg.id} className={`flex items-end gap-2 mb-1.5 ${isMe ? 'flex-row-reverse' : ''}`}>
-              {/* Avatar spacer */}
-              <div className="w-7 flex-shrink-0">
-                {!isMe && showAvatar && (
-                  <div className="relative w-7 h-7 rounded-full overflow-hidden flex items-center justify-center"
-                    style={{ backgroundColor: '#1ED75F33' }}>
-                    {otherPhoto
-                      ? <Image src={otherPhoto} alt="" fill sizes="28px" className="object-cover" />
-                      : <span className="text-xs font-black text-brand-green">{otherInitial}</span>}
-                  </div>
-                )}
-              </div>
-              <div className={`max-w-[72%] ${isMe ? 'items-end' : 'items-start'} flex flex-col`}>
-                <div
-                  className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed"
-                  style={{
-                    backgroundColor: isMe ? '#1ED75F' : 'var(--app-surface)',
-                    color: isMe ? '#0D1B1A' : 'rgba(255,255,255,0.9)',
-                    borderBottomRightRadius: isMe ? 4 : undefined,
-                    borderBottomLeftRadius: !isMe ? 4 : undefined,
-                  }}
-                >
-                  {msg.text}
+            <div key={msg.id}>
+              {/* Date separator */}
+              {dateSepLabel && (
+                <div className="flex items-center justify-center my-3">
+                  <span
+                    className="text-[10px] font-semibold text-white/35 px-3 py-1 rounded-full"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+                  >
+                    {dateSepLabel}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1 mt-0.5 px-1">
-                  <span className="text-[10px] text-white/25">{formatTs(msg.timestamp)}</span>
-                  {/* Read receipt — only on last sent message */}
-                  {isMe && isLastFromMe && (
-                    msg.isRead
-                      ? <CheckCheck size={12} className="text-brand-green flex-shrink-0" />
-                      : <Check size={12} className="text-white/30 flex-shrink-0" />
+              )}
+
+              {/* Message bubble */}
+              <div className={`flex items-end gap-2 mb-1.5 ${isMe ? 'flex-row-reverse' : ''}`}>
+                {/* Avatar / spacer */}
+                <div className="w-7 flex-shrink-0">
+                  {!isMe && showAvatar && (
+                    <div className="relative w-7 h-7 rounded-full overflow-hidden flex items-center justify-center"
+                      style={{ backgroundColor: '#1ED75F33' }}>
+                      {otherPhoto
+                        ? <Image src={otherPhoto} alt="" fill sizes="28px" className="object-cover" />
+                        : <span className="text-xs font-black text-brand-green">{otherInitial}</span>}
+                    </div>
                   )}
+                </div>
+
+                <div className={`max-w-[72%] ${isMe ? 'items-end' : 'items-start'} flex flex-col`}>
+                  <div
+                    className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed"
+                    style={{
+                      backgroundColor: isMe ? '#1ED75F' : 'var(--app-surface)',
+                      color: isMe ? '#0D1B1A' : 'rgba(255,255,255,0.9)',
+                      borderBottomRightRadius: isMe ? 4 : undefined,
+                      borderBottomLeftRadius: !isMe ? 4 : undefined,
+                    }}
+                  >
+                    {msg.text}
+                  </div>
+                  {/* Timestamp + read receipt (shown on all my messages) */}
+                  <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMe ? 'flex-row-reverse' : ''}`}>
+                    <span className="text-[10px] text-white/25">{formatTime(msg.timestamp, locale)}</span>
+                    {isMe && (
+                      msg.isRead
+                        ? <CheckCheck size={12} className="text-brand-green flex-shrink-0" />
+                        : <Check size={12} className="text-white/30 flex-shrink-0" />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           )
         })}
+
         {/* Typing bubble */}
         {otherIsTyping && (
           <div className="flex items-end gap-2 mb-1.5">
