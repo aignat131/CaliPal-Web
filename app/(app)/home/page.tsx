@@ -21,6 +21,19 @@ import { useT } from '@/lib/context/LanguageContext'
 
 const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
+function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null {
+  if (!str) return null
+  const androidMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
+  if (androidMatch) {
+    const [, dd, mm, yyyy, hh, min] = androidMatch
+    return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`)
+  }
+  if (fallbackDate && /^\d{2}:\d{2}$/.test(str)) {
+    return new Date(`${fallbackDate}T${str}`)
+  }
+  try { return new Date(str) } catch { return null }
+}
+
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth()
   const { status: pushStatus, requestPermission } = usePushNotifications(user?.uid)
@@ -77,9 +90,18 @@ export default function HomePage() {
     if (!favId) { setLatestFavTraining(null); setCommChallenge(null); return }
 
     const unsubTraining = onSnapshot(
-      query(collection(db, 'communities', favId, 'trainings'), orderBy('date', 'desc'), limit(1)),
+      query(collection(db, 'communities', favId, 'trainings'), orderBy('createdAt', 'desc'), limit(20)),
       snap => {
-        setLatestFavTraining(snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() } as PlannedTraining)
+        if (snap.empty) { setLatestFavTraining(null); return }
+        const now = new Date()
+        const upcoming = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as PlannedTraining))
+          .filter(t => {
+            const start = t.timeStart ? parseTrainingDateTime(t.timeStart, t.date) : null
+            return start !== null && start >= now
+          })
+          .sort((a, b) => (a.timeStart ?? '').localeCompare(b.timeStart ?? ''))
+        setLatestFavTraining(upcoming[0] ?? null)
       },
       () => setLatestFavTraining(null)
     )
@@ -437,7 +459,14 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
     <div className="rounded-2xl p-4 mb-5" style={{ backgroundColor: 'var(--app-surface)' }}>
       <div className="flex items-start justify-between mb-2">
         <p className="font-black text-white text-[15px] leading-tight flex-1 pr-2">{training.name}</p>
-        <span className="text-[11px] text-white/40 flex-shrink-0">{training.date}</span>
+        <span className="text-[11px] text-white/40 flex-shrink-0">
+          {(() => {
+            const d = training.timeStart ? parseTrainingDateTime(training.timeStart, training.date) : null
+            return d && !isNaN(d.getTime())
+              ? d.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short' })
+              : (training.date ?? '')
+          })()}
+        </span>
       </div>
 
       {/* Meta row */}

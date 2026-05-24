@@ -286,6 +286,11 @@ export default function WorkoutPage() {
     const finalNote = description
     setScreen('summary')
 
+    const hasContent = finalExercises.some(ex =>
+      ex.sets.some(s => (s.reps ?? 0) > 0 || (s.durationSeconds ?? 0) > 0)
+    )
+    if (!hasContent) return
+
     const totalReps = totalRepsInWorkout(finalExercises)
     let earned = 0
 
@@ -296,6 +301,7 @@ export default function WorkoutPage() {
         const set: Record<string, number> = {}
         if (s.reps !== undefined) set.reps = s.reps
         if (s.durationSeconds !== undefined) set.durationSeconds = s.durationSeconds
+        if (Object.keys(set).length === 0) set.reps = 0
         return set
       }),
     }))
@@ -1826,8 +1832,21 @@ function computePRs(history: WorkoutDoc[]): Record<string, number> {
   const prs: Record<string, number> = {}
   for (const w of history) {
     for (const ex of w.exercises) {
+      if (ex.sets.length === 0) continue
       const maxReps = Math.max(...ex.sets.map(s => s.reps ?? 0))
       if (maxReps > (prs[ex.name] ?? 0)) prs[ex.name] = maxReps
+    }
+  }
+  return prs
+}
+
+function computeDurationPRs(history: WorkoutDoc[]): Record<string, number> {
+  const prs: Record<string, number> = {}
+  for (const w of history) {
+    for (const ex of w.exercises) {
+      if (ex.sets.length === 0) continue
+      const maxSecs = Math.max(...ex.sets.map(s => s.durationSeconds ?? 0))
+      if (maxSecs > 0 && maxSecs > (prs[ex.name] ?? 0)) prs[ex.name] = maxSecs
     }
   }
   return prs
@@ -1869,6 +1888,7 @@ function WorkoutHistory({ history, loading, onDelete }: {
   }
 
   const allTimePRs = computePRs(history)
+  const allTimeDurationPRs = computeDurationPRs(history)
 
   async function handleDelete(id: string) {
     setDeletingId(id)
@@ -1880,13 +1900,22 @@ function WorkoutHistory({ history, loading, onDelete }: {
       <div className="flex flex-col gap-2">
         {history.map((w, wi) => {
           const prsBefore = computePRs(history.slice(wi + 1))
+          const durationPRsBefore = computeDurationPRs(history.slice(wi + 1))
           const newPRs = w.exercises
-            .map(ex => {
-              const best = Math.max(...ex.sets.map(s => s.reps ?? 0))
-              const isPR = best > 0 && best >= (allTimePRs[ex.name] ?? 0) && best > (prsBefore[ex.name] ?? 0)
-              return isPR ? { name: ex.name, reps: best } : null
+            .flatMap(ex => {
+              const results: { name: string; value: string }[] = []
+              if (ex.sets.length > 0) {
+                const best = Math.max(...ex.sets.map(s => s.reps ?? 0))
+                if (best > 0 && best >= (allTimePRs[ex.name] ?? 0) && best > (prsBefore[ex.name] ?? 0)) {
+                  results.push({ name: ex.name, value: `${best} rep` })
+                }
+                const bestSecs = Math.max(...ex.sets.map(s => s.durationSeconds ?? 0))
+                if (bestSecs > 0 && bestSecs >= (allTimeDurationPRs[ex.name] ?? 0) && bestSecs > (durationPRsBefore[ex.name] ?? 0)) {
+                  results.push({ name: ex.name, value: `${bestSecs}s` })
+                }
+              }
+              return results
             })
-            .filter(Boolean) as { name: string; reps: number }[]
 
           return (
             <div
@@ -1918,10 +1947,10 @@ function WorkoutHistory({ history, loading, onDelete }: {
               {newPRs.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {newPRs.map(pr => (
-                    <span key={pr.name}
+                    <span key={`${pr.name}-${pr.value}`}
                       className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                       style={{ backgroundColor: '#FFB80020', color: '#FFB800', border: '1px solid #FFB80040' }}>
-                      🏆 PR {pr.name} · {pr.reps} rep
+                      🏆 PR {pr.name} · {pr.value}
                     </span>
                   ))}
                 </div>

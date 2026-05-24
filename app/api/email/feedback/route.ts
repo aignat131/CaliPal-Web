@@ -35,8 +35,15 @@ export async function POST(req: NextRequest) {
       rating?: number
     }
 
-    if (!category || !subject?.trim() || !message?.trim()) {
-      return NextResponse.json({ ok: false, reason: 'missing-fields' }, { status: 400 })
+    const MAX_SUBJECT = 150
+    const MAX_MESSAGE = 2500
+    const MAX_CATEGORY = 80
+    if (
+      !category || typeof category !== 'string' || category.length > MAX_CATEGORY ||
+      !subject  || typeof subject  !== 'string' || subject.trim().length === 0 || subject.length > MAX_SUBJECT ||
+      !message  || typeof message  !== 'string' || message.trim().length === 0 || message.length > MAX_MESSAGE
+    ) {
+      return NextResponse.json({ ok: false, reason: 'invalid-fields' }, { status: 400 })
     }
 
     // ── 3. Rate limiting ──────────────────────────────────────────────────────

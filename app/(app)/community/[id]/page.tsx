@@ -24,7 +24,7 @@ import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
   Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut, UserX, Share2,
-  Pencil, Camera, Info, Mail, MailX,
+  Pencil, Camera, Info, Mail, MailX, History,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -217,18 +217,6 @@ export default function CommunityDetailPage() {
     if (tab === 2) loadSocialStatus()
   }, [tab, id, loadSocialStatus])
 
-  // Auto-delete expired trainings (any member can trigger cleanup)
-  useEffect(() => {
-    if (!trainings.length || !user) return
-    const now = new Date()
-    trainings.forEach(t => {
-      if (!t.timeEnd) return
-      const end = parseTrainingDateTime(t.timeEnd, t.date)
-      if (end && end < now) {
-        deleteDoc(doc(db, 'communities', id, 'trainings', t.id)).catch(() => {})
-      }
-    })
-  }, [trainings, user, id])
 
   async function joinCommunity() {
     if (!user || joining) return
@@ -788,6 +776,14 @@ export default function CommunityDetailPage() {
                   onEdit={fields => updateDoc(doc(db, 'communities', id, 'trainings', t.id), fields)}
                 />
               ))}
+
+            {/* History link */}
+            <Link href={`/training/${id}/history`}
+              className="flex items-center justify-center gap-2 mt-4 py-3 rounded-2xl border border-white/10 text-sm text-white/40 hover:text-white/60 transition-colors"
+              style={{ backgroundColor: 'var(--app-surface)' }}>
+              <History size={14} />
+              Istoric antrenamente
+            </Link>
           </div>
         )}
 
