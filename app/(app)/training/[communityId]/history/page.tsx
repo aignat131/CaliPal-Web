@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { collection, getDocs, getDoc, doc, query, deleteDoc } from 'firebase/firestore'
+import { collection, getDocs, getDoc, doc, deleteDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
@@ -185,14 +185,19 @@ export default function CommunityTrainingHistoryPage() {
   const [trainings, setTrainings] = useState<TrainingWithId[]>([])
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     async function load() {
+      setFetchError(false)
       try {
-        // No orderBy — avoids excluding docs where createdAt is absent (e.g. Android-created trainings)
+        // Fetch community info and all trainings in parallel.
+        // No orderBy — Firestore excludes docs that don't have the ordered field,
+        // which would silently drop trainings without createdAt (common in Android-created docs).
         const [commSnap, trainSnap] = await Promise.all([
           getDoc(doc(db, 'communities', communityId)),
-          getDocs(query(collection(db, 'communities', communityId, 'trainings'))),
+          getDocs(collection(db, 'communities', communityId, 'trainings')),
         ])
 
         if (commSnap.exists()) setCommunity({ id: commSnap.id, ...(commSnap.data() as object) } as CommunityDoc)
@@ -208,11 +213,14 @@ export default function CommunityTrainingHistoryPage() {
         const past = trainSnap.docs
           .map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
           .filter(t => {
-            // Use timeEnd to ensure the training fully completed before showing it in history.
-            // Fall back to timeStart if timeEnd is not set.
-            const endStr = t.timeEnd || t.timeStart
-            const end = parseDateTime(endStr, t.date)
-            return end && end < now
+            // Show if the training's end (or start, if no end) is in the past.
+            // We try timeEnd first — if it exists and parses, use it.
+            // Otherwise fall back to timeStart. If neither parses, skip.
+            const tryEnd = t.timeEnd ? parseDateTime(t.timeEnd, t.date) : null
+            const ref = (tryEnd && !isNaN(tryEnd.getTime()))
+              ? tryEnd
+              : parseDateTime(t.timeStart, t.date)
+            return ref !== null && !isNaN(ref.getTime()) && ref < now
           })
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)
@@ -220,12 +228,15 @@ export default function CommunityTrainingHistoryPage() {
             return (db2?.getTime() ?? 0) - (da?.getTime() ?? 0)
           })
         setTrainings(past)
+      } catch (e) {
+        console.error('[TrainingHistory] failed to load:', e)
+        setFetchError(true)
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [communityId, user])
+  }, [communityId, user, retryKey])
 
   async function handleDelete(trainingId: string) {
     try {
@@ -263,6 +274,15 @@ export default function CommunityTrainingHistoryPage() {
             {[1, 2, 3].map(i => (
               <div key={i} className="h-24 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--app-surface)' }} />
             ))}
+          </div>
+        ) : fetchError ? (
+          <div className="flex flex-col items-center py-16 gap-3">
+            <Dumbbell size={36} className="text-white/15" />
+            <p className="text-sm text-white/35 text-center">Nu s-au putut încărca antrenamentele.</p>
+            <button onClick={() => { setLoading(true); setRetryKey(k => k + 1) }}
+              className="mt-2 h-9 px-5 rounded-full bg-brand-green text-black text-xs font-bold">
+              Încearcă din nou
+            </button>
           </div>
         ) : trainings.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
