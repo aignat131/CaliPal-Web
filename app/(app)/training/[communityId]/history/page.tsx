@@ -183,12 +183,10 @@ export default function CommunityTrainingHistoryPage() {
 
   const [community, setCommunity] = useState<CommunityDoc | null>(null)
   const [trainings, setTrainings] = useState<TrainingWithId[]>([])
-  const [allFetched, setAllFetched] = useState<TrainingWithId[]>([])
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [fetchError, setFetchError] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
-  const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -212,27 +210,17 @@ export default function CommunityTrainingHistoryPage() {
         }
 
         const now = new Date()
-        const all = trainSnap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
-        setAllFetched(all)
-
-        console.log(`[TrainingHistory] fetched ${all.length} total docs`)
-        all.forEach(t => console.log(`  id=${t.id} timeStart="${t.timeStart}" timeEnd="${t.timeEnd}" date="${t.date}"`))
-
-        const past = all
+        const past = trainSnap.docs
+          .map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
           .filter(t => {
-            const tryEnd = t.timeEnd ? parseDateTime(t.timeEnd, t.date) : null
-            const ref = (tryEnd && !isNaN(tryEnd.getTime()))
-              ? tryEnd
-              : parseDateTime(t.timeStart, t.date)
-            return ref !== null && !isNaN(ref.getTime()) && ref < now
+            const start = parseDateTime(t.timeStart, t.date)
+            return start !== null && !isNaN(start.getTime()) && start < now
           })
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)
             const db2 = parseDateTime(b.timeStart, b.date)
             return (db2?.getTime() ?? 0) - (da?.getTime() ?? 0)
           })
-
-        console.log(`[TrainingHistory] ${past.length} passed the past-filter`)
         setTrainings(past)
       } catch (e) {
         console.error('[TrainingHistory] failed to load:', e)
@@ -275,26 +263,6 @@ export default function CommunityTrainingHistoryPage() {
       </div>
 
       <div className="px-4 py-4 max-w-lg mx-auto">
-        {/* DEBUG BANNER — remove after diagnosing */}
-        {!loading && !fetchError && (
-          <div className="mb-3 p-3 rounded-xl text-[11px] font-mono"
-            style={{ backgroundColor: 'rgba(255,200,0,0.08)', border: '1px solid rgba(255,200,0,0.2)', color: 'rgba(255,200,0,0.7)' }}>
-            <p>📦 Firestore: {allFetched.length} docs totale</p>
-            <p>🕓 Trecut (filtrate): {trainings.length}</p>
-            {allFetched.length > 0 && (
-              <p className="mt-1">
-                Primul: timeStart=&quot;{allFetched[0].timeStart}&quot; timeEnd=&quot;{allFetched[0].timeEnd}&quot;
-              </p>
-            )}
-            <button
-              onClick={() => setShowAll(v => !v)}
-              className="mt-2 px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300 text-[10px]"
-            >
-              {showAll ? 'Arată doar trecute' : 'Arată toate (debug)'}
-            </button>
-          </div>
-        )}
-
         {loading ? (
           <div className="flex flex-col gap-3">
             {[1, 2, 3].map(i => (
@@ -310,7 +278,7 @@ export default function CommunityTrainingHistoryPage() {
               Încearcă din nou
             </button>
           </div>
-        ) : (showAll ? allFetched : trainings).length === 0 ? (
+        ) : trainings.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
             <Dumbbell size={36} className="text-white/15" />
             <p className="text-sm text-white/35 text-center whitespace-pre-line">{t('training.no_past')}</p>
@@ -322,11 +290,11 @@ export default function CommunityTrainingHistoryPage() {
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-xs text-white/35 mb-1">
-              {(showAll ? allFetched : trainings).length === 1
+              {trainings.length === 1
                 ? t('training.n_past_1')
-                : t('training.n_past_n', { n: String((showAll ? allFetched : trainings).length) })}
+                : t('training.n_past_n', { n: String(trainings.length) })}
             </p>
-            {(showAll ? allFetched : trainings).map(tr => (
+            {trainings.map(tr => (
               <TrainingCard
                 key={tr.id}
                 training={tr}

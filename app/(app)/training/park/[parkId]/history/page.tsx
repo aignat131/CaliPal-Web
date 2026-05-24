@@ -194,11 +194,8 @@ export default function ParkTrainingHistoryPage() {
         const now = new Date()
         const past = merged
           .filter(tr => {
-            // Only show trainings that have fully completed (past their end time).
-            // Fall back to timeStart when timeEnd is empty.
-            const endStr = tr.timeEnd || tr.timeStart
-            const end = parseDateTime(endStr, tr.date)
-            return end && end < now
+            const start = parseDateTime(tr.timeStart, tr.date)
+            return start !== null && !isNaN(start.getTime()) && start < now
           })
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)
