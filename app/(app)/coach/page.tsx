@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  collection, onSnapshot, query, orderBy, updateDoc, doc, serverTimestamp,
+  collection, onSnapshot, query, orderBy, where, updateDoc, doc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -36,13 +36,19 @@ export default function CoachPage() {
   const [submitting, setSubmitting] = useState<string | null>(null)
 
   useEffect(() => {
-    const q = query(collection(db, 'form_check_requests'), orderBy('createdAt', 'desc'))
+    if (!user) return
+    const isSuperAdmin = user.email === process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL
+    const q = isSuperAdmin
+      ? query(collection(db, 'form_check_requests'), orderBy('createdAt', 'desc'))
+      : query(collection(db, 'form_check_requests'), where('userId', '==', user.uid))
     const unsub = onSnapshot(q, snap => {
-      setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() }) as FormCheckRequest))
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }) as FormCheckRequest)
+      if (!isSuperAdmin) list.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+      setRequests(list)
       setLoading(false)
-    })
+    }, () => setLoading(false))
     return unsub
-  }, [])
+  }, [user])
 
   async function submitFeedback(reqId: string) {
     const feedback = feedbacks[reqId]?.trim()

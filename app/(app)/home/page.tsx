@@ -57,7 +57,7 @@ export default function HomePage() {
     if (!user) return
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
       if (snap.exists()) setUserDoc({ uid: snap.id, ...snap.data() } as UserDoc)
-    })
+    }, () => { /* token refresh or offline — keep last known state */ })
     return unsub
   }, [user])
 

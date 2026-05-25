@@ -82,12 +82,13 @@ export default function UserProfilePage() {
     const unsub = onSnapshot(doc(db, 'users', uid), snap => {
       if (snap.exists()) setProfile({ uid: snap.id, ...snap.data() } as UserDoc)
       setLoading(false)
-    })
+    }, () => setLoading(false))
     return unsub
   }, [uid])
 
   // Load recent workouts (real-time)
   useEffect(() => {
+    if (!user) return
     const q = query(
       collection(db, 'users', uid, 'workouts'),
       orderBy('createdAt', 'desc'),
@@ -95,9 +96,9 @@ export default function UserProfilePage() {
     )
     const unsub = onSnapshot(q, snap => {
       setRecentWorkouts(snap.docs.map(d => ({ id: d.id, ...d.data() }) as WorkoutDoc))
-    })
+    }, () => { /* offline or auth issue — keep empty */ })
     return unsub
-  }, [uid])
+  }, [uid, user])
 
   // Watch friend status in real-time
   useEffect(() => {

@@ -35,7 +35,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           .sort((a, b) => (b.createdAt?.toDate?.()?.getTime() ?? 0) - (a.createdAt?.toDate?.()?.getTime() ?? 0))
         prevUnread.current = items.filter(n => !n.isRead).length
         setNotifications(items)
-      }
+      },
+      () => { /* permission denied or offline — keep last known state */ }
     )
     return unsub
   }, [user])

@@ -18,7 +18,7 @@ export function useMyProfile() {
     if (!user) return
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
       if (snap.exists()) setProfile({ uid: snap.id, ...snap.data() } as UserDoc)
-    })
+    }, () => { /* token refresh or offline — keep last known profile */ })
     return unsub
   }, [user])
 
