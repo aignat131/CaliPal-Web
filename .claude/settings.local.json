@@ -53,7 +53,8 @@
       "Bash(grep -E \"\\\\.ts$|types\")",
       "Bash(python3 \"E:/Web_Apps/CaliPal-Web/append_feedback_tab.py\")",
       "Bash(python \"E:/Web_Apps/CaliPal-Web/append_feedback_tab.py\")",
-      "Bash(grep -n \"\\\\\\\\\\\\\\\\U\\\\|\\\\\\\\\\\\\\\\u2713\\\\|\\\\\\\\\\\\\\\\u00b7\\\\|\\\\\\\\\\\\\\\\u2605\\\\|\\\\\\\\\\\\\\\\u2606\" \"E:/Web_Apps/CaliPal-Web/app/\\(app\\)/admin/page.tsx\")"
+      "Bash(grep -n \"\\\\\\\\\\\\\\\\U\\\\|\\\\\\\\\\\\\\\\u2713\\\\|\\\\\\\\\\\\\\\\u00b7\\\\|\\\\\\\\\\\\\\\\u2605\\\\|\\\\\\\\\\\\\\\\u2606\" \"E:/Web_Apps/CaliPal-Web/app/\\(app\\)/admin/page.tsx\")",
+      "Bash(xargs cat:*)"
     ]
   }
 }
