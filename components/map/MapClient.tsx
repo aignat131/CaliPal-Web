@@ -1657,12 +1657,12 @@ function AddParkTrainingModal({
     setSaving(true)
     setRateError('')
     try {
-      // Rate limit: max 5 standalone trainings per day per park per user
+      // Rate limit: max 5 trainings per day per park per user
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
-      const rateSnap = await getDocs(query(
-        collection(db, 'parks', park.id, 'trainings'),
-        where('authorId', '==', uid),
-      ))
+      const rateCol = park.communityId
+        ? collection(db, 'communities', park.communityId, 'trainings')
+        : collection(db, 'parks', park.id, 'trainings')
+      const rateSnap = await getDocs(query(rateCol, where('authorId', '==', uid)))
       const todayCount = rateSnap.docs.filter(d => {
         const ts = d.data().createdAt?.toDate?.()
         return ts && ts >= todayStart
@@ -1689,7 +1689,13 @@ function AddParkTrainingModal({
         exercises:       [],
         createdAt:       serverTimestamp(),
       }
-      const ref = await addDoc(collection(db, 'parks', park.id, 'trainings'), payload)
+      // Parks linked to a community → save to the community's trainings collection
+      // so the training appears in both the community history and the map's upcoming list.
+      // Standalone parks → save to the park's own trainings collection.
+      const trainingsCol = park.communityId
+        ? collection(db, 'communities', park.communityId, 'trainings')
+        : collection(db, 'parks', park.id, 'trainings')
+      const ref = await addDoc(trainingsCol, payload)
       // Increment the park's upcoming training counter so the pin turns green
       await updateDoc(doc(db, 'parks', park.id), { upcomingTrainingCount: increment(1) })
       onAdded({ id: ref.id, ...payload, createdAt: null } as unknown as PlannedTraining)
