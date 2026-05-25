@@ -151,6 +151,7 @@ export default function ParkTrainingHistoryPage() {
 
   const [park, setPark] = useState<ParkDoc | null>(null)
   const [trainings, setTrainings] = useState<TrainingWithId[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [communityId, setCommunityId] = useState<string | null>(null)
   // Maps training id → which collection it lives in, so we can build the correct detail URL
   const [trainingSource, setTrainingSource] = useState<Record<string, 'park' | 'community'>>({})
@@ -172,8 +173,9 @@ export default function ParkTrainingHistoryPage() {
         // Trainings created from the map → parks/{parkId}/trainings
         // Trainings created from the community detail page → communities/{cid}/trainings
         // For parks with a community we read BOTH collections and merge.
+        // Use Promise.allSettled so a failure on one collection doesn't discard the other.
         // No orderBy — avoids excluding docs where createdAt is absent (Android-created trainings).
-        const [parkSnap2, commSnap] = await Promise.all([
+        const [parkResult, commResult] = await Promise.allSettled([
           getDocs(collection(db, 'parks', parkId, 'trainings')),
           cid ? getDocs(collection(db, 'communities', cid, 'trainings')) : Promise.resolve(null),
         ])
@@ -182,14 +184,16 @@ export default function ParkTrainingHistoryPage() {
         const seen = new Set<string>()
         const merged: TrainingWithId[] = []
 
-        for (const d of parkSnap2.docs) {
-          if (seen.has(d.id)) continue
-          seen.add(d.id)
-          sourceMap[d.id] = 'park'
-          merged.push({ id: d.id, ...(d.data() as object) } as TrainingWithId)
+        if (parkResult.status === 'fulfilled') {
+          for (const d of parkResult.value.docs) {
+            if (seen.has(d.id)) continue
+            seen.add(d.id)
+            sourceMap[d.id] = 'park'
+            merged.push({ id: d.id, ...(d.data() as object) } as TrainingWithId)
+          }
         }
-        if (commSnap) {
-          for (const d of commSnap.docs) {
+        if (commResult.status === 'fulfilled' && commResult.value) {
+          for (const d of commResult.value.docs) {
             if (seen.has(d.id)) continue
             seen.add(d.id)
             sourceMap[d.id] = 'community'
@@ -198,6 +202,7 @@ export default function ParkTrainingHistoryPage() {
         }
 
         setTrainingSource(sourceMap)
+        setTotalCount(merged.length)
 
         const now = new Date()
         const past = merged
@@ -215,6 +220,8 @@ export default function ParkTrainingHistoryPage() {
             return (db2?.getTime() ?? 0) - (da?.getTime() ?? 0)
           })
         setTrainings(past)
+      } catch (e) {
+        console.error('[ParkTrainingHistory] failed to load:', e)
       } finally {
         setLoading(false)
       }
@@ -260,7 +267,15 @@ export default function ParkTrainingHistoryPage() {
         ) : trainings.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
             <Dumbbell size={36} className="text-white/15" />
-            <p className="text-sm text-white/35 text-center whitespace-pre-line">{t('training.no_past_park')}</p>
+            {totalCount > 0 ? (
+              <p className="text-sm text-white/35 text-center">
+                {totalCount === 1
+                  ? 'Există 1 antrenament planificat, dar nu a trecut încă.'
+                  : `Există ${totalCount} antrenamente planificate, dar niciunul nu a trecut încă.`}
+              </p>
+            ) : (
+              <p className="text-sm text-white/35 text-center whitespace-pre-line">{t('training.no_past_park')}</p>
+            )}
             <button onClick={() => router.back()}
               className="mt-2 h-9 px-5 rounded-full bg-brand-green text-black text-xs font-bold">
               {t('training.back_map')}
