@@ -192,6 +192,7 @@ export default function CommunityTrainingHistoryPage() {
 
   const [community, setCommunity] = useState<CommunityDoc | null>(null)
   const [trainings, setTrainings] = useState<TrainingWithId[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [fetchError, setFetchError] = useState(false)
@@ -219,8 +220,9 @@ export default function CommunityTrainingHistoryPage() {
         }
 
         const now = new Date()
-        const past = trainSnap.docs
-          .map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
+        const all = trainSnap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
+        setTotalCount(all.length)
+        const past = all
           .filter(t => {
             const start = parseDateTime(t.timeStart, t.date)
             // If we can determine the date: only include if in the past
@@ -297,7 +299,15 @@ export default function CommunityTrainingHistoryPage() {
         ) : trainings.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
             <Dumbbell size={36} className="text-white/15" />
-            <p className="text-sm text-white/35 text-center whitespace-pre-line">{t('training.no_past')}</p>
+            {totalCount > 0 ? (
+              <p className="text-sm text-white/35 text-center">
+                {totalCount === 1
+                  ? 'Există 1 antrenament planificat, dar nu a trecut încă.'
+                  : `Există ${totalCount} antrenamente planificate, dar niciunul nu a trecut încă.`}
+              </p>
+            ) : (
+              <p className="text-sm text-white/35 text-center whitespace-pre-line">{t('training.no_past')}</p>
+            )}
             <button onClick={() => router.back()}
               className="mt-2 h-9 px-5 rounded-full bg-brand-green text-black text-xs font-bold">
               {t('training.back')}
