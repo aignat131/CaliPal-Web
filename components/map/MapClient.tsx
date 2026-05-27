@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import Image from 'next/image'
 import {
   collection, onSnapshot, doc, setDoc, deleteDoc,
-  serverTimestamp, getDoc, getDocs, query, where, addDoc, updateDoc, arrayUnion, increment,
+  serverTimestamp, getDoc, getDocs, query, where, addDoc, updateDoc, arrayUnion, increment, deleteField,
 } from 'firebase/firestore'
 
 // ── Training date parser (for map upcoming-filter) ────────────────────────────
@@ -25,8 +25,9 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useT } from '@/lib/context/LanguageContext'
-import type { ParkDoc, ParkPresenceMember, CommunityDoc, LocationSharingMode, ParkCommunityRequest, PlannedTraining } from '@/types'
-import { MapPin, X, Navigation, ChevronRight } from 'lucide-react'
+import type { ParkDoc, ParkPresenceMember, CommunityDoc, LocationSharingMode, ParkCommunityRequest, PlannedTraining, CommunityMember } from '@/types'
+import { createNotification } from '@/lib/firebase/notifications'
+import { MapPin, X, Navigation, ChevronRight, ChevronLeft, Calendar, Clock, Dumbbell, Users } from 'lucide-react'
 import Link from 'next/link'
 import {
   MapContainer, TileLayer, Marker, useMap,
@@ -434,6 +435,10 @@ export default function MapClient() {
   const [parkPendingReq, setParkPendingReq] = useState<ParkCommunityRequest | null>(null)
   const [parkTrainings, setParkTrainings] = useState<PlannedTraining[]>([])
   const [parkStandaloneTrainings, setParkStandaloneTrainings] = useState<PlannedTraining[]>([])
+  const [parkPastTrainings, setParkPastTrainings] = useState<PlannedTraining[]>([])
+  const [communityMembers, setCommunityMembers] = useState<CommunityMember[]>([])
+  const [selectedTraining, setSelectedTraining] = useState<PlannedTraining | null>(null)
+  const [selectedTrainingSource, setSelectedTrainingSource] = useState<'community' | 'standalone' | null>(null)
   const [showParkTrainingForm, setShowParkTrainingForm] = useState(false)
   const [userAdminCommunities, setUserAdminCommunities] = useState<CommunityDoc[]>([])
   const watchIdRef = useRef<number | null>(null)
@@ -683,6 +688,11 @@ export default function MapClient() {
       setParkCommunity(null)
       setParkPresenceMembers([])
       setParkTrainings([])
+      setParkStandaloneTrainings([])
+      setParkPastTrainings([])
+      setCommunityMembers([])
+      setSelectedTraining(null)
+      setSelectedTrainingSource(null)
       setParkPendingReq(null)
       return
     }
@@ -700,8 +710,17 @@ export default function MapClient() {
             .filter(t => { const s = parseMapTrainingDate(t); return !s || s >= now })
             .sort((a, b) => (parseMapTrainingDate(a)?.getTime() ?? 0) - (parseMapTrainingDate(b)?.getTime() ?? 0))
           setParkStandaloneTrainings(upcoming)
+          if (upcoming.length === 0) {
+            const past = all
+              .filter(t => { const s = parseMapTrainingDate(t); return s !== null && s < now })
+              .sort((a, b) => (parseMapTrainingDate(b)?.getTime() ?? 0) - (parseMapTrainingDate(a)?.getTime() ?? 0))
+              .slice(0, 3)
+            setParkPastTrainings(past)
+          } else {
+            setParkPastTrainings([])
+          }
         })
-        .catch(() => setParkStandaloneTrainings([]))
+        .catch(() => { setParkStandaloneTrainings([]); setParkPastTrainings([]) })
       // Check for pending community request on this park (PENDING = associate existing, NEW = created from map)
       if (user) {
         getDocs(query(
@@ -725,15 +744,30 @@ export default function MapClient() {
         const now = new Date()
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
         const upcoming = all
-          .filter(t => {
-            const start = parseMapTrainingDate(t)
-            return !start || start >= now
-          })
+          .filter(t => { const start = parseMapTrainingDate(t); return !start || start >= now })
           .sort((a, b) => (parseMapTrainingDate(a)?.getTime() ?? 0) - (parseMapTrainingDate(b)?.getTime() ?? 0))
           .slice(0, 3)
         setParkTrainings(upcoming)
+        if (upcoming.length === 0) {
+          const past = all
+            .filter(t => { const s = parseMapTrainingDate(t); return s !== null && s < now })
+            .sort((a, b) => (parseMapTrainingDate(b)?.getTime() ?? 0) - (parseMapTrainingDate(a)?.getTime() ?? 0))
+            .slice(0, 3)
+          setParkPastTrainings(past)
+        } else {
+          setParkPastTrainings([])
+        }
       })
-      .catch(() => setParkTrainings([]))
+      .catch(() => { setParkTrainings([]); setParkPastTrainings([]) })
+    // Load community members (public read after rules fix — sorted by role)
+    getDocs(collection(db, 'communities', selectedPark.communityId, 'members'))
+      .then(snap => {
+        const roleOrder: Record<string, number> = { ADMIN: 0, TRAINER: 1, MODERATOR: 2, MEMBER: 3 }
+        const sorted = snap.docs.map(d => d.data() as CommunityMember)
+          .sort((a, b) => (roleOrder[a.role] ?? 4) - (roleOrder[b.role] ?? 4))
+        setCommunityMembers(sorted)
+      })
+      .catch(() => setCommunityMembers([]))
     const unsub = onSnapshot(
       collection(db, 'park_presence', selectedPark.communityId, 'active_members'),
       snap => setParkPresenceMembers(snap.docs.map(d => d.data() as ParkPresenceMember))
@@ -1039,7 +1073,7 @@ export default function MapClient() {
           community={parkCommunity}
           members={parkPresenceMembers}
           liveLocations={liveLocations}
-          onClose={() => { setSelectedPark(null); setShowParkCommModal(false); setShowParkTrainingForm(false) }}
+          onClose={() => { setSelectedPark(null); setShowParkCommModal(false); setShowParkTrainingForm(false); setSelectedTraining(null); setSelectedTrainingSource(null) }}
           uid={user?.uid ?? null}
           userName={myDisplayName}
           parkTrainings={parkTrainings}
@@ -1055,6 +1089,12 @@ export default function MapClient() {
           onPendingReqSet={req => setParkPendingReq(req)}
           onCommunityCreated={comm => setParkCommunity(comm)}
           onDirectAssociated={() => setSelectedPark(null)}
+          parkPastTrainings={parkPastTrainings}
+          communityMembers={communityMembers}
+          selectedTraining={selectedTraining}
+          selectedTrainingSource={selectedTrainingSource}
+          onTrainingSelect={(tr, source) => { setSelectedTraining(tr); setSelectedTrainingSource(source) }}
+          onTrainingBack={() => { setSelectedTraining(null); setSelectedTrainingSource(null) }}
         />
       )}
     </div>
@@ -1071,6 +1111,9 @@ function ParkBottomSheet({
   parkPendingReq, userAdminCommunities,
   showParkCommModal, setShowParkCommModal, onPendingReqSet, onCommunityCreated: _onCommunityCreated,
   onDirectAssociated,
+  parkPastTrainings, communityMembers,
+  selectedTraining, selectedTrainingSource,
+  onTrainingSelect, onTrainingBack,
 }: {
   park: ParkDoc
   community: CommunityDoc | null
@@ -1092,6 +1135,12 @@ function ParkBottomSheet({
   onPendingReqSet: (req: ParkCommunityRequest) => void
   onCommunityCreated: (comm: CommunityDoc) => void
   onDirectAssociated: () => void
+  parkPastTrainings: PlannedTraining[]
+  communityMembers: CommunityMember[]
+  selectedTraining: PlannedTraining | null
+  selectedTrainingSource: 'community' | 'standalone' | null
+  onTrainingSelect: (tr: PlannedTraining, source: 'community' | 'standalone') => void
+  onTrainingBack: () => void
 }) {
   const { theme } = useTheme()
   const t = useT()
@@ -1107,9 +1156,29 @@ function ParkBottomSheet({
     >
       <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
 
+      {selectedTraining ? (
+        <TrainingDetailPanel
+          training={selectedTraining}
+          communityId={selectedTrainingSource === 'community' ? community?.id ?? null : null}
+          parkId={selectedTrainingSource === 'standalone' ? park.id : null}
+          communityMembers={communityMembers}
+          onBack={onTrainingBack}
+          onClose={onClose}
+        />
+      ) : (<>
+
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
-          <h2 className="font-black text-white text-base leading-tight">{park.name}</h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="font-black text-white text-base leading-tight">{park.name}</h2>
+            {members.length > 0 && (
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0"
+                style={{ backgroundColor: '#1ED75F18', color: '#1ED75F', border: '1px solid #1ED75F30' }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse inline-block" />
+                {members.length} {members.length === 1 ? 'activ' : 'activi'}
+              </span>
+            )}
+          </div>
           {park.address && (
             <p className="text-xs text-white/45 mt-0.5">
               {park.address}{park.city ? `, ${park.city}` : ''}
@@ -1180,11 +1249,9 @@ function ParkBottomSheet({
                 const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' }) : ''
                 const timeLabel = tr.timeStart?.slice(-5) ?? ''
                 return (
-                  <Link key={tr.id} href={`/community/${community.id}`} onClick={onClose}>
-                    <div
-                      className="p-2.5 rounded-xl border border-brand-green/20 hover:bg-brand-green/5 transition-colors cursor-pointer"
-                      style={{ backgroundColor: '#0D3D2820' }}
-                    >
+                  <button key={tr.id} onClick={() => onTrainingSelect(tr, 'community')} className="w-full text-left">
+                    <div className="p-2.5 rounded-xl border border-brand-green/20 hover:bg-brand-green/5 transition-colors"
+                      style={{ backgroundColor: '#0D3D2820' }}>
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{tr.name}</p>
                         {totalGoing > 0 && (
@@ -1192,11 +1259,51 @@ function ParkBottomSheet({
                         )}
                       </div>
                       <p className="text-xs text-white/45 mt-0.5">
-                        {dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
-                        {tr.location ? ` · ${tr.location}` : ''}
+                        {dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}{tr.location ? ` · ${tr.location}` : ''}
                       </p>
+                      {(tr.exercises ?? []).length > 0 && (
+                        <div className="flex gap-1 mt-1.5 flex-wrap">
+                          {(tr.exercises ?? []).slice(0, 2).map((ex, i) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: 'rgba(30,215,95,0.12)', color: '#1ED75F' }}>
+                              {ex.name}
+                            </span>
+                          ))}
+                          {(tr.exercises?.length ?? 0) > 2 && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full text-white/30"
+                              style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                              +{(tr.exercises?.length ?? 0) - 2}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </Link>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Past trainings fallback */}
+          {parkTrainings.length === 0 && parkPastTrainings.length > 0 && (
+            <div className="mt-2 flex flex-col gap-1.5">
+              <p className="text-[9px] font-bold text-white/35 tracking-widest">{t('map.recent_activity')}</p>
+              {parkPastTrainings.map(tr => {
+                const dateObj = parseMapTrainingDate(tr)
+                const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
+                const totalGoing = Object.values(tr.rsvps ?? {}).filter(s => s === 'GOING').length
+                  + Object.values(tr.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
+                return (
+                  <button key={tr.id} onClick={() => onTrainingSelect(tr, 'community')} className="w-full text-left opacity-70">
+                    <div className="p-2.5 rounded-xl border border-white/8"
+                      style={{ backgroundColor: 'rgba(13,27,26,0.4)' }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-white/60 leading-tight flex-1 truncate">{tr.name}</p>
+                        {totalGoing > 0 && <span className="text-xs text-white/35 flex-shrink-0">{totalGoing} participanți</span>}
+                      </div>
+                      <p className="text-xs text-white/30 mt-0.5">{dateLabel}</p>
+                    </div>
+                  </button>
                 )
               })}
             </div>
@@ -1224,7 +1331,9 @@ function ParkBottomSheet({
                   const dateObj = parseMapTrainingDate(tr)
                   const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' }) : ''
                   const timeLabel = tr.timeStart?.slice(-5) ?? ''
-                  const totalGoing = Object.values(tr.rsvps ?? {}).filter(s => s === 'GOING').length
+                  const memberGoing = Object.values(tr.rsvps ?? {}).filter(s => s === 'GOING').length
+                  const guestGoing = Object.values(tr.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
+                  const totalGoing = memberGoing + guestGoing
                   const isAuthor = uid === tr.authorId
 
                   async function handleDelete(e: React.MouseEvent) {
@@ -1238,8 +1347,8 @@ function ParkBottomSheet({
                   }
 
                   return (
-                    <Link key={tr.id} href={`/training/park/${park.id}/${tr.id}`}>
-                      <div className="p-2.5 rounded-xl border border-brand-green/20 hover:bg-brand-green/5 transition-colors cursor-pointer"
+                    <button key={tr.id} onClick={() => onTrainingSelect(tr, 'standalone')} className="w-full text-left">
+                      <div className="p-2.5 rounded-xl border border-brand-green/20 hover:bg-brand-green/5 transition-colors"
                         style={{ backgroundColor: '#0D3D2810' }}>
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-bold text-white leading-tight flex-1 min-w-0 truncate">{tr.name}</p>
@@ -1261,11 +1370,52 @@ function ParkBottomSheet({
                         <p className="text-xs text-white/45 mt-0.5">
                           {tr.authorName && `${tr.authorName} · `}{dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}
                         </p>
+                        {(tr.exercises ?? []).length > 0 && (
+                          <div className="flex gap-1 mt-1.5 flex-wrap">
+                            {(tr.exercises ?? []).slice(0, 2).map((ex, i) => (
+                              <span key={i} className="text-[10px] px-2 py-0.5 rounded-full"
+                                style={{ backgroundColor: 'rgba(30,215,95,0.12)', color: '#1ED75F' }}>
+                                {ex.name}
+                              </span>
+                            ))}
+                            {(tr.exercises?.length ?? 0) > 2 && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full text-white/30"
+                                style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                                +{(tr.exercises?.length ?? 0) - 2}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </Link>
+                    </button>
                   )
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Standalone past trainings fallback */}
+          {parkStandaloneTrainings.length === 0 && parkPastTrainings.length > 0 && (
+            <div className="mb-3 flex flex-col gap-1.5">
+              <p className="text-[9px] font-bold text-white/35 tracking-widest">{t('map.recent_activity')}</p>
+              {parkPastTrainings.map(tr => {
+                const dateObj = parseMapTrainingDate(tr)
+                const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
+                const totalGoing = Object.values(tr.rsvps ?? {}).filter(s => s === 'GOING').length
+                  + Object.values(tr.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
+                return (
+                  <button key={tr.id} onClick={() => onTrainingSelect(tr, 'standalone')} className="w-full text-left opacity-70">
+                    <div className="p-2.5 rounded-xl border border-white/8"
+                      style={{ backgroundColor: 'rgba(13,27,26,0.4)' }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-white/60 leading-tight flex-1 truncate">{tr.name}</p>
+                        {totalGoing > 0 && <span className="text-xs text-white/35 flex-shrink-0">{totalGoing} participanți</span>}
+                      </div>
+                      <p className="text-xs text-white/30 mt-0.5">{dateLabel}</p>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           )}
 
@@ -1341,6 +1491,31 @@ function ParkBottomSheet({
         </div>
       )}
 
+      {/* Community members preview strip */}
+      {communityMembers.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[9px] font-bold text-white/35 tracking-widest mb-2">
+            {t('map.community_members')} ({communityMembers.length})
+          </p>
+          <div className="flex items-end gap-2">
+            {communityMembers.slice(0, 5).map(m => (
+              <div key={m.userId} className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                <MemberAvatar name={m.displayName} photoUrl={m.photoUrl ?? ''} />
+                <span className="text-[9px] text-white/35 w-9 truncate text-center">
+                  {m.displayName.split(' ')[0]}
+                </span>
+              </div>
+            ))}
+            {communityMembers.length > 5 && (
+              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-3"
+                style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                <span className="text-[10px] text-white/40">+{communityMembers.length - 5}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {members.length > 0 && (
         <div>
           <p className="text-xs font-bold text-white/45 tracking-widest mb-2">
@@ -1355,6 +1530,21 @@ function ParkBottomSheet({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Guest "Join for More" CTA */}
+      {uid === null && (
+        <div className="mt-4 p-3 rounded-2xl flex items-center gap-3"
+          style={{ backgroundColor: 'rgba(30,215,95,0.07)', border: '1px solid rgba(30,215,95,0.15)' }}>
+          <span className="text-xl flex-shrink-0">💪</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-white/80">{t('map.join_cta_title')}</p>
+            <p className="text-[10px] text-white/40 leading-snug mt-0.5">{t('map.join_cta_desc')}</p>
+          </div>
+          <Link href="/register" onClick={onClose} className="flex-shrink-0">
+            <span className="text-xs font-black text-brand-green">{t('map.join_cta_btn')}</span>
+          </Link>
         </div>
       )}
 
@@ -1390,6 +1580,283 @@ function ParkBottomSheet({
           onClose={() => setShowParkTrainingForm(false)}
           onAdded={t => { onStandaloneTrainingAdded(t); setShowParkTrainingForm(false) }}
         />
+      )}
+      </>)}
+    </div>
+  )
+}
+
+// ── Training Detail Panel (inline guest view) ─────────────────────────────────
+
+function TrainingDetailPanel({
+  training, communityId, parkId, communityMembers, onBack, onClose,
+}: {
+  training: PlannedTraining
+  communityId: string | null
+  parkId: string | null
+  communityMembers: CommunityMember[]
+  onBack: () => void
+  onClose: () => void
+}) {
+  const t = useT()
+  const [liveTraining, setLiveTraining] = useState<PlannedTraining>(training)
+  const [guestId, setGuestId] = useState('')
+  const [guestInput, setGuestInput] = useState('')
+  const [guestConfirmed, setGuestConfirmed] = useState(false)
+  const [guestName, setGuestName] = useState('')
+  const [savingGuest, setSavingGuest] = useState(false)
+
+  // Init guest ID from localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    let id = localStorage.getItem('calipal_guest_id')
+    if (!id) { id = crypto.randomUUID(); localStorage.setItem('calipal_guest_id', id) }
+    setGuestId(id)
+  }, [])
+
+  // Real-time training snapshot
+  useEffect(() => {
+    const ref = communityId
+      ? doc(db, 'communities', communityId, 'trainings', training.id)
+      : doc(db, 'parks', parkId!, 'trainings', training.id)
+    const unsub = onSnapshot(ref, snap => {
+      if (snap.exists()) setLiveTraining({ id: snap.id, ...snap.data() } as PlannedTraining)
+    }, () => {})
+    return unsub
+  }, [training.id, communityId, parkId])
+
+  // Sync guest RSVP state
+  useEffect(() => {
+    if (!guestId) return
+    const g = liveTraining.guestRsvps?.[guestId]
+    if (g) { setGuestConfirmed(true); setGuestName(g.name) }
+    else { setGuestConfirmed(false) }
+  }, [liveTraining, guestId])
+
+  const trainingRef = communityId
+    ? doc(db, 'communities', communityId, 'trainings', training.id)
+    : doc(db, 'parks', parkId!, 'trainings', training.id)
+
+  async function confirmGuestRsvp() {
+    const name = guestInput.trim()
+    if (!name || !guestId || savingGuest) return
+    setSavingGuest(true)
+    try {
+      await updateDoc(trainingRef, { [`guestRsvps.${guestId}`]: { name, status: 'GOING' } })
+      if (communityId) {
+        const now = Date.now()
+        const lastAt = liveTraining.lastRsvpNotifAt?.toDate?.()?.getTime() ?? 0
+        if (now - lastAt >= 60 * 60 * 1000) {
+          await updateDoc(trainingRef, { lastRsvpNotifAt: serverTimestamp() })
+          await createNotification(
+            liveTraining.authorId, 'TRAINING_RSVP',
+            'Cineva participă la antrenamentul tău! 💪',
+            `${name} a confirmat că merge la „${liveTraining.name}".`,
+            training.id,
+          )
+          fetch('/api/push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toUid: liveTraining.authorId,
+              title: 'Cineva participă la antrenamentul tău! 💪',
+              body: `${name} a confirmat că merge la „${liveTraining.name}".`,
+              url: `/training/${communityId}/${training.id}`,
+            }),
+          }).catch(() => {})
+        }
+      }
+      setGuestInput('')
+    } catch (e) { console.error(e) }
+    finally { setSavingGuest(false) }
+  }
+
+  async function cancelGuestRsvp() {
+    if (!guestId || savingGuest) return
+    setSavingGuest(true)
+    try {
+      await updateDoc(trainingRef, { [`guestRsvps.${guestId}`]: deleteField() })
+      setGuestConfirmed(false); setGuestName('')
+    } catch (e) { console.error(e) }
+    finally { setSavingGuest(false) }
+  }
+
+  const goingUids = Object.entries(liveTraining.rsvps ?? {}).filter(([, s]) => s === 'GOING').map(([uid]) => uid)
+  const guestGoing = Object.entries(liveTraining.guestRsvps ?? {}).filter(([, g]) => g.status === 'GOING')
+  const totalGoing = goingUids.length + guestGoing.length
+
+  const dateObj = parseMapTrainingDate(liveTraining)
+  const dateLabel = dateObj ? dateObj.toLocaleDateString('ro', { weekday: 'long', day: '2-digit', month: 'long' }) : ''
+  const timeLabel = liveTraining.timeStart?.slice(-5) ?? ''
+  const timeEnd = liveTraining.timeEnd?.slice(-5) ?? ''
+  const fullPageHref = communityId
+    ? `/training/${communityId}/${training.id}`
+    : `/training/park/${parkId}/${training.id}`
+
+  return (
+    <div>
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={onBack} className="flex items-center gap-1 text-white/60 hover:text-white transition-colors">
+          <ChevronLeft size={16} />
+          <span className="text-sm font-semibold">{t('map.training_detail_back')}</span>
+        </button>
+        <Link href={fullPageHref} onClick={onClose}>
+          <span className="text-xs font-bold text-brand-green/80 hover:text-brand-green transition-colors">
+            {t('map.view_full_page')}
+          </span>
+        </Link>
+      </div>
+
+      {/* Official badge */}
+      {liveTraining.official && (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold mb-2"
+          style={{ backgroundColor: '#FFB80018', color: '#FFB800', border: '1px solid #FFB80030' }}>
+          ⭐ OFICIAL
+        </span>
+      )}
+
+      {/* Title & author */}
+      <h2 className="font-black text-white text-lg leading-tight mb-0.5">{liveTraining.name}</h2>
+      <p className="text-xs text-white/45 mb-3">
+        {liveTraining.authorName}
+        {liveTraining.authorCoach && <span className="ml-1 text-brand-green font-semibold">· Coach</span>}
+      </p>
+
+      {/* Meta */}
+      <div className="flex flex-col gap-1 mb-3">
+        {dateLabel && (
+          <div className="flex items-center gap-2 text-xs text-white/60">
+            <Calendar size={12} className="text-white/35 flex-shrink-0" />
+            {dateLabel}
+          </div>
+        )}
+        {(timeLabel || timeEnd) && (
+          <div className="flex items-center gap-2 text-xs text-white/60">
+            <Clock size={12} className="text-white/35 flex-shrink-0" />
+            {timeLabel}{timeEnd && timeEnd !== timeLabel ? ` – ${timeEnd}` : ''}
+          </div>
+        )}
+        {liveTraining.location && (
+          <div className="flex items-center gap-2 text-xs text-white/60">
+            <MapPin size={12} className="text-white/35 flex-shrink-0" />
+            {liveTraining.location}
+          </div>
+        )}
+      </div>
+
+      {/* Description */}
+      {liveTraining.description && (
+        <p className="text-sm text-white/60 leading-relaxed mb-3">{liveTraining.description}</p>
+      )}
+
+      {/* Exercises */}
+      {(liveTraining.exercises ?? []).length > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Dumbbell size={12} className="text-white/35" />
+            <p className="text-[9px] font-bold text-white/35 tracking-widest">EXERCIȚII</p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {liveTraining.exercises.map((ex, i) => (
+              <span key={i} className="text-xs px-2.5 py-1 rounded-full font-semibold"
+                style={{ backgroundColor: '#1ED75F14', color: '#1ED75F', border: '1px solid #1ED75F25' }}>
+                {ex.name} {ex.sets}×{ex.repsPerSet}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Equipment */}
+      {(liveTraining.equipment ?? []).length > 0 && (
+        <div className="mb-3">
+          <p className="text-[9px] font-bold text-white/35 tracking-widest mb-1.5">ECHIPAMENT</p>
+          <div className="flex flex-wrap gap-1.5">
+            {liveTraining.equipment!.map((eq, i) => (
+              <span key={i} className="text-xs px-2.5 py-1 rounded-full font-semibold"
+                style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                {eq}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Attendees */}
+      {totalGoing > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Users size={12} className="text-white/35" />
+            <p className="text-[9px] font-bold text-white/35 tracking-widest">{totalGoing} PERSOANE MERG</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {goingUids.slice(0, 4).map(uid => {
+              const m = communityMembers.find(cm => cm.userId === uid)
+              const name = liveTraining.rsvpNames?.[uid] ?? m?.displayName ?? 'Membru'
+              const photo = liveTraining.rsvpPhotos?.[uid] ?? m?.photoUrl ?? ''
+              return <MemberAvatar key={uid} name={name} photoUrl={photo} />
+            })}
+            {guestGoing.slice(0, 2).map(([gid, g]) => (
+              <div key={gid} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: '#ffffff12', border: '1px solid rgba(255,255,255,0.15)' }}
+                title={`${g.name} (invitat)`}>
+                <span className="text-[10px] font-bold text-white/50">{g.name.charAt(0).toUpperCase()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="h-px bg-white/8 my-3" />
+
+      {/* Guest RSVP section */}
+      <p className="text-[9px] font-bold text-white/35 tracking-widest mb-2">PARTICIPI?</p>
+      {guestConfirmed ? (
+        <div className="p-3 rounded-xl mb-2" style={{ backgroundColor: '#1ED75F12', border: '1px solid #1ED75F30' }}>
+          <p className="text-sm font-semibold text-brand-green">Participi ca invitat! 🎉</p>
+          <p className="text-xs text-white/50 mt-0.5">Înregistrat ca: <span className="font-bold text-white/70">{guestName}</span></p>
+          <button onClick={cancelGuestRsvp} disabled={savingGuest}
+            className="mt-2 text-xs text-red-400/70 hover:text-red-400 transition-colors disabled:opacity-40">
+            Anulează participarea
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <input
+              value={guestInput}
+              onChange={e => setGuestInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && confirmGuestRsvp()}
+              placeholder="Numele tău (1–15 caractere)"
+              maxLength={15}
+              className="flex-1 h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
+            />
+            <button onClick={confirmGuestRsvp} disabled={savingGuest || guestInput.trim().length === 0}
+              className="h-10 px-4 rounded-xl font-black text-sm text-black disabled:opacity-40 flex-shrink-0"
+              style={{ backgroundColor: '#1ED75F' }}>
+              Merg 🏃
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-[10px] text-white/25">sau</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+          <div className="flex gap-2">
+            <Link href="/login" onClick={onClose} className="flex-1">
+              <button className="w-full h-9 rounded-xl border border-white/15 text-xs font-semibold text-white/60">
+                Intru în cont
+              </button>
+            </Link>
+            <Link href="/register" onClick={onClose} className="flex-1">
+              <button className="w-full h-9 rounded-xl text-xs font-bold text-black"
+                style={{ backgroundColor: '#1ED75F' }}>
+                Creează cont
+              </button>
+            </Link>
+          </div>
+        </div>
       )}
     </div>
   )

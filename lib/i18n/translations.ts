@@ -683,6 +683,13 @@ const T: Record<string, { RO: string; EN: string }> = {
   'map.train_rate_limit':       { RO: 'Ai atins limita de 5 antrenamente pe zi pentru acest parc.', EN: "You've reached the limit of 5 trainings per day for this park." },
   'map.cancel':                 { RO: 'Anulează',                EN: 'Cancel' },
   'map.save':                   { RO: 'Salvează',                EN: 'Save' },
+  'map.recent_activity':        { RO: 'ACTIVITATE RECENTĂ',       EN: 'RECENT ACTIVITY' },
+  'map.community_members':      { RO: 'MEMBRI',                   EN: 'MEMBERS' },
+  'map.join_cta_title':         { RO: 'Fă parte din comunitate',  EN: 'Join the community' },
+  'map.join_cta_desc':          { RO: 'Creează cont pentru a confirma prezența și a te conecta cu membrii.', EN: 'Create an account to RSVP and connect with members.' },
+  'map.join_cta_btn':           { RO: 'Înscrie-te',               EN: 'Sign up' },
+  'map.training_detail_back':   { RO: 'Înapoi',                   EN: 'Back' },
+  'map.view_full_page':         { RO: 'Pagina completă →',        EN: 'Full page →' },
 
   // ── Feedback Page ────────────────────────────────────────────────────────────
   'feedback.title':              { RO: 'Trimite feedback',                      EN: 'Send Feedback' },

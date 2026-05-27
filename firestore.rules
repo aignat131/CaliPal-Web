@@ -88,7 +88,7 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
 
       match /members/{uid} {
-        allow read: if isAuth();
+        allow read: if true;
         allow create: if isOwner(uid);
         allow update: if isOwner(uid) || isCommunityAdmin(communityId) || isSuperAdmin();
         allow delete: if isOwner(uid) || isCommunityAdmin(communityId) || isSuperAdmin();
