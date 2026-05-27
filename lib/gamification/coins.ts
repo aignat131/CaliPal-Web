@@ -45,7 +45,8 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
 
   const oneTimeTasks: CoinTask[] = [
     'FIRST_WORKOUT', 'STREAK_3', 'STREAK_7', 'STREAK_30',
-    'COMPLETE_ASSESSMENT', 'WORKOUTS_10', 'WORKOUTS_50', 'WORKOUTS_100',
+    'COMPLETE_ASSESSMENT', 'JOIN_COMMUNITY', 'ADD_FRIEND',
+    'WORKOUTS_10', 'WORKOUTS_50', 'WORKOUTS_100',
     'SKILLS_5', 'SKILLS_10',
   ]
 

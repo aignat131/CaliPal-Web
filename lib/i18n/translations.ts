@@ -219,6 +219,7 @@ const T: Record<string, { RO: string; EN: string }> = {
   'edit.bio_label':     { RO: 'BIO',                EN: 'BIO' },
   'edit.bio_placeholder': { RO: 'Câteva cuvinte despre tine...', EN: 'A few words about you...' },
   'edit.error_file':    { RO: 'Doar imagini JPEG, PNG sau WebP.', EN: 'Only JPEG, PNG or WebP images.' },
+  'edit.error_size':    { RO: 'Imaginea nu poate depăși 5MB.', EN: 'Image cannot exceed 5MB.' },
   'edit.error_save':    { RO: 'A apărut o eroare. Încearcă din nou.', EN: 'An error occurred. Try again.' },
   'edit.save':          { RO: 'Salvează', EN: 'Save' },
 
@@ -406,7 +407,7 @@ const T: Record<string, { RO: string; EN: string }> = {
   // ── Friends Page ─────────────────────────────────────────────────────────────
   'friends.title':            { RO: 'Prieteni', EN: 'Friends' },
   'friends.search_label':     { RO: 'CAUTĂ UTILIZATOR (EMAIL)', EN: 'SEARCH USER (EMAIL)' },
-  'friends.search_placeholder':{ RO: 'email@exemplu.com', EN: 'email@example.com' },
+  'friends.search_placeholder':{ RO: 'Nume sau email...', EN: 'Name or email...' },
   'friends.not_found':        { RO: 'Utilizatorul nu a fost găsit.', EN: 'User not found.' },
   'friends.thats_you':        { RO: 'Ăsta ești tu 😄', EN: "That's you 😄" },
   'friends.add':              { RO: 'Adaugă', EN: 'Add' },

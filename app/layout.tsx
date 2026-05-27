@@ -8,7 +8,7 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 
 export const metadata: Metadata = {
   title: 'CaliPal',
-  description: 'Calisthenics & Street Workout',
+  description: 'Înregistrează antrenamente, găsește parcuri și conectează-te cu comunitatea de calisthenics.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -17,6 +17,21 @@ export const metadata: Metadata = {
   },
   other: {
     'mobile-web-app-capable': 'yes',
+  },
+  openGraph: {
+    title: 'CaliPal — Calisthenics & Street Workout',
+    description: 'Înregistrează antrenamente, găsește parcuri și conectează-te cu comunitatea.',
+    url: process.env.NEXT_PUBLIC_APP_URL ?? 'https://calipal.ro',
+    siteName: 'CaliPal',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'CaliPal' }],
+    type: 'website',
+    locale: 'ro_RO',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'CaliPal — Calisthenics & Street Workout',
+    description: 'Înregistrează antrenamente, găsește parcuri și conectează-te cu comunitatea.',
+    images: ['/og-image.png'],
   },
 }
 

@@ -72,6 +72,10 @@ export default function EditProfilePage() {
       setError(t('edit.error_file'))
       return
     }
+    if (file.size > 5 * 1024 * 1024) {
+      setError(t('edit.error_size'))
+      return
+    }
     setError('')
     // Open crop modal
     const url = URL.createObjectURL(file)

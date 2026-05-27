@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -84,12 +84,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-7 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #0F0F0F, #1A2A1A)' }}>
+    <div className="auth-bg min-h-screen flex flex-col items-center justify-center px-7 relative overflow-hidden">
 
       {/* Blobs */}
       <div className="absolute w-72 h-72 -top-20 -left-20 rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #1DB95450, transparent 70%)' }} />
+        style={{ background: 'radial-gradient(circle, #1ED75F50, transparent 70%)' }} />
       <div className="absolute w-60 h-60 bottom-0 right-0 rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle, #0D7A3E40, transparent 70%)' }} />
 
@@ -133,7 +132,7 @@ export default function LoginPage() {
 
         {/* Forgot */}
         <div className="flex justify-end mt-1 mb-6">
-          <Link href="/forgot-password" className="text-xs font-semibold text-brand-green/80 hover:text-brand-green">
+          <Link href="/forgot-password" className="text-xs font-semibold text-brand-green hover:text-brand-green/90">
             {t('auth.forgot_password_link')}
           </Link>
         </div>
@@ -142,8 +141,7 @@ export default function LoginPage() {
         <button
           onClick={handleLogin}
           disabled={loading}
-          className="w-full h-13 rounded-full font-extrabold text-[15px] tracking-wide text-white disabled:opacity-50 transition-opacity flex items-center justify-center"
-          style={{ height: 52, backgroundColor: '#1DB954' }}
+          className="w-full h-[52px] rounded-full font-extrabold text-[15px] tracking-wide text-white disabled:opacity-50 transition-opacity flex items-center justify-center bg-brand-green"
         >
           {loading
             ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -198,12 +196,14 @@ function Field({
   label: string; value: string; placeholder: string; type?: string
   onChange: (v: string) => void; error?: string
 }) {
+  const id = useId()
   return (
     <div>
-      <p className={`text-[11px] font-bold tracking-[1.5px] mb-1.5 ${error ? 'text-red-400' : 'text-white/45'}`}>
+      <label htmlFor={id} className={`block text-[11px] font-bold tracking-[1.5px] mb-1.5 ${error ? 'text-red-400' : 'text-white/60'}`}>
         {label}
-      </p>
+      </label>
       <input
+        id={id}
         type={type}
         value={value}
         placeholder={placeholder}
@@ -224,13 +224,15 @@ function PasswordField({
   label: string; value: string; show: boolean; onToggle: () => void
   onChange: (v: string) => void; error?: string
 }) {
+  const id = useId()
   return (
     <div>
-      <p className={`text-[11px] font-bold tracking-[1.5px] mb-1.5 ${error ? 'text-red-400' : 'text-white/45'}`}>
+      <label htmlFor={id} className={`block text-[11px] font-bold tracking-[1.5px] mb-1.5 ${error ? 'text-red-400' : 'text-white/60'}`}>
         {label}
-      </p>
+      </label>
       <div className="relative">
         <input
+          id={id}
           type={show ? 'text' : 'password'}
           value={value}
           placeholder="••••••••"
@@ -243,6 +245,7 @@ function PasswordField({
         <button
           type="button"
           onClick={onToggle}
+          aria-label={show ? 'Ascunde parola' : 'Arată parola'}
           className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 text-sm transition-colors"
         >
           {show ? '🙈' : '👁️'}

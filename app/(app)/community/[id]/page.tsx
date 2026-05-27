@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import { createNotification } from '@/lib/firebase/notifications'
+import { awardCoins } from '@/lib/gamification/coins'
 import type {
   CommunityDoc, CommunityMember, CommunityPost,
   PlannedTraining, MemberRole, PostComment,
@@ -235,6 +236,7 @@ export default function CommunityDetailPage() {
       batch.update(doc(db, 'communities', id), { memberCount: increment(1) })
       batch.update(doc(db, 'users', user.uid), { joinedCommunityIds: arrayUnion(id) })
       await batch.commit()
+      awardCoins(user.uid, 'JOIN_COMMUNITY').catch(() => {})
       setShowJoinNotif(true)
     } finally {
       setJoining(false)
@@ -368,8 +370,8 @@ export default function CommunityDetailPage() {
         sentAt: serverTimestamp(),
       })
       setPendingIds(prev => new Set(prev).add(toMember.userId))
-    } catch {
-      // Silently ignore
+    } catch (e) {
+      console.error('[sendFriendRequest]', e)
     }
   }
 
@@ -478,6 +480,7 @@ export default function CommunityDetailPage() {
             <div className="absolute inset-0"
               style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, var(--app-bg) 100%)' }} />
             <button
+              aria-label="Înapoi"
               onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }}
               className="absolute top-3 left-3 w-9 h-9 rounded-full flex items-center justify-center"
               style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
@@ -486,10 +489,10 @@ export default function CommunityDetailPage() {
             </button>
             {/* Share button — visible to everyone */}
             <button
+              aria-label="Distribuie comunitatea"
               onClick={shareCommunity}
               className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center"
               style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
-              title="Distribuie comunitatea"
             >
               <Share2 size={16} className="text-white" />
             </button>
@@ -556,7 +559,7 @@ export default function CommunityDetailPage() {
         /* ── Plain text header (no image) ── */
         <div className="px-4 pt-4 pb-3 border-b border-white/8">
           <div className="flex items-center gap-3">
-            <button onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
+            <button aria-label="Înapoi" onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
               <ArrowLeft size={18} className="text-white/80" />
             </button>
             <div className="flex-1 min-w-0">
@@ -573,9 +576,9 @@ export default function CommunityDetailPage() {
             </div>
             {/* Share button — visible to everyone */}
             <button
+              aria-label="Distribuie comunitatea"
               onClick={shareCommunity}
               className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0"
-              title="Distribuie comunitatea"
             >
               <Share2 size={16} className="text-white/70" />
             </button>

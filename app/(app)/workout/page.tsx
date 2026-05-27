@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import {
   collection, query, orderBy, limit, onSnapshot,
   addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, getDocs, deleteDoc, setDoc, runTransaction,
@@ -10,84 +9,14 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
 import { awardCoins, checkWorkoutMilestones } from '@/lib/gamification/coins'
-import { Plus, Trash2, ChevronRight, Trophy, Flame, Check, X, Play, Square, Zap, Scissors, Star, Share2, Search, ImagePlus, Camera, BookOpen } from 'lucide-react'
-import Link from 'next/link'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
-import { useDebounce } from '@/lib/hooks/useDebounce'
-import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
-import { DEFAULT_EXERCISE_CATALOGUE, getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
-import RepCounterModal from '@/components/workout/RepCounterModal'
-import type { ExerciseType } from '@/lib/ml/form-coach'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDuration(s: number): string {
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return `${m}:${sec.toString().padStart(2, '0')}`
-}
-
-function formatDate(ts: { toDate?: () => Date } | null | undefined): string {
-  if (!ts) return ''
-  const d = ts.toDate ? ts.toDate() : new Date()
-  return d.toLocaleDateString('ro', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function totalRepsInWorkout(exercises: WorkoutExercise[]): number {
-  return exercises.flatMap(e => e.sets).reduce((sum, s) => sum + (s.reps ?? 0), 0)
-}
-
-/** "Tracțiuni · 3×10 rep · +15/12.5/10kg" — compact one-liner for an exercise. */
-function exerciseOneLiner(ex: WorkoutExercise): string {
-  const n = ex.sets.length
-  if (n === 0) return ex.name
-  const first = ex.sets[0]
-
-  // Build per-set labels: "10 rep +15kg" or just "10 rep"
-  function setLabel(s: WorkoutSet): string {
-    const base = s.reps != null ? `${s.reps}` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
-    const mod  = s.weightKg ? ` +${s.weightKg}kg` : s.bandKg ? ` ~${s.bandKg}kg` : ''
-    return base + mod
-  }
-
-  // If all sets are identical (same reps/secs + same modifier), use compact Nx format
-  const allSame = ex.sets.every(s =>
-    s.reps === first.reps &&
-    s.durationSeconds === first.durationSeconds &&
-    s.weightKg === first.weightKg &&
-    s.bandKg === first.bandKg
-  )
-
-  if (allSame) {
-    const modSuffix = first.weightKg ? ` +${first.weightKg}kg` : first.bandKg ? ` ~${first.bandKg}kg` : ''
-    const valStr = first.reps != null ? `${first.reps} rep` : `${first.durationSeconds ?? 0}s`
-    return `${ex.name} · ${n}×${valStr}${modSuffix}`
-  }
-
-  return `${ex.name} · ${ex.sets.map(setLabel).join(', ')}`
-}
-
-/** Locale-safe "yyyy-MM-dd" from a Date — avoids toDateString() timezone issues. */
-function localDate(d: Date): string {
-  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
-}
-
-/** Normalize string for diacritic-insensitive search. */
-function norm(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-}
-
-/** Map exercise name to a supported camera-counting type, or null if unsupported. */
-function getExerciseType(name: string): ExerciseType | null {
-  const n = norm(name)
-  if (n.includes('tractiuni') || n.includes('chin-up') || n.includes('chinup') || n.includes('australian')) return 'pullup'
-  if (n.includes('flotari') || n.includes('flotare') || n.includes('push-up') || n.includes('pushup') || n.includes('diamond') || n.includes('pike')) return 'pushup'
-  if (n.includes('squat')) return 'squat'
-  return null
-}
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
+import { DEFAULT_EXERCISE_CATALOGUE, getCategory, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
+import { localDate, totalRepsInWorkout } from './_helpers'
+import { WorkoutHomeTab } from './_components/WorkoutHomeTab'
+import { ActiveWorkoutView } from './_components/ActiveWorkoutView'
+import { PostWorkoutDetails } from './_components/PostWorkoutDetails'
+import { WorkoutSummaryCard } from './_components/WorkoutSummaryCard'
 
 type Screen = 'home' | 'active' | 'postdetails' | 'summary'
 
@@ -96,63 +25,45 @@ export default function WorkoutPage() {
   const { profile } = useMyProfile()
   const [tab, setTab] = useState(0)
 
-  // Workout context (persists across navigation)
   const {
     isActive, seconds, startedAt, exercises, note,
     startWorkout: ctxStart, stopWorkout: ctxStop,
     setExercises, setNote,
   } = useWorkout()
 
-  // Local screen state — synced with context on mount
   const [screen, setScreen] = useState<Screen>(() => isActive ? 'active' : 'home')
-
-  // Exercise catalogue from Firestore (falls back to default)
   const [catalogue, setCatalogue] = useState<CatalogueEntry[]>(DEFAULT_EXERCISE_CATALOGUE)
 
-  // Summary after finishing
   const [lastWorkout, setLastWorkout] = useState<WorkoutDoc | null>(null)
   const [coinsEarned, setCoinsEarned] = useState(0)
   const [workoutStartedAt, setWorkoutStartedAt] = useState<number | null>(null)
-
-  // Captured workout state (held between postdetails and summary)
   const [capturedExercises, setCapturedExercises] = useState<WorkoutExercise[]>([])
   const [capturedSeconds, setCapturedSeconds] = useState(0)
   const [summaryPhotoFile, setSummaryPhotoFile] = useState<File | null>(null)
   const [autoOpenShare, setAutoOpenShare] = useState(false)
 
-  // History
   const [history, setHistory] = useState<WorkoutDoc[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
-
-  // Challenge
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
   const [challengeProgress, setChallengeProgress] = useState<UserChallengeProgress | null>(null)
 
-  // Keep screen in sync if user navigates back while workout is active
   useEffect(() => {
     if (isActive && screen === 'home') setScreen('active')
   }, [isActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load exercise catalogue from Firestore
   useEffect(() => {
     const unsub = onSnapshot(
       collection(db, 'exercise_catalogue'),
       snap => {
         if (!snap.empty) {
-          setCatalogue(
-            snap.docs
-              .map(d => d.data() as CatalogueEntry)
-              .sort((a, b) => a.name.localeCompare(b.name, 'ro'))
-          )
+          setCatalogue(snap.docs.map(d => d.data() as CatalogueEntry).sort((a, b) => a.name.localeCompare(b.name, 'ro')))
         }
-        // If empty, keep DEFAULT_EXERCISE_CATALOGUE as fallback
       },
-      () => { /* permission denied — fall back to default catalogue */ }
+      () => { /* permission denied — use default */ }
     )
     return unsub
   }, [])
 
-  // Pre-load community training if navigated from training card
   useEffect(() => {
     const saved = sessionStorage.getItem('calipal_load_training')
     if (!saved) return
@@ -170,21 +81,13 @@ export default function WorkoutPage() {
           sets: Array.from({ length: e.sets }, () => ({ reps: e.repsPerSet })),
           fromProgram: true,
         }))
-      if (mapped.length > 0) {
-        ctxStart(mapped)
-        setScreen('active')
-      }
+      if (mapped.length > 0) { ctxStart(mapped); setScreen('active') }
     } catch { /* ignore malformed data */ }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load workout history
   useEffect(() => {
     if (!user) return
-    const q = query(
-      collection(db, 'users', user.uid, 'workouts'),
-      orderBy('createdAt', 'desc'),
-      limit(20)
-    )
+    const q = query(collection(db, 'users', user.uid, 'workouts'), orderBy('createdAt', 'desc'), limit(20))
     const unsub = onSnapshot(q, snap => {
       setHistory(snap.docs.map(d => ({ id: d.id, ...d.data() }) as WorkoutDoc))
       setHistoryLoading(false)
@@ -192,24 +95,19 @@ export default function WorkoutPage() {
     return unsub
   }, [user])
 
-  // Load weekly challenge + live progress
   useEffect(() => {
     if (!user) return
     let unsubProgress: (() => void) | null = null
     const unsub = onSnapshot(
       query(collection(db, 'weekly_challenges'), orderBy('endsAt', 'desc'), limit(1)),
       snap => {
-        // Clean up previous progress listener before attaching a new one
         if (unsubProgress) { unsubProgress(); unsubProgress = null }
         if (snap.docs.length > 0) {
           const c = { id: snap.docs[0].id, ...snap.docs[0].data() } as WeeklyChallenge
           setChallenge(c)
           unsubProgress = onSnapshot(
             doc(db, 'users', user.uid, 'challenge_progress', c.id),
-            ps => {
-              if (ps.exists()) setChallengeProgress(ps.data() as UserChallengeProgress)
-              else setChallengeProgress(null)
-            }
+            ps => { setChallengeProgress(ps.exists() ? ps.data() as UserChallengeProgress : null) }
           )
         }
       }
@@ -217,15 +115,14 @@ export default function WorkoutPage() {
     return () => { unsub(); if (unsubProgress) unsubProgress() }
   }, [user])
 
-  // ── Exercise mutations (all go through context) ───────────────────────────
+  // ── Exercise mutations ──────────────────────────────────────────────────────
 
   function replaceExerciseSets(ei: number, sets: WorkoutSet[]) {
     setExercises(exercises.map((ex, i) => i === ei ? { ...ex, sets } : ex))
   }
 
   function addExercise(name: string, initialSet: WorkoutSet) {
-    const category = getCategory(name, catalogue)
-    setExercises([...exercises, { name, category, sets: [initialSet] }])
+    setExercises([...exercises, { name, category: getCategory(name, catalogue), sets: [initialSet] }])
   }
 
   function removeExercise(idx: number) {
@@ -235,48 +132,32 @@ export default function WorkoutPage() {
   async function toggleFavorite(name: string) {
     if (!user) return
     const current: string[] = profile?.favoriteExercises ?? []
-    const next = current.includes(name)
-      ? current.filter(n => n !== name)
-      : [name, ...current].slice(0, 8)
+    const next = current.includes(name) ? current.filter(n => n !== name) : [name, ...current].slice(0, 8)
     await updateDoc(doc(db, 'users', user.uid), { favoriteExercises: next })
   }
 
-  // ── Workout flow ──────────────────────────────────────────────────────────
+  // ── Workout flow ────────────────────────────────────────────────────────────
 
-  function startWorkout() {
-    ctxStart([])
-    setScreen('active')
-  }
+  function startWorkout() { ctxStart([]); setScreen('active') }
 
-  // Step 1: snapshot context state, stop timer, show postdetails
   function captureWorkout(doneKeys: Set<string>) {
     if (exercises.length === 0) return
-
-    // Filter to only exercises/sets the user checked off.
-    // If nothing was checked at all (user didn't use the checkmarks), include everything.
     let snap: typeof exercises
     if (doneKeys.size === 0) {
       snap = [...exercises]
     } else {
       snap = exercises
-        .map((ex, ei) => ({
-          ...ex,
-          sets: ex.sets.filter((_, si) => doneKeys.has(`${ei}-${si}`)),
-        }))
+        .map((ex, ei) => ({ ...ex, sets: ex.sets.filter((_, si) => doneKeys.has(`${ei}-${si}`)) }))
         .filter(ex => ex.sets.length > 0)
-      if (snap.length === 0) snap = [...exercises]  // safety fallback
+      if (snap.length === 0) snap = [...exercises]
     }
-
-    const secs = seconds
-    const startAt = startedAt ?? Date.now() - seconds * 1000
     setCapturedExercises(snap)
-    setCapturedSeconds(secs)
-    setWorkoutStartedAt(startAt)
+    setCapturedSeconds(seconds)
+    setWorkoutStartedAt(startedAt ?? Date.now() - seconds * 1000)
     ctxStop()
     setScreen('postdetails')
   }
 
-  // Step 2: actually save to Firestore, called from PostWorkoutDetails
   async function saveWorkout(photoFile: File | null, description: string) {
     if (!user) return
     setSummaryPhotoFile(photoFile)
@@ -286,15 +167,12 @@ export default function WorkoutPage() {
     const finalNote = description
     setScreen('summary')
 
-    const hasContent = finalExercises.some(ex =>
-      ex.sets.some(s => (s.reps ?? 0) > 0 || (s.durationSeconds ?? 0) > 0)
-    )
+    const hasContent = finalExercises.some(ex => ex.sets.some(s => (s.reps ?? 0) > 0 || (s.durationSeconds ?? 0) > 0))
     if (!hasContent) return
 
     const totalReps = totalRepsInWorkout(finalExercises)
     let earned = 0
 
-    // Firestore rejects `undefined` values — strip optional set fields that weren't set
     const serializedExercises = finalExercises.map(ex => ({
       ...ex,
       sets: ex.sets.map(s => {
@@ -307,7 +185,6 @@ export default function WorkoutPage() {
     }))
 
     try {
-      // Save workout
       await addDoc(collection(db, 'users', user.uid, 'workouts'), {
         userId: user.uid,
         exercises: serializedExercises,
@@ -318,7 +195,6 @@ export default function WorkoutPage() {
         createdAt: serverTimestamp(),
       })
 
-      // Increment totalWorkouts + streak (atomic transaction to avoid race conditions)
       const userRef = doc(db, 'users', user.uid)
       const today = localDate(new Date())
       const yesterday = localDate(new Date(Date.now() - 86400000))
@@ -332,28 +208,17 @@ export default function WorkoutPage() {
         joinedCommunityIds = userData?.joinedCommunityIds ?? []
         const lastWorkoutDate: string | undefined = userData?.lastWorkoutDate
         const currentStreak = userData?.currentStreak ?? 0
-        newStreak = lastWorkoutDate === yesterday
-          ? currentStreak + 1
-          : lastWorkoutDate === today
-            ? currentStreak
-            : 1
-        tx.update(userRef, {
-          totalWorkouts: increment(1),
-          currentStreak: newStreak,
-          lastWorkoutDate: today,
-        })
+        newStreak = lastWorkoutDate === yesterday ? currentStreak + 1 : lastWorkoutDate === today ? currentStreak : 1
+        tx.update(userRef, { totalWorkouts: increment(1), currentStreak: newStreak, lastWorkoutDate: today })
       })
 
-      // Base coins
       earned += await awardCoins(user.uid, 'COMPLETE_WORKOUT')
       await checkWorkoutMilestones(user.uid, newTotal)
 
-      // Streak milestones
       if (newStreak === 3) earned += await awardCoins(user.uid, 'STREAK_3')
       if (newStreak === 7) earned += await awardCoins(user.uid, 'STREAK_7')
       if (newStreak === 30) earned += await awardCoins(user.uid, 'STREAK_30')
 
-      // Update weekly challenge progress
       if (challenge) {
         const exerciseReps: Record<string, number> = {}
         for (const ex of finalExercises) {
@@ -373,7 +238,6 @@ export default function WorkoutPage() {
             completed,
             completedAt: completed && !wasCompleted ? serverTimestamp() : (challengeProgress?.completedAt ?? null),
           })
-          // Award challenge coins on first completion
           if (completed && !wasCompleted) {
             await updateDoc(userRef, { coins: increment(challenge.coinsReward) })
             earned += challenge.coinsReward
@@ -381,15 +245,13 @@ export default function WorkoutPage() {
         }
       }
 
-      // Update community challenge progress
       try {
-        const joinedIds: string[] = joinedCommunityIds
         const exerciseReps: Record<string, number> = {}
         for (const ex of finalExercises) {
           const reps = ex.sets.reduce((sum, s) => sum + (s.reps ?? 0), 0)
           exerciseReps[ex.name] = (exerciseReps[ex.name] ?? 0) + reps
         }
-        await Promise.all(joinedIds.map(async cid => {
+        await Promise.all(joinedCommunityIds.map(async cid => {
           const cSnap = await getDocs(collection(db, 'communities', cid, 'challenges'))
           await Promise.all(cSnap.docs.map(async cd => {
             const ch = { id: cd.id, ...cd.data() } as CommunityChallenge
@@ -401,10 +263,7 @@ export default function WorkoutPage() {
             const newReps = current + repsForEx
             const completed = newReps >= ch.targetReps
             await setDoc(progressRef, {
-              challengeId: ch.id,
-              communityId: cid,
-              currentReps: newReps,
-              completed,
+              challengeId: ch.id, communityId: cid, currentReps: newReps, completed,
               completedAt: completed && !ps.data()?.completed ? serverTimestamp() : (ps.exists() ? ps.data().completedAt ?? null : null),
             })
           }))
@@ -417,14 +276,8 @@ export default function WorkoutPage() {
 
     setCoinsEarned(earned)
     setLastWorkout({
-      id: '',
-      userId: user.uid,
-      exercises: finalExercises,
-      durationSeconds: finalSeconds,
-      totalReps,
-      coinsEarned: earned,
-      note: finalNote,
-      createdAt: null,
+      id: '', userId: user.uid, exercises: finalExercises,
+      durationSeconds: finalSeconds, totalReps, coinsEarned: earned, note: finalNote, createdAt: null,
     })
   }
 
@@ -438,7 +291,6 @@ export default function WorkoutPage() {
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
 
-      {/* Post-workout details (Strava-style: photo + description before summary) */}
       {screen === 'postdetails' && (
         <PostWorkoutDetails
           exercises={capturedExercises}
@@ -449,9 +301,8 @@ export default function WorkoutPage() {
         />
       )}
 
-      {/* Summary overlay */}
       {screen === 'summary' && lastWorkout && (
-        <WorkoutSummary
+        <WorkoutSummaryCard
           workout={lastWorkout}
           coinsEarned={coinsEarned}
           onDone={() => { setScreen('home'); setTab(1); setAutoOpenShare(false) }}
@@ -466,9 +317,8 @@ export default function WorkoutPage() {
         />
       )}
 
-      {/* Active workout */}
       {screen === 'active' && (
-        <ActiveWorkout
+        <ActiveWorkoutView
           exercises={exercises}
           seconds={seconds}
           note={note}
@@ -484,1536 +334,22 @@ export default function WorkoutPage() {
         />
       )}
 
-      {/* Main tabs (hidden during active) */}
       {screen === 'home' && (
-        <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-black text-white">Antrenament</h1>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex border-b border-white/10 mb-4">
-            {['Acasă', 'Istoric'].map((t, i) => (
-              <button key={i} onClick={() => setTab(i)}
-                className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${tab === i ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/45'}`}>
-                {t}
-              </button>
-            ))}
-          </div>
-
-          {tab === 0 && (
-            <div>
-              {/* Start workout CTA */}
-              <button
-                onClick={startWorkout}
-                className="w-full h-16 rounded-2xl mb-4 flex items-center justify-center gap-3 font-black text-lg text-black"
-                style={{ backgroundColor: '#1ED75F' }}
-              >
-                <Play size={22} className="text-black fill-black" />
-                Începe antrenamentul
-              </button>
-
-              {/* ML tools */}
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <Link href="/workout/form-check">
-                  <div className="rounded-2xl p-3.5 flex items-center gap-3 border border-brand-green/25"
-                    style={{ backgroundColor: '#1ED75F0D' }}>
-                    <Zap size={20} className="text-brand-green flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-white">Analiză formă</p>
-                      <p className="text-xs text-white/40">AI în timp real</p>
-                    </div>
-                  </div>
-                </Link>
-                <Link href="/workout/autocut">
-                  <div className="rounded-2xl p-3.5 flex items-center gap-3 border border-purple-500/25"
-                    style={{ backgroundColor: '#8B5CF60D' }}>
-                    <Scissors size={20} className="text-purple-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-bold text-white">AutoCut Rep</p>
-                      <p className="text-xs text-white/40">Taie videoul auto</p>
-                    </div>
-                  </div>
-                </Link>
-              </div>
-
-              {/* Programs card */}
-              <Link href="/training/programs">
-                <div className="rounded-2xl p-4 mb-4 border border-blue-500/20 hover:border-blue-500/40 transition-colors" style={{ backgroundColor: '#3B82F610' }}>
-                  <div className="flex items-center gap-3">
-                    <BookOpen size={18} className="text-blue-400 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white">Programe Structurate</p>
-                      <p className="text-xs text-white/50 mt-0.5">Planuri de 4 săptămâni pentru progres real</p>
-                    </div>
-                    <ChevronRight size={16} className="text-white/25 flex-shrink-0" />
-                  </div>
-                </div>
-              </Link>
-
-              {/* Master Coach card */}
-              {!profile?.isCoach && (
-                <Link href="/workout/master-coach">
-                  <div className="rounded-2xl p-4 mb-4 border border-yellow-400/20 hover:border-yellow-400/40 transition-colors" style={{ backgroundColor: '#FFB80010' }}>
-                    <div className="flex items-center gap-3 mb-2">
-                      <Star size={18} className="text-yellow-400 flex-shrink-0" />
-                      <p className="text-sm font-bold text-white">Master Coach</p>
-                      <span className="ml-auto text-xs font-bold text-yellow-400">500 🪙</span>
-                    </div>
-                    <p className="text-xs text-white/55 leading-relaxed">
-                      Trimite un video și primește feedback personalizat de la un antrenor certificat.
-                    </p>
-                  </div>
-                </Link>
-              )}
-
-              {/* Weekly challenge */}
-              {challenge && (
-                <ChallengeCard
-                  challenge={challenge}
-                  progress={challengeProgress}
-                />
-              )}
-
-              {/* Last workout preview */}
-              {history[0] && (
-                <div className="rounded-2xl p-4 mt-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-                  <p className="text-xs font-bold text-white/40 tracking-widest mb-2">ULTIMUL ANTRENAMENT</p>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-bold text-white">
-                      {history[0].exercises.length} exerciții
-                    </span>
-                    <span className="text-xs text-white/40">{formatDate(history[0].createdAt)}</span>
-                  </div>
-                  <div className="flex gap-4">
-                    <span className="text-xs text-white/60">⏱ {formatDuration(history[0].durationSeconds)}</span>
-                    <span className="text-xs text-white/60">🔁 {history[0].totalReps} rep</span>
-                    <span className="text-xs text-white/60">🪙 +{history[0].coinsEarned}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {tab === 1 && (
-            <WorkoutHistory
-              history={history}
-              loading={historyLoading}
-              onDelete={async (wid) => {
-                if (!user) return
-                await deleteDoc(doc(db, 'users', user.uid, 'workouts', wid))
-              }}
-            />
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Active Workout ─────────────────────────────────────────────────────────────
-
-function ActiveWorkout({
-  exercises, seconds, note, catalogue, onNoteChange,
-  onReplaceExerciseSets, onAddExercise, onRemoveExercise, onFinish, onCancel,
-  favorites, onToggleFavorite: _onToggleFavorite,
-}: {
-  exercises: WorkoutExercise[]
-  seconds: number
-  note: string
-  catalogue: CatalogueEntry[]
-  onNoteChange: (v: string) => void
-  onReplaceExerciseSets: (ei: number, sets: WorkoutSet[]) => void
-  onAddExercise: (name: string, set: WorkoutSet) => void
-  onRemoveExercise: (idx: number) => void
-  onFinish: (doneKeys: Set<string>) => void
-  onCancel: () => void
-  favorites: string[]
-  onToggleFavorite: (name: string) => void
-}) {
-  const [showCancel, setShowCancel] = useState(false)
-  const [showFinishConfirm, setShowFinishConfirm] = useState(false)
-
-  // Per-set completion tracking (local only, resets when workout ends)
-  const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
-
-  function toggleSet(ei: number, si: number) {
-    const key = `${ei}-${si}`
-    setDoneKeys(prev => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
-      return next
-    })
-  }
-
-  // Edit existing exercise sets popup
-  const [popupExIdx, setPopupExIdx] = useState<number | null>(null)
-  const [popupSets, setPopupSets] = useState<WorkoutSet[]>([])
-  // 'none' | 'weight' | 'band' — which modifier column to show in the sets list
-  const [popupModifier, setPopupModifier] = useState<'none' | 'weight' | 'band'>('none')
-
-  // Search sheet
-  const [showSearch, setShowSearch] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-
-  // Log new exercise popup
-  const [logExercise, setLogExercise] = useState<string | null>(null)
-  const [logReps, setLogReps] = useState(10)
-  const [logSecs, setLogSecs] = useState(30)
-  const [logWeightOn, setLogWeightOn] = useState(false)
-  const [logWeight, setLogWeight] = useState(10)
-  const [logBandOn, setLogBandOn] = useState(false)
-  const [logBandKg, setLogBandKg] = useState(5)
-  const [showRepCounter, setShowRepCounter] = useState(false)
-
-  const totalReps = totalRepsInWorkout(exercises)
-  const totalSets = exercises.reduce((a, e) => a + e.sets.length, 0)
-
-  // Effective done keys: manual (non-program) sets are always considered done
-  const effectiveDoneKeys = new Set(doneKeys)
-  exercises.forEach((ex, ei) => {
-    if (!ex.fromProgram) {
-      ex.sets.forEach((_, si) => effectiveDoneKeys.add(`${ei}-${si}`))
-    }
-  })
-  const doneCount = effectiveDoneKeys.size
-
-  // Stats shown in the confirm dialog — only checked/effective sets
-  const programDoneAny = exercises.some((ex, ei) => ex.fromProgram && ex.sets.some((_, si) => doneKeys.has(`${ei}-${si}`)))
-  const confirmedReps = programDoneAny
-    ? exercises.reduce((total, ex, ei) =>
-        total + ex.sets.reduce((s, set, si) =>
-          effectiveDoneKeys.has(`${ei}-${si}`) ? s + (set.reps ?? 0) : s, 0), 0)
-    : totalReps
-  const confirmedExCount = programDoneAny
-    ? exercises.filter((ex, ei) => ex.sets.some((_, si) => effectiveDoneKeys.has(`${ei}-${si}`))).length
-    : exercises.length
-
-  const debouncedQuery = useDebounce(searchQuery, 150)
-
-  // Build filtered exercise list — diacritic-insensitive
-  const filteredCatalogue = debouncedQuery.trim()
-    ? catalogue.filter(e => norm(e.name).includes(norm(debouncedQuery)))
-    : catalogue
-
-  const grouped = groupByCategoryByCatalogue(filteredCatalogue)
-
-  function openExPopup(ei: number, sets: WorkoutSet[]) {
-    setPopupExIdx(ei)
-    const copied = sets.map(s => ({ ...s }))
-    setPopupSets(copied)
-    // Derive modifier from existing sets
-    const hasWeight = copied.some(s => s.weightKg != null)
-    const hasBand   = copied.some(s => s.bandKg   != null)
-    const category  = exercises[ei]?.category ?? ''
-    setPopupModifier(hasWeight || category === 'Cu Greutate' ? 'weight' : hasBand || category === 'Cu Bandă' ? 'band' : 'none')
-  }
-
-  function savePopup() {
-    if (popupExIdx !== null) {
-      // Strip the inactive modifier values before saving
-      const cleaned = popupSets.map(s => {
-        const { weightKg: _w, bandKg: _b, ...rest } = s
-        if (popupModifier === 'weight') return { ...rest, weightKg: s.weightKg }
-        if (popupModifier === 'band')   return { ...rest, bandKg:   s.bandKg   }
-        return rest
-      })
-      onReplaceExerciseSets(popupExIdx, cleaned)
-      setPopupExIdx(null)
-    }
-  }
-
-  function openLogPopup(name: string) {
-    const metric   = getMetric(name, catalogue)
-    const category = getCategory(name, catalogue)
-    setLogExercise(name)
-    setLogReps(metric === 'reps' ? 10 : 0)
-    setLogSecs(metric === 'seconds' ? 30 : 0)
-    setLogWeightOn(category === 'Cu Greutate')
-    setLogWeight(10)
-    setLogBandOn(category === 'Cu Bandă')
-    setLogBandKg(5)
-  }
-
-  function confirmLog() {
-    if (!logExercise) return
-    const metric = getMetric(logExercise, catalogue)
-    const set: WorkoutSet = {
-      ...(metric === 'reps' ? { reps: logReps } : { durationSeconds: logSecs }),
-      ...(logWeightOn ? { weightKg: logWeight } : {}),
-      ...(logBandOn   ? { bandKg:   logBandKg } : {}),
-    }
-    onAddExercise(logExercise, set)
-    setLogExercise(null)
-    setShowSearch(false)
-    setSearchQuery('')
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--app-bg)' }}>
-
-      {/* Timer bar — centered on desktop */}
-      <div className="flex-shrink-0 border-b border-white/8">
-        <div className="max-w-2xl mx-auto flex items-center justify-between px-4 pt-4 pb-3">
-          <button onClick={() => setShowCancel(true)} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
-            <Square size={14} className="text-white/60" />
-          </button>
-          <div className="text-center">
-            <p className="text-2xl font-black text-brand-green tabular-nums">{formatDuration(seconds)}</p>
-            <p className="text-xs text-white/35">{totalReps} rep</p>
-            {totalSets > 0 && (
-              <p className="text-[10px] font-bold mt-0.5" style={{ color: doneCount === totalSets ? '#1ED75F' : 'rgba(255,255,255,0.25)' }}>
-                {doneCount}/{totalSets} serii
-              </p>
-            )}
-          </div>
-          <button
-            onClick={() => setShowFinishConfirm(true)}
-            disabled={exercises.length === 0}
-            className="h-9 px-4 rounded-full bg-brand-green text-black text-sm font-black disabled:opacity-40"
-          >
-            Finalizează
-          </button>
-        </div>
-      </div>
-
-      {/* Exercises — centered on desktop */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-4 py-4">
-          {exercises.length === 0 && (
-            <div className="text-center py-10">
-              <p className="text-sm text-white/35 mb-2">Niciun exercițiu adăugat.</p>
-              <p className="text-xs text-white/25">Caută un exercițiu pentru a începe.</p>
-            </div>
-          )}
-
-          {exercises.map((ex, ei) => {
-            const hasWeight = ex.sets.some(s => s.weightKg != null)
-            const hasBand   = ex.sets.some(s => s.bandKg   != null)
-            const accentColor = hasWeight ? '#f97316' : hasBand ? '#a855f7' : null
-            const isManual = !ex.fromProgram
-            const allDone = ex.sets.length > 0 && ex.sets.every((_, si) => effectiveDoneKeys.has(`${ei}-${si}`))
-            return (
-              <div
-                key={`${ex.name}-${ei}`}
-                className="rounded-2xl mb-3 overflow-hidden border transition-all"
-                style={{
-                  backgroundColor: 'var(--app-surface)',
-                  boxShadow: allDone
-                    ? 'inset 3px 0 0 #1ED75F'
-                    : accentColor
-                    ? `inset 3px 0 0 ${accentColor}`
-                    : undefined,
-                  borderColor: allDone ? '#1ED75F22' : 'transparent',
-                }}
-              >
-                {/* Modifier header strip */}
-                {accentColor && !allDone && (
-                  <div className="flex items-center gap-1.5 px-4 py-1.5"
-                    style={{ backgroundColor: `${accentColor}18` }}>
-                    {hasWeight && (
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-orange-500/35 text-orange-400 bg-orange-500/10">
-                        ⚖️ cu greutate
-                      </span>
-                    )}
-                    {hasBand && (
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-purple-500/35 text-purple-400 bg-purple-500/10">
-                        🔴 cu bandă
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                <div className="p-4 pt-3">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div
-                      className="flex-1 flex items-center justify-between cursor-pointer select-none min-w-0"
-                      onPointerDown={() => openExPopup(ei, ex.sets)}
-                    >
-                      <p className={`font-bold text-sm transition-colors ${allDone ? 'text-white/50' : 'text-white'}`}>{ex.name}</p>
-                      {allDone
-                        ? <span className="text-[10px] font-black text-brand-green animate-fade-in-up flex items-center gap-0.5 flex-shrink-0 ml-2">
-                            <Check size={10} strokeWidth={3} /> completat
-                          </span>
-                        : <ChevronRight size={16} className="text-white/30 flex-shrink-0 ml-2" />
-                      }
-                    </div>
-                    <button
-                      onPointerDown={() => onRemoveExercise(ei)}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                  {/* Per-set list — toggleable for program exercises, always-done for manual ones */}
-                  <div className="flex flex-col gap-0.5">
-                    {ex.sets.map((s, si) => {
-                      const key = `${ei}-${si}`
-                      const done = isManual || doneKeys.has(key)
-                      const val = s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
-                      const mod = s.weightKg ? ` · +${s.weightKg}kg` : s.bandKg ? ` · ~${s.bandKg}kg` : ''
-                      return (
-                        <button
-                          key={si}
-                          onPointerDown={isManual ? undefined : () => toggleSet(ei, si)}
-                          className={`flex items-center gap-2.5 w-full text-left rounded-xl px-2 py-1.5 transition-all select-none ${done ? 'bg-brand-green/8' : 'hover:bg-white/4'} ${!isManual ? 'active:scale-[0.97]' : 'cursor-default'}`}
-                        >
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${done ? 'bg-brand-green animate-pop-in' : 'border border-white/20'}`}>
-                            {done
-                              ? <Check size={12} strokeWidth={3} className="text-black" />
-                              : <span className="text-[10px] font-black text-white/30">{si + 1}</span>
-                            }
-                          </div>
-                          <span className={`text-xs font-semibold transition-colors ${done ? 'text-white/30 line-through' : 'text-white/55'}`}>
-                            {val}
-                            {mod && <span style={{ color: done ? undefined : s.weightKg ? '#fb923c99' : '#c084fc99' }}>{mod}</span>}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-
-          {/* Search exercise button */}
-          <button
-            onClick={() => setShowSearch(true)}
-            className="w-full h-11 rounded-2xl border border-dashed border-white/20 text-sm text-white/40 flex items-center justify-center gap-2 mb-3 hover:border-brand-green/40 hover:text-brand-green transition-colors"
-          >
-            <Search size={15} /> Caută exercițiu
-          </button>
-
-          {/* Note */}
-          <textarea
-            value={note}
-            onChange={e => onNoteChange(e.target.value)}
-            placeholder="Notițe (opțional)..."
-            rows={2}
-            className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/10 bg-white/5 resize-none"
-          />
-        </div>
-      </div>
-
-      {/* ── Finish confirm dialog ── */}
-      {showFinishConfirm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-6 z-20">
-          <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <p className="font-bold text-white text-base mb-1">Finalizezi antrenamentul?</p>
-            <p className="text-sm text-white/50 mb-5">
-              {confirmedExCount} exerciți{confirmedExCount === 1 ? 'u' : 'i'} · {formatDuration(seconds)} · {confirmedReps} rep
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowFinishConfirm(false)}
-                className="flex-1 h-11 rounded-xl border border-white/20 text-sm text-white/80">Continuă</button>
-              <button onClick={() => { setShowFinishConfirm(false); onFinish(effectiveDoneKeys) }}
-                className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-bold">
-                Da, finalizează
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Cancel dialog ── */}
-      {showCancel && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-6 z-20">
-          <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <p className="font-bold text-white text-base mb-1">Abandonezi antrenamentul?</p>
-            <p className="text-sm text-white/50 mb-5">Progresul nu va fi salvat.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowCancel(false)} className="flex-1 h-11 rounded-xl border border-white/20 text-sm text-white/80">Continuă</button>
-              <button onClick={onCancel} className="flex-1 h-11 rounded-xl bg-red-500/80 text-white text-sm font-bold">Abandonează</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Edit existing exercise sets popup ── */}
-      {popupExIdx !== null && (() => {
-        const metric = getMetric(exercises[popupExIdx].name, catalogue)
-        const BANDS = [5, 15, 25, 35, 45, 55]
-
-        function applyModifier(m: 'none' | 'weight' | 'band') {
-          if (m === 'weight') {
-            setPopupSets(prev => prev.map(s => ({ ...s, weightKg: s.weightKg ?? 10 })))
-          } else if (m === 'band') {
-            setPopupSets(prev => prev.map(s => ({ ...s, bandKg: s.bandKg ?? 5 })))
-          }
-          setPopupModifier(m)
-        }
-
-        return (
-          <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-20">
-            <div className="w-full max-w-lg rounded-t-3xl pb-8 max-h-[92vh] flex flex-col" style={{ backgroundColor: 'var(--app-surface)' }}>
-              {/* Handle */}
-              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-                <div className="w-10 h-1 rounded-full bg-white/20" />
-              </div>
-
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-3 border-b border-white/8 flex-shrink-0">
-                <div>
-                  <p className="font-black text-white text-base">{exercises[popupExIdx].name}</p>
-                  <p className="text-xs text-white/40">{exercises[popupExIdx].category} · {metric === 'reps' ? 'Repetări' : 'Secunde'}</p>
-                </div>
-                <button onClick={() => setPopupExIdx(null)} className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
-                  <X size={14} className="text-white/60" />
-                </button>
-              </div>
-
-              {/* Modifier chips */}
-              <div className="px-5 pt-3 pb-3 border-b border-white/6 flex-shrink-0">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => applyModifier('none')}
-                    className={`flex-1 h-9 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
-                      popupModifier === 'none'
-                        ? 'bg-white/12 border-white/25 text-white'
-                        : 'bg-white/4 border-white/10 text-white/35'
-                    }`}
-                  >
-                    Normal
-                  </button>
-                  <button
-                    onClick={() => applyModifier('weight')}
-                    className={`flex-1 h-9 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
-                      popupModifier === 'weight'
-                        ? 'bg-orange-500/15 border-orange-500/40 text-orange-400'
-                        : 'bg-white/4 border-white/10 text-white/35'
-                    }`}
-                  >
-                    ⚖️ Greutate
-                  </button>
-                  <button
-                    onClick={() => applyModifier('band')}
-                    className={`flex-1 h-9 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
-                      popupModifier === 'band'
-                        ? 'bg-purple-500/15 border-purple-500/40 text-purple-400'
-                        : 'bg-white/4 border-white/10 text-white/35'
-                    }`}
-                  >
-                    🔴 Bandă
-                  </button>
-                </div>
-              </div>
-
-              {/* ── Sets list ── */}
-              <div className="flex-1 overflow-y-auto px-5 pt-2">
-                <div className="flex items-center gap-2 py-2">
-                  <span className="w-8 text-[10px] font-bold text-white/25 text-center">SET</span>
-                  <span className="flex-1 text-[10px] font-bold text-white/25 text-center">
-                    {metric === 'reps' ? 'REPETĂRI' : 'SECUNDE'}
-                  </span>
-                  {popupModifier !== 'none' && (
-                    <span className="w-28 text-[10px] font-bold text-white/25 text-center">
-                      {popupModifier === 'weight' ? 'GREUTATE' : 'BANDĂ'}
-                    </span>
-                  )}
-                  <span className="w-6 flex-shrink-0" />
-                </div>
-
-                {popupSets.map((set, si) => {
-                  const reps = set.reps ?? 0
-                  const secs = set.durationSeconds ?? 0
-                  const wKg  = set.weightKg ?? 10
-                  const bKg  = set.bandKg   ?? 5
-                  return (
-                    <div key={si} className="flex items-center gap-2 py-2.5 border-b border-white/6">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: '#1ED75F22', border: '1.5px solid #1ED75F55' }}>
-                        <span className="text-xs font-black text-brand-green">{si + 1}</span>
-                      </div>
-
-                      {/* Reps / seconds stepper */}
-                      {metric === 'reps' && (
-                        <div className="flex-1 flex items-center justify-center gap-2">
-                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: Math.max(1, (s.reps ?? 0) - 1) } : s))}
-                            className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:bg-white/12 active:scale-95 transition-all text-lg font-bold">−</button>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            value={reps}
-                            onChange={e => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: Math.max(1, parseInt(e.target.value) || 1) } : s))}
-                            onFocus={e => e.target.select()}
-                            className="w-10 text-center text-xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            min={1}
-                          />
-                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, reps: (s.reps ?? 0) + 1 } : s))}
-                            className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center text-black hover:opacity-90 active:scale-95 transition-all text-lg font-bold">+</button>
-                        </div>
-                      )}
-                      {metric === 'seconds' && (
-                        <div className="flex-1 flex items-center justify-center gap-2">
-                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: Math.max(1, (s.durationSeconds ?? 0) - 5) } : s))}
-                            className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center text-white/60 hover:bg-white/12 active:scale-95 transition-all text-lg font-bold">−</button>
-                          <div className="flex items-baseline justify-center w-12">
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              value={secs}
-                              onChange={e => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: Math.max(1, parseInt(e.target.value) || 1) } : s))}
-                              onFocus={e => e.target.select()}
-                              className="w-9 text-center text-xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              min={1}
-                            />
-                            <span className="text-sm text-white/40">s</span>
-                          </div>
-                          <button onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, durationSeconds: (s.durationSeconds ?? 0) + 5 } : s))}
-                            className="w-9 h-9 rounded-full bg-brand-green flex items-center justify-center text-black hover:opacity-90 active:scale-95 transition-all text-lg font-bold">+</button>
-                        </div>
-                      )}
-
-                      {/* Per-set weight stepper */}
-                      {popupModifier === 'weight' && (
-                        <div className="w-28 flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, weightKg: Math.max(0, +((s.weightKg ?? 10) - 2.5).toFixed(1)) } : s))}
-                            className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-white/60 active:scale-95 transition-all text-base font-bold flex-shrink-0">−</button>
-                          <div className="flex items-baseline justify-center w-14">
-                            <span className="text-sm font-black" style={{ color: '#fb923c' }}>+</span>
-                            <input
-                              type="number"
-                              inputMode="decimal"
-                              value={wKg}
-                              onChange={e => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, weightKg: Math.max(0, parseFloat(e.target.value) || 0) } : s))}
-                              onFocus={e => e.target.select()}
-                              className="w-8 text-center text-sm font-black tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              style={{ color: '#fb923c' }}
-                              min={0}
-                              step={0.5}
-                            />
-                            <span className="text-sm font-black" style={{ color: '#fb923c' }}>kg</span>
-                          </div>
-                          <button
-                            onClick={() => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, weightKg: +((s.weightKg ?? 10) + 2.5).toFixed(1) } : s))}
-                            className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 active:scale-95 transition-all text-base font-bold flex-shrink-0">+</button>
-                        </div>
-                      )}
-
-                      {/* Per-set band stepper */}
-                      {popupModifier === 'band' && (
-                        <div className="w-28 flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => setPopupSets(prev => prev.map((s, i) => {
-                              if (i !== si) return s
-                              const cur = s.bandKg ?? 5
-                              return { ...s, bandKg: [...BANDS].reverse().find(v => v < cur) ?? BANDS[0] }
-                            }))}
-                            className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-white/60 active:scale-95 transition-all text-base font-bold flex-shrink-0">−</button>
-                          <div className="flex items-baseline justify-center w-14">
-                            <span className="text-sm font-black" style={{ color: '#c084fc' }}>~</span>
-                            <input
-                              type="number"
-                              inputMode="decimal"
-                              value={bKg}
-                              onChange={e => setPopupSets(prev => prev.map((s, i) => i === si ? { ...s, bandKg: Math.max(1, parseFloat(e.target.value) || 1) } : s))}
-                              onFocus={e => e.target.select()}
-                              className="w-8 text-center text-sm font-black tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              style={{ color: '#c084fc' }}
-                              min={1}
-                              step={1}
-                            />
-                            <span className="text-sm font-black" style={{ color: '#c084fc' }}>kg</span>
-                          </div>
-                          <button
-                            onClick={() => setPopupSets(prev => prev.map((s, i) => {
-                              if (i !== si) return s
-                              const cur = s.bandKg ?? 5
-                              return { ...s, bandKg: BANDS.find(v => v > cur) ?? BANDS[BANDS.length - 1] }
-                            }))}
-                            className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 active:scale-95 transition-all text-base font-bold flex-shrink-0">+</button>
-                        </div>
-                      )}
-
-                      <button onClick={() => setPopupSets(prev => prev.filter((_, i) => i !== si))}
-                        disabled={popupSets.length <= 1}
-                        className="w-6 h-6 flex items-center justify-center text-white/20 hover:text-red-400 transition-colors disabled:opacity-0 flex-shrink-0">
-                        <X size={13} />
-                      </button>
-                    </div>
-                  )
-                })}
-
-                <button
-                  onClick={() => setPopupSets(prev => {
-                    const last = prev[prev.length - 1] ?? {}
-                    return [...prev, { ...last }]
-                  })}
-                  className="flex items-center gap-1.5 text-xs text-brand-green font-semibold py-3">
-                  <Plus size={13} /> Adaugă set
-                </button>
-              </div>
-
-              <div className="px-5 pt-2 flex-shrink-0">
-                <button onClick={savePopup} className="w-full h-12 rounded-2xl bg-brand-green text-black text-sm font-black">
-                  Salvează
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* ── Search sheet (fixed to cover full viewport) ── */}
-      {showSearch && (
-        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-30">
-          <div className="w-full max-w-lg rounded-t-3xl flex flex-col" style={{ backgroundColor: 'var(--app-surface)', maxHeight: '88vh' }}>
-            {/* Handle + header */}
-            <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-              <div className="w-10 h-1 rounded-full bg-white/20" />
-            </div>
-            <div className="flex items-center justify-between px-5 pt-2 pb-3 flex-shrink-0">
-              <p className="text-base font-black text-white">Caută exercițiu</p>
-              <button onClick={() => { setShowSearch(false); setSearchQuery('') }}
-                className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
-                <X size={14} className="text-white/60" />
-              </button>
-            </div>
-
-            {/* Search input */}
-            <div className="px-5 pb-3 flex-shrink-0">
-              <div className="flex items-center gap-2 h-10 rounded-xl px-3 border border-white/12 bg-white/7">
-                <Search size={14} className="text-white/35 flex-shrink-0" />
-                <input
-                  autoFocus
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="ex. Tracțiuni, Flotări..."
-                  className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
-                />
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery('')}><X size={13} className="text-white/35" /></button>
-                )}
-              </div>
-            </div>
-
-            {/* Exercise list — scrollable, goes above everything */}
-            <div className="flex-1 overflow-y-auto px-5 pb-6">
-              {/* Favorites row (when not searching) */}
-              {!searchQuery.trim() && favorites.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">⭐ FAVORITE</p>
-                  <div className="flex flex-col gap-1.5">
-                    {favorites.map(name => {
-                      const metric   = getMetric(name, catalogue)
-                      const category = getCategory(name, catalogue)
-                      return (
-                        <button key={name}
-                          onClick={() => openLogPopup(name)}
-                          className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left bg-white/5 border border-white/8 text-white/80 hover:bg-white/10 active:scale-[0.98] transition-all">
-                          <span>{name}</span>
-                          <div className="flex items-center gap-1.5">
-                            {category === 'Cu Greutate' && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25">⚖️</span>
-                            )}
-                            {category === 'Cu Bandă' && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/25">🔴</span>
-                            )}
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/40">
-                              {metric === 'reps' ? 'rep' : 'sec'}
-                            </span>
-                            <ChevronRight size={14} className="text-white/30" />
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {grouped.map(group => (
-                <div key={group.category} className="mb-4">
-                  {group.category && (
-                    <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 uppercase">{group.category}</p>
-                  )}
-                  <div className="flex flex-col gap-1.5">
-                    {group.exercises.map(({ name, metric, category }) => (
-                      <button key={name}
-                        onClick={() => openLogPopup(name)}
-                        className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left bg-white/5 border border-white/8 text-white/80 hover:bg-white/10 active:scale-[0.98] transition-all">
-                        <span>{name}</span>
-                        <div className="flex items-center gap-1.5">
-                          {category === 'Cu Greutate' && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25">⚖️</span>
-                          )}
-                          {category === 'Cu Bandă' && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/25">🔴</span>
-                          )}
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/40">
-                            {metric === 'reps' ? 'rep' : 'sec'}
-                          </span>
-                          <ChevronRight size={14} className="text-white/30" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Log exercise popup ── */}
-      {logExercise !== null && (() => {
-        const metric = getMetric(logExercise, catalogue)
-        return (
-          <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-40">
-            <div className="w-full max-w-lg rounded-t-3xl pb-8 overflow-y-auto max-h-[90vh]" style={{ backgroundColor: 'var(--app-surface)' }}>
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 rounded-full bg-white/20" />
-              </div>
-
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-3 border-b border-white/8">
-                <div>
-                  <p className="font-black text-white text-base">{logExercise}</p>
-                  <p className="text-xs text-white/40">{getCategory(logExercise, catalogue)} · {metric === 'reps' ? 'Repetări' : 'Secunde'}</p>
-                </div>
-                <button onClick={() => setLogExercise(null)}
-                  className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
-                  <X size={14} className="text-white/60" />
-                </button>
-              </div>
-
-              <div className="px-5 pt-5 pb-2">
-                {/* Reps stepper */}
-                {metric === 'reps' && (
-                  <div className="mb-5">
-                    <p className="text-[10px] font-bold text-white/35 tracking-widest text-center mb-4">REPETĂRI</p>
-                    <div className="flex items-center justify-center gap-4">
-                      <button onClick={() => setLogReps(r => Math.max(1, r - 1))}
-                        className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform">−</button>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={logReps}
-                        onChange={e => setLogReps(Math.max(1, parseInt(e.target.value) || 1))}
-                        onFocus={e => e.target.select()}
-                        className="w-20 text-center text-6xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        min={1}
-                      />
-                      <button onClick={() => setLogReps(r => r + 1)}
-                        className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform">+</button>
-                      {logExercise && getExerciseType(logExercise) !== null && (
-                        <button
-                          onClick={() => setShowRepCounter(true)}
-                          className="w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center active:scale-95 transition-transform"
-                          title="Numără cu camera"
-                        >
-                          <Camera size={17} className="text-white/60" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Seconds stepper */}
-                {metric === 'seconds' && (
-                  <div className="mb-5">
-                    <p className="text-[10px] font-bold text-white/35 tracking-widest text-center mb-4">SECUNDE</p>
-                    <div className="flex items-center justify-center gap-6">
-                      <button onClick={() => setLogSecs(s => Math.max(5, s - 5))}
-                        className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform">−</button>
-                      <div className="flex items-baseline justify-center w-24">
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          value={logSecs}
-                          onChange={e => setLogSecs(Math.max(1, parseInt(e.target.value) || 1))}
-                          onFocus={e => e.target.select()}
-                          className="w-16 text-center text-6xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min={1}
-                        />
-                        <span className="text-2xl text-white/40">s</span>
-                      </div>
-                      <button onClick={() => setLogSecs(s => s + 5)}
-                        className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform">+</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Modifier toggle chips — always visible */}
-                <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={() => { setLogWeightOn(v => !v); setLogBandOn(false) }}
-                    className={`flex-1 h-10 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-95 ${
-                      logWeightOn
-                        ? 'bg-orange-500/15 border-orange-500/50 text-orange-400'
-                        : 'bg-white/5 border-white/12 text-white/40 hover:text-white/60'
-                    }`}
-                  >
-                    ⚖️ {logWeightOn ? `+${logWeight} kg` : '+ Greutate'}
-                  </button>
-                  <button
-                    onClick={() => { setLogBandOn(v => !v); setLogWeightOn(false) }}
-                    className={`flex-1 h-10 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-95 ${
-                      logBandOn
-                        ? 'bg-purple-500/15 border-purple-500/50 text-purple-400'
-                        : 'bg-white/5 border-white/12 text-white/40 hover:text-white/60'
-                    }`}
-                  >
-                    🔴 {logBandOn ? `${logBandKg} kg` : '+ Bandă'}
-                  </button>
-                </div>
-
-                {/* Weight stepper — expanded when toggled on */}
-                {logWeightOn && (
-                  <div className="mb-4 rounded-2xl bg-orange-500/10 border border-orange-500/25 px-4 py-4">
-                    <p className="text-[10px] font-bold text-orange-400/70 tracking-widest text-center mb-3">GREUTATE ADĂUGATĂ</p>
-                    <div className="flex items-center justify-center gap-6">
-                      <button onClick={() => setLogWeight(w => Math.max(0, +(w - 2.5).toFixed(1)))}
-                        className="w-12 h-12 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-2xl font-bold active:scale-95 transition-transform">−</button>
-                      <div className="flex items-baseline justify-center w-24">
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          value={logWeight}
-                          onChange={e => setLogWeight(Math.max(0, parseFloat(e.target.value) || 0))}
-                          onFocus={e => e.target.select()}
-                          className="w-16 text-center text-4xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          min={0}
-                          step={0.5}
-                        />
-                        <span className="text-lg text-orange-400/60"> kg</span>
-                      </div>
-                      <button onClick={() => setLogWeight(w => +(w + 2.5).toFixed(1))}
-                        className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-white text-2xl font-bold active:scale-95 transition-transform">+</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Band stepper — snaps to real resistance levels */}
-                {logBandOn && (() => {
-                  const BANDS = [5, 15, 25, 35, 45, 55]
-                  const bandUp   = () => setLogBandKg(w => BANDS.find(v => v > w) ?? BANDS[BANDS.length - 1])
-                  const bandDown = () => setLogBandKg(w => [...BANDS].reverse().find(v => v < w) ?? BANDS[0])
-                  return (
-                    <div className="mb-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 px-4 py-4">
-                      <div className="flex items-center justify-center gap-6">
-                        <button onClick={bandDown}
-                          className="w-12 h-12 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-2xl font-bold active:scale-95 transition-transform">−</button>
-                        <div className="flex items-baseline justify-center w-24">
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            value={logBandKg}
-                            onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v > 0) setLogBandKg(v) }}
-                            onFocus={e => e.target.select()}
-                            className="w-16 text-center text-4xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            min={1}
-                            step={1}
-                          />
-                          <span className="text-lg text-purple-400/60"> kg</span>
-                        </div>
-                        <button onClick={bandUp}
-                          className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-2xl font-bold active:scale-95 transition-transform">+</button>
-                      </div>
-                      <div className="flex gap-1.5 mt-4 justify-center">
-                        {BANDS.map(v => (
-                          <button key={v} onClick={() => setLogBandKg(v)}
-                            className={`flex-1 h-1.5 rounded-full transition-all ${logBandKg === v ? 'bg-purple-400' : 'bg-white/15'}`} />
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })()}
-
-                <button
-                  onClick={confirmLog}
-                  className="w-full rounded-2xl bg-brand-green text-black font-black text-base flex items-center justify-center gap-2"
-                  style={{ height: 52 }}
-                >
-                  <Check size={18} /> Adaugă exercițiu
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* ── Rep counter camera modal ── */}
-      {showRepCounter && logExercise && getExerciseType(logExercise) !== null && (
-        <RepCounterModal
-          exerciseType={getExerciseType(logExercise)!}
-          exerciseName={logExercise}
-          onConfirm={(reps) => { setLogReps(reps); setShowRepCounter(false) }}
-          onCancel={() => setShowRepCounter(false)}
+        <WorkoutHomeTab
+          tab={tab}
+          onTabChange={setTab}
+          history={history}
+          historyLoading={historyLoading}
+          challenge={challenge}
+          challengeProgress={challengeProgress}
+          profile={profile}
+          onStartWorkout={startWorkout}
+          onDeleteWorkout={async (wid) => {
+            if (!user) return
+            await deleteDoc(doc(db, 'users', user.uid, 'workouts', wid))
+          }}
         />
       )}
     </div>
-  )
-}
-
-// ── Post-Workout Details (Strava-style) ──────────────────────────────────────
-
-function PostWorkoutDetails({
-  exercises,
-  seconds,
-  onSave,
-  onShare,
-  hasJoinedCommunities,
-}: {
-  exercises: WorkoutExercise[]
-  seconds: number
-  onSave: (photoFile: File | null, description: string) => void
-  onShare: (photoFile: File | null, description: string) => void
-  hasJoinedCommunities: boolean
-}) {
-  const [description, setDescription] = useState('')
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const photoInputRef = useRef<HTMLInputElement>(null)
-
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setPhotoFile(file)
-    const reader = new FileReader()
-    reader.onloadend = () => setPhotoPreview(reader.result as string)
-    reader.readAsDataURL(file)
-  }
-
-  const totalReps = totalRepsInWorkout(exercises)
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--app-bg)' }}>
-
-      {/* Top bar */}
-      <div className="flex-shrink-0 px-5 pt-12 pb-5 border-b border-white/8">
-        <h2 className="text-2xl font-black text-white mb-1">Cum a mers?</h2>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-white/40">⏱ {formatDuration(seconds)}</span>
-          <span className="text-white/20">·</span>
-          <span className="text-xs font-semibold text-white/40">🔁 {totalReps} rep</span>
-          <span className="text-white/20">·</span>
-          <span className="text-xs font-semibold text-white/40">{exercises.length} exerciți{exercises.length === 1 ? 'u' : 'i'}</span>
-        </div>
-      </div>
-
-      {/* Scrollable form */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-sm mx-auto w-full px-5 pt-5 pb-8 flex flex-col">
-
-          {/* Description — prominent, Strava-style */}
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            placeholder="Descrie antrenamentul..."
-            rows={4}
-            autoFocus
-            className="w-full rounded-2xl px-4 py-3.5 text-sm text-white placeholder:text-white/30 outline-none border border-white/10 bg-white/5 resize-none mb-4"
-          />
-
-          {/* Photo picker */}
-          <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-          {photoPreview ? (
-            <div className="relative rounded-2xl overflow-hidden mb-5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photoPreview} alt="" className="w-full object-cover max-h-52" />
-              <button
-                onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}
-                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
-              >
-                <X size={13} className="text-white" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => photoInputRef.current?.click()}
-              className="w-full h-20 rounded-2xl border border-dashed border-white/15 flex items-center justify-center gap-3 text-white/30 mb-5 hover:border-brand-green/35 hover:text-brand-green/50 transition-colors"
-            >
-              <ImagePlus size={18} />
-              <span className="text-sm">Adaugă o fotografie</span>
-            </button>
-          )}
-
-          {/* Actions */}
-          <button
-            onClick={() => onSave(photoFile, description)}
-            className="w-full rounded-full font-black text-black bg-brand-green mb-3"
-            style={{ height: 52 }}
-          >
-            Salvează
-          </button>
-          {hasJoinedCommunities && (
-            <button
-              onClick={() => onShare(photoFile, description)}
-              className="w-full rounded-full font-bold border border-white/20 text-white/70 flex items-center justify-center gap-2"
-              style={{ height: 48 }}
-            >
-              <Share2 size={16} /> Postează în comunitate
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Workout Summary ────────────────────────────────────────────────────────────
-
-function WorkoutSummary({
-  workout, coinsEarned, onDone, userId, userDisplayName, userPhotoURL, joinedCommunityIds, favoriteCommunityId, startedAt,
-  photoFile, autoOpenShare,
-}: {
-  workout: WorkoutDoc
-  coinsEarned: number
-  onDone: () => void
-  userId: string
-  userDisplayName: string
-  userPhotoURL?: string | null
-  joinedCommunityIds: string[]
-  favoriteCommunityId?: string | null
-  startedAt: number | null
-  photoFile?: File | null
-  autoOpenShare?: boolean
-}) {
-  const router = useRouter()
-  const description = workout.note
-  const [showShare, setShowShare] = useState(false)
-  const [communities, setCommunities] = useState<{ id: string; name: string }[]>([])
-  const [selectedCommId, setSelectedCommId] = useState(favoriteCommunityId ?? '')
-  const [sharing, setSharing] = useState(false)
-  const [shared, setShared] = useState(false)
-  const [loadingComms, setLoadingComms] = useState(false)
-  const [, setUploadingPhoto] = useState(false)
-
-  // Create a stable blob URL for the photo preview and revoke it on cleanup
-  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null)
-  useEffect(() => {
-    if (!photoFile) return
-    const url = URL.createObjectURL(photoFile)
-    setPhotoPreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [photoFile])
-
-  // Auto-open share sheet when coming from "Postează în comunitate"
-  useEffect(() => {
-    if (autoOpenShare) openShare()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function openShare() {
-    if (shared) return
-    setShowShare(true)
-    if (communities.length > 0 || joinedCommunityIds.length === 0) return
-    setLoadingComms(true)
-    try {
-      const docs = await Promise.all(
-        joinedCommunityIds.slice(0, 10).map(id => getDoc(doc(db, 'communities', id)))
-      )
-      const loaded = docs.filter(d => d.exists()).map(d => ({ id: d.id, name: d.data()!.name as string }))
-      setCommunities(loaded)
-      if (!selectedCommId && loaded.length > 0) setSelectedCommId(loaded[0].id)
-    } finally {
-      setLoadingComms(false)
-    }
-  }
-
-  async function handleShare() {
-    if (!selectedCommId || sharing) return
-    setSharing(true)
-    try {
-      // Upload photo if one was selected
-      let photoUrl: string | null = null
-      if (photoFile) {
-        setUploadingPhoto(true)
-        photoUrl = await uploadWorkoutPhoto(userId, Date.now(), photoFile)
-        setUploadingPhoto(false)
-      }
-
-      const memberSnap = await getDoc(doc(db, 'communities', selectedCommId, 'members', userId))
-      const role = memberSnap.exists() ? memberSnap.data().role : 'MEMBER'
-      const workoutDate = new Date(startedAt ?? Date.now())
-      const dateStr = workoutDate.toLocaleDateString('ro', { day: '2-digit', month: 'long', year: 'numeric' })
-      const timeStr = workoutDate.toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })
-      const workoutExercises = workout.exercises.map(ex => ({
-        name: ex.name,
-        summary: exerciseOneLiner(ex),
-      }))
-      await addDoc(collection(db, 'communities', selectedCommId, 'posts'), {
-        authorId: userId,
-        authorName: userDisplayName,
-        authorRole: role,
-        ...(userPhotoURL && { authorPhotoUrl: userPhotoURL }),
-        content: description.trim(),
-        workoutNote: description.trim(),
-        workoutDuration: workout.durationSeconds,
-        workoutReps: workout.totalReps,
-        workoutExercises,
-        likesCount: 0,
-        commentsCount: 0,
-        ...(photoUrl && { photoUrl }),
-        createdAt: serverTimestamp(),
-      })
-      setShared(true)
-      setShowShare(false)
-    } finally {
-      setSharing(false)
-      setUploadingPhoto(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--app-bg)' }}>
-      <div className="flex-1 max-w-sm mx-auto w-full px-4 py-8 flex flex-col">
-
-        {/* Celebration header */}
-        <div className="text-center mb-8 pt-4">
-          <div className="relative w-24 h-24 mx-auto mb-5">
-            {/* Ripple rings */}
-            <div className="absolute inset-0 rounded-full bg-brand-green/20 animate-ping" style={{ animationDuration: '1.2s' }} />
-            <div className="absolute inset-2 rounded-full bg-brand-green/15 animate-ping" style={{ animationDuration: '1.2s', animationDelay: '0.15s' }} />
-            {/* Icon */}
-            <div className="relative w-24 h-24 rounded-full bg-brand-green flex items-center justify-center animate-pop-in">
-              <Check size={44} className="text-black" strokeWidth={3} />
-            </div>
-          </div>
-          <h2 className="text-3xl font-black text-white mb-1.5 animate-fade-in-up">Bravo! 💪</h2>
-          <p className="text-white/45 text-sm animate-fade-in-up stagger-1">Antrenament finalizat</p>
-        </div>
-
-        {/* Stats row */}
-        <div className="rounded-2xl p-5 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-xl font-black text-white">{formatDuration(workout.durationSeconds)}</p>
-              <p className="text-xs text-white/40 mt-0.5">Durată</p>
-            </div>
-            <div>
-              <p className="text-xl font-black text-white">{workout.totalReps}</p>
-              <p className="text-xs text-white/40 mt-0.5">Repetări</p>
-            </div>
-            <div>
-              <p className="text-xl font-black text-brand-green">+{coinsEarned}</p>
-              <p className="text-xs text-white/40 mt-0.5">Monede 🪙</p>
-            </div>
-          </div>
-          {startedAt && (
-            <div className="mt-3 pt-3 border-t border-white/8 flex items-center justify-center gap-1.5">
-              <span className="text-xs text-white/35">
-                🕐 {new Date(startedAt).toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })}
-                {' – '}
-                {new Date(startedAt + workout.durationSeconds * 1000).toLocaleTimeString('ro', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Exercise list — compact N×M format */}
-        <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          {workout.exercises.map((ex, ei) => (
-            <div key={ei} className={`px-4 py-2.5 ${ei > 0 ? 'border-t border-white/8' : ''}`}>
-              <p className="text-sm text-white/85">{exerciseOneLiner(ex)}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Description (read-only, from postdetails) */}
-        {description.trim() ? (
-          <p className="text-sm text-white/60 italic px-1 mb-3">&ldquo;{description.trim()}&rdquo;</p>
-        ) : null}
-
-        {/* Photo from postdetails */}
-        {photoPreviewUrl && (
-          <div className="relative rounded-2xl overflow-hidden mb-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photoPreviewUrl} alt="" className="w-full object-cover max-h-52" />
-          </div>
-        )}
-
-        {/* Share */}
-        {joinedCommunityIds.length > 0 && !shared && (
-          <button
-            onClick={openShare}
-            className="w-full h-12 rounded-full font-bold border border-white/20 text-white/70 mb-3 flex items-center justify-center gap-2"
-          >
-            <Share2 size={16} /> Postează în comunitate
-          </button>
-        )}
-        {shared && (
-          <p className="text-xs text-brand-green text-center mb-3">✓ Postat în comunitate!</p>
-        )}
-
-        {/* Go home */}
-        <button
-          onClick={() => { onDone(); router.push('/home') }}
-          className="w-full h-12 rounded-full font-black text-black bg-brand-green mt-2"
-        >
-          Mergi acasă
-        </button>
-
-      </div>
-
-      {showShare && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60">
-          <div className="w-full max-w-sm rounded-t-3xl px-5 pt-4 pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-black text-white">Postează în comunitate</p>
-              <button onClick={() => setShowShare(false)} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
-                <X size={13} className="text-white/60" />
-              </button>
-            </div>
-            {loadingComms ? (
-              <div className="flex justify-center py-6"><div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" /></div>
-            ) : communities.length === 0 ? (
-              <p className="text-sm text-white/50 text-center py-4">Nu ești în nicio comunitate activă.</p>
-            ) : (
-              <div className="flex flex-col gap-2 mb-4">
-                {communities.map(c => (
-                  <button key={c.id}
-                    onClick={() => setSelectedCommId(c.id)}
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition-colors text-left ${
-                      selectedCommId === c.id ? 'border-brand-green/50 bg-brand-green/10' : 'border-white/10 bg-white/4'
-                    }`}>
-                    <div className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: selectedCommId === c.id ? '#1ED75F' : '#ffffff30' }} />
-                    <span className="text-sm font-bold text-white">{c.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {!loadingComms && communities.length > 0 && (
-              <button onClick={handleShare} disabled={sharing || !selectedCommId}
-                className="w-full h-11 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-40">
-                {sharing ? '...' : 'Postează'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Challenge Card ─────────────────────────────────────────────────────────────
-
-function ChallengeCard({
-  challenge, progress,
-}: {
-  challenge: WeeklyChallenge
-  progress: UserChallengeProgress | null
-}) {
-  const current = progress?.currentReps ?? 0
-  const pct = Math.min(100, Math.round((current / challenge.targetReps) * 100))
-  const done = progress?.completed ?? false
-
-  return (
-    <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Trophy size={16} className="text-yellow-400" />
-          <p className="text-xs font-bold text-white/50 tracking-widest">PROVOCARE SĂPTĂMÂNALĂ</p>
-        </div>
-        {done && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/20 text-brand-green">FINALIZAT ✓</span>}
-      </div>
-      <p className="font-black text-white text-base mb-0.5">{challenge.title}</p>
-      <p className="text-xs text-white/50 mb-3">{challenge.description}</p>
-      <div className="flex items-center justify-between text-xs text-white/40 mb-1.5">
-        <span>{current} / {challenge.targetReps} {challenge.exerciseName}</span>
-        <span>🪙 +{challenge.coinsReward}</span>
-      </div>
-      <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, backgroundColor: done ? '#1ED75F' : '#3B82F6' }}
-        />
-      </div>
-    </div>
-  )
-}
-
-// ── Workout History ────────────────────────────────────────────────────────────
-
-function computePRs(history: WorkoutDoc[]): Record<string, number> {
-  const prs: Record<string, number> = {}
-  for (const w of history) {
-    for (const ex of w.exercises) {
-      if (ex.sets.length === 0) continue
-      const maxReps = Math.max(...ex.sets.map(s => s.reps ?? 0))
-      if (maxReps > (prs[ex.name] ?? 0)) prs[ex.name] = maxReps
-    }
-  }
-  return prs
-}
-
-function computeDurationPRs(history: WorkoutDoc[]): Record<string, number> {
-  const prs: Record<string, number> = {}
-  for (const w of history) {
-    for (const ex of w.exercises) {
-      if (ex.sets.length === 0) continue
-      const maxSecs = Math.max(...ex.sets.map(s => s.durationSeconds ?? 0))
-      if (maxSecs > 0 && maxSecs > (prs[ex.name] ?? 0)) prs[ex.name] = maxSecs
-    }
-  }
-  return prs
-}
-
-function WorkoutHistory({ history, loading, onDelete }: {
-  history: WorkoutDoc[]
-  loading: boolean
-  onDelete: (id: string) => Promise<void>
-}) {
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [selectedWorkout, setSelectedWorkout] = useState<WorkoutDoc | null>(null)
-
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-2">
-        {[0, 1, 2].map(i => (
-          <div key={i} className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-            <div className="h-4 rounded-lg bg-white/8 animate-pulse mb-2 w-3/4" />
-            <div className="h-3 rounded-lg bg-white/8 animate-pulse mb-3 w-1/3" />
-            <div className="flex gap-4">
-              <div className="h-3 rounded-lg bg-white/8 animate-pulse w-16" />
-              <div className="h-3 rounded-lg bg-white/8 animate-pulse w-16" />
-              <div className="h-3 rounded-lg bg-white/8 animate-pulse w-12" />
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-  if (history.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <Flame size={48} className="text-white/15 mx-auto mb-4" />
-        <p className="text-white/50 font-semibold text-sm mb-1">Niciun antrenament înregistrat</p>
-        <p className="text-white/30 text-xs">Apasă &ldquo;Începe antrenamentul&rdquo; pentru primul tău workout!</p>
-      </div>
-    )
-  }
-
-  const allTimePRs = computePRs(history)
-  const allTimeDurationPRs = computeDurationPRs(history)
-
-  async function handleDelete(id: string) {
-    setDeletingId(id)
-    try { await onDelete(id) } finally { setDeletingId(null) }
-  }
-
-  return (
-    <>
-      <div className="flex flex-col gap-2">
-        {history.map((w, wi) => {
-          const prsBefore = computePRs(history.slice(wi + 1))
-          const durationPRsBefore = computeDurationPRs(history.slice(wi + 1))
-          const newPRs = w.exercises
-            .flatMap(ex => {
-              const results: { name: string; value: string }[] = []
-              if (ex.sets.length > 0) {
-                const best = Math.max(...ex.sets.map(s => s.reps ?? 0))
-                if (best > 0 && best >= (allTimePRs[ex.name] ?? 0) && best > (prsBefore[ex.name] ?? 0)) {
-                  results.push({ name: ex.name, value: `${best} rep` })
-                }
-                const bestSecs = Math.max(...ex.sets.map(s => s.durationSeconds ?? 0))
-                if (bestSecs > 0 && bestSecs >= (allTimeDurationPRs[ex.name] ?? 0) && bestSecs > (durationPRsBefore[ex.name] ?? 0)) {
-                  results.push({ name: ex.name, value: `${bestSecs}s` })
-                }
-              }
-              return results
-            })
-
-          return (
-            <div
-              key={w.id}
-              className="rounded-2xl p-4 cursor-pointer active:opacity-80 transition-opacity"
-              style={{ backgroundColor: 'var(--app-surface)' }}
-              onClick={() => setSelectedWorkout(w)}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1 min-w-0 pr-2">
-                  <p className="text-sm font-bold text-white truncate">{w.exercises.map(e => e.name).join(', ')}</p>
-                  <span className="text-xs text-white/35">{formatDate(w.createdAt)}</span>
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(w.id) }}
-                  disabled={deletingId === w.id}
-                  className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
-                >
-                  {deletingId === w.id
-                    ? <div className="w-3 h-3 border border-white/30 border-t-transparent rounded-full animate-spin" />
-                    : <Trash2 size={13} />}
-                </button>
-              </div>
-              <div className="flex gap-4 mb-1.5">
-                <span className="text-xs text-white/50">⏱ {formatDuration(w.durationSeconds)}</span>
-                <span className="text-xs text-white/50">🔁 {w.totalReps} rep</span>
-                <span className="text-xs text-white/50">🪙 +{w.coinsEarned}</span>
-              </div>
-              {newPRs.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {newPRs.map(pr => (
-                    <span key={`${pr.name}-${pr.value}`}
-                      className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: '#FFB80020', color: '#FFB800', border: '1px solid #FFB80040' }}>
-                      🏆 PR {pr.name} · {pr.value}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {w.note ? <p className="text-xs text-white/40 mt-1.5 italic">&ldquo;{w.note}&rdquo;</p> : null}
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Workout detail modal */}
-      {selectedWorkout && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setSelectedWorkout(null)}
-        >
-          <div
-            className="w-full max-w-lg rounded-t-3xl p-5 pb-8"
-            style={{ backgroundColor: 'var(--app-bg)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-base font-bold text-white">{selectedWorkout.exercises.map(e => e.name).join(', ')}</p>
-                <span className="text-xs text-white/35">{formatDate(selectedWorkout.createdAt)}</span>
-              </div>
-              <button
-                onClick={() => setSelectedWorkout(null)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Note */}
-            {selectedWorkout.note && (
-              <p className="text-[15px] text-white/90 leading-snug mb-3 whitespace-pre-line font-medium">
-                &ldquo;{selectedWorkout.note}&rdquo;
-              </p>
-            )}
-
-            {/* Workout block — same style as community post */}
-            <div className="rounded-xl border border-white/10 bg-white/4 p-3 mb-3">
-              <div className="flex items-center gap-3 mb-2.5">
-                <span className="text-xs font-semibold text-white/60">⏱ {formatDuration(selectedWorkout.durationSeconds)}</span>
-                {selectedWorkout.totalReps > 0 && (
-                  <span className="text-xs font-semibold text-white/60">🔁 {selectedWorkout.totalReps} rep</span>
-                )}
-                <span className="text-xs font-semibold text-white/60">🪙 +{selectedWorkout.coinsEarned}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                {selectedWorkout.exercises.map((ex, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="w-1 h-1 rounded-full bg-brand-green/60 flex-shrink-0" />
-                    <span className="text-xs text-white/70">{exerciseOneLiner(ex)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
   )
 }

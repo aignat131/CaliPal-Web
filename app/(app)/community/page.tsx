@@ -16,6 +16,7 @@ import type { CommunityDoc, CommunityMember, PlannedTraining, CommunityChallenge
 import { ROLE_LABELS } from '@/types'
 import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search, Bell, X, ArrowRight } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
+import { awardCoins } from '@/lib/gamification/coins'
 
 function formatDate(str: string | undefined): string {
   if (!str) return ''
@@ -73,7 +74,7 @@ export default function CommunityPage() {
   }
 
   useEffect(() => {
-    const q = query(collection(db, 'communities'), orderBy('memberCount', 'desc'))
+    const q = query(collection(db, 'communities'), orderBy('memberCount', 'desc'), limit(50))
     const unsub = onSnapshot(q, snap => {
       setCommunities(snap.docs.map(d => ({ id: d.id, ...d.data() }) as CommunityDoc))
       setLoading(false)
@@ -220,6 +221,7 @@ export default function CommunityPage() {
       await updateDoc(doc(db, 'users', user.uid), {
         joinedCommunityIds: arrayUnion(community.id),
       })
+      awardCoins(user.uid, 'JOIN_COMMUNITY').catch(() => {})
       setPreviewCommunity(null)
       setJoinedCommunityName(community.name)
     } finally {

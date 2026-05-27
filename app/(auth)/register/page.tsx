@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createUserWithEmailAndPassword, updateProfile, AuthError } from 'firebase/auth'
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, AuthError } from 'firebase/auth'
 import { auth } from '@/lib/firebase/auth'
 import { ensureUserDoc } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
@@ -65,6 +65,7 @@ export default function RegisterPage() {
       const credential = await createUserWithEmailAndPassword(auth, email, password)
       await updateProfile(credential.user, { displayName: name.trim() })
       await ensureUserDoc({ ...credential.user, displayName: name.trim() })
+      await sendEmailVerification(credential.user).catch(() => { /* non-critical */ })
       router.replace('/home')
     } catch (e) {
       setErrorMessage(authErrorMessage(e as AuthError, t))
@@ -80,12 +81,11 @@ export default function RegisterPage() {
 
   return (
     <div
-      className="min-h-screen relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #0F0F0F, #1A2A1A)' }}
+      className="auth-bg min-h-screen relative overflow-hidden"
     >
       {/* Blobs */}
       <div className="absolute w-64 h-64 -top-16 -left-16 rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #1DB95447, transparent 70%)' }} />
+        style={{ background: 'radial-gradient(circle, #1ED75F47, transparent 70%)' }} />
       <div className="absolute w-56 h-56 bottom-0 right-0 rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle, #0D7A3E38, transparent 70%)' }} />
 
@@ -210,8 +210,7 @@ export default function RegisterPage() {
         <button
           onClick={handleCreate}
           disabled={loading || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
-          className="w-full rounded-full font-extrabold text-[15px] tracking-wide text-white disabled:opacity-40 flex items-center justify-center transition-opacity"
-          style={{ height: 52, backgroundColor: '#1DB954' }}
+          className="w-full h-[52px] rounded-full font-extrabold text-[15px] tracking-wide text-white disabled:opacity-40 flex items-center justify-center transition-opacity bg-brand-green"
         >
           {loading
             ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -245,12 +244,14 @@ function Field({
   label: string; value: string; placeholder: string; type?: string
   onChange: (v: string) => void; error?: string
 }) {
+  const id = useId()
   return (
     <div>
-      <p className={`text-[11px] font-bold tracking-[1.5px] mb-1.5 ${error ? 'text-red-400' : 'text-white/45'}`}>
+      <label htmlFor={id} className={`block text-[11px] font-bold tracking-[1.5px] mb-1.5 ${error ? 'text-red-400' : 'text-white/60'}`}>
         {label}
-      </p>
+      </label>
       <input
+        id={id}
         type={type}
         value={value}
         placeholder={placeholder}

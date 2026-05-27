@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -10,7 +10,7 @@ import { db } from '@/lib/firebase/firestore'
 import { collection, query, orderBy, limit, where, onSnapshot, doc } from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { UserDoc, WorkoutDoc } from '@/types'
-import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell } from 'lucide-react'
+import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
 
 function formatDuration(s: number): string {
@@ -84,6 +84,10 @@ export default function ProfilePage() {
   const [showLogout, setShowLogout] = useState(false)
   const [recentWorkouts, setRecentWorkouts] = useState<WorkoutDoc[]>([])
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set())
+  const [taskDoneToast, setTaskDoneToast] = useState<{ id: string; icon: string } | null>(null)
+  const prevCompletedRef = useRef<Set<string>>(new Set())
+  const prevDerivedRef = useRef<Set<string>>(new Set())
+  const initializedRef = useRef(false)
 
   // Live profile
   useEffect(() => {
@@ -128,6 +132,40 @@ export default function ProfilePage() {
     )
     return unsub
   }, [user])
+
+  // Derived completion for tasks not guarded by coin_tasks docs
+  function getDerivedCompleted(): Set<string> {
+    const s = new Set<string>()
+    if ((profile?.totalWorkouts ?? 0) > 0) s.add('COMPLETE_WORKOUT')
+    if ((profile?.joinedCommunityIds?.length ?? 0) > 0) s.add('JOIN_COMMUNITY')
+    if ((profile?.friendCount ?? 0) > 0) s.add('ADD_FRIEND')
+    return s
+  }
+
+  // Show toast when a task is newly completed (skip initial load)
+  useEffect(() => {
+    if (!profile) return
+    const derived = getDerivedCompleted()
+    if (!initializedRef.current) {
+      // First data load — seed the refs so we only toast on changes after page open
+      prevCompletedRef.current = new Set(completedTasks)
+      prevDerivedRef.current = derived
+      initializedRef.current = true
+      return
+    }
+    for (const task of COIN_TASKS) {
+      const wasDone = prevCompletedRef.current.has(task.id) || prevDerivedRef.current.has(task.id)
+      const nowDone = completedTasks.has(task.id) || derived.has(task.id)
+      if (nowDone && !wasDone) {
+        setTaskDoneToast({ id: task.id, icon: task.icon })
+        setTimeout(() => setTaskDoneToast(null), 3500)
+        break
+      }
+    }
+    prevCompletedRef.current = new Set(completedTasks)
+    prevDerivedRef.current = derived
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedTasks, profile?.totalWorkouts, profile?.joinedCommunityIds, profile?.friendCount])
 
   async function handleLogout() {
     await signOut(auth)
@@ -177,8 +215,33 @@ export default function ProfilePage() {
 
   const tabs = [t('profile.tab_progress'), t('profile.tab_tasks')]
 
+  const derivedCompleted = getDerivedCompleted()
+
+  function isTaskDone(taskId: string): boolean {
+    return completedTasks.has(taskId) || derivedCompleted.has(taskId)
+  }
+
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+      {/* Task done toast */}
+      {taskDoneToast && (
+        <div
+          className="fixed top-4 left-1/2 z-[600] flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-lg"
+          style={{
+            transform: 'translateX(-50%)',
+            backgroundColor: '#1ED75F',
+            animation: 'slideDown 0.35s ease',
+          }}
+        >
+          <CheckCircle size={18} className="text-black flex-shrink-0" />
+          <span className="text-sm font-black text-black">
+            {t(COIN_TASK_KEYS[taskDoneToast.id] ?? taskDoneToast.id)} {taskDoneToast.icon}
+          </span>
+          <span className="text-xs font-bold text-black/60 ml-1">
+            🪙 +{COIN_TASKS.find(c => c.id === taskDoneToast.id)?.coins ?? 0}
+          </span>
+        </div>
+      )}
       {/* Logout dialog */}
       {showLogout && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
@@ -386,7 +449,7 @@ export default function ProfilePage() {
           <div className="flex flex-col gap-2">
             <p className="text-xs text-white/35 mb-2">{t('profile.tasks_desc')}</p>
             {COIN_TASKS.map(task => {
-              const done = completedTasks.has(task.id)
+              const done = isTaskDone(task.id)
               return (
                 <div key={task.id}
                   className={`flex items-center gap-3 p-3.5 rounded-2xl ${done ? 'opacity-60' : ''}`}

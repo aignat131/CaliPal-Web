@@ -434,8 +434,7 @@ export default function CreateCommunityPage() {
           <button
             onClick={handleCreate}
             disabled={creating || !name.trim() || !selectedPark}
-            className="w-full rounded-full font-extrabold text-[15px] text-white disabled:opacity-40 flex items-center justify-center mt-2"
-            style={{ height: 52, backgroundColor: '#1DB954' }}
+            className="w-full h-[52px] rounded-full font-extrabold text-[15px] text-white disabled:opacity-40 flex items-center justify-center mt-2 bg-brand-green"
           >
             {creating
               ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

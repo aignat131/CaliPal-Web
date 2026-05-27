@@ -47,7 +47,7 @@ function makeParkIcon(hasComm: boolean, activeCount: number, hasUpcomingTraining
   const glowDefs = (hasComm || hasUpcomingTraining) ? `
     <defs>
       <radialGradient id="g_${uid}" cx="50%" cy="40%" r="60%">
-        <stop offset="0%" stop-color="${hasUpcomingTraining ? '#2EF070' : '#60A5FA'}"/>
+        <stop offset="0%" stop-color="${hasUpcomingTraining ? '#1ED75F' : '#60A5FA'}"/>
         <stop offset="100%" stop-color="${color}"/>
       </radialGradient>
       <filter id="glow_${uid}" x="-50%" y="-50%" width="200%" height="200%">

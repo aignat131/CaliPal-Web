@@ -54,7 +54,10 @@
       "Bash(python3 \"E:/Web_Apps/CaliPal-Web/append_feedback_tab.py\")",
       "Bash(python \"E:/Web_Apps/CaliPal-Web/append_feedback_tab.py\")",
       "Bash(grep -n \"\\\\\\\\\\\\\\\\U\\\\|\\\\\\\\\\\\\\\\u2713\\\\|\\\\\\\\\\\\\\\\u00b7\\\\|\\\\\\\\\\\\\\\\u2605\\\\|\\\\\\\\\\\\\\\\u2606\" \"E:/Web_Apps/CaliPal-Web/app/\\(app\\)/admin/page.tsx\")",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(xargs wc:*)",
+      "Bash(grep -n \"} catch {$\\\\|} catch \\(e\\) {$\\\\|} catch \\(err\\) {$\" E:/Web_Apps/CaliPal-Web/app/\\\\\\(app\\\\\\)/workout/page.tsx)",
+      "Bash(grep -n \"} catch {$\\\\|} catch \\(e\\) {$\\\\|} catch \\(err\\) {$\\\\|catch { }\" E:/Web_Apps/CaliPal-Web/app/\\\\\\(app\\\\\\)/community/\\\\[id\\\\]/page.tsx)"
     ]
   }
 }

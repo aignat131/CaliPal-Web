@@ -12,6 +12,7 @@ import { NotificationProvider } from '@/lib/context/NotificationContext'
 import { LanguageProvider } from '@/lib/context/LanguageContext'
 import { ChevronRight, Dumbbell } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
+import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -104,7 +105,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ThemeProvider>
         <WorkoutProvider>
           <NotificationProvider>
-            <AppLayoutInner>{children}</AppLayoutInner>
+            <ErrorBoundary>
+              <AppLayoutInner>{children}</AppLayoutInner>
+            </ErrorBoundary>
           </NotificationProvider>
         </WorkoutProvider>
       </ThemeProvider>

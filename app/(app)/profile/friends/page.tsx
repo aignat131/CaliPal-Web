@@ -5,11 +5,12 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
   collection, query, where, onSnapshot, doc,
-  updateDoc, setDoc, deleteDoc, getDocs, increment, serverTimestamp,
+  updateDoc, setDoc, deleteDoc, getDocs, increment, serverTimestamp, limit,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { createNotification } from '@/lib/firebase/notifications'
+import { awardCoins } from '@/lib/gamification/coins'
 import type { FriendRequest, FriendEntry } from '@/types'
 import { ArrowLeft, Check, X, UserMinus, Search } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
@@ -22,7 +23,7 @@ export default function FriendsPage() {
   const [requests, setRequests] = useState<FriendRequest[]>([])
   const [friends, setFriends] = useState<FriendEntry[]>([])
   const [loadingUids, setLoadingUids] = useState<Set<string>>(new Set())
-  const [searchEmail, setSearchEmail] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [searchResult, setSearchResult] = useState<{ uid: string; name: string; photoUrl: string } | null>(null)
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
@@ -93,15 +94,37 @@ export default function FriendsPage() {
   }
 
   async function searchUser() {
-    if (!searchEmail.trim() || !user) return
+    const term = searchQuery.trim()
+    if (!term || !user) return
     setSearching(true)
     setSearchError('')
     setSearchResult(null)
     try {
-      const q = query(collection(db, 'users'), where('email', '==', searchEmail.trim().toLowerCase()))
-      const snap = await getDocs(q)
+      const isEmail = term.includes('@')
+      let snap
+      if (isEmail) {
+        snap = await getDocs(query(collection(db, 'users'), where('email', '==', term.toLowerCase())))
+      } else {
+        // Prefix search on displayName (case-sensitive)
+        snap = await getDocs(query(
+          collection(db, 'users'),
+          where('displayName', '>=', term),
+          where('displayName', '<=', term + '\uf8ff'),
+          limit(5)
+        ))
+        // Also try capitalized variant if user typed lowercase
+        if (snap.empty && term[0] !== term[0].toUpperCase()) {
+          const capitalized = term[0].toUpperCase() + term.slice(1)
+          snap = await getDocs(query(
+            collection(db, 'users'),
+            where('displayName', '>=', capitalized),
+            where('displayName', '<=', capitalized + '\uf8ff'),
+            limit(5)
+          ))
+        }
+      }
       if (snap.empty) { setSearchError(t('friends.not_found')); return }
-      const found = snap.docs[0]
+      const found = snap.docs.find(d => d.id !== user.uid) ?? snap.docs[0]
       if (found.id === user.uid) { setSearchError(t('friends.thats_you')); return }
       setSearchResult({ uid: found.id, name: found.data().displayName, photoUrl: found.data().photoUrl ?? '' })
     } finally {
@@ -127,8 +150,9 @@ export default function FriendsPage() {
       `${user.displayName || 'Cineva'} ți-a trimis o cerere de prietenie.`,
       user.uid
     )
+    awardCoins(user.uid, 'ADD_FRIEND').catch(() => {})
     setSearchResult(null)
-    setSearchEmail('')
+    setSearchQuery('')
   }
 
   return (
@@ -146,11 +170,11 @@ export default function FriendsPage() {
           <p className="text-[11px] font-bold text-white/40 tracking-[1.5px] mb-2">{t('friends.search_label')}</p>
           <div className="flex gap-2">
             <input
-              value={searchEmail}
-              onChange={e => setSearchEmail(e.target.value)}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && searchUser()}
               placeholder={t('friends.search_placeholder')}
-              type="email"
+              type="text"
               className="flex-1 h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
             />
             <button

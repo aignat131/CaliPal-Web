@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, addDoc, doc,
-  setDoc, updateDoc, serverTimestamp, increment, getDoc, writeBatch,
+  setDoc, updateDoc, serverTimestamp, increment, getDoc, writeBatch, limitToLast,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'
@@ -113,7 +113,8 @@ export default function ChatDetailPage() {
   useEffect(() => {
     const q = query(
       collection(db, 'conversations', conversationId, 'messages'),
-      orderBy('timestamp', 'asc')
+      orderBy('timestamp', 'asc'),
+      limitToLast(50)
     )
     const unsub = onSnapshot(
       q,
@@ -275,7 +276,7 @@ export default function ChatDetailPage() {
     <div className="flex flex-col h-[calc(100vh-64px)] md:h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/8 flex-shrink-0">
-        <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center md:hidden">
+        <button onClick={() => router.back()} aria-label="Înapoi" className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center md:hidden">
           <ArrowLeft size={18} className="text-white/80" />
         </button>
         <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
@@ -409,6 +410,7 @@ export default function ChatDetailPage() {
         <button
           onClick={sendMessage}
           disabled={sending || !text.trim()}
+          aria-label="Trimite mesajul"
           className="w-11 h-11 rounded-full bg-brand-green disabled:opacity-40 flex items-center justify-center transition-opacity"
         >
           <Send size={15} className="text-black" />
