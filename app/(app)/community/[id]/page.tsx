@@ -79,7 +79,7 @@ function toAndroidDateTime(date: string, time: string): string {
 
 export default function CommunityDetailPage() {
   const { user } = useAuth()
-  const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
+  const { displayName: myName, photoUrl: myPhoto, profile: myProfile } = useMyProfile()
   const { requestPermission } = usePushNotifications(user?.uid)
   const t = useT()
   const { showToast } = useToast()
@@ -380,6 +380,7 @@ export default function CommunityDetailPage() {
   async function sendFriendRequest(toMember: CommunityMember) {
     if (!user) return
     const reqId = `${user.uid}_${toMember.userId}`
+    setPendingIds(prev => new Set(prev).add(toMember.userId))
     try {
       await setDoc(doc(db, 'friend_requests', reqId), {
         id: reqId,
@@ -391,9 +392,9 @@ export default function CommunityDetailPage() {
         status: 'PENDING',
         sentAt: serverTimestamp(),
       })
-      setPendingIds(prev => new Set(prev).add(toMember.userId))
       showToast('Cerere de prietenie trimisă!')
     } catch {
+      setPendingIds(prev => { const n = new Set(prev); n.delete(toMember.userId); return n })
       showToast('Eroare la trimiterea cererii.', 'error')
     }
   }
@@ -787,6 +788,7 @@ export default function CommunityDetailPage() {
                   myName={myName}
                   myRole={myRole}
                   isSuperAdmin={isSuperAdmin}
+                  myProTitle={myProfile?.proTitle}
                   onDelete={() => deletePost(p.id)}
                 />
               ))}
@@ -914,7 +916,7 @@ export default function CommunityDetailPage() {
                     </div>
                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
                       style={{ backgroundColor: `${roleColor}18`, color: roleColor }}>
-                      {ROLE_LABELS[m.role as MemberRole]}
+                      {isMe && myProfile?.proTitle ? '🎯 Pro' : ROLE_LABELS[m.role as MemberRole]}
                     </span>
                   </div>
 
@@ -1748,13 +1750,14 @@ function formatPostDuration(s: number): string {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDelete }: {
+function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myProTitle, onDelete }: {
   post: CommunityPost
   communityId: string
   myUid: string
   myName: string
   myRole: MemberRole
   isSuperAdmin: boolean
+  myProTitle?: boolean
   onDelete: () => void
 }) {
   const [liked, setLiked] = useState(false)
@@ -1836,7 +1839,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
               <span className="text-sm font-bold text-white leading-none">{post.authorName}</span>
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md leading-none"
                 style={{ backgroundColor: `${roleColor}22`, color: roleColor }}>
-                {ROLE_LABELS[post.authorRole as MemberRole]}
+                {post.authorId === myUid && myProTitle ? '🎯 Pro' : ROLE_LABELS[post.authorRole as MemberRole]}
               </span>
             </div>
             <span className="text-[11px] text-white/35">{formatPostDate(post.createdAt)}</span>

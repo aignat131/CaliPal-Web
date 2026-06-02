@@ -168,7 +168,7 @@ export default function ProfilePage() {
         const purchaseRef = doc(db, 'users', user.uid, 'purchases', itemId)
         const purchaseSnap = await txn.get(purchaseRef)
         if (purchaseSnap.exists()) throw new Error('already-purchased')
-        txn.update(userRef, { coins: increment(-price) })
+        txn.update(userRef, { coins: increment(-price), ...(itemId === 'PRO_TITLE' ? { proTitle: true } : {}) })
         txn.set(purchaseRef, { itemId, purchasedAt: serverTimestamp() })
       })
       showToast('Achiziție reușită! 🎉')

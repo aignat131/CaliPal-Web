@@ -29,6 +29,7 @@ export interface UserDoc {
   pushNotifTrainings?: boolean
   pushNotifCommunity?: boolean
   pushNotifFriends?: boolean
+  proTitle?: boolean
 }
 
 export interface CommunityDoc {
