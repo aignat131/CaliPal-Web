@@ -4,11 +4,10 @@ import { adminDb } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
 
-if (!process.env.UNSUBSCRIBE_SECRET) throw new Error('UNSUBSCRIBE_SECRET env var is not set')
-const UNSUB_SECRET: string = process.env.UNSUBSCRIBE_SECRET
-
 function unsubToken(uid: string, communityId: string): string {
-  return createHmac('sha256', UNSUB_SECRET).update(`${uid}:${communityId}`).digest('hex')
+  const secret = process.env.UNSUBSCRIBE_SECRET
+  if (!secret) throw new Error('UNSUBSCRIBE_SECRET env var is not set')
+  return createHmac('sha256', secret).update(`${uid}:${communityId}`).digest('hex')
 }
 
 function html(title: string, heading: string, body: string): string {
