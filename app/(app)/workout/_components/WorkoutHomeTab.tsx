@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Play, Zap, Scissors, BookOpen, Star, ChevronRight } from 'lucide-react'
+import { Play, Hash, Zap, Scissors, BookOpen, Star, ChevronRight } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
 import { ChallengeCard } from './ChallengeCard'
 import { WorkoutHistory } from './WorkoutHistory'
@@ -16,6 +16,7 @@ export function WorkoutHomeTab({
   challengeProgress,
   profile,
   onStartWorkout,
+  onCountReps,
   onDeleteWorkout,
 }: {
   tab: number
@@ -26,6 +27,7 @@ export function WorkoutHomeTab({
   challengeProgress: UserChallengeProgress | null
   profile: UserDoc | null
   onStartWorkout: () => void
+  onCountReps: () => void
   onDeleteWorkout: (id: string) => Promise<void>
 }) {
   return (
@@ -49,11 +51,21 @@ export function WorkoutHomeTab({
           {/* Start workout CTA */}
           <button
             onClick={onStartWorkout}
-            className="w-full h-16 rounded-2xl mb-4 flex items-center justify-center gap-3 font-black text-lg text-black"
+            className="w-full h-16 rounded-2xl mb-3 flex items-center justify-center gap-3 font-black text-lg text-black"
             style={{ backgroundColor: '#1ED75F' }}
           >
             <Play size={22} className="text-black fill-black" />
             Începe antrenamentul
+          </button>
+
+          {/* Count reps quick entry */}
+          <button
+            onClick={onCountReps}
+            className="w-full h-[52px] rounded-2xl mb-4 flex items-center justify-center gap-3 font-bold text-base text-white"
+            style={{ backgroundColor: '#3B82F6' }}
+          >
+            <Hash size={20} className="text-white" />
+            Numără repetări
           </button>
 
           {/* ML tools */}

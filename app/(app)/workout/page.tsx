@@ -17,8 +17,9 @@ import { WorkoutHomeTab } from './_components/WorkoutHomeTab'
 import { ActiveWorkoutView } from './_components/ActiveWorkoutView'
 import { PostWorkoutDetails } from './_components/PostWorkoutDetails'
 import { WorkoutSummaryCard } from './_components/WorkoutSummaryCard'
+import { QuickRepCounterView } from './_components/QuickRepCounterView'
 
-type Screen = 'home' | 'active' | 'postdetails' | 'summary'
+type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount'
 
 export default function WorkoutPage() {
   const { user } = useAuth()
@@ -139,6 +140,18 @@ export default function WorkoutPage() {
   // ── Workout flow ────────────────────────────────────────────────────────────
 
   function startWorkout() { ctxStart([]); setScreen('active') }
+
+  function startQuickCount() {
+    if (isActive) return
+    setScreen('quickcount')
+  }
+
+  function saveQuickCountAsWorkout(exercises: WorkoutExercise[], seconds: number) {
+    setCapturedExercises(exercises)
+    setCapturedSeconds(seconds)
+    setWorkoutStartedAt(Date.now() - seconds * 1000)
+    setScreen('postdetails')
+  }
 
   function captureWorkout(doneKeys: Set<string>) {
     if (exercises.length === 0) return
@@ -334,6 +347,14 @@ export default function WorkoutPage() {
         />
       )}
 
+      {screen === 'quickcount' && (
+        <QuickRepCounterView
+          catalogue={catalogue}
+          onSaveAsWorkout={saveQuickCountAsWorkout}
+          onCancel={() => setScreen('home')}
+        />
+      )}
+
       {screen === 'home' && (
         <WorkoutHomeTab
           tab={tab}
@@ -344,6 +365,7 @@ export default function WorkoutPage() {
           challengeProgress={challengeProgress}
           profile={profile}
           onStartWorkout={startWorkout}
+          onCountReps={startQuickCount}
           onDeleteWorkout={async (wid) => {
             if (!user) return
             await deleteDoc(doc(db, 'users', user.uid, 'workouts', wid))
