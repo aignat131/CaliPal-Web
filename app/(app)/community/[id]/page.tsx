@@ -14,6 +14,7 @@ import { uploadCommunityPhoto, uploadPostPhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { createNotification } from '@/lib/firebase/notifications'
 import { awardCoins } from '@/lib/gamification/coins'
 import type {
@@ -128,6 +129,8 @@ export default function CommunityDetailPage() {
   // Kick confirmation
   const [kickTarget, setKickTarget] = useState<CommunityMember | null>(null)
   const [kicking, setKicking] = useState(false)
+  const kickDialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(kickDialogRef, !!kickTarget)
 
   // Community edit
   const [showEditCommunity, setShowEditCommunity] = useState(false)
@@ -452,6 +455,7 @@ export default function CommunityDetailPage() {
         <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 px-6"
           onClick={() => setKickTarget(null)}>
           <div
+            ref={kickDialogRef}
             className="w-full max-w-sm rounded-3xl p-6"
             style={{ backgroundColor: 'var(--app-surface)' }}
             onClick={e => e.stopPropagation()}
@@ -1041,9 +1045,12 @@ function JoinNotificationModal({
   onDismiss: () => void
 }) {
   const t = useT()
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
   return (
     <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/60" onClick={onDismiss}>
       <div
+        ref={panelRef}
         className="w-full max-w-sm rounded-t-3xl p-6 pb-8"
         style={{ backgroundColor: 'var(--app-surface)' }}
         onClick={e => e.stopPropagation()}
@@ -1982,6 +1989,8 @@ function EditCommunityModal({ community, onClose }: {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -2022,6 +2031,7 @@ function EditCommunityModal({ community, onClose }: {
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div
+        ref={panelRef}
         className="w-full max-w-lg rounded-t-3xl px-5 pt-4 pb-8"
         style={{ backgroundColor: 'var(--app-surface)' }}
       >

@@ -12,6 +12,7 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import type { CommunityDoc, CommunityMember, PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress } from '@/types'
 import { ROLE_LABELS } from '@/types'
 import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search, Bell, X, ArrowRight } from 'lucide-react'
@@ -563,6 +564,8 @@ function MembersPreviewModal({
   onClose: () => void
 }) {
   const t = useT()
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
   const [members, setMembers] = useState<CommunityMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(true)
 
@@ -587,6 +590,7 @@ function MembersPreviewModal({
   return (
     <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/70" onClick={onClose}>
       <div
+        ref={panelRef}
         className="w-full max-w-sm rounded-t-3xl flex flex-col"
         style={{ backgroundColor: 'var(--app-surface)', maxHeight: '75vh' }}
         onClick={e => e.stopPropagation()}
@@ -684,9 +688,12 @@ function JoinNotificationModal({
   onDismiss: () => void
 }) {
   const t = useT()
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
   return (
     <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/60" onClick={onDismiss}>
       <div
+        ref={panelRef}
         className="w-full max-w-sm rounded-t-3xl p-6 pb-8"
         style={{ backgroundColor: 'var(--app-surface)' }}
         onClick={e => e.stopPropagation()}

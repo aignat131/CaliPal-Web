@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { collection, doc, addDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
@@ -8,6 +8,7 @@ import { Check, Share2, X } from 'lucide-react'
 import type { WorkoutDoc } from '@/types'
 import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
 import { formatDuration, exerciseOneLiner } from '../_helpers'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 export function WorkoutSummaryCard({
   workout, coinsEarned, onDone, userId, userDisplayName, userPhotoURL,
@@ -28,6 +29,8 @@ export function WorkoutSummaryCard({
   const router = useRouter()
   const description = workout.note
   const [showShare, setShowShare] = useState(false)
+  const sharePanelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(sharePanelRef, showShare)
   const [communities, setCommunities] = useState<{ id: string; name: string }[]>([])
   const [selectedCommId, setSelectedCommId] = useState(favoriteCommunityId ?? '')
   const [sharing, setSharing] = useState(false)
@@ -192,7 +195,7 @@ export function WorkoutSummaryCard({
 
       {showShare && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60">
-          <div className="w-full max-w-sm rounded-t-3xl px-5 pt-4 pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <div ref={sharePanelRef} className="w-full max-w-sm rounded-t-3xl px-5 pt-4 pb-8" style={{ backgroundColor: 'var(--app-surface)' }}>
             <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm font-black text-white">Postează în comunitate</p>

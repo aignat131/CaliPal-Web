@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useTheme } from '@/lib/hooks/useTheme'
@@ -15,6 +15,7 @@ import { ChevronRight, Dumbbell, Bell, Users, MessageSquare, UserPlus } from 'lu
 import { useT } from '@/lib/context/LanguageContext'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 
@@ -88,6 +89,8 @@ function NotifPermissionModal({
   onDismiss: () => void
 }) {
   const t = useT()
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
   const [prefs, setPrefs] = useState<NotifPrefs>({
     pushNotifCommunity: true,
     pushNotifTrainings: true,
@@ -108,7 +111,7 @@ function NotifPermissionModal({
 
   return (
     <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/70 px-6">
-      <div className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
+      <div ref={panelRef} className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="flex flex-col items-center text-center gap-3 mb-5">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
             style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F30' }}>

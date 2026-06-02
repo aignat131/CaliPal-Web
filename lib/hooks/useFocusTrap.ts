@@ -20,6 +20,9 @@ export function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>, 
     const container = containerRef.current
     const focusable = () => Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE))
 
+    // Remember what had focus before the modal opened so we can restore it
+    const prev = document.activeElement as HTMLElement | null
+
     // Move initial focus into the container
     const first = focusable()[0]
     first?.focus()
@@ -45,6 +48,9 @@ export function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>, 
     }
 
     document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      prev?.focus()
+    }
   }, [active, containerRef])
 }

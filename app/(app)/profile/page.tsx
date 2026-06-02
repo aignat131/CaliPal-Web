@@ -12,6 +12,7 @@ import {
   runTransaction, increment, serverTimestamp,
 } from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import type { UserDoc, WorkoutDoc } from '@/types'
 import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag } from 'lucide-react'
 import { useToast } from '@/lib/context/ToastContext'
@@ -100,6 +101,8 @@ export default function ProfilePage() {
   const [taskDoneToast, setTaskDoneToast] = useState<{ id: string; icon: string } | null>(null)
   const prevCompletedRef = useRef<Set<string>>(new Set())
   const prevDerivedRef = useRef<Set<string>>(new Set())
+  const shopPanelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(shopPanelRef, showShop)
   const initializedRef = useRef(false)
   const coinTasksReadyRef = useRef(false)
 
@@ -293,7 +296,7 @@ export default function ProfilePage() {
       {/* Shop modal */}
       {showShop && (
         <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/70" onClick={() => setShowShop(false)}>
-          <div className="w-full max-w-sm rounded-t-3xl p-5 pb-8"
+          <div ref={shopPanelRef} className="w-full max-w-sm rounded-t-3xl p-5 pb-8"
             style={{ backgroundColor: 'var(--app-surface)' }}
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">

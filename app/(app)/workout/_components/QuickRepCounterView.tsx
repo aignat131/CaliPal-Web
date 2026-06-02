@@ -7,6 +7,7 @@ import type { ExerciseType } from '@/lib/ml/form-coach'
 import type { WorkoutExercise } from '@/types'
 import type { CatalogueEntry } from '@/lib/data/exercise-catalogue'
 import { getExerciseType, norm } from '../_helpers'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,10 @@ export function QuickRepCounterView({ catalogue, onSaveAsWorkout, onCancel }: Pr
   // Manual rep entry for non-camera exercises
   const [manualExercise, setManualExercise] = useState<{ name: string; category: string } | null>(null)
   const [manualReps, setManualReps] = useState(10)
+  const manualPanelRef = useRef<HTMLDivElement>(null)
+  const postSetPanelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(manualPanelRef, !!manualExercise)
+  useFocusTrap(postSetPanelRef, step.name === 'post-set')
 
   const filteredCatalogue = searchQuery.trim()
     ? catalogue.filter(e => norm(e.name).includes(norm(searchQuery)))
@@ -206,7 +211,7 @@ export function QuickRepCounterView({ catalogue, onSaveAsWorkout, onCancel }: Pr
       {/* Manual rep entry bottom sheet */}
       {manualExercise && (
         <div className="fixed inset-0 z-[55] flex flex-col justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
-          <div className="rounded-t-3xl px-5 pt-5 pb-10" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <div ref={manualPanelRef} className="rounded-t-3xl px-5 pt-5 pb-10" style={{ backgroundColor: 'var(--app-surface)' }}>
             <div className="flex items-center justify-between mb-5">
               <p className="font-black text-white text-base">{manualExercise.name}</p>
               <button onClick={() => setManualExercise(null)}>
@@ -243,7 +248,7 @@ export function QuickRepCounterView({ catalogue, onSaveAsWorkout, onCancel }: Pr
       {/* Post-set bottom sheet */}
       {step.name === 'post-set' && (
         <div className="fixed inset-0 z-[55] flex flex-col justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
-          <div className="rounded-t-3xl px-5 pt-5 pb-10" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <div ref={postSetPanelRef} className="rounded-t-3xl px-5 pt-5 pb-10" style={{ backgroundColor: 'var(--app-surface)' }}>
             {/* Summary */}
             <div className="mb-5">
               <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2">REZUMAT</p>

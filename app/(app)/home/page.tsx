@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import type {
   UserDoc, CommunityDoc, WeeklyChallenge, UserChallengeProgress,
   PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress,
@@ -521,6 +522,8 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
   onClose: () => void
 }) {
   const t = useT()
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
   const today = new Date()
   const [viewDate, setViewDate] = useState(() => {
     const d = new Date()
@@ -560,6 +563,7 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
   return (
     <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div
+        ref={panelRef}
         className="w-full max-w-sm rounded-t-3xl p-5 pb-8"
         style={{ backgroundColor: 'var(--app-surface)' }}
         onClick={e => e.stopPropagation()}
