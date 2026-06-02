@@ -422,17 +422,20 @@ function ChallengeCard({
 
 function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; favId: string; uid: string }) {
   const t = useT()
-  const myRsvp = training.rsvps?.[uid] ?? null
+  const [localRsvp, setLocalRsvp] = useState<'GOING' | 'MAYBE' | 'NOT_GOING' | null>(null)
+  const myRsvp = localRsvp ?? (training.rsvps?.[uid] ?? null)
   const goingCount = training.rsvps
     ? Object.values(training.rsvps).filter(v => v === 'GOING').length
     : 0
 
   async function setRsvp(value: 'GOING' | 'MAYBE' | 'NOT_GOING') {
+    setLocalRsvp(value)
     try {
       await updateDoc(doc(db, 'communities', favId, 'trainings', training.id), {
         [`rsvps.${uid}`]: value,
       })
     } catch (e) {
+      setLocalRsvp(null)
       console.error('[RSVP] update failed', e)
     }
   }

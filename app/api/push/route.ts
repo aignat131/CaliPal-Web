@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminMessaging, adminDb, adminAuth } from '@/lib/firebase/admin'
+import { FieldValue } from 'firebase-admin/firestore'
 
 export const dynamic = 'force-dynamic'
+
+const PUSH_LIMIT = 20 // max pushes per sender per hour
 
 export async function POST(req: NextRequest) {
   // ── Auth — any signed-in user ─────────────────────────────────────────────
@@ -9,11 +12,31 @@ export async function POST(req: NextRequest) {
   const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
   if (!idToken) return NextResponse.json({ ok: false }, { status: 401 })
 
+  let callerUid: string
   try {
-    await adminAuth().verifyIdToken(idToken)
+    const decoded = await adminAuth().verifyIdToken(idToken)
+    callerUid = decoded.uid
   } catch {
     return NextResponse.json({ ok: false }, { status: 401 })
   }
+
+  // ── Rate limit: 20 pushes / hour per sender ───────────────────────────────
+  const now = Date.now()
+  const windowStart = now - 60 * 60 * 1000
+  const rateRef = adminDb().collection('push_rate').doc(callerUid)
+  const rateSnap = await rateRef.get()
+  const rateData = rateSnap.data() ?? {}
+  const windowTs: number = rateData.windowStart ?? 0
+  const count: number = windowTs > windowStart ? (rateData.count ?? 0) : 0
+
+  if (count >= PUSH_LIMIT) {
+    return NextResponse.json({ ok: false, reason: 'rate-limited' }, { status: 429 })
+  }
+
+  await rateRef.set({
+    windowStart: windowTs > windowStart ? windowTs : now,
+    count: FieldValue.increment(1),
+  }, { merge: true })
 
   // ── Parse & validate ──────────────────────────────────────────────────────
   const { toUid, title, body, url, notifType } = await req.json()

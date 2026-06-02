@@ -7,6 +7,7 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://calipal.ro'),
   title: 'CaliPal',
   description: 'Înregistrează antrenamente, găsește parcuri și conectează-te cu comunitatea de calisthenics.',
   manifest: '/manifest.json',

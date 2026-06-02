@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'
-import { uploadCommunityPhoto } from '@/lib/firebase/storage'
+import { uploadCommunityPhoto, uploadPostPhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
@@ -23,12 +23,14 @@ import type {
 import { ROLE_LABELS, conversationId } from '@/types'
 import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
-  UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
+  UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users, Trophy,
   Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut, UserX, Share2,
-  Pencil, Camera, Info, Mail, MailX, History,
+  Pencil, Camera, Info, Mail, MailX, History, ImagePlus,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
+import { useToast } from '@/lib/context/ToastContext'
+import { SkeletonCard, SkeletonTrainingRow } from '@/components/ui/SkeletonLoaders'
 
 const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
@@ -80,6 +82,7 @@ export default function CommunityDetailPage() {
   const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
   const { requestPermission } = usePushNotifications(user?.uid)
   const t = useT()
+  const { showToast } = useToast()
   const router = useRouter()
   const params = useParams()
   const id = params.id as string
@@ -100,6 +103,9 @@ export default function CommunityDetailPage() {
   })
   const [loading, setLoading] = useState(true)
   const [postText, setPostText] = useState('')
+  const [postImage, setPostImage] = useState<File | null>(null)
+  const [postImagePreview, setPostImagePreview] = useState<string | null>(null)
+  const postImageRef = useRef<HTMLInputElement>(null)
   const [posting, setPosting] = useState(false)
   const [showAddTraining, setShowAddTraining] = useState(false)
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set())
@@ -114,6 +120,10 @@ export default function CommunityDetailPage() {
   const [joining, setJoining] = useState(false)
   const [showJoinNotif, setShowJoinNotif] = useState(false)
   const [showCommNotifPrompt, setShowCommNotifPrompt] = useState(false)
+
+  // Tab content loading
+  const [postsLoaded, setPostsLoaded] = useState(false)
+  const [trainingsLoaded, setTrainingsLoaded] = useState(false)
 
   // Kick confirmation
   const [kickTarget, setKickTarget] = useState<CommunityMember | null>(null)
@@ -169,8 +179,8 @@ export default function CommunityDetailPage() {
   useEffect(() => {
     const q = query(collection(db, 'communities', id, 'posts'), orderBy('createdAt', 'desc'), limit(30))
     return onSnapshot(q,
-      snap => { setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() }) as CommunityPost)) },
-      () => { /* non-members can't read posts — silently ignore */ }
+      snap => { setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() }) as CommunityPost)); setPostsLoaded(true) },
+      () => { setPostsLoaded(true) /* non-members can't read posts — silently ignore */ }
     )
   }, [id])
 
@@ -182,8 +192,9 @@ export default function CommunityDetailPage() {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
         list.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
         setTrainings(list)
+        setTrainingsLoaded(true)
       },
-      () => { /* non-members can't read trainings — silently ignore */ }
+      () => { setTrainingsLoaded(true) /* non-members can't read trainings — silently ignore */ }
     )
   }, [id, user])
 
@@ -308,6 +319,9 @@ export default function CommunityDetailPage() {
         `Ne pare rău, dar ai fost eliminat din "${community?.name ?? 'comunitate'}". Poți explora alte comunități.`,
         id,
       )
+      showToast(`${member.displayName} a fost eliminat.`)
+    } catch {
+      showToast('Eroare la eliminare.', 'error')
     } finally {
       setKicking(false)
       setKickTarget(null)
@@ -319,7 +333,7 @@ export default function CommunityDetailPage() {
     if (!user || !postText.trim() || posting) return
     setPosting(true)
     try {
-      await addDoc(collection(db, 'communities', id, 'posts'), {
+      const docRef = await addDoc(collection(db, 'communities', id, 'posts'), {
         authorId: user.uid,
         authorName: myName,
         authorRole: myRole,
@@ -329,7 +343,18 @@ export default function CommunityDetailPage() {
         commentsCount: 0,
         createdAt: serverTimestamp(),
       })
+      if (postImage) {
+        try {
+          const photoUrl = await uploadPostPhoto(id, docRef.id, postImage)
+          await updateDoc(docRef, { photoUrl })
+        } catch { /* non-critical — post created without image */ }
+      }
       setPostText('')
+      setPostImage(null)
+      setPostImagePreview(null)
+      showToast('Post publicat!')
+    } catch {
+      showToast('Eroare la publicare. Încearcă din nou.', 'error')
     } finally { setPosting(false) }
   }
 
@@ -386,8 +411,9 @@ export default function CommunityDetailPage() {
         sentAt: serverTimestamp(),
       })
       setPendingIds(prev => new Set(prev).add(toMember.userId))
-    } catch (e) {
-      console.error('[sendFriendRequest]', e)
+      showToast('Cerere de prietenie trimisă!')
+    } catch {
+      showToast('Eroare la trimiterea cererii.', 'error')
     }
   }
 
@@ -414,16 +440,19 @@ export default function CommunityDetailPage() {
     return order.indexOf(a.role) - order.indexOf(b.role)
   })
 
+  const sortedLeaderboard = [...members].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+
   // Tabs available to non-members: only Membri
   const visibleTabs = isMember
     ? [
         { label: 'Feed', Icon: MessageSquare },
         { label: 'Antrenamente', Icon: Dumbbell },
         { label: 'Membri', Icon: Users },
+        { label: 'Clasament', Icon: Trophy },
       ]
     : [{ label: 'Membri', Icon: Users }]
 
-  // For non-members, always show tab index 0 (Membri)
+  // For non-members, always show tab index 0 (Membri → effectiveTab 2)
   const effectiveTab = isMember ? tab : 2
 
   return (
@@ -723,22 +752,48 @@ export default function CommunityDetailPage() {
         {effectiveTab === 0 && (
           <div>
             {isMember && (
-              <div className="flex gap-2 mb-4">
-                <input
-                  value={postText}
-                  onChange={e => setPostText(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && addPost()}
-                  placeholder="Scrie ceva..."
-                  maxLength={2000}
-                  className="flex-1 h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
-                />
-                <button onClick={addPost} disabled={posting || !postText.trim()}
-                  className="w-11 h-11 rounded-xl bg-brand-green disabled:opacity-40 flex items-center justify-center">
-                  <Send size={15} className="text-black" />
-                </button>
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  <input
+                    value={postText}
+                    onChange={e => setPostText(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && addPost()}
+                    placeholder="Scrie ceva..."
+                    maxLength={2000}
+                    className="flex-1 h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
+                  />
+                  <input ref={postImageRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => {
+                      const f = e.target.files?.[0]
+                      if (!f) return
+                      setPostImage(f)
+                      setPostImagePreview(URL.createObjectURL(f))
+                    }}
+                  />
+                  <button onClick={() => postImageRef.current?.click()}
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-colors ${postImage ? 'border-brand-green bg-brand-green/15 text-brand-green' : 'border-white/12 bg-white/7 text-white/40 hover:text-white/70'}`}>
+                    <ImagePlus size={15} />
+                  </button>
+                  <button onClick={addPost} disabled={posting || !postText.trim()}
+                    className="w-11 h-11 rounded-xl bg-brand-green disabled:opacity-40 flex items-center justify-center">
+                    <Send size={15} className="text-black" />
+                  </button>
+                </div>
+                {postImagePreview && (
+                  <div className="relative mt-2 rounded-xl overflow-hidden" style={{ maxHeight: 160 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={postImagePreview} alt="" className="w-full object-cover" style={{ maxHeight: 160 }} />
+                    <button onClick={() => { setPostImage(null); setPostImagePreview(null) }}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center">
+                      <X size={12} className="text-white" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-            {posts.length === 0
+            {!postsLoaded
+              ? <div className="flex flex-col gap-3">{[0,1,2].map(i => <SkeletonCard key={i} />)}</div>
+              : posts.length === 0
               ? <p className="text-sm text-white/35 text-center py-8">Niciun post încă. Fii primul!</p>
               : posts.map(p => (
                 <PostCard
@@ -776,7 +831,9 @@ export default function CommunityDetailPage() {
                 onClose={() => setShowAddTraining(false)}
               />
             )}
-            {trainings.length === 0
+            {!trainingsLoaded
+              ? <div className="flex flex-col gap-3">{[0,1,2].map(i => <SkeletonTrainingRow key={i} />)}</div>
+              : trainings.length === 0
               ? (
                 <div className="text-center py-12">
                   <Dumbbell size={36} className="text-white/15 mx-auto mb-3" />
@@ -949,6 +1006,85 @@ export default function CommunityDetailPage() {
           </div>
         ))}
 
+        {/* ── Clasament ── */}
+        {effectiveTab === 3 && (
+          <div>
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3">TOP MEMBRI</p>
+            {sortedLeaderboard.length === 0 ? (
+              <p className="text-sm text-white/35 text-center py-8">Nu există date de clasament încă.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {sortedLeaderboard.slice(0, 10).map((m, idx) => {
+                  const isMe = m.userId === user?.uid
+                  const livePhoto = memberPhotos[m.userId] || m.photoUrl || ''
+                  const rankColor = idx === 0 ? '#FFB800' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'rgba(255,255,255,0.4)'
+                  const rankIcon = idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null
+                  return (
+                    <div key={m.userId}
+                      className="flex items-center gap-3 px-3 py-3 rounded-2xl"
+                      style={{ backgroundColor: isMe ? '#1ED75F10' : 'var(--app-surface)', border: isMe ? '1px solid #1ED75F25' : '1px solid transparent' }}
+                    >
+                      {/* Rank */}
+                      <div className="w-7 text-center flex-shrink-0">
+                        {rankIcon
+                          ? <span className="text-lg leading-none">{rankIcon}</span>
+                          : <span className="text-sm font-black" style={{ color: rankColor }}>#{idx + 1}</span>}
+                      </div>
+                      {/* Avatar */}
+                      <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: `${ROLE_COLORS[m.role as MemberRole] ?? '#1ED75F'}22` }}>
+                        {livePhoto
+                          ? <Image src={livePhoto} alt={m.displayName} fill sizes="36px" className="object-cover" />
+                          : <span className="text-sm font-black text-brand-green">{m.displayName.charAt(0).toUpperCase()}</span>}
+                      </div>
+                      {/* Name */}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-bold text-white truncate block">{m.displayName}</span>
+                        {isMe && <span className="text-[9px] font-bold text-brand-green">TU</span>}
+                      </div>
+                      {/* Points */}
+                      <span className="text-sm font-black flex-shrink-0" style={{ color: rankColor }}>
+                        {m.points ?? 0}<span className="text-[10px] font-normal text-white/30 ml-0.5">pts</span>
+                      </span>
+                    </div>
+                  )
+                })}
+                {/* Show current user's rank if outside top 10 */}
+                {(() => {
+                  const myIdx = sortedLeaderboard.findIndex(m => m.userId === user?.uid)
+                  if (myIdx < 10 || myIdx === -1) return null
+                  const m = sortedLeaderboard[myIdx]
+                  const livePhoto = memberPhotos[m.userId] || m.photoUrl || ''
+                  return (
+                    <>
+                      <div className="text-center text-white/20 text-xs py-1">···</div>
+                      <div className="flex items-center gap-3 px-3 py-3 rounded-2xl"
+                        style={{ backgroundColor: '#1ED75F10', border: '1px solid #1ED75F25' }}>
+                        <div className="w-7 text-center flex-shrink-0">
+                          <span className="text-sm font-black text-white/40">#{myIdx + 1}</span>
+                        </div>
+                        <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: '#1ED75F22' }}>
+                          {livePhoto
+                            ? <Image src={livePhoto} alt={m.displayName} fill sizes="36px" className="object-cover" />
+                            : <span className="text-sm font-black text-brand-green">{m.displayName.charAt(0).toUpperCase()}</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-bold text-white truncate block">{m.displayName}</span>
+                          <span className="text-[9px] font-bold text-brand-green">TU</span>
+                        </div>
+                        <span className="text-sm font-black text-brand-green flex-shrink-0">
+                          {m.points ?? 0}<span className="text-[10px] font-normal text-white/30 ml-0.5">pts</span>
+                        </span>
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* Description bottom sheet */}
@@ -1080,6 +1216,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
   const [showAllGoing, setShowAllGoing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [localRsvpStatus, setLocalRsvpStatus] = useState<'GOING' | 'NOT_GOING' | 'MAYBE' | null>(null)
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
   const [editDate, setEditDate] = useState('')
@@ -1109,7 +1246,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
     }
   }
 
-  const myStatus = training.rsvps?.[myUid]
+  const myStatus = localRsvpStatus ?? training.rsvps?.[myUid]
   const rsvpEntries = Object.entries(training.rsvps ?? {})
   const goingUids   = rsvpEntries.filter(([, s]) => s === 'GOING').map(([uid]) => uid)
   const maybeUids   = rsvpEntries.filter(([, s]) => s === 'MAYBE').map(([uid]) => uid)
@@ -1398,7 +1535,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
         <div className="flex gap-2">
           {(['GOING', 'MAYBE', 'NOT_GOING'] as const).map(status => (
             <button key={status}
-              onClick={() => onRsvp(status)}
+              onClick={() => { setLocalRsvpStatus(status); onRsvp(status) }}
               className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors border ${
                 myStatus === status
                   ? 'bg-brand-green text-black border-brand-green'
@@ -1601,6 +1738,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, defa
                 value={ex.name}
                 onChange={e => setExercises(prev => prev.map((ex2, j) => j === i ? { ...ex2, name: e.target.value } : ex2))}
                 placeholder="Exercițiu"
+                maxLength={80}
                 className="flex-1 min-w-0 h-9 rounded-lg px-2.5 text-xs text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
               />
               <input
@@ -1661,6 +1799,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, defa
                 value={customEquipment}
                 onChange={e => setCustomEquipment(e.target.value)}
                 placeholder="Altceva (ex: kettlebell...)"
+                maxLength={60}
                 className="mt-1 h-9 rounded-xl px-3 text-xs text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
               />
             </div>

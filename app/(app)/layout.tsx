@@ -10,6 +10,7 @@ import OfflineBanner from '@/components/layout/OfflineBanner'
 import { WorkoutProvider, useWorkout } from '@/lib/context/WorkoutContext'
 import { NotificationProvider } from '@/lib/context/NotificationContext'
 import { LanguageProvider } from '@/lib/context/LanguageContext'
+import { ToastProvider } from '@/lib/context/ToastContext'
 import { ChevronRight, Dumbbell, Bell, Users, MessageSquare, UserPlus } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
@@ -244,9 +245,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ThemeProvider>
         <WorkoutProvider>
           <NotificationProvider>
-            <ErrorBoundary>
-              <AppLayoutInner>{children}</AppLayoutInner>
-            </ErrorBoundary>
+            <ToastProvider>
+              <ErrorBoundary>
+                <AppLayoutInner>{children}</AppLayoutInner>
+              </ErrorBoundary>
+            </ToastProvider>
           </NotificationProvider>
         </WorkoutProvider>
       </ThemeProvider>

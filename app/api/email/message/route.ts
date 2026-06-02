@@ -4,6 +4,8 @@ import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { messageEmailHtml } from '@/lib/email/messageTemplate'
 import { FieldValue } from 'firebase-admin/firestore'
 
+const EMAIL_RATE_LIMIT = 5 // max new-conversation emails per sender per hour
+
 export const dynamic = 'force-dynamic'
 
 const FROM_EMAIL = process.env.EMAIL_FROM ?? 'CaliPal <noreply@calipal.ro>'
@@ -36,6 +38,19 @@ export async function POST(req: NextRequest) {
     }
     if (senderUid === recipientUid) {
       return NextResponse.json({ ok: false, reason: 'self-message' }, { status: 400 })
+    }
+
+    // ── 3a. Rate limit: 5 new-conversation emails / hour per sender ──────────
+    const now = Date.now()
+    const windowStart = now - 60 * 60 * 1000
+    const emailRateRef = adminDb().collection('email_rate').doc(senderUid)
+    const emailRateSnap = await emailRateRef.get()
+    const emailRateData = emailRateSnap.data() ?? {}
+    const windowTs: number = emailRateData.windowStart ?? 0
+    const emailCount: number = windowTs > windowStart ? (emailRateData.count ?? 0) : 0
+
+    if (emailCount >= EMAIL_RATE_LIMIT) {
+      return NextResponse.json({ ok: false, reason: 'rate-limited' }, { status: 429 })
     }
 
     // ── 3. Check one-time guard on conversation doc ───────────────────────────
@@ -90,8 +105,14 @@ export async function POST(req: NextRequest) {
       }),
     })
 
-    // ── 7. Mark conversation so we never send again ───────────────────────────
-    await convRef.set({ firstMessageEmailSent: true }, { merge: true })
+    // ── 7. Mark conversation so we never send again + update rate counter ────
+    await Promise.all([
+      convRef.set({ firstMessageEmailSent: true }, { merge: true }),
+      emailRateRef.set({
+        windowStart: windowTs > windowStart ? windowTs : now,
+        count: FieldValue.increment(1),
+      }, { merge: true }),
+    ])
 
     return NextResponse.json({ ok: true })
   } catch (err) {

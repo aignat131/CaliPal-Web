@@ -164,6 +164,7 @@ const T: Record<string, { RO: string; EN: string }> = {
   'settings.dark_mode':       { RO: 'Mod întunecat',    EN: 'Dark mode' },
   'settings.section_lang':    { RO: 'LIMBĂ',            EN: 'LANGUAGE' },
   'settings.section_other':   { RO: 'ALTELE',           EN: 'OTHER' },
+  'settings.install_app':     { RO: 'Instalează aplicația', EN: 'Install App' },
   'settings.about':           { RO: 'Despre aplicație', EN: 'About app' },
   'settings.section_trainer': { RO: 'ANTRENOR',         EN: 'TRAINER' },
   'settings.coach_hub':       { RO: 'Coach Hub',        EN: 'Coach Hub' },

@@ -63,11 +63,26 @@ service cloud.firestore {
       }
     }
 
+    // ── Shop purchases ────────────────────────────────────────────────────────
+    match /users/{uid}/purchases/{itemId} {
+      allow read: if isAuth();
+      allow create: if isOwner(uid);
+      allow update, delete: if false;
+    }
+
     // ── Coin tasks (one-time award guards) ────────────────────────────────────
     match /coin_tasks/{taskId} {
       allow read: if isAuth() && (resource == null || resource.data.uid == request.auth.uid);
       allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
       allow update, delete: if false;
+    }
+
+    // ── Push / email rate limiting (server-only write via Admin SDK) ─────────
+    match /push_rate/{uid} {
+      allow read, write: if false; // admin SDK only
+    }
+    match /email_rate/{uid} {
+      allow read, write: if false; // admin SDK only
     }
 
     // ── FCM tokens ────────────────────────────────────────────────────────────

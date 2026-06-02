@@ -15,6 +15,7 @@ import { createNotification } from '@/lib/firebase/notifications'
 import type { ChatMessage, ConversationDoc } from '@/types'
 import { ArrowLeft, Send, Check, CheckCheck } from 'lucide-react'
 import { useLanguage } from '@/lib/context/LanguageContext'
+import { SkeletonMessages } from '@/components/ui/SkeletonLoaders'
 
 // ── Time helpers ──────────────────────────────────────────────────────────────
 
@@ -295,11 +296,7 @@ export default function ChatDetailPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        {loading && (
-          <div className="flex justify-center py-8">
-            <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
+        {loading && <SkeletonMessages />}
         {!loading && messages.length === 0 && (
           <p className="text-center text-sm text-white/35 py-8">{t('chat.send_first')}</p>
         )}

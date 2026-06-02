@@ -14,7 +14,9 @@ import {
   ArrowLeft, ChevronRight, User, LogOut, Lock, Info, Bell,
   Shield, Sun, Moon, MapPin, Globe, MessageSquarePlus, Mail,
   MessageSquare, Dumbbell, Newspaper, Send, CheckCircle, Users, UserPlus,
+  Download,
 } from 'lucide-react'
+import { getInstallPrompt, clearInstallPrompt } from '@/components/layout/ServiceWorkerRegistrar'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useLanguage } from '@/lib/context/LanguageContext'
 
@@ -72,6 +74,24 @@ export default function SettingsPage() {
   const [pushNotifTrainings, setPushNotifTrainings] = useState(true)
   const [pushNotifCommunity, setPushNotifCommunity] = useState(true)
   const [pushNotifFriends,   setPushNotifFriends]   = useState(true)
+
+  // PWA install prompt
+  const [pwaInstallable, setPwaInstallable] = useState(false)
+
+  useEffect(() => {
+    if (getInstallPrompt()) setPwaInstallable(true)
+    const handler = () => setPwaInstallable(true)
+    window.addEventListener('pwa-installable', handler)
+    return () => window.removeEventListener('pwa-installable', handler)
+  }, [])
+
+  async function handlePwaInstall() {
+    const prompt = getInstallPrompt()
+    if (!prompt) return
+    await prompt.prompt()
+    const { outcome } = await prompt.userChoice
+    if (outcome === 'accepted') { clearInstallPrompt(); setPwaInstallable(false) }
+  }
 
   // Broadcast state (superadmin only)
   const [bSubject,  setBSubject]  = useState('')
@@ -386,6 +406,16 @@ export default function SettingsPage() {
         {/* Other */}
         <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_other')}</p>
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          {pwaInstallable && (
+            <button
+              onClick={handlePwaInstall}
+              className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/5 transition-colors"
+            >
+              <span className="text-brand-green flex-shrink-0"><Download size={17} /></span>
+              <span className="flex-1 text-sm font-semibold text-white">{t('settings.install_app')}</span>
+              <ChevronRight size={15} className="text-white/25" />
+            </button>
+          )}
           <SettingsRow icon={<Info size={17} />}             label={t('settings.about')}    value="v1.0.0" href="/profile/about" />
           <SettingsRow icon={<MessageSquarePlus size={17} />} label={t('settings.feedback')}              href="/feedback" />
         </div>

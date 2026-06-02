@@ -17,6 +17,7 @@ import { ROLE_LABELS } from '@/types'
 import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search, Bell, X, ArrowRight } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
 import { awardCoins } from '@/lib/gamification/coins'
+import { useToast } from '@/lib/context/ToastContext'
 
 function formatDate(str: string | undefined): string {
   if (!str) return ''
@@ -37,6 +38,7 @@ export default function CommunityPage() {
   const { user } = useAuth()
   const router = useRouter()
   const t = useT()
+  const { showToast } = useToast()
   const { requestPermission } = usePushNotifications(user?.uid)
   const [communities, setCommunities] = useState<CommunityDoc[]>([])
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set())
@@ -207,6 +209,10 @@ export default function CommunityPage() {
   async function joinCommunity(community: CommunityDoc) {
     if (!user || joiningId) return
     setJoiningId(community.id)
+    // Optimistic: immediately reflect joined state
+    setJoinedIds(prev => new Set([...prev, community.id]))
+    setCommunities(prev => prev.map(c => c.id === community.id ? { ...c, memberCount: c.memberCount + 1 } : c))
+    setPreviewCommunity(null)
     try {
       await setDoc(doc(db, 'communities', community.id, 'members', user.uid), {
         userId: user.uid,
@@ -222,8 +228,13 @@ export default function CommunityPage() {
         joinedCommunityIds: arrayUnion(community.id),
       })
       awardCoins(user.uid, 'JOIN_COMMUNITY').catch(() => {})
-      setPreviewCommunity(null)
       setJoinedCommunityName(community.name)
+      showToast(`Ai intrat în ${community.name}!`)
+    } catch {
+      // Revert optimistic update on failure
+      setJoinedIds(prev => { const n = new Set(prev); n.delete(community.id); return n })
+      setCommunities(prev => prev.map(c => c.id === community.id ? { ...c, memberCount: c.memberCount - 1 } : c))
+      showToast('Eroare la alăturare. Încearcă din nou.', 'error')
     } finally {
       setJoiningId(null)
     }

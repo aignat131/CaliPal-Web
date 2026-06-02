@@ -4,7 +4,8 @@ import { adminDb } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
 
-const UNSUB_SECRET = process.env.UNSUBSCRIBE_SECRET ?? 'change-me-in-env'
+const UNSUB_SECRET = process.env.UNSUBSCRIBE_SECRET
+if (!UNSUB_SECRET) throw new Error('UNSUBSCRIBE_SECRET env var is not set')
 
 function unsubToken(uid: string, communityId: string): string {
   return createHmac('sha256', UNSUB_SECRET).update(`${uid}:${communityId}`).digest('hex')

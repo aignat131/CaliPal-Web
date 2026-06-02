@@ -7,10 +7,14 @@ import Link from 'next/link'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase/auth'
 import { db } from '@/lib/firebase/firestore'
-import { collection, query, orderBy, limit, where, onSnapshot, doc } from 'firebase/firestore'
+import {
+  collection, query, orderBy, limit, where, onSnapshot, doc,
+  runTransaction, increment, serverTimestamp,
+} from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { UserDoc, WorkoutDoc } from '@/types'
-import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle } from 'lucide-react'
+import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag } from 'lucide-react'
+import { useToast } from '@/lib/context/ToastContext'
 import { useT } from '@/lib/context/LanguageContext'
 
 function formatDuration(s: number): string {
@@ -74,14 +78,23 @@ const COIN_TASKS = [
   { id: 'SKILLS_10',            coins: 75,  icon: '🌟' },
 ]
 
+const SHOP_ITEMS = [
+  { id: 'EARLY_BADGE',        price: 100, icon: '⭐', name: 'Early Supporter', desc: 'Badge exclusiv pe profil pentru suporterii timpurii.' },
+  { id: 'PRO_TITLE',          price: 150, icon: '🎯', name: 'Titlu Pro',        desc: 'Schimbă eticheta "Membru" cu "🎯 Pro" în comunitățile tale.' },
+  { id: 'POWER_PACK',         price: 200, icon: '⚡', name: 'Power Pack',       desc: 'Deblochează o provocare bonus zilnică exclusivă.' },
+]
+
 export default function ProfilePage() {
   const { user } = useAuth()
   const router = useRouter()
   const t = useT()
+  const { showToast } = useToast()
   const [profile, setProfile] = useState<UserDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState(0)
   const [showLogout, setShowLogout] = useState(false)
+  const [showShop, setShowShop] = useState(false)
+  const [purchases, setPurchases] = useState<Set<string>>(new Set())
   const [recentWorkouts, setRecentWorkouts] = useState<WorkoutDoc[]>([])
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set())
   const [taskDoneToast, setTaskDoneToast] = useState<{ id: string; icon: string } | null>(null)
@@ -134,6 +147,38 @@ export default function ProfilePage() {
     )
     return unsub
   }, [user])
+
+  // Purchases subcollection
+  useEffect(() => {
+    if (!user) return
+    const unsub = onSnapshot(collection(db, 'users', user.uid, 'purchases'), snap => {
+      setPurchases(new Set(snap.docs.map(d => d.id)))
+    })
+    return unsub
+  }, [user])
+
+  async function handlePurchase(itemId: string, price: number) {
+    if (!user) return
+    try {
+      await runTransaction(db, async txn => {
+        const userRef = doc(db, 'users', user.uid)
+        const userSnap = await txn.get(userRef)
+        const coins: number = userSnap.data()?.coins ?? 0
+        if (coins < price) throw new Error('insufficient-coins')
+        const purchaseRef = doc(db, 'users', user.uid, 'purchases', itemId)
+        const purchaseSnap = await txn.get(purchaseRef)
+        if (purchaseSnap.exists()) throw new Error('already-purchased')
+        txn.update(userRef, { coins: increment(-price) })
+        txn.set(purchaseRef, { itemId, purchasedAt: serverTimestamp() })
+      })
+      showToast('Achiziție reușită! 🎉')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : ''
+      if (msg === 'insufficient-coins') showToast('Monede insuficiente.', 'error')
+      else if (msg === 'already-purchased') showToast('Ai cumpărat deja acest articol.', 'error')
+      else showToast('Eroare la achiziție.', 'error')
+    }
+  }
 
   // Derived completion for tasks not guarded by coin_tasks docs
   function getDerivedCompleted(): Set<string> {
@@ -245,6 +290,55 @@ export default function ProfilePage() {
           </span>
         </div>
       )}
+      {/* Shop modal */}
+      {showShop && (
+        <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/70" onClick={() => setShowShop(false)}>
+          <div className="w-full max-w-sm rounded-t-3xl p-5 pb-8"
+            style={{ backgroundColor: 'var(--app-surface)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ShoppingBag size={17} className="text-brand-green" />
+                <p className="font-black text-white text-sm">Magazin · {profile?.coins ?? 0} 🪙</p>
+              </div>
+              <button onClick={() => setShowShop(false)} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
+                <ChevronRight size={14} className="text-white/50 rotate-90" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {SHOP_ITEMS.map(item => {
+                const owned = purchases.has(item.id)
+                const canAfford = (profile?.coins ?? 0) >= item.price
+                return (
+                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl border"
+                    style={{ backgroundColor: owned ? '#1ED75F08' : 'var(--app-bg)', borderColor: owned ? '#1ED75F30' : 'rgba(255,255,255,0.08)' }}>
+                    <span className="text-2xl flex-shrink-0">{item.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white">{item.name}</p>
+                      <p className="text-xs text-white/40 leading-snug mt-0.5">{item.desc}</p>
+                    </div>
+                    {owned
+                      ? <span className="text-xs font-bold text-brand-green flex-shrink-0">✓ Activ</span>
+                      : (
+                        <button
+                          onClick={() => handlePurchase(item.id, item.price)}
+                          disabled={!canAfford}
+                          className="h-8 px-3 rounded-xl text-xs font-bold flex-shrink-0 transition-colors disabled:opacity-40"
+                          style={{ backgroundColor: canAfford ? '#1ED75F' : 'rgba(255,255,255,0.08)', color: canAfford ? '#000' : 'rgba(255,255,255,0.4)' }}
+                        >
+                          🪙 {item.price}
+                        </button>
+                      )
+                    }
+                  </div>
+                )
+              })}
+            </div>
+            <p className="text-xs text-white/25 text-center mt-4">Atinge 🪙 de pe profil pentru a deschide magazinul oricând.</p>
+          </div>
+        </div>
+      )}
+
       {/* Logout dialog */}
       {showLogout && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
@@ -306,7 +400,7 @@ export default function ProfilePage() {
           <div className="flex-1">
             <div className="flex justify-around mb-2">
               <Link href="/workout"><Stat value={String(profile?.totalWorkouts ?? 0)} label={t('profile.workouts')} /></Link>
-              <Stat value={String(profile?.coins ?? 0)} label={t('profile.coins')} />
+              <button onClick={() => setShowShop(true)}><Stat value={String(profile?.coins ?? 0)} label={t('profile.coins')} /></button>
               <Link href="/profile/friends"><Stat value={String(profile?.friendCount ?? 0)} label={t('profile.friends')} /></Link>
             </div>
             {(profile?.currentStreak ?? 0) > 0 && (
@@ -331,6 +425,12 @@ export default function ProfilePage() {
               style={{ backgroundColor: badge.bg, color: badge.color }}>
               {badge.label}
             </span>
+            {purchases.has('EARLY_BADGE') && (
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                style={{ backgroundColor: '#FFB80022', color: '#FFB800', border: '1px solid #FFB80040' }}>
+                ⭐ Early Supporter
+              </span>
+            )}
             {user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '') && (
               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
                 style={{ backgroundColor: '#FFB80022', color: '#FFB800', border: '1px solid #FFB80040' }}>

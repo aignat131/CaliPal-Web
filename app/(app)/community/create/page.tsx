@@ -333,6 +333,7 @@ export default function CreateCommunityPage() {
               onChange={e => setDescription(e.target.value)}
               placeholder={t('create.description_placeholder')}
               rows={3}
+              maxLength={500}
               className="w-full rounded-[14px] px-4 py-3 text-[15px] text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors resize-none"
             />
           </div>
@@ -456,6 +457,7 @@ function Field({ label, value, onChange, placeholder }: {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
+        maxLength={80}
         className="w-full h-[54px] rounded-[14px] px-4 text-[15px] text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
       />
     </div>
