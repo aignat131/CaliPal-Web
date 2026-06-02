@@ -179,6 +179,8 @@ const T: Record<string, { RO: string; EN: string }> = {
   'notif_modal.cat_friends':   { RO: 'Prieteni — cereri și confirmări',                EN: 'Friends — requests and acceptances' },
   'notif_modal.allow':         { RO: 'Permite notificările',                           EN: 'Allow Notifications' },
   'notif_modal.later':         { RO: 'Nu acum',                                        EN: 'Not now' },
+  'notif_modal.select_all':    { RO: 'Selectează toate',                                EN: 'Select all' },
+  'notif_modal.deselect_all':  { RO: 'Deselectează toate',                              EN: 'Deselect all' },
 
   // ── Community Page ───────────────────────────────────────────────────────────
   'community.title':          { RO: 'Comunitate',      EN: 'Community' },

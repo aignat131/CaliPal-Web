@@ -14,6 +14,8 @@ import { ChevronRight, Dumbbell, Bell, Users, MessageSquare, UserPlus } from 'lu
 import { useT } from '@/lib/context/LanguageContext'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase/firestore'
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -63,12 +65,50 @@ function WorkoutMiniBar() {
 
 const NOTIF_PROMPT_KEY = 'calipal_notif_prompt_seen'
 
-function NotifPermissionModal({ onAllow, onDismiss }: { onAllow: () => void; onDismiss: () => void }) {
+type NotifPrefs = {
+  pushNotifCommunity: boolean
+  pushNotifTrainings: boolean
+  pushNotifMessages: boolean
+  pushNotifFriends: boolean
+}
+
+const NOTIF_CATEGORIES: { key: keyof NotifPrefs; Icon: React.ElementType; labelKey: string }[] = [
+  { key: 'pushNotifCommunity', Icon: Users,         labelKey: 'notif_modal.cat_community' },
+  { key: 'pushNotifTrainings', Icon: Dumbbell,      labelKey: 'notif_modal.cat_trainings' },
+  { key: 'pushNotifMessages',  Icon: MessageSquare, labelKey: 'notif_modal.cat_messages'  },
+  { key: 'pushNotifFriends',   Icon: UserPlus,      labelKey: 'notif_modal.cat_friends'   },
+]
+
+function NotifPermissionModal({
+  onAllow,
+  onDismiss,
+}: {
+  onAllow: (prefs: NotifPrefs) => void
+  onDismiss: () => void
+}) {
   const t = useT()
+  const [prefs, setPrefs] = useState<NotifPrefs>({
+    pushNotifCommunity: true,
+    pushNotifTrainings: true,
+    pushNotifMessages:  true,
+    pushNotifFriends:   true,
+  })
+
+  const allChecked = Object.values(prefs).every(Boolean)
+
+  function toggle(key: keyof NotifPrefs) {
+    setPrefs(p => ({ ...p, [key]: !p[key] }))
+  }
+
+  function toggleAll() {
+    const next = !allChecked
+    setPrefs({ pushNotifCommunity: next, pushNotifTrainings: next, pushNotifMessages: next, pushNotifFriends: next })
+  }
+
   return (
     <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/70 px-6">
       <div className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
-        <div className="flex flex-col items-center text-center gap-3 mb-6">
+        <div className="flex flex-col items-center text-center gap-3 mb-5">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
             style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F30' }}>
             <Bell size={24} className="text-brand-green" />
@@ -78,25 +118,53 @@ function NotifPermissionModal({ onAllow, onDismiss }: { onAllow: () => void; onD
             <p className="text-sm text-white/55 mt-1.5 leading-relaxed">{t('notif_modal.subtitle')}</p>
           </div>
         </div>
-        <div className="flex flex-col gap-2.5 mb-6">
-          {([
-            [Users,         'notif_modal.cat_community'],
-            [Dumbbell,      'notif_modal.cat_trainings'],
-            [MessageSquare, 'notif_modal.cat_messages'],
-            [UserPlus,      'notif_modal.cat_friends'],
-          ] as const).map(([Icon, key]) => (
-            <div key={key} className="flex items-start gap-3">
-              <span className="text-brand-green flex-shrink-0 mt-0.5"><Icon size={15} /></span>
-              <p className="text-xs text-white/70 text-left leading-relaxed">{t(key)}</p>
-            </div>
+
+        {/* Category checkboxes */}
+        <div className="flex flex-col gap-1 mb-3">
+          {NOTIF_CATEGORIES.map(({ key, Icon, labelKey }) => (
+            <button
+              key={key}
+              onClick={() => toggle(key)}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors active:bg-white/5"
+            >
+              {/* Custom checkbox */}
+              <span
+                className="w-5 h-5 rounded-md flex-shrink-0 flex items-center justify-center transition-colors"
+                style={{
+                  backgroundColor: prefs[key] ? '#1ED75F' : 'transparent',
+                  border: prefs[key] ? '2px solid #1ED75F' : '2px solid rgba(255,255,255,0.25)',
+                }}
+              >
+                {prefs[key] && (
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                    <path d="M1 4L3.5 6.5L9 1" stroke="black" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </span>
+              <span className="text-brand-green flex-shrink-0"><Icon size={15} /></span>
+              <p className="text-xs text-white/75 text-left leading-relaxed flex-1">{t(labelKey)}</p>
+            </button>
           ))}
         </div>
+
+        {/* Select / deselect all */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={toggleAll}
+            className="text-xs font-semibold text-brand-green/80 px-1"
+          >
+            {allChecked ? t('notif_modal.deselect_all') : t('notif_modal.select_all')}
+          </button>
+        </div>
+
         <div className="flex flex-col gap-2">
-          <button onClick={onAllow}
+          <button
+            onClick={() => onAllow(prefs)}
             className="w-full h-12 rounded-2xl bg-brand-green text-black font-black text-sm">
             {t('notif_modal.allow')}
           </button>
-          <button onClick={onDismiss}
+          <button
+            onClick={onDismiss}
             className="w-full h-10 rounded-2xl text-white/45 text-sm font-semibold">
             {t('notif_modal.later')}
           </button>
@@ -133,8 +201,13 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     setShowNotifModal(false)
   }
 
-  async function allowNotifications() {
+  async function allowNotifications(prefs: NotifPrefs) {
     await requestPermission()
+    if (user) {
+      try {
+        await updateDoc(doc(db, 'users', user.uid), { ...prefs })
+      } catch { /* non-critical — defaults are all true */ }
+    }
     dismissNotifModal()
   }
 
@@ -150,7 +223,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={`min-h-screen${theme === 'light' ? ' light' : ''}`} style={{ backgroundColor: 'var(--app-bg)' }}>
-      {showNotifModal && (
+      {showNotifModal && user && (
         <NotifPermissionModal onAllow={allowNotifications} onDismiss={dismissNotifModal} />
       )}
       <WorkoutUnloadGuard />
