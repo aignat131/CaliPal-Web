@@ -204,13 +204,7 @@ export default function ParkTrainingHistoryPage() {
         setTrainingSource(sourceMap)
         setTotalCount(merged.length)
 
-        const now = new Date()
-        const past = merged
-          .filter(tr => {
-            const start = parseDateTime(tr.timeStart, tr.date)
-            if (start !== null && !isNaN(start.getTime())) return start < now
-            return true
-          })
+        const sorted = merged
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)
             const db2 = parseDateTime(b.timeStart, b.date)
@@ -219,7 +213,7 @@ export default function ParkTrainingHistoryPage() {
             if (!db2) return -1
             return (db2?.getTime() ?? 0) - (da?.getTime() ?? 0)
           })
-        setTrainings(past)
+        setTrainings(sorted)
       } catch (e) {
         console.error('[ParkTrainingHistory] failed to load:', e)
       } finally {
@@ -267,15 +261,7 @@ export default function ParkTrainingHistoryPage() {
         ) : trainings.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
             <Dumbbell size={36} className="text-white/15" />
-            {totalCount > 0 ? (
-              <p className="text-sm text-white/35 text-center">
-                {totalCount === 1
-                  ? 'Există 1 antrenament planificat, dar nu a trecut încă.'
-                  : `Există ${totalCount} antrenamente planificate, dar niciunul nu a trecut încă.`}
-              </p>
-            ) : (
-              <p className="text-sm text-white/35 text-center whitespace-pre-line">{t('training.no_past_park')}</p>
-            )}
+            <p className="text-sm text-white/35 text-center whitespace-pre-line">{t('training.no_past_park')}</p>
             <button onClick={() => router.back()}
               className="mt-2 h-9 px-5 rounded-full bg-brand-green text-black text-xs font-bold">
               {t('training.back_map')}

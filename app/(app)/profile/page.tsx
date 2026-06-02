@@ -88,6 +88,7 @@ export default function ProfilePage() {
   const prevCompletedRef = useRef<Set<string>>(new Set())
   const prevDerivedRef = useRef<Set<string>>(new Set())
   const initializedRef = useRef(false)
+  const coinTasksReadyRef = useRef(false)
 
   // Live profile
   useEffect(() => {
@@ -126,6 +127,7 @@ export default function ProfilePage() {
     const unsub = onSnapshot(
       query(collection(db, 'coin_tasks'), where('uid', '==', user.uid)),
       snap => {
+        coinTasksReadyRef.current = true
         const tasks = snap.docs.map(d => d.data().task as string)
         setCompletedTasks(new Set(tasks))
       }
@@ -145,6 +147,7 @@ export default function ProfilePage() {
   // Show toast when a task is newly completed (skip initial load)
   useEffect(() => {
     if (!profile) return
+    if (!coinTasksReadyRef.current) return
     const derived = getDerivedCompleted()
     if (!initializedRef.current) {
       // First data load — seed the refs so we only toast on changes after page open
