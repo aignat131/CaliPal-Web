@@ -138,6 +138,10 @@ export interface ChatMessage {
   text: string
   timestamp: Timestamp | null
   isRead: boolean
+  reactions?: Record<string, string[]>  // emoji → array of userIds
+  replyToId?: string
+  replyToText?: string
+  replyToSenderName?: string
 }
 
 export interface FriendRequest {

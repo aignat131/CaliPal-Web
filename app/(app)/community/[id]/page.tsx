@@ -25,13 +25,15 @@ import { ROLE_LABELS, conversationId } from '@/types'
 import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
-  Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut, UserX, Share2,
+  MessageCircle, User, Bell, X, LogOut, UserX, Share2,
   Pencil, Camera, Info, Mail, MailX, History, ImagePlus,
+  ChevronRight, ShieldCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
 import { useToast } from '@/lib/context/ToastContext'
 import { SkeletonCard, SkeletonTrainingRow } from '@/components/ui/SkeletonLoaders'
+import { GroupChatTab } from '@/components/community/GroupChatTab'
 
 const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
@@ -135,7 +137,8 @@ export default function CommunityDetailPage() {
   // Community edit
   const [showEditCommunity, setShowEditCommunity] = useState(false)
 
-
+  // Member sheet
+  const [memberSheetTarget, setMemberSheetTarget] = useState<CommunityMember | null>(null)
 
   const isSuperAdmin = user?.email === SUPERADMIN
 
@@ -221,7 +224,7 @@ export default function CommunityDetailPage() {
 
   useEffect(() => {
     sessionStorage.setItem(`comm_detail_tab_${id}`, String(tab))
-    if (tab === 2) loadSocialStatus()
+    if (tab === 3) loadSocialStatus()
   }, [tab, id, loadSocialStatus])
 
 
@@ -431,13 +434,14 @@ export default function CommunityDetailPage() {
   const visibleTabs = isMember
     ? [
         { label: 'Feed', Icon: MessageSquare },
+        { label: 'Chat', Icon: MessageCircle },
         { label: 'Antrenamente', Icon: Dumbbell },
         { label: 'Membri', Icon: Users },
       ]
     : [{ label: 'Membri', Icon: Users }]
 
-  // For non-members, always show tab index 0 (Membri → effectiveTab 2)
-  const effectiveTab = isMember ? tab : 2
+  // For non-members, always show tab index 0 (Membri → effectiveTab 3)
+  const effectiveTab = isMember ? tab : 3
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -518,86 +522,67 @@ export default function CommunityDetailPage() {
       {/* Header */}
       <div className="max-w-lg mx-auto">
       {community?.imageUrl ? (
-        /* ── Cover image header ── */
-        <div className="border-b border-white/8">
-          <div className="relative overflow-hidden" style={{ height: 140 }}>
+        /* ── Cover image header (full-bleed, frosted glass overlay) ── */
+        <div>
+          <div className="relative overflow-hidden" style={{ height: 208 }}>
             <Image src={community.imageUrl} alt={`${community.name} cover photo`} fill sizes="(max-width: 640px) 100vw, 640px" className="object-cover" />
-            <div className="absolute inset-0"
-              style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, var(--app-bg) 100%)' }} />
+            {/* Gradients: darken top for controls, fade to bg at bottom */}
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 40%, rgba(13,27,26,0.9) 80%, var(--app-bg) 100%)' }} />
+            {/* Back button */}
             <button
               aria-label="Înapoi"
               onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }}
               className="absolute top-3 left-3 w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+              style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)' }}
             >
               <ArrowLeft size={18} className="text-white" />
             </button>
-            {/* Share button — visible to everyone */}
-            <button
-              aria-label="Distribuie comunitatea"
-              onClick={shareCommunity}
-              className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
-            >
-              <Share2 size={16} className="text-white" />
-            </button>
-            {/* Three-dots menu (members only) */}
-            {isMember && (
-              <div className="absolute top-3 right-14">
-                <button
-                  onClick={() => setShowCommunityMenu(v => !v)}
-                  aria-label="Opțiuni comunitate"
-                  className="w-9 h-9 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
-                >
-                  <MoreVertical size={18} className="text-white" />
-                </button>
-                {showCommunityMenu && (
-                  <div
-                    className="absolute right-0 top-10 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[200px]"
-                    style={{ backgroundColor: 'var(--app-bg)' }}
+            {/* Right controls row */}
+            <div className="absolute top-3 right-3 flex items-center gap-2">
+              <button
+                aria-label="Distribuie comunitatea"
+                onClick={shareCommunity}
+                className="w-9 h-9 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                <Share2 size={16} className="text-white" />
+              </button>
+              {isMember && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowCommunityMenu(v => !v)}
+                    aria-label="Opțiuni comunitate"
+                    className="w-9 h-9 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)' }}
                   >
-                    <button
-                      onClick={() => { setShowDescription(true); setShowCommunityMenu(false) }}
-                      className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
-                    >
-                      <Info size={14} /> Descriere
-                    </button>
-                    {(isSuperAdmin || myRole === 'ADMIN') && (
-                      <button
-                        onClick={() => { setShowEditCommunity(true); setShowCommunityMenu(false) }}
-                        className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
-                      >
-                        <Pencil size={14} /> Editează comunitatea
+                    <Pencil size={15} className="text-white" />
+                  </button>
+                  {showCommunityMenu && (
+                    <div className="absolute right-0 top-10 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[200px]" style={{ backgroundColor: 'var(--app-bg)' }}>
+                      <button onClick={() => { setShowDescription(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Info size={14} /> Descriere</button>
+                      {(isSuperAdmin || myRole === 'ADMIN') && (
+                        <button onClick={() => { setShowEditCommunity(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Pencil size={14} /> Editează</button>
+                      )}
+                      <button onClick={toggleEmailNotifications} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left">
+                        {myEmailNotifications ? <MailX size={14} /> : <Mail size={14} />}
+                        {myEmailNotifications ? 'Dezactivează emailuri' : 'Activează emailuri'}
                       </button>
-                    )}
-                    <button
-                      onClick={toggleEmailNotifications}
-                      className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
-                    >
-                      {myEmailNotifications ? <MailX size={14} /> : <Mail size={14} />}
-                      {myEmailNotifications ? 'Dezactivează emailuri' : 'Activează emailuri'}
-                    </button>
-                    <button
-                      onClick={leaveCommunity}
-                      disabled={leaving}
-                      className="w-full px-4 py-3 text-sm text-red-400 hover:bg-white/8 flex items-center gap-2 text-left disabled:opacity-50"
-                    >
-                      <LogOut size={14} /> {leaving ? '...' : 'Ieși din comunitate'}
-                    </button>
-                  </div>
-                )}
+                      <button onClick={leaveCommunity} disabled={leaving} className="w-full px-4 py-3 text-sm text-red-400 hover:bg-white/8 flex items-center gap-2 text-left disabled:opacity-50">
+                        <LogOut size={14} /> {leaving ? '...' : 'Ieși din comunitate'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Frosted glass name/info strip */}
+            <div className="absolute bottom-3 left-4 right-4 rounded-2xl px-4 py-3"
+              style={{ backgroundColor: 'rgba(13,27,26,0.72)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.09)' }}>
+              <div className="flex items-center gap-2">
+                <p className="text-base font-black text-white flex-1 truncate leading-tight">{community.name}</p>
+                {community.verified && <ShieldCheck size={15} className="text-brand-green flex-shrink-0" />}
               </div>
-            )}
-            {community.verified && (
-              <span className="absolute top-3 left-14 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: 'rgba(59,130,246,0.3)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.4)' }}>
-                ✓ Verificat
-              </span>
-            )}
-            <div className="absolute bottom-3 left-4 right-4">
-              <p className="font-black text-white text-base leading-tight drop-shadow">{community.name}</p>
-              <p className="text-xs text-white/65">{community.memberCount ?? 0} membri · {isMember ? 'Membru' : 'Vizitator'}</p>
+              <p className="text-xs text-white/50 mt-0.5">{community.memberCount ?? 0} membri · {community.location ?? ''}</p>
             </div>
           </div>
         </div>
@@ -611,64 +596,29 @@ export default function CommunityDetailPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-black text-white text-base truncate">{community?.name ?? '...'}</p>
-                {community?.verified && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: '#3B82F622', color: '#3B82F6', border: '1px solid #3B82F640' }}>
-                    ✓ Verificat
-                  </span>
-                )}
+                {community?.verified && <ShieldCheck size={14} className="text-brand-green flex-shrink-0" />}
               </div>
               <p className="text-xs text-white/45">{community?.memberCount ?? 0} membri · {isMember ? 'Membru' : 'Vizitator'}</p>
             </div>
-            {/* Share button — visible to everyone */}
-            <button
-              aria-label="Distribuie comunitatea"
-              onClick={shareCommunity}
-              className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0"
-            >
+            <button aria-label="Distribuie" onClick={shareCommunity} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
               <Share2 size={16} className="text-white/70" />
             </button>
-            {/* Three-dots menu (members only) */}
             {isMember && (
               <div className="relative flex-shrink-0">
-                <button
-                  onClick={() => setShowCommunityMenu(v => !v)}
-                  aria-label="Opțiuni comunitate"
-                  className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center"
-                >
-                  <MoreVertical size={18} className="text-white/70" />
+                <button onClick={() => setShowCommunityMenu(v => !v)} aria-label="Opțiuni comunitate" className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
+                  <Pencil size={15} className="text-white/70" />
                 </button>
                 {showCommunityMenu && (
-                  <div
-                    className="absolute right-0 top-10 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[200px]"
-                    style={{ backgroundColor: 'var(--app-bg)' }}
-                  >
-                    <button
-                      onClick={() => { setShowDescription(true); setShowCommunityMenu(false) }}
-                      className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
-                    >
-                      <Info size={14} /> Descriere
-                    </button>
+                  <div className="absolute right-0 top-10 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[200px]" style={{ backgroundColor: 'var(--app-bg)' }}>
+                    <button onClick={() => { setShowDescription(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Info size={14} /> Descriere</button>
                     {(isSuperAdmin || myRole === 'ADMIN') && (
-                      <button
-                        onClick={() => { setShowEditCommunity(true); setShowCommunityMenu(false) }}
-                        className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
-                      >
-                        <Pencil size={14} /> Editează comunitatea
-                      </button>
+                      <button onClick={() => { setShowEditCommunity(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Pencil size={14} /> Editează</button>
                     )}
-                    <button
-                      onClick={toggleEmailNotifications}
-                      className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
-                    >
+                    <button onClick={toggleEmailNotifications} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left">
                       {myEmailNotifications ? <MailX size={14} /> : <Mail size={14} />}
                       {myEmailNotifications ? 'Dezactivează emailuri' : 'Activează emailuri'}
                     </button>
-                    <button
-                      onClick={leaveCommunity}
-                      disabled={leaving}
-                      className="w-full px-4 py-3 text-sm text-red-400 hover:bg-white/8 flex items-center gap-2 text-left disabled:opacity-50"
-                    >
+                    <button onClick={leaveCommunity} disabled={leaving} className="w-full px-4 py-3 text-sm text-red-400 hover:bg-white/8 flex items-center gap-2 text-left disabled:opacity-50">
                       <LogOut size={14} /> {leaving ? '...' : 'Ieși din comunitate'}
                     </button>
                   </div>
@@ -713,20 +663,40 @@ export default function CommunityDetailPage() {
         </div>
       )}
 
+      {/* Active training banner */}
+      {isMember && (() => {
+        const now = Date.now()
+        const active = trainings.find(t => {
+          const start = parseTrainingDateTime(t.timeStart, t.date)
+          const end = t.timeEnd ? parseTrainingDateTime(t.timeEnd, t.date) : null
+          return start && end && now >= start.getTime() && now <= end.getTime()
+        })
+        return active ? (
+          <div className="max-w-lg mx-auto px-4 pt-3">
+            <div className="px-4 py-2.5 rounded-2xl flex items-center gap-3"
+              style={{ backgroundColor: '#1ED75F12', border: '1px solid #1ED75F35' }}>
+              <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse flex-shrink-0" />
+              <span className="text-sm font-bold text-brand-green flex-1 min-w-0 truncate">{active.name} — în desfășurare acum</span>
+              <button onClick={() => setTab(2)} className="text-xs font-black text-brand-green/70 flex-shrink-0">Vezi →</button>
+            </div>
+          </div>
+        ) : null
+      })()}
+
       {/* Tabs — non-members only see Membri */}
       <div className="max-w-lg mx-auto">
-      <div className="flex border-b border-white/10 mt-3">
+      <div className="flex border-b border-white/10 mt-3 sticky top-0 z-20" style={{ backgroundColor: 'var(--app-bg)' }}>
         {visibleTabs.map(({ label, Icon }, i) => {
-          // For members: tab index matches. For non-members: only 1 tab (index 0 = Membri)
           const tabIndex = isMember ? i : 2
           const isActive = isMember ? tab === i : true
           return (
             <button key={label} onClick={() => isMember && setTab(tabIndex)}
-              className={`flex-1 py-3 text-xs font-bold transition-colors flex flex-col items-center gap-0.5 ${
-                isActive ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/40'
+              className={`flex-1 py-3 text-xs font-bold transition-colors relative flex flex-col items-center gap-0.5 ${
+                isActive ? 'text-brand-green' : 'text-white/40'
               }`}>
               <Icon size={15} />
               {label}
+              {isActive && <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-brand-green" />}
             </button>
           )
         })}
@@ -799,8 +769,21 @@ export default function CommunityDetailPage() {
           </div>
         )}
 
+        {/* ── Chat ── */}
+        {effectiveTab === 1 && community && user && (
+          <GroupChatTab
+            communityId={id}
+            myUid={user.uid}
+            myName={myProfile?.displayName || user.displayName || ''}
+            myPhotoUrl={myProfile?.photoUrl || user.photoURL || null}
+            myRole={myRole}
+            members={members}
+            onMemberTap={(m) => setMemberSheetTarget(m)}
+          />
+        )}
+
         {/* ── Antrenamente ── */}
-        {effectiveTab === 1 && (
+        {effectiveTab === 2 && (
           <div>
             {isMember && (
               <button onClick={() => setShowAddTraining(true)}
@@ -868,7 +851,7 @@ export default function CommunityDetailPage() {
         )}
 
         {/* ── Membri ── */}
-        {effectiveTab === 2 && (!user ? (
+        {effectiveTab === 3 && (!user ? (
           <div className="text-center py-14">
             <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#1ED75F18' }}>
               <Users size={24} className="text-brand-green" />
@@ -895,7 +878,12 @@ export default function CommunityDetailPage() {
               const livePhoto = m.photoUrl || ''
 
               return (
-                <div key={m.userId} className="flex items-center gap-2 px-3 py-3 rounded-2xl" style={{ backgroundColor: 'var(--app-surface)' }}>
+                <div
+                  key={m.userId}
+                  className="flex items-center gap-2 px-3 py-3 rounded-2xl cursor-pointer active:scale-[0.98] transition-transform"
+                  style={{ backgroundColor: 'var(--app-surface)' }}
+                  onClick={() => setMemberSheetTarget(m)}
+                >
                   {/* Avatar with role ring */}
                   <div className="relative flex-shrink-0">
                     <div className="relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center"
@@ -904,19 +892,15 @@ export default function CommunityDetailPage() {
                         ? <Image src={livePhoto} alt={m.displayName} fill sizes="40px" className="object-cover" />
                         : <span className="text-sm font-black" style={{ color: roleColor }}>{m.displayName.charAt(0).toUpperCase()}</span>}
                     </div>
-                    {m.role === 'ADMIN' && (
-                      <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">👑</span>
-                    )}
-                    {m.role === 'TRAINER' && (
-                      <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">🏋️</span>
-                    )}
+                    {m.role === 'ADMIN' && <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">👑</span>}
+                    {m.role === 'TRAINER' && <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">🏋️</span>}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-1.5">
                       <span className="text-sm font-bold text-white truncate">{m.displayName}</span>
-                      {isMe && <span className="text-[9px] font-bold text-white/30">TU</span>}
+                      {isMe && <span className="text-[9px] font-bold text-white/25">TU</span>}
                     </div>
                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
                       style={{ backgroundColor: `${roleColor}18`, color: roleColor }}>
@@ -925,71 +909,13 @@ export default function CommunityDetailPage() {
                   </div>
 
                   {/* Points */}
-                  <span className="text-sm font-black text-brand-green flex-shrink-0">
-                    {m.points ?? 0}<span className="text-[10px] font-normal text-white/30 ml-0.5">pts</span>
-                  </span>
+                  <div className="flex flex-col items-end flex-shrink-0">
+                    <span className="text-sm font-black text-brand-green">{m.points ?? 0}</span>
+                    <span className="text-[9px] text-white/25">pts</span>
+                  </div>
 
-                  {/* Three-dots menu (right side) — only for members */}
-                  {isMember && (
-                    <div className="relative flex-shrink-0">
-                      <button
-                        onClick={() => setOpenMenuId(openMenuId === m.userId ? null : m.userId)}
-                        aria-label="Opțiuni membru"
-                        className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white/70 rounded-full hover:bg-white/8"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-                      {openMenuId === m.userId && (
-                        <div
-                          className="absolute right-0 top-9 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[150px]"
-                          style={{ backgroundColor: 'var(--app-bg)' }}
-                        >
-                          <Link href={isMe ? '/profile' : `/profile/${m.userId}`} onClick={() => setOpenMenuId(null)}>
-                            <div className="px-3 py-2.5 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2">
-                              <User size={14} /> Vezi profil
-                            </div>
-                          </Link>
-                          {!isMe && (
-                            <>
-                              <button
-                                onClick={() => { goToChat(m.userId, m.displayName); setOpenMenuId(null) }}
-                                className="w-full px-3 py-2.5 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
-                              >
-                                <MessageSquare size={14} /> Mesaj
-                              </button>
-                              {!isFriend && !isPending && (
-                                <button
-                                  onClick={() => { sendFriendRequest(m); setOpenMenuId(null) }}
-                                  className="w-full px-3 py-2.5 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"
-                                >
-                                  <UserPlus size={14} /> Adaugă prieten
-                                </button>
-                              )}
-                              {isFriend && (
-                                <div className="px-3 py-2.5 text-sm text-brand-green flex items-center gap-2">
-                                  <Check size={14} /> Prieten
-                                </div>
-                              )}
-                              {isPending && (
-                                <div className="px-3 py-2.5 text-sm text-white/40 flex items-center gap-2">
-                                  <Clock size={14} /> Cerere trimisă
-                                </div>
-                              )}
-                              {/* Kick — admin only, not for other admins */}
-                              {(isSuperAdmin || myRole === 'ADMIN') && m.role !== 'ADMIN' && (
-                                <button
-                                  onClick={() => { setKickTarget(m); setOpenMenuId(null) }}
-                                  className="w-full px-3 py-2.5 text-sm text-red-400 hover:bg-red-400/10 flex items-center gap-2 text-left border-t border-white/8"
-                                >
-                                  <UserX size={14} /> Elimină din comunitate
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {/* Chevron hint */}
+                  <ChevronRight size={14} className="text-white/15 flex-shrink-0" />
                 </div>
               )
             })}
@@ -998,6 +924,21 @@ export default function CommunityDetailPage() {
 
 
       </div>
+
+      {/* Member sheet */}
+      {memberSheetTarget && (
+        <MemberSheet
+          member={memberSheetTarget}
+          myUid={user?.uid ?? ''}
+          isFriend={friendIds.has(memberSheetTarget.userId)}
+          isPending={pendingIds.has(memberSheetTarget.userId)}
+          canKick={(isSuperAdmin || myRole === 'ADMIN') && memberSheetTarget.role !== 'ADMIN'}
+          onClose={() => setMemberSheetTarget(null)}
+          onGoToChat={() => { goToChat(memberSheetTarget.userId, memberSheetTarget.displayName); setMemberSheetTarget(null) }}
+          onAddFriend={() => { sendFriendRequest(memberSheetTarget); setMemberSheetTarget(null) }}
+          onKick={() => { setKickTarget(memberSheetTarget); setMemberSheetTarget(null) }}
+        />
+      )}
 
       {/* Description bottom sheet */}
       {showDescription && (
@@ -1083,6 +1024,130 @@ function JoinNotificationModal({
           >
             {t('community.no_thanks')}
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Member Sheet ─────────────────────────────────────────────────────────────
+
+function MemberSheet({
+  member, myUid, isFriend, isPending, canKick,
+  onClose, onGoToChat, onAddFriend, onKick,
+}: {
+  member: CommunityMember
+  myUid: string
+  isFriend: boolean
+  isPending: boolean
+  canKick: boolean
+  onClose: () => void
+  onGoToChat: () => void
+  onAddFriend: () => void
+  onKick: () => void
+}) {
+  const roleColor = ROLE_COLORS[member.role as MemberRole] ?? '#1ED75F'
+  const isMe = member.userId === myUid
+
+  const joinedAtMs = member.joinedAt
+    ? ((member.joinedAt as { toMillis?: () => number }).toMillis?.() ?? Date.now())
+    : null
+  const daysSinceJoin = joinedAtMs !== null
+    ? Math.floor((Date.now() - joinedAtMs) / 86400000)
+    : null
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-t-3xl pb-10 animate-slide-up"
+        style={{ backgroundColor: 'var(--app-surface)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Drag handle */}
+        <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mt-3 mb-5" />
+
+        {/* Avatar + name row */}
+        <div className="flex flex-col items-center px-6 mb-6">
+          <div className="relative mb-3">
+            <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center"
+              style={{ backgroundColor: `${roleColor}22`, border: `2.5px solid ${roleColor}` }}>
+              {member.photoUrl
+                ? <Image src={member.photoUrl} alt={member.displayName} width={64} height={64} className="object-cover w-full h-full" />
+                : <span className="text-2xl font-black" style={{ color: roleColor }}>{member.displayName.charAt(0).toUpperCase()}</span>}
+            </div>
+            {member.role === 'ADMIN' && <span className="absolute -bottom-0.5 -right-0.5 text-base">👑</span>}
+            {member.role === 'TRAINER' && <span className="absolute -bottom-0.5 -right-0.5 text-base">🏋️</span>}
+          </div>
+          <p className="text-lg font-black text-white">{member.displayName}</p>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap justify-center">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-md"
+              style={{ backgroundColor: `${roleColor}20`, color: roleColor }}>
+              {ROLE_LABELS[member.role as MemberRole]}
+            </span>
+            <span className="text-xs text-white/35">•</span>
+            <span className="text-xs text-white/50">{member.points ?? 0} pts</span>
+            {daysSinceJoin !== null && (
+              <>
+                <span className="text-xs text-white/35">•</span>
+                <span className="text-xs text-white/50">Membru de {daysSinceJoin} zile</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="px-5 flex flex-col gap-2">
+          {!isMe && (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={onGoToChat}
+                className="h-12 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all active:scale-95"
+                style={{ backgroundColor: '#1ED75F20', border: '1px solid #1ED75F40', color: '#1ED75F' }}
+              >
+                <MessageSquare size={16} /> Mesaj
+              </button>
+              <Link href={`/profile/${member.userId}`} className="h-12 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all active:scale-95 bg-white/8 border border-white/12 text-white/80">
+                <User size={16} /> Profil complet
+              </Link>
+            </div>
+          )}
+          {isMe && (
+            <Link href="/profile" className="h-12 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm bg-white/8 border border-white/12 text-white/80 active:scale-95 transition-transform">
+              <User size={16} /> Profilul meu
+            </Link>
+          )}
+
+          {!isMe && !isFriend && !isPending && (
+            <button
+              onClick={onAddFriend}
+              className="h-12 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm bg-white/8 border border-white/12 text-white/80 active:scale-95 transition-transform"
+            >
+              <UserPlus size={16} /> Adaugă prieten
+            </button>
+          )}
+          {!isMe && isFriend && (
+            <div className="h-10 flex items-center justify-center gap-2 text-sm text-brand-green">
+              <Check size={15} /> Prieteni deja
+            </div>
+          )}
+          {!isMe && isPending && (
+            <div className="h-10 flex items-center justify-center gap-2 text-sm text-white/35">
+              <Clock size={15} /> Cerere trimisă
+            </div>
+          )}
+
+          {canKick && (
+            <button
+              onClick={onKick}
+              className="h-12 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm text-red-400 border border-red-400/20 bg-red-400/8 active:scale-95 transition-transform mt-1"
+            >
+              <UserX size={16} /> Elimină din comunitate
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1767,19 +1832,31 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
   myProTitle?: boolean
   onDelete: () => void
 }) {
-  const [liked, setLiked] = useState(false)
-  const [likeCount, setLikeCount] = useState(post.likesCount ?? 0)
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState<PostComment[]>([])
   const [commentText, setCommentText] = useState('')
   const [commenting, setCommenting] = useState(false)
+  // Emoji reactions: { [emoji]: string[] (userIds) }
+  const [reactionCounts, setReactionCounts] = useState<Record<string, string[]>>({})
+  const [myReaction, setMyReaction] = useState<string | null>(null)
+  const [showReactionPicker, setShowReactionPicker] = useState(false)
+
+  const POST_REACTIONS = ['💪', '❤️', '🔥', '👏', '😮']
 
   useEffect(() => {
     const unsub = onSnapshot(
-      collection(db, 'communities', communityId, 'posts', post.id, 'likes'),
+      collection(db, 'communities', communityId, 'posts', post.id, 'reactions'),
       snap => {
-        setLikeCount(snap.size)
-        setLiked(snap.docs.some(d => d.id === myUid))
+        const counts: Record<string, string[]> = {}
+        let mine: string | null = null
+        snap.docs.forEach(d => {
+          const { emoji } = d.data() as { emoji: string }
+          if (!counts[emoji]) counts[emoji] = []
+          counts[emoji].push(d.id)
+          if (d.id === myUid) mine = emoji
+        })
+        setReactionCounts(counts)
+        setMyReaction(mine)
       }
     )
     return unsub
@@ -1799,18 +1876,15 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
   const isOwnPost = post.authorId === myUid
   const isWorkoutPost = post.workoutExercises !== undefined
 
-  async function toggleLike() {
-    if (!myUid || isOwnPost) return
-    const likeRef = doc(db, 'communities', communityId, 'posts', post.id, 'likes', myUid)
-    if (liked) {
-      setLiked(false)
-      setLikeCount(c => Math.max(0, c - 1))
-      await deleteDoc(likeRef)
+  async function setReaction(emoji: string) {
+    if (!myUid) return
+    const ref = doc(db, 'communities', communityId, 'posts', post.id, 'reactions', myUid)
+    if (myReaction === emoji) {
+      await deleteDoc(ref)
     } else {
-      setLiked(true)
-      setLikeCount(c => c + 1)
-      await setDoc(likeRef, { uid: myUid, likedAt: serverTimestamp() })
+      await setDoc(ref, { emoji, at: serverTimestamp() })
     }
+    setShowReactionPicker(false)
   }
 
   async function addComment() {
@@ -1831,9 +1905,13 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
   return (
     <div className="rounded-2xl p-4 mb-3" style={{ backgroundColor: 'var(--app-surface)' }}>
 
-      {/* Header: avatar + name + date */}
+      {/* Header: avatar + name + date — tap author to view profile */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2.5">
+        <Link
+          href={post.authorId === myUid ? '/profile' : `/profile/${post.authorId}`}
+          className="flex items-center gap-2.5 active:opacity-70 transition-opacity"
+          onClick={e => e.stopPropagation()}
+        >
           <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: '#1ED75F22', border: `1.5px solid ${roleColor}` }}>
             {post.authorPhotoUrl
@@ -1851,7 +1929,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
             </div>
             <span className="text-[11px] text-white/35">{formatPostDate(post.createdAt)}</span>
           </div>
-        </div>
+        </Link>
         {(post.authorId === myUid || myRole === 'ADMIN' || isSuperAdmin) && (
           <button onClick={onDelete} aria-label="Șterge postare" className="text-red-400/60 hover:text-red-400 transition-colors p-1 mt-0.5">
             <Trash2 size={13} />
@@ -1906,20 +1984,34 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
         </div>
       )}
 
-      <div className="flex items-center gap-4">
-        <button
-          onClick={isOwnPost ? undefined : toggleLike}
-          aria-label={liked ? 'Dă unlike' : 'Dă like'}
-          disabled={isOwnPost}
-          className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
-            isOwnPost ? 'text-white/20 cursor-default' : liked ? 'text-red-400' : 'text-white/40 hover:text-white/60'
-          }`}
-        >
-          <Heart size={14} fill={liked && !isOwnPost ? 'currentColor' : 'none'} />
-          {likeCount > 0 && <span>{likeCount}</span>}
-        </button>
+      <div className="flex items-center gap-2 flex-wrap mt-1">
+        {POST_REACTIONS.map(e => {
+          const uids = reactionCounts[e] ?? []
+          const count = uids.length
+          if (count === 0 && myReaction !== e) return null
+          return (
+            <button key={e} onClick={() => setReaction(e)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                myReaction === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
+              }`}>
+              {e} {count > 0 && count}
+            </button>
+          )
+        })}
+        {!showReactionPicker && (
+          <button onClick={() => setShowReactionPicker(true)}
+            className="w-7 h-7 rounded-full bg-white/8 border border-white/12 text-white/40 text-sm flex items-center justify-center">+</button>
+        )}
+        {showReactionPicker && (
+          <div className="flex items-center gap-1">
+            {POST_REACTIONS.map(e => (
+              <button key={e} onClick={() => { setReaction(e); setShowReactionPicker(false) }}
+                className="w-8 h-8 text-lg flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">{e}</button>
+            ))}
+          </div>
+        )}
         <button onClick={() => setShowComments(v => !v)}
-          className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${showComments ? 'text-brand-green' : 'text-white/40 hover:text-white/60'}`}>
+          className={`flex items-center gap-1.5 text-xs font-semibold ml-1 transition-colors ${showComments ? 'text-brand-green' : 'text-white/40 hover:text-white/60'}`}>
           <MessageCircle size={14} />
           {(showComments ? comments.length : (post.commentsCount ?? 0)) > 0 && (
             <span>{showComments ? comments.length : post.commentsCount}</span>

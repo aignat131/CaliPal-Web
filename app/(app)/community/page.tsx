@@ -346,7 +346,7 @@ export default function CommunityPage() {
                     {discover.length > 0 && (
                       <div>
                         <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">{t('community.section_disc')}</p>
-                        <div className="flex flex-col gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                           {discover.map(c => (
                             <DiscoverCommunityCard
                               key={c.id}
@@ -496,7 +496,7 @@ function MemberCommunityCard({
   )
 }
 
-// ── Discover community card (clickable → opens preview popup) ─────────────────
+// ── Discover community card (2-col grid, visual with cover image) ─────────────
 
 function DiscoverCommunityCard({
   community, onPreview,
@@ -506,48 +506,49 @@ function DiscoverCommunityCard({
 }) {
   const t = useT()
   const inner = (
-      <div className="rounded-2xl p-4 active:opacity-80 transition-opacity border border-white/5" style={{ backgroundColor: 'var(--app-surface)' }}>
-        <div className="flex items-center gap-3">
-          <div className="relative w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-            style={{ backgroundColor: '#1ED75F22' }}>
-            {community.imageUrl
-              ? <Image src={community.imageUrl} alt={`${community.name} logo`} fill sizes="48px" className="object-cover rounded-xl" />
-              : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
+    <div className="rounded-2xl overflow-hidden relative h-36 active:opacity-80 transition-opacity"
+      style={{ backgroundColor: 'var(--app-surface)' }}>
+      {/* Cover image */}
+      {community.imageUrl
+        ? <Image src={community.imageUrl} alt={community.name} fill sizes="(max-width: 768px) 50vw, 200px" className="object-cover opacity-65" />
+        : (
+          <div className="absolute inset-0 flex items-center justify-center"
+            style={{ backgroundColor: '#1ED75F12' }}>
+            <span className="text-4xl font-black text-brand-green/30">{community.name.charAt(0)}</span>
           </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="font-bold text-white text-[15px] leading-tight">{community.name}</p>
-              {community.verified && (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
-              )}
-            </div>
-            {community.description && (
-              <p className="text-xs text-white/50 mt-0.5 line-clamp-1">{community.description}</p>
-            )}
-            <div className="flex items-center gap-3 mt-1">
-              <span className="flex items-center gap-1 text-xs text-white/40">
-                <Users size={11} />
-                {community.memberCount} {t('common.members')}
-              </span>
-              {community.location && (
-                <span className="flex items-center gap-1 text-xs text-white/40">
-                  <MapPin size={11} />
-                  {community.location}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex-shrink-0">
-            <div className="h-8 px-3 rounded-lg text-xs font-bold flex items-center"
-              style={{ backgroundColor: '#1ED75F18', color: '#1ED75F' }}>
-              {onPreview ? t('community.join_btn') : t('community.view_btn')}
-            </div>
-          </div>
+        )
+      }
+      {/* Gradient overlay */}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 20%, rgba(13,27,26,0.92) 100%)' }} />
+      {/* Content */}
+      <div className="absolute bottom-0 left-0 right-0 p-3">
+        <div className="flex items-center gap-1 mb-0.5">
+          <p className="text-sm font-black text-white leading-tight line-clamp-2 flex-1">{community.name}</p>
+          {community.verified && (
+            <span className="text-[8px] font-bold px-1 py-0.5 rounded-full flex-shrink-0 ml-1"
+              style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-white/50 flex items-center gap-0.5">
+            <Users size={9} className="flex-shrink-0" />
+            {community.memberCount}
+          </span>
+          {community.location && (
+            <span className="text-[10px] text-white/50 flex items-center gap-0.5 truncate">
+              <MapPin size={9} className="flex-shrink-0" />
+              <span className="truncate">{community.location}</span>
+            </span>
+          )}
+        </div>
+        <div className="mt-2">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
+            {onPreview ? t('community.join_btn') : t('community.view_btn')}
+          </span>
         </div>
       </div>
+    </div>
   )
   if (onPreview) return <button onClick={onPreview} className="w-full text-left">{inner}</button>
   return <Link href={`/community/${community.id}`} className="block">{inner}</Link>

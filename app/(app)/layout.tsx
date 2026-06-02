@@ -16,7 +16,7 @@ import { useT } from '@/lib/context/LanguageContext'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
-import { doc, updateDoc } from 'firebase/firestore'
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 
 function formatDuration(s: number): string {
@@ -204,6 +204,24 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     if (!user || pushStatus !== 'idle') return
     if (!localStorage.getItem(NOTIF_PROMPT_KEY)) setShowNotifModal(true)
   }, [user, pushStatus])
+
+  // Track online/lastSeen status
+  useEffect(() => {
+    if (!user) return
+    const userRef = doc(db, 'users', user.uid)
+    const setOnline  = () => updateDoc(userRef, { isOnline: true }).catch(() => {})
+    const setOffline = () => updateDoc(userRef, { isOnline: false, lastSeen: serverTimestamp() }).catch(() => {})
+    setOnline()
+    window.addEventListener('focus', setOnline)
+    window.addEventListener('blur',  setOffline)
+    window.addEventListener('beforeunload', setOffline)
+    return () => {
+      setOffline()
+      window.removeEventListener('focus', setOnline)
+      window.removeEventListener('blur',  setOffline)
+      window.removeEventListener('beforeunload', setOffline)
+    }
+  }, [user])
 
   function dismissNotifModal() {
     localStorage.setItem(NOTIF_PROMPT_KEY, '1')

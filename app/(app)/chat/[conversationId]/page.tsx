@@ -14,7 +14,8 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { ChatMessage, ConversationDoc } from '@/types'
-import { ArrowLeft, Send, Check, CheckCheck } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowLeft, Send, Check, CheckCheck, X } from 'lucide-react'
 import { useLanguage } from '@/lib/context/LanguageContext'
 import { SkeletonMessages } from '@/components/ui/SkeletonLoaders'
 
@@ -56,6 +57,21 @@ function msgDayKey(ts: { toDate?: () => Date } | null | undefined): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
 }
 
+function formatLastSeen(ts: { toDate: () => Date } | null, locale: string): string {
+  if (!ts) return ''
+  try {
+    const d = ts.toDate()
+    const now = new Date()
+    const diffMs = now.getTime() - d.getTime()
+    const diffMin = Math.floor(diffMs / 60000)
+    if (diffMin < 2) return 'Văzut acum'
+    if (diffMin < 60) return `Văzut acum ${diffMin}m`
+    const diffH = Math.floor(diffMin / 60)
+    if (diffH < 24) return `Văzut la ${d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`
+    return `Văzut ${d.toLocaleDateString(locale, { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`
+  } catch { return '' }
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TYPING_EXPIRY_MS = 4000
@@ -87,6 +103,14 @@ export default function ChatDetailPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [otherIsTyping, setOtherIsTyping] = useState(false)
+  const [otherIsOnline, setOtherIsOnline] = useState(false)
+  const [otherLastSeen, setOtherLastSeen] = useState<{ toDate: () => Date } | null>(null)
+  const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null)
+  const [replyTo, setReplyTo] = useState<{ id: string; text: string; senderName: string } | null>(null)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const swipeMsgId = useRef<string | null>(null)
+  const swipeStartX = useRef<number>(0)
+  const swipeTriggered = useRef(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const typingActiveRef = useRef(false)
@@ -157,6 +181,29 @@ export default function ChatDetailPage() {
     })
     return unsub
   }, [conversationId, otherUserId])
+
+  // Watch other user's online/lastSeen status
+  useEffect(() => {
+    if (!otherUserId) return
+    const unsub = onSnapshot(doc(db, 'users', otherUserId), snap => {
+      if (!snap.exists()) return
+      setOtherIsOnline(snap.data().isOnline === true)
+      setOtherLastSeen(snap.data().lastSeen ?? null)
+    })
+    return unsub
+  }, [otherUserId])
+
+  // Dismiss reaction picker on outside tap
+  useEffect(() => {
+    if (!reactionPickerMsgId) return
+    const handler = () => setReactionPickerMsgId(null)
+    document.addEventListener('touchstart', handler, { passive: true })
+    document.addEventListener('mousedown', handler)
+    return () => {
+      document.removeEventListener('touchstart', handler)
+      document.removeEventListener('mousedown', handler)
+    }
+  }, [reactionPickerMsgId])
 
   // Scroll to bottom on new messages or typing indicator
   useEffect(() => {
@@ -266,13 +313,20 @@ export default function ChatDetailPage() {
           [`participantPhotos.${user.uid}`]: myPhoto,
         })
       }
-      await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
+      const msgData: Record<string, unknown> = {
         senderId: user.uid,
         senderName: myName,
         text: content,
         timestamp: serverTimestamp(),
         isRead: false,
-      })
+      }
+      if (replyTo) {
+        msgData.replyToId = replyTo.id
+        msgData.replyToText = replyTo.text
+        msgData.replyToSenderName = replyTo.senderName
+        setReplyTo(null)
+      }
+      await addDoc(collection(db, 'conversations', conversationId, 'messages'), msgData)
       await createNotification(otherUserId, 'NEW_MESSAGE',
         myName || 'Mesaj nou',
         content.length > 60 ? content.slice(0, 57) + '...' : content,
@@ -290,6 +344,43 @@ export default function ChatDetailPage() {
       }).catch(() => {})
     } finally {
       setSending(false)
+    }
+  }
+
+  const MSG_REACTIONS = ['❤️', '👍', '😂', '🔥', '💪', '😮']
+
+  async function setReaction(msgId: string, emoji: string) {
+    if (!user) return
+    const ref = doc(db, 'conversations', conversationId, 'messages', msgId)
+    const msg = [...olderMessages, ...messages].find(m => m.id === msgId)
+    const existing: string[] = (msg?.reactions as Record<string, string[]>)?.[emoji] ?? []
+    if (existing.includes(user.uid)) {
+      await updateDoc(ref, { [`reactions.${emoji}`]: existing.filter(id => id !== user.uid) }).catch(() => {})
+    } else {
+      await updateDoc(ref, { [`reactions.${emoji}`]: [...existing, user.uid] }).catch(() => {})
+    }
+    setReactionPickerMsgId(null)
+  }
+
+  function handleLongPressStart(msgId: string) {
+    longPressTimer.current = setTimeout(() => setReactionPickerMsgId(msgId), 450)
+  }
+  function handleLongPressEnd() {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current)
+  }
+
+  function handleSwipeStart(e: React.TouchEvent, msgId: string) {
+    swipeMsgId.current = msgId
+    swipeStartX.current = e.touches[0].clientX
+    swipeTriggered.current = false
+  }
+  function handleSwipeMove(e: React.TouchEvent, msg: ChatMessage) {
+    if (swipeTriggered.current) return
+    const dx = e.touches[0].clientX - swipeStartX.current
+    if (dx > 40) {
+      swipeTriggered.current = true
+      setReplyTo({ id: msg.id, text: msg.text, senderName: msg.senderName })
+      navigator.vibrate?.(15)
     }
   }
 
@@ -313,18 +404,28 @@ export default function ChatDetailPage() {
         <button onClick={() => router.back()} aria-label="Înapoi" className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center md:hidden">
           <ArrowLeft size={18} className="text-white/80" />
         </button>
-        <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: '#1ED75F33' }}>
-          {otherPhoto
-            ? <Image src={otherPhoto} alt={otherName} fill sizes="36px" className="object-cover" />
-            : <span className="font-black text-brand-green text-sm">{otherInitial}</span>}
-        </div>
-        <div className="flex flex-col min-w-0">
-          <span className="font-semibold text-white leading-tight">{otherName}</span>
-          {otherIsTyping && (
-            <span className="text-[11px] text-brand-green animate-pulse">{t('chat.typing')}</span>
-          )}
-        </div>
+        <Link
+          href={otherUserId ? `/profile/${otherUserId}` : '#'}
+          className="flex items-center gap-3 flex-1 min-w-0 active:opacity-70 transition-opacity"
+        >
+          <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: '#1ED75F33' }}>
+            {otherPhoto
+              ? <Image src={otherPhoto} alt={otherName} fill sizes="36px" className="object-cover" />
+              : <span className="font-black text-brand-green text-sm">{otherInitial}</span>}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="font-semibold text-white leading-tight">{otherName}</span>
+            {otherIsTyping
+              ? <span className="text-[11px] text-brand-green animate-pulse">{t('chat.typing')}</span>
+              : otherIsOnline
+                ? <span className="text-[11px] text-brand-green">Online</span>
+                : otherLastSeen
+                  ? <span className="text-[11px] text-white/35">{formatLastSeen(otherLastSeen, locale)}</span>
+                  : <span className="text-[11px] text-white/35">Vezi profil</span>
+            }
+          </div>
+        </Link>
       </div>
 
       {/* Messages */}
@@ -370,7 +471,11 @@ export default function ChatDetailPage() {
               )}
 
               {/* Message bubble */}
-              <div className={`flex items-end gap-2 mb-1.5 ${isMe ? 'flex-row-reverse' : ''}`}>
+              <div
+                className={`flex items-end gap-2 mb-1.5 ${isMe ? 'flex-row-reverse' : ''}`}
+                onTouchStart={e => handleSwipeStart(e, msg.id)}
+                onTouchMove={e => handleSwipeMove(e, msg)}
+              >
                 {/* Avatar / spacer */}
                 <div className="w-7 flex-shrink-0">
                   {!isMe && showAvatar && (
@@ -384,18 +489,59 @@ export default function ChatDetailPage() {
                 </div>
 
                 <div className={`max-w-[72%] ${isMe ? 'items-end' : 'items-start'} flex flex-col`}>
-                  <div
-                    className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed"
-                    style={{
-                      backgroundColor: isMe ? '#1ED75F' : 'var(--app-surface)',
-                      color: isMe ? '#0D1B1A' : 'rgba(255,255,255,0.9)',
-                      borderBottomRightRadius: isMe ? 4 : undefined,
-                      borderBottomLeftRadius: !isMe ? 4 : undefined,
-                    }}
-                  >
-                    {msg.text}
+                  <div className="relative">
+                    <div
+                      className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed select-none"
+                      style={{
+                        backgroundColor: isMe ? '#1ED75F' : 'var(--app-surface)',
+                        color: isMe ? '#0D1B1A' : 'rgba(255,255,255,0.9)',
+                        borderBottomRightRadius: isMe ? 4 : undefined,
+                        borderBottomLeftRadius: !isMe ? 4 : undefined,
+                      }}
+                      onTouchStart={() => handleLongPressStart(msg.id)}
+                      onTouchEnd={handleLongPressEnd}
+                      onTouchMove={handleLongPressEnd}
+                      onContextMenu={e => { e.preventDefault(); setReactionPickerMsgId(msg.id) }}
+                    >
+                      {msg.replyToText && (
+                        <div className="mb-1.5 px-2 py-1.5 rounded-xl border-l-2 border-brand-green/60 bg-black/20">
+                          <p className="text-[10px] font-bold mb-0.5" style={{ color: '#1ED75F99' }}>{msg.replyToSenderName}</p>
+                          <p className="text-xs line-clamp-2" style={{ color: isMe ? 'rgba(13,27,26,0.6)' : 'rgba(255,255,255,0.5)' }}>{msg.replyToText}</p>
+                        </div>
+                      )}
+                      {msg.text}
+                    </div>
+                    {/* Reaction picker popover */}
+                    {reactionPickerMsgId === msg.id && (
+                      <div
+                        className={`absolute bottom-full mb-1.5 z-30 flex items-center gap-1 px-2 py-1.5 rounded-2xl shadow-xl ${isMe ? 'right-0' : 'left-0'}`}
+                        style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      >
+                        {MSG_REACTIONS.map(e => (
+                          <button key={e} onClick={() => setReaction(msg.id, e)}
+                            className="w-8 h-8 text-lg flex items-center justify-center rounded-full hover:bg-white/10 transition-colors active:scale-110">
+                            {e}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {/* Timestamp + read receipt (shown on all my messages) */}
+                  {/* Reaction bar */}
+                  {msg.reactions && Object.entries(msg.reactions).some(([, uids]) => uids.length > 0) && (
+                    <div className={`flex items-center gap-1 mt-1 flex-wrap ${isMe ? 'justify-end' : ''}`}>
+                      {Object.entries(msg.reactions).filter(([, uids]) => uids.length > 0).map(([emoji, uids]) => (
+                        <button key={emoji} onClick={() => setReaction(msg.id, emoji)}
+                          className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs border transition-all ${
+                            uids.includes(user?.uid ?? '')
+                              ? 'bg-brand-green/20 border-brand-green/40 text-brand-green'
+                              : 'bg-white/8 border-white/10 text-white/60'
+                          }`}>
+                          {emoji} {uids.length}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {/* Timestamp + read receipt */}
                   <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMe ? 'flex-row-reverse' : ''}`}>
                     <span className="text-[10px] text-white/25">{formatTime(msg.timestamp, locale)}</span>
                     {isMe && (
@@ -436,6 +582,21 @@ export default function ChatDetailPage() {
         )}
         <div ref={bottomRef} />
       </div>
+
+      {/* Reply preview bar */}
+      {replyTo && (
+        <div className="flex items-center gap-2 px-4 py-2 border-t border-white/8 flex-shrink-0"
+          style={{ backgroundColor: 'var(--app-bg)' }}>
+          <div className="w-0.5 h-8 rounded-full bg-brand-green flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-bold text-brand-green">{replyTo.senderName}</p>
+            <p className="text-xs text-white/50 truncate">{replyTo.text}</p>
+          </div>
+          <button onClick={() => setReplyTo(null)} className="text-white/40 p-1">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Input bar */}
       <div className="flex items-center gap-2 px-4 py-3 border-t border-white/8 flex-shrink-0"
