@@ -2,15 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { collection, getDocs, getDoc, doc, deleteDoc } from 'firebase/firestore'
+import { collection, getDocs, getDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
-import { useAuth } from '@/lib/hooks/useAuth'
-import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
-import { ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import type { PlannedTraining, CommunityDoc } from '@/types'
+import { ArrowLeft, Calendar, Clock, MapPin, Dumbbell, Users, ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
-
-const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 function parseDateTime(str: string | undefined, fallbackDate?: string): Date | null {
   if (!str) {
@@ -47,23 +44,18 @@ type TrainingWithId = PlannedTraining & { id: string }
 function TrainingCard({
   training,
   communityId,
-  canDelete,
-  onDelete,
 }: {
   training: TrainingWithId
   communityId: string
-  canDelete: boolean
-  onDelete: (id: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const t = useT()
   const memberGoing = Object.values(training.rsvps ?? {}).filter(s => s === 'GOING').length
   const guestGoing = Object.values(training.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
   const total = memberGoing + guestGoing
 
   return (
-    <Link href={`/training/${communityId}/${training.id}`} onClick={e => { if (expanded || confirmDelete) e.preventDefault() }}>
+    <Link href={`/training/${communityId}/${training.id}`} onClick={e => { if (expanded) e.preventDefault() }}>
       <div
         className="rounded-2xl p-4 border border-white/8 cursor-pointer"
         style={{ backgroundColor: 'var(--app-surface)' }}
@@ -71,33 +63,8 @@ function TrainingCard({
         <div className="flex items-start justify-between gap-2 mb-2">
           <p className="text-sm font-bold text-white leading-tight flex-1">{training.name}</p>
           <div className="flex items-center gap-1 flex-shrink-0">
-            {canDelete && (
-              confirmDelete ? (
-                <div className="flex items-center gap-1" onClick={e => e.preventDefault()}>
-                  <button
-                    onClick={e => { e.preventDefault(); e.stopPropagation(); onDelete(training.id) }}
-                    className="h-7 px-2 rounded-full bg-red-500/20 border border-red-500/40 text-[10px] font-bold text-red-400 flex items-center gap-1"
-                  >
-                    <Trash2 size={10} /> Șterge
-                  </button>
-                  <button
-                    onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(false) }}
-                    className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center text-white/50 text-xs"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(true) }}
-                  className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center"
-                >
-                  <Trash2 size={13} className="text-white/40 hover:text-red-400 transition-colors" />
-                </button>
-              )
-            )}
             <button
-              onClick={e => { e.preventDefault(); e.stopPropagation(); setExpanded(v => !v); setConfirmDelete(false) }}
+              onClick={e => { e.preventDefault(); e.stopPropagation(); setExpanded(v => !v) }}
               className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center"
             >
               {expanded
@@ -187,14 +154,11 @@ function TrainingCard({
 export default function CommunityTrainingHistoryPage() {
   const { communityId } = useParams() as { communityId: string }
   const router = useRouter()
-  const { user } = useAuth()
   const t = useT()
 
   const [community, setCommunity] = useState<CommunityDoc | null>(null)
   const [trainings, setTrainings] = useState<TrainingWithId[]>([])
-  const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [fetchError, setFetchError] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
 
@@ -212,18 +176,7 @@ export default function CommunityTrainingHistoryPage() {
 
         if (commSnap.exists()) setCommunity({ id: commSnap.id, ...(commSnap.data() as object) } as CommunityDoc)
 
-        if (user) {
-          const memberSnap = await getDoc(doc(db, 'communities', communityId, 'members', user.uid))
-          const memberData = memberSnap.exists() ? (memberSnap.data() as CommunityMember) : null
-          const role = memberData?.role ?? 'MEMBER'
-          setIsAdmin(role === 'ADMIN' || user.email === SUPERADMIN)
-        }
-
         const all = trainSnap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
-        console.log('[TrainingHistory] communityId:', communityId)
-        console.log('[TrainingHistory] total docs from Firestore:', trainSnap.docs.length)
-        console.log('[TrainingHistory] raw docs:', trainSnap.docs.map(d => ({ id: d.id, timeStart: d.data().timeStart, date: d.data().date, name: d.data().name })))
-        setTotalCount(all.length)
         const sorted = all
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)
@@ -243,16 +196,7 @@ export default function CommunityTrainingHistoryPage() {
       }
     }
     load()
-  }, [communityId, user, retryKey])
-
-  async function handleDelete(trainingId: string) {
-    try {
-      await deleteDoc(doc(db, 'communities', communityId, 'trainings', trainingId))
-      setTrainings(prev => prev.filter(t => t.id !== trainingId))
-    } catch (e) {
-      console.error('Failed to delete training', e)
-    }
-  }
+  }, [communityId, retryKey])
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -312,8 +256,6 @@ export default function CommunityTrainingHistoryPage() {
                 key={tr.id}
                 training={tr}
                 communityId={communityId}
-                canDelete={isAdmin}
-                onDelete={handleDelete}
               />
             ))}
           </div>
