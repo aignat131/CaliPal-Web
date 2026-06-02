@@ -25,6 +25,10 @@ export interface UserDoc {
   messageEmailNotifications?: boolean
   trainingEmailNotifications?: boolean
   newsEmailNotifications?: boolean
+  pushNotifMessages?: boolean
+  pushNotifTrainings?: boolean
+  pushNotifCommunity?: boolean
+  pushNotifFriends?: boolean
 }
 
 export interface CommunityDoc {

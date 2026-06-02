@@ -123,6 +123,15 @@ const T: Record<string, { RO: string; EN: string }> = {
   'settings.push_blocked':    { RO: 'Blocate (din browser)', EN: 'Blocked (from browser)' },
   'settings.push_unsupported':{ RO: 'Nesuportate',      EN: 'Unsupported' },
   'settings.push_inactive':   { RO: 'Inactive',         EN: 'Inactive' },
+  'settings.section_push_cats':       { RO: 'TIPURI NOTIFICĂRI PUSH',             EN: 'PUSH NOTIFICATION TYPES' },
+  'settings.push_cat_messages':       { RO: 'Mesaje',                             EN: 'Messages' },
+  'settings.push_cat_messages_desc':  { RO: 'Notificări la mesaje directe noi',   EN: 'Notifications for new direct messages' },
+  'settings.push_cat_trainings':      { RO: 'Antrenamente',                       EN: 'Trainings' },
+  'settings.push_cat_trainings_desc': { RO: 'Sesiuni viitoare și mementouri',     EN: 'Upcoming sessions and reminders' },
+  'settings.push_cat_community':      { RO: 'Comunitate',                         EN: 'Community' },
+  'settings.push_cat_community_desc': { RO: 'Postări, events și noutăți',         EN: 'Posts, events and news' },
+  'settings.push_cat_friends':        { RO: 'Prieteni',                           EN: 'Friends' },
+  'settings.push_cat_friends_desc':   { RO: 'Cereri de prietenie și confirmări',  EN: 'Friend requests and acceptances' },
   'settings.section_email':         { RO: 'NOTIFICĂRI EMAIL',   EN: 'EMAIL NOTIFICATIONS' },
   'settings.email_messages':        { RO: 'Mesaje',             EN: 'Messages' },
   'settings.email_messages_desc':   { RO: 'Un email prima dată când cineva îți scrie', EN: 'One email the first time someone messages you' },
@@ -160,6 +169,16 @@ const T: Record<string, { RO: string; EN: string }> = {
   'settings.coach_hub':       { RO: 'Coach Hub',        EN: 'Coach Hub' },
   'settings.section_admin':   { RO: 'ADMIN',            EN: 'ADMIN' },
   'settings.admin_hub':       { RO: 'Admin Hub',        EN: 'Admin Hub' },
+
+  // ── Notification Permission Modal ────────────────────────────────────────────
+  'notif_modal.title':         { RO: 'Rămâi la curent',                              EN: 'Stay in the loop' },
+  'notif_modal.subtitle':      { RO: 'CaliPal îți trimite notificări pentru:',        EN: 'CaliPal sends you notifications for:' },
+  'notif_modal.cat_community': { RO: 'Activitate comunitate — postări, events, noutăți', EN: 'Community activity — posts, events, news' },
+  'notif_modal.cat_trainings': { RO: 'Antrenamente — sesiuni viitoare și mementouri',  EN: 'Trainings — upcoming sessions and reminders' },
+  'notif_modal.cat_messages':  { RO: 'Mesaje directe',                                EN: 'Direct messages' },
+  'notif_modal.cat_friends':   { RO: 'Prieteni — cereri și confirmări',                EN: 'Friends — requests and acceptances' },
+  'notif_modal.allow':         { RO: 'Permite notificările',                           EN: 'Allow Notifications' },
+  'notif_modal.later':         { RO: 'Nu acum',                                        EN: 'Not now' },
 
   // ── Community Page ───────────────────────────────────────────────────────────
   'community.title':          { RO: 'Comunitate',      EN: 'Community' },

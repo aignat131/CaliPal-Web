@@ -8,13 +8,12 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import type {
   UserDoc, CommunityDoc, WeeklyChallenge, UserChallengeProgress,
   PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress,
   WorkoutDoc,
 } from '@/types'
-import { Bell, Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, Play, BookOpen, MessageSquarePlus } from 'lucide-react'
+import { Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, Play, BookOpen, MessageSquarePlus } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 import { useT } from '@/lib/context/LanguageContext'
@@ -36,7 +35,6 @@ function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null 
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth()
-  const { status: pushStatus, requestPermission } = usePushNotifications(user?.uid)
   const t = useT()
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null)
   const [joinedCommunities, setJoinedCommunities] = useState<CommunityDoc[]>([])
@@ -44,7 +42,6 @@ export default function HomePage() {
   const [challengeProgress, setChallengeProgress] = useState<UserChallengeProgress | null>(null)
   const [commChallenge, setCommChallenge] = useState<CommunityChallenge | null>(null)
   const [commChallengeProgress, setCommChallengeProgress] = useState<UserCommunityChallengeProgress | null>(null)
-  const [dismissedPush, setDismissedPush] = useState(false)
   const [showStreakCalendar, setShowStreakCalendar] = useState(false)
   const [workoutDates, setWorkoutDates] = useState<Set<string>>(new Set())
   const [latestFavTraining, setLatestFavTraining] = useState<PlannedTraining | null>(null)
@@ -173,8 +170,6 @@ export default function HomePage() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? t('home.greeting_morning') : hour < 18 ? t('home.greeting_afternoon') : t('home.greeting_evening')
 
-  const showPushBanner = pushStatus === 'idle' && !dismissedPush
-
   if (!authLoading && !user) return <GuestHomePage />
 
   return (
@@ -214,19 +209,6 @@ export default function HomePage() {
             {user && <NotificationBell uid={user.uid} />}
           </div>
         </div>
-
-        {/* Push notification banner */}
-        {showPushBanner && (
-          <div className="flex items-center gap-3 p-3 rounded-2xl mb-4 border border-brand-green/20"
-            style={{ backgroundColor: '#1ED75F10' }}>
-            <Bell size={18} className="text-brand-green flex-shrink-0" />
-            <p className="text-xs text-white/70 flex-1">{t('home.push_text')}</p>
-            <div className="flex gap-2 flex-shrink-0">
-              <button onClick={() => setDismissedPush(true)} className="text-xs text-white/35">{t('home.push_no')}</button>
-              <button onClick={requestPermission} className="text-xs font-bold text-brand-green">{t('home.push_yes')}</button>
-            </div>
-          </div>
-        )}
 
         {/* Greeting */}
         <div className="mb-3">

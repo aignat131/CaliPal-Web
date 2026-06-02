@@ -16,13 +16,30 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Parse & validate ──────────────────────────────────────────────────────
-  const { toUid, title, body, url } = await req.json()
+  const { toUid, title, body, url, notifType } = await req.json()
   if (!toUid || !title) return NextResponse.json({ ok: false }, { status: 400 })
 
   try {
     const tokenDoc = await adminDb().collection('fcm_tokens').doc(toUid).get()
     const token = tokenDoc.data()?.token as string | undefined
     if (!token) return NextResponse.json({ ok: false, reason: 'no-token' })
+
+    // Check per-category opt-out preference
+    if (notifType) {
+      const fieldMap: Record<string, string> = {
+        messages:  'pushNotifMessages',
+        trainings: 'pushNotifTrainings',
+        community: 'pushNotifCommunity',
+        friends:   'pushNotifFriends',
+      }
+      const field = fieldMap[notifType]
+      if (field) {
+        const userSnap = await adminDb().collection('users').doc(toUid).get()
+        if (userSnap.data()?.[field] === false) {
+          return NextResponse.json({ ok: false, reason: 'user-opted-out' })
+        }
+      }
+    }
 
     await adminMessaging().send({
       token,

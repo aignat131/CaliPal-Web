@@ -13,7 +13,7 @@ import type { LocationSharingMode } from '@/types'
 import {
   ArrowLeft, ChevronRight, User, LogOut, Lock, Info, Bell,
   Shield, Sun, Moon, MapPin, Globe, MessageSquarePlus, Mail,
-  MessageSquare, Dumbbell, Newspaper, Send, CheckCircle,
+  MessageSquare, Dumbbell, Newspaper, Send, CheckCircle, Users, UserPlus,
 } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useLanguage } from '@/lib/context/LanguageContext'
@@ -68,6 +68,10 @@ export default function SettingsPage() {
   const [msgEmailNotif,      setMsgEmailNotif]      = useState(true)
   const [trainingEmailNotif, setTrainingEmailNotif] = useState(true)
   const [newsEmailNotif,     setNewsEmailNotif]     = useState(true)
+  const [pushNotifMessages,  setPushNotifMessages]  = useState(true)
+  const [pushNotifTrainings, setPushNotifTrainings] = useState(true)
+  const [pushNotifCommunity, setPushNotifCommunity] = useState(true)
+  const [pushNotifFriends,   setPushNotifFriends]   = useState(true)
 
   // Broadcast state (superadmin only)
   const [bSubject,  setBSubject]  = useState('')
@@ -94,6 +98,10 @@ export default function SettingsPage() {
       setMsgEmailNotif(d.messageEmailNotifications  !== false)
       setTrainingEmailNotif(d.trainingEmailNotifications !== false)
       setNewsEmailNotif(d.newsEmailNotifications    !== false)
+      setPushNotifMessages( d.pushNotifMessages  !== false)
+      setPushNotifTrainings(d.pushNotifTrainings !== false)
+      setPushNotifCommunity(d.pushNotifCommunity !== false)
+      setPushNotifFriends(  d.pushNotifFriends   !== false)
     })
     return unsub
   }, [user])
@@ -110,6 +118,22 @@ export default function SettingsPage() {
 
   function makeEmailToggle(
     field: 'messageEmailNotifications' | 'trainingEmailNotifications' | 'newsEmailNotifications',
+    current: boolean,
+    setter: (v: boolean) => void,
+  ) {
+    return async () => {
+      const newVal = !current
+      setter(newVal)
+      try {
+        if (user) await updateDoc(doc(db, 'users', user.uid), { [field]: newVal })
+      } catch {
+        setter(current)
+      }
+    }
+  }
+
+  function makePushToggle(
+    field: 'pushNotifMessages' | 'pushNotifTrainings' | 'pushNotifCommunity' | 'pushNotifFriends',
     current: boolean,
     setter: (v: boolean) => void,
   ) {
@@ -235,6 +259,39 @@ export default function SettingsPage() {
               </span>
             )}
           </div>
+        </div>
+
+        {/* Push notification categories */}
+        <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">{t('settings.section_push_cats')}</p>
+        <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <EmailToggleRow
+            icon={<MessageSquare size={17} />}
+            label={t('settings.push_cat_messages')}
+            desc={t('settings.push_cat_messages_desc')}
+            value={pushNotifMessages}
+            onToggle={makePushToggle('pushNotifMessages', pushNotifMessages, setPushNotifMessages)}
+          />
+          <EmailToggleRow
+            icon={<Dumbbell size={17} />}
+            label={t('settings.push_cat_trainings')}
+            desc={t('settings.push_cat_trainings_desc')}
+            value={pushNotifTrainings}
+            onToggle={makePushToggle('pushNotifTrainings', pushNotifTrainings, setPushNotifTrainings)}
+          />
+          <EmailToggleRow
+            icon={<Users size={17} />}
+            label={t('settings.push_cat_community')}
+            desc={t('settings.push_cat_community_desc')}
+            value={pushNotifCommunity}
+            onToggle={makePushToggle('pushNotifCommunity', pushNotifCommunity, setPushNotifCommunity)}
+          />
+          <EmailToggleRow
+            icon={<UserPlus size={17} />}
+            label={t('settings.push_cat_friends')}
+            desc={t('settings.push_cat_friends_desc')}
+            value={pushNotifFriends}
+            onToggle={makePushToggle('pushNotifFriends', pushNotifFriends, setPushNotifFriends)}
+          />
         </div>
 
         {/* Email notifications */}

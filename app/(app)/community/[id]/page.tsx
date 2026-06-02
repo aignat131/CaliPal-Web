@@ -28,6 +28,7 @@ import {
   Pencil, Camera, Info, Mail, MailX, History,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useT } from '@/lib/context/LanguageContext'
 
 const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
@@ -78,6 +79,7 @@ export default function CommunityDetailPage() {
   const { user } = useAuth()
   const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
   const { requestPermission } = usePushNotifications(user?.uid)
+  const t = useT()
   const router = useRouter()
   const params = useParams()
   const id = params.id as string
@@ -111,6 +113,7 @@ export default function CommunityDetailPage() {
   // Join state
   const [joining, setJoining] = useState(false)
   const [showJoinNotif, setShowJoinNotif] = useState(false)
+  const [showCommNotifPrompt, setShowCommNotifPrompt] = useState(false)
 
   // Kick confirmation
   const [kickTarget, setKickTarget] = useState<CommunityMember | null>(null)
@@ -154,6 +157,14 @@ export default function CommunityDetailPage() {
     )
     return unsub
   }, [id, user])
+
+  // Show community notification prompt the first time a member visits this community
+  useEffect(() => {
+    if (!isMember || !community || !user || showJoinNotif) return
+    if (!localStorage.getItem(`calipal_comm_notif_asked_${id}`)) {
+      setShowCommNotifPrompt(true)
+    }
+  }, [isMember, community?.id, user?.uid]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const q = query(collection(db, 'communities', id, 'posts'), orderBy('createdAt', 'desc'), limit(30))
@@ -218,6 +229,11 @@ export default function CommunityDetailPage() {
     if (tab === 2) loadSocialStatus()
   }, [tab, id, loadSocialStatus])
 
+
+  function dismissCommNotifPrompt() {
+    localStorage.setItem(`calipal_comm_notif_asked_${id}`, '1')
+    setShowCommNotifPrompt(false)
+  }
 
   async function joinCommunity() {
     if (!user || joining) return
@@ -465,8 +481,23 @@ export default function CommunityDetailPage() {
           onRequestNotifications={async () => {
             await requestPermission()
             setShowJoinNotif(false)
+            localStorage.setItem(`calipal_comm_notif_asked_${id}`, '1')
           }}
-          onDismiss={() => setShowJoinNotif(false)}
+          onDismiss={() => {
+            setShowJoinNotif(false)
+            localStorage.setItem(`calipal_comm_notif_asked_${id}`, '1')
+          }}
+        />
+      )}
+
+      {showCommNotifPrompt && community && (
+        <JoinNotificationModal
+          communityName={community.name}
+          onRequestNotifications={async () => {
+            await requestPermission()
+            dismissCommNotifPrompt()
+          }}
+          onDismiss={dismissCommNotifPrompt}
         />
       )}
 
@@ -965,6 +996,7 @@ function JoinNotificationModal({
   onRequestNotifications: () => void
   onDismiss: () => void
 }) {
+  const t = useT()
   return (
     <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/60" onClick={onDismiss}>
       <div
@@ -983,10 +1015,8 @@ function JoinNotificationModal({
             <Bell size={24} className="text-brand-green" />
           </div>
           <div>
-            <p className="font-black text-white text-base">Ai intrat în {communityName}!</p>
-            <p className="text-sm text-white/55 mt-1.5 leading-relaxed">
-              Vrei să primești notificări despre antrenamente și noutăți din această comunitate?
-            </p>
+            <p className="font-black text-white text-base">{t('community.joined_title', { name: communityName })}</p>
+            <p className="text-sm text-white/55 mt-1.5 leading-relaxed">{t('community.joined_notif')}</p>
           </div>
         </div>
         <div className="flex flex-col gap-2">
@@ -994,13 +1024,13 @@ function JoinNotificationModal({
             onClick={onRequestNotifications}
             className="w-full h-12 rounded-2xl bg-brand-green text-black font-black text-sm"
           >
-            Da, activează notificările
+            {t('community.enable_notif')}
           </button>
           <button
             onClick={onDismiss}
             className="w-full h-10 rounded-2xl text-white/45 text-sm font-semibold"
           >
-            Nu, mulțumesc
+            {t('community.no_thanks')}
           </button>
         </div>
       </div>
