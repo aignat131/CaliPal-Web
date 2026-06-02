@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { X, Check, Camera } from 'lucide-react'
+import { X, Check, Camera, FlipHorizontal2 } from 'lucide-react'
 import {
   RepCounter, STATE_LABELS, STATE_COLORS,
   PushupCounter, PUSHUP_STATE_LABELS,
@@ -11,7 +11,7 @@ import {
   STRICT_SQUAT, EASY_SQUAT,
 } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
-import { avgElbowAngle, avgKneeAngle, bestElbowAngle, bestKneeAngle, MP } from '@/lib/ml/pose-math'
+import { avgElbowAngle, avgKneeAngle, bestElbowAngle, bestKneeAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
@@ -44,8 +44,17 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const squatCounterRef  = useRef(new SquatCounter())
   const formCoachRef     = useRef(new FormCoach())
 
+  // Angle smoothers — one per joint type
+  const elbowSmootherRef = useRef(new AngleSmoother(0.3))
+  const kneeSmootherRef  = useRef(new AngleSmoother(0.3))
+
   const [mode, setMode] = useState<'strict' | 'easy'>(initialMode ?? 'strict')
   const [modeToast, setModeToast] = useState(false)
+
+  // Camera facing mode
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
+  const facingModeRef = useRef<'environment' | 'user'>('environment')
+  const [cameraLoading, setCameraLoading] = useState(false)
 
   const [repCount, setRepCount]         = useState(0)
   const [primaryAngle, setPrimaryAngle] = useState(0)
@@ -55,9 +64,13 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState('')
 
-  // Use ref so the rAF loop always reads the latest repCount without closure staleness
+  // Arc progress 0–1: how deep into the rep movement the user is
+  const [arcProgress, setArcProgress] = useState(0)
+  // Velocity: degrees/frame of the smoothed angle
+  const [angleVelocity, setAngleVelocity] = useState(0)
+
+  // Use refs so the rAF loop always reads latest values without closure staleness
   const repCountRef = useRef(0)
-  // Use ref so processFrame always reads current mode without closure staleness
   const modeRef = useRef<'strict' | 'easy'>(initialMode ?? 'strict')
 
   // Rebuild counters when mode changes
@@ -70,6 +83,8 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     repCountRef.current = 0
     lastHapticRef.current = 0
     formCoachRef.current.reset()
+    elbowSmootherRef.current.reset()
+    kneeSmootherRef.current.reset()
   }, [mode])
 
   const stopCamera = useCallback(() => {
@@ -80,23 +95,29 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     streamRef.current = null
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
+  const startCamera = useCallback(async (facing: 'environment' | 'user') => {
+    if (animRef.current) cancelAnimationFrame(animRef.current)
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+    // Reset smoothers on camera switch — different perspective can yield different angle offsets
+    elbowSmootherRef.current.reset()
+    kneeSmootherRef.current.reset()
 
-    async function init() {
-      setLoading(true)
-      setError('')
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
-        })
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return }
-        streamRef.current = stream
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          await videoRef.current.play()
-        }
+    setCameraLoading(true)
+    setError('')
 
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } },
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
+
+      // Only initialize MediaPipe once — reuse cached detector on camera flips
+      if (!detectorRef.current) {
         const vision = await import('@mediapipe/tasks-vision')
         const { PoseLandmarker, FilesetResolver } = vision
         const filesetResolver = await FilesetResolver.forVisionTasks(
@@ -107,31 +128,57 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
           runningMode: 'VIDEO',
           numPoses: 1,
         })
-        if (cancelled) { poseLandmarker.close(); return }
         detectorRef.current = poseLandmarker
-        setLoading(false)
+      }
 
-        let lastTime = -1
-        function detect(time: number) {
-          if (!videoRef.current || !canvasRef.current) return
-          const video  = videoRef.current
-          const canvas = canvasRef.current
-          const ctx    = canvas.getContext('2d')!
+      setLoading(false)
+      setCameraLoading(false)
 
-          canvas.width  = video.videoWidth
-          canvas.height = video.videoHeight
-          ctx.drawImage(video, 0, 0)
+      let lastTime = -1
+      function detect(time: number) {
+        if (!videoRef.current || !canvasRef.current) return
+        const video  = videoRef.current
+        const canvas = canvasRef.current
+        const ctx    = canvas.getContext('2d')!
 
-          if (time !== lastTime && video.readyState >= 2) {
-            lastTime = time
-            const result = detectorRef.current!.detectForVideo(video, time)
-            if (result.landmarks.length > 0) {
-              processFrame(result.landmarks[0], ctx, canvas.width, canvas.height)
-            }
+        canvas.width  = video.videoWidth
+        canvas.height = video.videoHeight
+
+        // Mirror the canvas draw for front camera so video + skeleton both flip
+        ctx.save()
+        if (facingModeRef.current === 'user') {
+          ctx.translate(canvas.width, 0)
+          ctx.scale(-1, 1)
+        }
+        ctx.drawImage(video, 0, 0)
+        ctx.restore()
+
+        if (time !== lastTime && video.readyState >= 2) {
+          lastTime = time
+          const result = detectorRef.current!.detectForVideo(video, time)
+          if (result.landmarks.length > 0) {
+            processFrame(result.landmarks[0], ctx, canvas.width, canvas.height)
           }
-          animRef.current = requestAnimationFrame(detect)
         }
         animRef.current = requestAnimationFrame(detect)
+      }
+      animRef.current = requestAnimationFrame(detect)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Eroare cameră')
+      setLoading(false)
+      setCameraLoading(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function init() {
+      setLoading(true)
+      setError('')
+      try {
+        await startCamera('environment')
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Eroare cameră')
         setLoading(false)
@@ -150,9 +197,11 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     const isEasy = modeRef.current === 'easy'
 
     if (exerciseType === 'pullup') {
-      const elbow = isEasy
+      const rawElbow = isEasy
         ? bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
         : avgElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
+      const elbow = elbowSmootherRef.current.smooth(rawElbow)
+      const elbowVel = elbowSmootherRef.current.getVelocity()
       const cs = repCounterRef.current.update(elbow)
       drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state] ?? '#1ED75F')
       triggerHaptic(cs.repCount)
@@ -161,11 +210,16 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setStateLabel(STATE_LABELS[cs.state])
       setStateColor(STATE_COLORS[cs.state])
       setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state))
+      setAngleVelocity(elbowVel)
+      const t = modeRef.current === 'easy' ? EASY_PULLUP : STRICT_PULLUP
+      setArcProgress(Math.max(0, Math.min(1, (t.hangEnter - elbow) / (t.hangEnter - t.peak))))
 
     } else if (exerciseType === 'pushup') {
-      const elbow = isEasy
+      const rawElbow = isEasy
         ? bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
         : avgElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
+      const elbow = elbowSmootherRef.current.smooth(rawElbow)
+      const elbowVel = elbowSmootherRef.current.getVelocity()
       const cs = pushupCounterRef.current.update(elbow)
       drawSkeleton(ctx, lms, w, h, '#F97316')
       triggerHaptic(cs.repCount)
@@ -174,11 +228,16 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setStateLabel(PUSHUP_STATE_LABELS[cs.state])
       setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
       setFormCues(formCoachRef.current.getFormCues(lms, 'pushup', cs.state))
+      setAngleVelocity(elbowVel)
+      const pt = modeRef.current === 'easy' ? EASY_PUSHUP : STRICT_PUSHUP
+      setArcProgress(Math.max(0, Math.min(1, (pt.upAngle - elbow) / (pt.upAngle - pt.downAngle))))
 
     } else {
-      const knee = isEasy
+      const rawKnee = isEasy
         ? bestKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
         : avgKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
+      const knee = kneeSmootherRef.current.smooth(rawKnee)
+      const kneeVel = kneeSmootherRef.current.getVelocity()
       const cs = squatCounterRef.current.update(knee)
       drawSkeleton(ctx, lms, w, h, '#3B82F6')
       triggerHaptic(cs.repCount)
@@ -187,6 +246,9 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setStateLabel(SQUAT_STATE_LABELS[cs.state])
       setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
       setFormCues(formCoachRef.current.getFormCues(lms, 'squat', cs.state))
+      setAngleVelocity(kneeVel)
+      const st = modeRef.current === 'easy' ? EASY_SQUAT : STRICT_SQUAT
+      setArcProgress(Math.max(0, Math.min(1, (st.upAngle - knee) / (st.upAngle - st.downAngle))))
     }
   }
 
@@ -206,18 +268,77 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     }
   }
 
-  // Unused RepState type ref — suppress "declared but never used" for PushupState/SquatState
+  function handleCameraFlip() {
+    const next = facingMode === 'environment' ? 'user' : 'environment'
+    facingModeRef.current = next
+    setFacingMode(next)
+    startCamera(next)
+  }
+
+  // Suppress "declared but never used" for state types
   void (null as unknown as RepState | PushupState | SquatState)
 
   const angleLabel = exerciseType === 'squat' ? 'Unghi genunchi' : 'Unghi cot'
 
+  // ── Inline sub-components ──────────────────────────────────────────────────
+
+  function AngleArc() {
+    const fullArcD = 'M 5,45 A 35,35 0 0,1 75,45'
+    const theta = Math.PI - arcProgress * Math.PI
+    const dotX = 40 + 35 * Math.cos(theta)
+    const dotY = 45 - 35 * Math.sin(theta)
+    const largeArcFlag = arcProgress > 0.5 ? 1 : 0
+    const activeArcD = arcProgress > 0.01
+      ? `M 5,45 A 35,35 0 ${largeArcFlag},1 ${dotX.toFixed(1)},${dotY.toFixed(1)}`
+      : ''
+
+    return (
+      <div className="flex flex-col items-start gap-0">
+        <span className="text-[10px] text-white/40">{angleLabel}</span>
+        <svg width="80" height="50" viewBox="0 0 80 50" className="overflow-visible">
+          {/* Background track */}
+          <path d={fullArcD} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" strokeLinecap="round" />
+          {/* Active progress arc */}
+          {activeArcD && (
+            <path d={activeArcD} fill="none" stroke="#1ED75F" strokeWidth="4" strokeLinecap="round" />
+          )}
+          {/* Moving indicator dot */}
+          <circle cx={dotX} cy={dotY} r="5" fill="#1ED75F" />
+          <circle cx={dotX} cy={dotY} r="3" fill="white" />
+        </svg>
+        <span className="text-lg font-black text-white tabular-nums -mt-1">{primaryAngle}°</span>
+      </div>
+    )
+  }
+
+  function VelocityIndicator() {
+    if (Math.abs(angleVelocity) < 0.8) return null
+    const arrow = angleVelocity < 0 ? '↓' : '↑'
+    // Negative velocity = joint bending (correct direction for pulling/squatting)
+    const color = angleVelocity < 0 ? '#1ED75F' : 'rgba(255,255,255,0.5)'
+    return (
+      <span className="text-xs font-bold tabular-nums" style={{ color }}>
+        {arrow} {Math.abs(angleVelocity).toFixed(1)}°/f
+      </span>
+    )
+  }
+
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-black">
       {/* Camera feed */}
-      <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover" />
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
+        muted playsInline
+      />
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
+      />
 
-      {/* Header: exercise name + mode toggle + close */}
+      {/* Header: exercise name + mode toggle + camera flip + close */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 px-4 pt-safe pt-4 pb-3"
         style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent)' }}>
         <button
@@ -242,6 +363,17 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
             Ușor
           </button>
         </div>
+        {/* Camera flip button */}
+        <button
+          onClick={handleCameraFlip}
+          className="w-9 h-9 rounded-full bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0"
+          title={facingMode === 'environment' ? 'Cameră față' : 'Cameră spate'}
+        >
+          <FlipHorizontal2
+            size={16}
+            className={`text-white/80 transition-opacity ${cameraLoading ? 'animate-pulse' : ''}`}
+          />
+        </button>
       </div>
 
       {/* Easy mode toast */}
@@ -313,11 +445,11 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
         </div>
       )}
 
-      {/* Angle display */}
+      {/* Angle arc gauge + velocity indicator */}
       {!loading && (
-        <div className="absolute bottom-[84px] left-4 z-10">
-          <span className="text-[10px] text-white/40 block mb-0.5">{angleLabel}</span>
-          <span className="text-2xl font-black text-white tabular-nums">{primaryAngle}°</span>
+        <div className="absolute bottom-[84px] left-4 z-10 flex flex-col gap-1">
+          <AngleArc />
+          <VelocityIndicator />
         </div>
       )}
 

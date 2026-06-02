@@ -59,6 +59,9 @@ export class RepCounter {
   private framesSinceRep = 0
   private peakReached = false
   private t: PullupThresholds
+  private startAngle: number | null = null
+  private lowestAngle: number | null = null
+  private readonly minRangeRequired = 25
 
   constructor(thresholds: PullupThresholds = STRICT_PULLUP) {
     this.t = thresholds
@@ -70,6 +73,8 @@ export class RepCounter {
     this.confirmBuffer = 0
     this.framesSinceRep = 0
     this.peakReached = false
+    this.startAngle = null
+    this.lowestAngle = null
   }
 
   private snapshot(): RepCounterState {
@@ -96,6 +101,8 @@ export class RepCounter {
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'PULLING'
             this.confirmBuffer = 0
+            this.startAngle = avgElbow
+            this.lowestAngle = avgElbow
           }
         } else {
           this.confirmBuffer = 0
@@ -116,8 +123,12 @@ export class RepCounter {
           // Dropped back without reaching peak — not a full rep
           this.state = 'HANGING'
           this.confirmBuffer = 0
+          this.startAngle = null
+          this.lowestAngle = null
         } else {
           this.confirmBuffer = 0
+          // Track deepest point reached during pull
+          if (this.lowestAngle === null || avgElbow < this.lowestAngle) this.lowestAngle = avgElbow
         }
         break
       }
@@ -139,12 +150,15 @@ export class RepCounter {
         if (avgElbow >= this.t.hangEnter && this.peakReached) {
           this.confirmBuffer++
           if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= MIN_REP_FRAMES) {
-            // Completed rep
-            this.repCount++
+            const rangeOk = this.startAngle !== null && this.lowestAngle !== null
+              && (this.startAngle - this.lowestAngle) >= this.minRangeRequired
+            if (rangeOk) this.repCount++
             this.state = 'HANGING'
             this.confirmBuffer = 0
             this.framesSinceRep = 0
             this.peakReached = false
+            this.startAngle = null
+            this.lowestAngle = null
           }
         } else {
           this.confirmBuffer = 0
@@ -187,12 +201,18 @@ export class PushupCounter {
   private state: PushupState = 'IDLE'
   private confirmBuffer = 0
   private t: PushupThresholds
+  private startAngle: number | null = null
+  private lowestAngle: number | null = null
+  private readonly minRangeRequired = 30
 
   constructor(thresholds: PushupThresholds = STRICT_PUSHUP) {
     this.t = thresholds
   }
 
-  reset() { this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0 }
+  reset() {
+    this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0
+    this.startAngle = null; this.lowestAngle = null
+  }
 
   update(avgElbow: number): { repCount: number; state: PushupState } {
     if (!isFinite(avgElbow)) return { repCount: this.repCount, state: this.state }
@@ -202,13 +222,26 @@ export class PushupCounter {
         if (avgElbow > this.t.upAngle) { this.state = 'UP'; this.confirmBuffer = 0 }
         else if (avgElbow < this.t.downAngle) {
           this.confirmBuffer++
-          if (this.confirmBuffer >= 2) { this.state = 'DOWN'; this.confirmBuffer = 0 }
+          if (this.confirmBuffer >= 2) {
+            this.state = 'DOWN'
+            this.confirmBuffer = 0
+            this.startAngle = avgElbow
+            this.lowestAngle = avgElbow
+          }
         } else { this.confirmBuffer = 0 }
         break
       case 'DOWN':
+        // Track deepest point
+        if (this.lowestAngle === null || avgElbow < this.lowestAngle) this.lowestAngle = avgElbow
         if (avgElbow > this.t.upAngle) {
           this.confirmBuffer++
-          if (this.confirmBuffer >= 2) { this.repCount++; this.state = 'UP'; this.confirmBuffer = 0 }
+          if (this.confirmBuffer >= 2) {
+            const rangeOk = this.startAngle !== null && this.lowestAngle !== null
+              && (this.startAngle - this.lowestAngle) >= this.minRangeRequired
+            if (rangeOk) this.repCount++
+            this.state = 'UP'; this.confirmBuffer = 0
+            this.startAngle = null; this.lowestAngle = null
+          }
         } else { this.confirmBuffer = 0 }
         break
       case 'RISING':
@@ -232,12 +265,18 @@ export class SquatCounter {
   private state: SquatState = 'IDLE'
   private confirmBuffer = 0
   private t: SquatThresholds
+  private startAngle: number | null = null
+  private lowestAngle: number | null = null
+  private readonly minRangeRequired = 30
 
   constructor(thresholds: SquatThresholds = STRICT_SQUAT) {
     this.t = thresholds
   }
 
-  reset() { this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0 }
+  reset() {
+    this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0
+    this.startAngle = null; this.lowestAngle = null
+  }
 
   update(avgKnee: number): { repCount: number; state: SquatState } {
     if (!isFinite(avgKnee)) return { repCount: this.repCount, state: this.state }
@@ -247,13 +286,26 @@ export class SquatCounter {
         if (avgKnee > this.t.upAngle) { this.state = 'UP'; this.confirmBuffer = 0 }
         else if (avgKnee < this.t.downAngle) {
           this.confirmBuffer++
-          if (this.confirmBuffer >= 2) { this.state = 'DOWN'; this.confirmBuffer = 0 }
+          if (this.confirmBuffer >= 2) {
+            this.state = 'DOWN'
+            this.confirmBuffer = 0
+            this.startAngle = avgKnee
+            this.lowestAngle = avgKnee
+          }
         } else { this.confirmBuffer = 0 }
         break
       case 'DOWN':
+        // Track deepest bend
+        if (this.lowestAngle === null || avgKnee < this.lowestAngle) this.lowestAngle = avgKnee
         if (avgKnee > this.t.upAngle) {
           this.confirmBuffer++
-          if (this.confirmBuffer >= 2) { this.repCount++; this.state = 'UP'; this.confirmBuffer = 0 }
+          if (this.confirmBuffer >= 2) {
+            const rangeOk = this.startAngle !== null && this.lowestAngle !== null
+              && (this.startAngle - this.lowestAngle) >= this.minRangeRequired
+            if (rangeOk) this.repCount++
+            this.state = 'UP'; this.confirmBuffer = 0
+            this.startAngle = null; this.lowestAngle = null
+          }
         } else { this.confirmBuffer = 0 }
         break
     }

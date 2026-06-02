@@ -103,3 +103,46 @@ export const MP = {
   LEFT_ANKLE: 27,
   RIGHT_ANKLE: 28,
 } as const
+
+/**
+ * Exponential Moving Average smoother for a single angle signal.
+ * alpha ≈ 0.3: smooths frame-to-frame jitter while remaining
+ * responsive enough at ~30 fps to track genuine movement.
+ */
+export class AngleSmoother {
+  private ema: number | null = null
+  private prev: number | null = null
+  private window: number[] = []
+  private readonly windowSize = 5
+
+  constructor(private readonly alpha = 0.3) {}
+
+  /**
+   * Feed a raw angle reading. Returns the EMA-smoothed value.
+   * Seeds from the first reading so the gauge does not flash from 0.
+   */
+  smooth(raw: number): number {
+    if (!isFinite(raw)) return this.ema ?? raw
+    this.prev = this.ema
+    this.ema = this.ema === null
+      ? raw
+      : this.alpha * raw + (1 - this.alpha) * this.ema
+    this.window.push(this.ema)
+    if (this.window.length > this.windowSize) this.window.shift()
+    return this.ema
+  }
+
+  /**
+   * Frame-to-frame EMA delta.
+   * Positive = angle increasing (joint opening), negative = joint closing/bending.
+   * Returns 0 until at least two frames have been processed.
+   */
+  getVelocity(): number {
+    if (this.prev === null || this.ema === null) return 0
+    return this.ema - this.prev
+  }
+
+  getValue(): number | null { return this.ema }
+
+  reset(): void { this.ema = null; this.prev = null; this.window = [] }
+}
