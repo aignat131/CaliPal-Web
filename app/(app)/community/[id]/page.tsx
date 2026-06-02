@@ -132,8 +132,7 @@ export default function CommunityDetailPage() {
   // Community edit
   const [showEditCommunity, setShowEditCommunity] = useState(false)
 
-  // Fresh member photos (fetched from users collection so they stay up-to-date)
-  const [memberPhotos, setMemberPhotos] = useState<Record<string, string>>({})
+
 
   const isSuperAdmin = user?.email === SUPERADMIN
 
@@ -197,24 +196,6 @@ export default function CommunityDetailPage() {
       () => { setTrainingsLoaded(true) /* non-members can't read trainings — silently ignore */ }
     )
   }, [id, user])
-
-  // Fetch fresh profile photos — only for members not yet in the cache
-  const memberPhotosCacheRef = useRef<Record<string, string>>({})
-  useEffect(() => {
-    if (members.length === 0) return
-    const missing = members.filter(m => !(m.userId in memberPhotosCacheRef.current))
-    if (missing.length === 0) return
-    Promise.all(
-      missing.map(m =>
-        getDoc(doc(db, 'users', m.userId))
-          .then(snap => [m.userId, (snap.data()?.photoUrl as string) ?? ''] as const)
-          .catch(() => [m.userId, ''] as const)
-      )
-    ).then(entries => {
-      entries.forEach(([uid, url]) => { memberPhotosCacheRef.current[uid] = url })
-      setMemberPhotos({ ...memberPhotosCacheRef.current })
-    })
-  }, [members])
 
   // Load friend/pending status for member tab
   const loadSocialStatus = useCallback(async () => {
@@ -536,7 +517,7 @@ export default function CommunityDetailPage() {
         /* ── Cover image header ── */
         <div className="border-b border-white/8">
           <div className="relative overflow-hidden" style={{ height: 140 }}>
-            <Image src={community.imageUrl} alt="" fill sizes="(max-width: 640px) 100vw, 640px" className="object-cover" />
+            <Image src={community.imageUrl} alt={`${community.name} cover photo`} fill sizes="(max-width: 640px) 100vw, 640px" className="object-cover" />
             <div className="absolute inset-0"
               style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, var(--app-bg) 100%)' }} />
             <button
@@ -561,6 +542,7 @@ export default function CommunityDetailPage() {
               <div className="absolute top-3 right-14">
                 <button
                   onClick={() => setShowCommunityMenu(v => !v)}
+                  aria-label="Opțiuni comunitate"
                   className="w-9 h-9 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
                 >
@@ -647,6 +629,7 @@ export default function CommunityDetailPage() {
               <div className="relative flex-shrink-0">
                 <button
                   onClick={() => setShowCommunityMenu(v => !v)}
+                  aria-label="Opțiuni comunitate"
                   className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center"
                 >
                   <MoreVertical size={18} className="text-white/70" />
@@ -784,6 +767,7 @@ export default function CommunityDetailPage() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={postImagePreview} alt="" className="w-full object-cover" style={{ maxHeight: 160 }} />
                     <button onClick={() => { setPostImage(null); setPostImagePreview(null) }}
+                      aria-label="Elimină imaginea"
                       className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center">
                       <X size={12} className="text-white" />
                     </button>
@@ -903,7 +887,7 @@ export default function CommunityDetailPage() {
               const isFriend = friendIds.has(m.userId)
               const isPending = pendingIds.has(m.userId)
               const isMe = m.userId === user?.uid
-              const livePhoto = memberPhotos[m.userId] || m.photoUrl || ''
+              const livePhoto = m.photoUrl || ''
 
               return (
                 <div key={m.userId} className="flex items-center gap-2 px-3 py-3 rounded-2xl" style={{ backgroundColor: 'var(--app-surface)' }}>
@@ -945,6 +929,7 @@ export default function CommunityDetailPage() {
                     <div className="relative flex-shrink-0">
                       <button
                         onClick={() => setOpenMenuId(openMenuId === m.userId ? null : m.userId)}
+                        aria-label="Opțiuni membru"
                         className="w-8 h-8 flex items-center justify-center text-white/40 hover:text-white/70 rounded-full hover:bg-white/8"
                       >
                         <MoreVertical size={16} />
@@ -1016,7 +1001,7 @@ export default function CommunityDetailPage() {
               <div className="flex flex-col gap-2">
                 {sortedLeaderboard.slice(0, 10).map((m, idx) => {
                   const isMe = m.userId === user?.uid
-                  const livePhoto = memberPhotos[m.userId] || m.photoUrl || ''
+                  const livePhoto = m.photoUrl || ''
                   const rankColor = idx === 0 ? '#FFB800' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'rgba(255,255,255,0.4)'
                   const rankIcon = idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null
                   return (
@@ -1054,7 +1039,7 @@ export default function CommunityDetailPage() {
                   const myIdx = sortedLeaderboard.findIndex(m => m.userId === user?.uid)
                   if (myIdx < 10 || myIdx === -1) return null
                   const m = sortedLeaderboard[myIdx]
-                  const livePhoto = memberPhotos[m.userId] || m.photoUrl || ''
+                  const livePhoto = m.photoUrl || ''
                   return (
                     <>
                       <div className="text-center text-white/20 text-xs py-1">···</div>
@@ -1141,7 +1126,7 @@ function JoinNotificationModal({
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-end mb-1">
-          <button onClick={onDismiss} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
+          <button onClick={onDismiss} aria-label="Închide" className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
             <X size={13} className="text-white/50" />
           </button>
         </div>
@@ -1325,12 +1310,12 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
               <Share2 size={14} />
             </button>
             {canEdit && !showEdit && !showDeleteConfirm && (
-              <button onClick={openEdit} className="w-8 h-8 flex items-center justify-center rounded-full text-brand-green/50 hover:text-brand-green hover:bg-brand-green/10 transition-colors">
+              <button onClick={openEdit} aria-label="Editează antrenament" className="w-8 h-8 flex items-center justify-center rounded-full text-brand-green/50 hover:text-brand-green hover:bg-brand-green/10 transition-colors">
                 <Pencil size={14} />
               </button>
             )}
             {canDelete && !showEdit && !showDeleteConfirm && (
-              <button onClick={() => setShowDeleteConfirm(true)} className="w-8 h-8 flex items-center justify-center rounded-full text-red-400/50 hover:text-red-400 hover:bg-red-400/10 transition-colors">
+              <button onClick={() => setShowDeleteConfirm(true)} aria-label="Șterge antrenament" className="w-8 h-8 flex items-center justify-center rounded-full text-red-400/50 hover:text-red-400 hover:bg-red-400/10 transition-colors">
                 <Trash2 size={14} />
               </button>
             )}
@@ -1937,7 +1922,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
           </div>
         </div>
         {(post.authorId === myUid || myRole === 'ADMIN' || isSuperAdmin) && (
-          <button onClick={onDelete} className="text-red-400/60 hover:text-red-400 transition-colors p-1 mt-0.5">
+          <button onClick={onDelete} aria-label="Șterge postare" className="text-red-400/60 hover:text-red-400 transition-colors p-1 mt-0.5">
             <Trash2 size={13} />
           </button>
         )}
@@ -1980,7 +1965,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
         <div className="relative mb-3 rounded-xl overflow-hidden" style={{ maxHeight: 288 }}>
           <Image
             src={post.photoUrl}
-            alt=""
+            alt={`${post.authorName}'s post image`}
             width={600}
             height={288}
             className="w-full object-cover"
@@ -1993,6 +1978,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, onDe
       <div className="flex items-center gap-4">
         <button
           onClick={isOwnPost ? undefined : toggleLike}
+          aria-label={liked ? 'Dă unlike' : 'Dă like'}
           disabled={isOwnPost}
           className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
             isOwnPost ? 'text-white/20 cursor-default' : liked ? 'text-red-400' : 'text-white/40 hover:text-white/60'
@@ -2118,7 +2104,7 @@ function EditCommunityModal({ community, onClose }: {
         <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
         <div className="flex items-center justify-between mb-5">
           <p className="text-base font-black text-white">Editează comunitatea</p>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
+          <button onClick={onClose} aria-label="Închide" className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
             <X size={14} className="text-white/60" />
           </button>
         </div>

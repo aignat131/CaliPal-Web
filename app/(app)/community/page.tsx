@@ -450,7 +450,7 @@ function MemberCommunityCard({
           <div className="relative w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
             style={{ backgroundColor: '#1ED75F22' }}>
             {community.imageUrl
-              ? <Image src={community.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-xl" />
+              ? <Image src={community.imageUrl} alt={`${community.name} logo`} fill sizes="48px" className="object-cover rounded-xl" />
               : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
           </div>
 
@@ -510,7 +510,7 @@ function DiscoverCommunityCard({
           <div className="relative w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
             style={{ backgroundColor: '#1ED75F22' }}>
             {community.imageUrl
-              ? <Image src={community.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-xl" />
+              ? <Image src={community.imageUrl} alt={`${community.name} logo`} fill sizes="48px" className="object-cover rounded-xl" />
               : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
           </div>
 
@@ -602,7 +602,7 @@ function MembersPreviewModal({
             <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ backgroundColor: '#1ED75F22' }}>
               {community.imageUrl
-                ? <Image src={community.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-xl" />
+                ? <Image src={community.imageUrl} alt={`${community.name} logo`} fill sizes="48px" className="object-cover rounded-xl" />
                 : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
             </div>
             <div className="flex-1 min-w-0">

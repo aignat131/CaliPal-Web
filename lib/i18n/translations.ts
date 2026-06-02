@@ -252,8 +252,9 @@ const T: Record<string, { RO: string; EN: string }> = {
   'chat.start':       { RO: 'Începe o conversație',  EN: 'Start a conversation' },
   'chat.yesterday':   { RO: 'Ieri',                  EN: 'Yesterday' },
   'chat.today':       { RO: 'Azi',                   EN: 'Today' },
-  'chat.sent':        { RO: 'Trimis',                EN: 'Sent' },
-  'chat.read':        { RO: 'Citit',                 EN: 'Read' },
+  'chat.sent':          { RO: 'Trimis',                      EN: 'Sent' },
+  'chat.read':          { RO: 'Citit',                       EN: 'Read' },
+  'chat.load_earlier':  { RO: 'Încarcă mesaje mai vechi',    EN: 'Load earlier messages' },
 
   // ── Workout Page ─────────────────────────────────────────────────────────────
   'workout.title':          { RO: 'Antrenament',        EN: 'Workout' },

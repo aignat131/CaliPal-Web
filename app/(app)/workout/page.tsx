@@ -279,6 +279,10 @@ export default function WorkoutPage() {
               challengeId: ch.id, communityId: cid, currentReps: newReps, completed,
               completedAt: completed && !ps.data()?.completed ? serverTimestamp() : (ps.exists() ? ps.data().completedAt ?? null : null),
             })
+            if (completed && !ps.data()?.completed) {
+              await updateDoc(userRef, { coins: increment(ch.coinsReward ?? 0) })
+              earned += ch.coinsReward ?? 0
+            }
           }))
         }))
       } catch { /* non-critical */ }

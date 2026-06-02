@@ -6,6 +6,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, addDoc, doc,
   setDoc, updateDoc, serverTimestamp, increment, getDoc, writeBatch, limitToLast,
+  getDocs, endBefore, QueryDocumentSnapshot, DocumentData,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'
@@ -76,6 +77,10 @@ export default function ChatDetailPage() {
   const [otherUserId, setOtherUserId] = useState(otherUserIdParam)
   const [otherName, setOtherName] = useState(otherNameParam || t('common.user_fallback'))
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [olderMessages, setOlderMessages] = useState<ChatMessage[]>([])
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const oldestDocRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null)
   const [otherPhoto, setOtherPhoto] = useState('')
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -121,6 +126,10 @@ export default function ChatDetailPage() {
       q,
       snap => {
         setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ChatMessage))
+        if (!oldestDocRef.current && snap.docs.length > 0) {
+          oldestDocRef.current = snap.docs[0]
+        }
+        setHasMore(snap.docs.length >= 50)
         setLoading(false)
       },
       () => {
@@ -187,6 +196,30 @@ export default function ChatDetailPage() {
       }).catch(() => {})
     }, 2500)
   }, [user, conversationId])
+
+  async function loadOlderMessages() {
+    if (!oldestDocRef.current || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const q = query(
+        collection(db, 'conversations', conversationId, 'messages'),
+        orderBy('timestamp', 'asc'),
+        endBefore(oldestDocRef.current),
+        limitToLast(50),
+      )
+      const snap = await getDocs(q)
+      if (snap.docs.length > 0) {
+        oldestDocRef.current = snap.docs[0]
+        const fetched = snap.docs.map(d => ({ id: d.id, ...d.data() }) as ChatMessage)
+        setOlderMessages(prev => [...fetched, ...prev])
+        setHasMore(snap.docs.length >= 50)
+      } else {
+        setHasMore(false)
+      }
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   // Clear typing indicator on unmount
   useEffect(() => {
@@ -297,15 +330,26 @@ export default function ChatDetailPage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {loading && <SkeletonMessages />}
-        {!loading && messages.length === 0 && (
+        {!loading && hasMore && (
+          <div className="flex justify-center mb-3">
+            <button
+              onClick={loadOlderMessages}
+              disabled={loadingMore}
+              className="text-xs font-semibold text-white/50 px-4 py-2 rounded-full border border-white/12 hover:text-white/80 disabled:opacity-40 transition-colors"
+            >
+              {loadingMore ? '...' : t('chat.load_earlier')}
+            </button>
+          </div>
+        )}
+        {!loading && messages.length === 0 && olderMessages.length === 0 && (
           <p className="text-center text-sm text-white/35 py-8">{t('chat.send_first')}</p>
         )}
-        {messages.map((msg, i) => {
+        {[...olderMessages, ...messages].map((msg, i, all) => {
           const isMe = msg.senderId === user?.uid
-          const showAvatar = !isMe && (i === 0 || messages[i - 1]?.senderId !== msg.senderId)
+          const showAvatar = !isMe && (i === 0 || all[i - 1]?.senderId !== msg.senderId)
 
           // Show a date separator when the day changes between messages
-          const prevMsg = i > 0 ? messages[i - 1] : null
+          const prevMsg = i > 0 ? all[i - 1] : null
           const showDateSep = !prevMsg || msgDayKey(msg.timestamp) !== msgDayKey(prevMsg.timestamp)
           const dateSepLabel = showDateSep
             ? formatDateSeparator(msg.timestamp, todayLabel, yesterdayLabel, locale)

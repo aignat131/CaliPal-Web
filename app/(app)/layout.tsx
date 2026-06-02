@@ -192,6 +192,11 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router, isGuestRoute])
 
+  // Scroll to top on every route change
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+
   useEffect(() => {
     if (!user || pushStatus !== 'idle') return
     if (!localStorage.getItem(NOTIF_PROMPT_KEY)) setShowNotifModal(true)
