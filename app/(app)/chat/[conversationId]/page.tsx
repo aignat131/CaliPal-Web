@@ -13,9 +13,10 @@ import { auth } from '@/lib/firebase/auth'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
+import { uploadChatImage } from '@/lib/firebase/storage'
 import type { ChatMessage, ConversationDoc } from '@/types'
 import Link from 'next/link'
-import { ArrowLeft, Send, Check, CheckCheck, X } from 'lucide-react'
+import { ArrowLeft, Send, Check, CheckCheck, X, ImagePlus } from 'lucide-react'
 import { useLanguage } from '@/lib/context/LanguageContext'
 import { SkeletonMessages } from '@/components/ui/SkeletonLoaders'
 
@@ -107,7 +108,9 @@ export default function ChatDetailPage() {
   const [otherLastSeen, setOtherLastSeen] = useState<{ toDate: () => Date } | null>(null)
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<string | null>(null)
   const [replyTo, setReplyTo] = useState<{ id: string; text: string; senderName: string } | null>(null)
+  const [imageUploading, setImageUploading] = useState(false)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const swipeMsgId = useRef<string | null>(null)
   const swipeStartX = useRef<number>(0)
   const swipeTriggered = useRef(false)
@@ -347,6 +350,59 @@ export default function ChatDetailPage() {
     }
   }
 
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    e.target.value = ''
+    setImageUploading(true)
+    try {
+      const imageUrl = await uploadChatImage(conversationId, user.uid, Date.now(), file)
+      // Send as message with imageUrl (empty text is allowed for image-only messages)
+      const convRef = doc(db, 'conversations', conversationId)
+      const convSnap = await getDoc(convRef)
+      if (!convSnap.exists()) {
+        const otherSnap = await getDoc(doc(db, 'users', otherUserId))
+        const otherPhotoUrl = (otherSnap.data()?.photoUrl as string) ?? ''
+        await setDoc(convRef, {
+          id: conversationId,
+          participantIds: [user.uid, otherUserId],
+          participantNames: { [user.uid]: myName, [otherUserId]: otherName },
+          participantPhotos: { [user.uid]: myPhoto, [otherUserId]: otherPhotoUrl },
+          lastMessage: '📷 Imagine',
+          lastMessageSenderId: user.uid,
+          lastMessageTimestamp: serverTimestamp(),
+          unreadCount: { [otherUserId]: 1 },
+        } as Partial<ConversationDoc>)
+      } else {
+        await updateDoc(convRef, {
+          lastMessage: '📷 Imagine',
+          lastMessageSenderId: user.uid,
+          lastMessageTimestamp: serverTimestamp(),
+          [`unreadCount.${otherUserId}`]: increment(1),
+        })
+      }
+      const msgData: Record<string, unknown> = {
+        senderId: user.uid,
+        senderName: myName,
+        text: '',
+        imageUrl,
+        timestamp: serverTimestamp(),
+        isRead: false,
+      }
+      if (replyTo) {
+        msgData.replyToId = replyTo.id
+        msgData.replyToText = replyTo.text
+        msgData.replyToSenderName = replyTo.senderName
+        setReplyTo(null)
+      }
+      await addDoc(collection(db, 'conversations', conversationId, 'messages'), msgData)
+    } catch {
+      // silently ignore upload errors — user can retry
+    } finally {
+      setImageUploading(false)
+    }
+  }
+
   const MSG_REACTIONS = ['❤️', '👍', '😂', '🔥', '💪', '😮']
 
   async function setReaction(msgId: string, emoji: string) {
@@ -509,6 +565,18 @@ export default function ChatDetailPage() {
                           <p className="text-xs line-clamp-2" style={{ color: isMe ? 'rgba(13,27,26,0.6)' : 'rgba(255,255,255,0.5)' }}>{msg.replyToText}</p>
                         </div>
                       )}
+                      {msg.imageUrl && (
+                        <div className="mb-1 -mx-0.5 rounded-xl overflow-hidden">
+                          <Image
+                            src={msg.imageUrl}
+                            alt="imagine"
+                            width={240}
+                            height={180}
+                            className="object-cover w-full"
+                            style={{ maxHeight: 240 }}
+                          />
+                        </div>
+                      )}
                       {msg.text}
                     </div>
                     {/* Reaction picker popover */}
@@ -601,6 +669,23 @@ export default function ChatDetailPage() {
       {/* Input bar */}
       <div className="flex items-center gap-2 px-4 py-3 border-t border-white/8 flex-shrink-0"
         style={{ backgroundColor: 'var(--app-bg)' }}>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={imageUploading}
+          className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0 disabled:opacity-40"
+        >
+          {imageUploading
+            ? <div className="w-4 h-4 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+            : <ImagePlus size={16} className="text-white/50" />
+          }
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageSelect}
+        />
         <input
           value={text}
           onChange={e => { setText(e.target.value); handleTyping() }}

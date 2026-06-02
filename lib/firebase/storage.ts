@@ -59,6 +59,14 @@ export async function uploadPostPhoto(communityId: string, postId: string, file:
   return getDownloadURL(storageRef)
 }
 
+export async function uploadChatImage(conversationId: string, uid: string, timestamp: number, file: File): Promise<string> {
+  validateImage(file)
+  const compressed = await compressImage(file, { maxDimension: 1080, quality: 0.82 })
+  const storageRef = ref(storage, `chatImages/${conversationId}/${uid}_${timestamp}.jpg`)
+  await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
+  return getDownloadURL(storageRef)
+}
+
 export async function uploadFormCheckVideo(userId: string, timestamp: number, file: File): Promise<string> {
   validateVideo(file)
   const ext = file.name.split('.').pop() ?? 'mp4'

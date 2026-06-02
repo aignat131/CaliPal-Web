@@ -142,6 +142,7 @@ export interface ChatMessage {
   replyToId?: string
   replyToText?: string
   replyToSenderName?: string
+  imageUrl?: string
 }
 
 export interface FriendRequest {
