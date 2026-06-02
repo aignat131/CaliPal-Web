@@ -220,6 +220,9 @@ export default function CommunityTrainingHistoryPage() {
         }
 
         const all = trainSnap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
+        console.log('[TrainingHistory] communityId:', communityId)
+        console.log('[TrainingHistory] total docs from Firestore:', trainSnap.docs.length)
+        console.log('[TrainingHistory] raw docs:', trainSnap.docs.map(d => ({ id: d.id, timeStart: d.data().timeStart, date: d.data().date, name: d.data().name })))
         setTotalCount(all.length)
         const sorted = all
           .sort((a, b) => {
