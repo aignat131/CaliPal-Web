@@ -23,7 +23,7 @@ import type {
 import { ROLE_LABELS, conversationId } from '@/types'
 import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
-  UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users, Trophy,
+  UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
   Heart, MessageCircle, MoreVertical, User, Bell, X, LogOut, UserX, Share2,
   Pencil, Camera, Info, Mail, MailX, History, ImagePlus,
 } from 'lucide-react'
@@ -421,7 +421,7 @@ export default function CommunityDetailPage() {
     return order.indexOf(a.role) - order.indexOf(b.role)
   })
 
-  const sortedLeaderboard = [...members].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+
 
   // Tabs available to non-members: only Membri
   const visibleTabs = isMember
@@ -429,7 +429,6 @@ export default function CommunityDetailPage() {
         { label: 'Feed', Icon: MessageSquare },
         { label: 'Antrenamente', Icon: Dumbbell },
         { label: 'Membri', Icon: Users },
-        { label: 'Clasament', Icon: Trophy },
       ]
     : [{ label: 'Membri', Icon: Users }]
 
@@ -991,84 +990,6 @@ export default function CommunityDetailPage() {
           </div>
         ))}
 
-        {/* ── Clasament ── */}
-        {effectiveTab === 3 && (
-          <div>
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3">TOP MEMBRI</p>
-            {sortedLeaderboard.length === 0 ? (
-              <p className="text-sm text-white/35 text-center py-8">Nu există date de clasament încă.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {sortedLeaderboard.slice(0, 10).map((m, idx) => {
-                  const isMe = m.userId === user?.uid
-                  const livePhoto = m.photoUrl || ''
-                  const rankColor = idx === 0 ? '#FFB800' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'rgba(255,255,255,0.4)'
-                  const rankIcon = idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null
-                  return (
-                    <div key={m.userId}
-                      className="flex items-center gap-3 px-3 py-3 rounded-2xl"
-                      style={{ backgroundColor: isMe ? '#1ED75F10' : 'var(--app-surface)', border: isMe ? '1px solid #1ED75F25' : '1px solid transparent' }}
-                    >
-                      {/* Rank */}
-                      <div className="w-7 text-center flex-shrink-0">
-                        {rankIcon
-                          ? <span className="text-lg leading-none">{rankIcon}</span>
-                          : <span className="text-sm font-black" style={{ color: rankColor }}>#{idx + 1}</span>}
-                      </div>
-                      {/* Avatar */}
-                      <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${ROLE_COLORS[m.role as MemberRole] ?? '#1ED75F'}22` }}>
-                        {livePhoto
-                          ? <Image src={livePhoto} alt={m.displayName} fill sizes="36px" className="object-cover" />
-                          : <span className="text-sm font-black text-brand-green">{m.displayName.charAt(0).toUpperCase()}</span>}
-                      </div>
-                      {/* Name */}
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-bold text-white truncate block">{m.displayName}</span>
-                        {isMe && <span className="text-[9px] font-bold text-brand-green">TU</span>}
-                      </div>
-                      {/* Points */}
-                      <span className="text-sm font-black flex-shrink-0" style={{ color: rankColor }}>
-                        {m.points ?? 0}<span className="text-[10px] font-normal text-white/30 ml-0.5">pts</span>
-                      </span>
-                    </div>
-                  )
-                })}
-                {/* Show current user's rank if outside top 10 */}
-                {(() => {
-                  const myIdx = sortedLeaderboard.findIndex(m => m.userId === user?.uid)
-                  if (myIdx < 10 || myIdx === -1) return null
-                  const m = sortedLeaderboard[myIdx]
-                  const livePhoto = m.photoUrl || ''
-                  return (
-                    <>
-                      <div className="text-center text-white/20 text-xs py-1">···</div>
-                      <div className="flex items-center gap-3 px-3 py-3 rounded-2xl"
-                        style={{ backgroundColor: '#1ED75F10', border: '1px solid #1ED75F25' }}>
-                        <div className="w-7 text-center flex-shrink-0">
-                          <span className="text-sm font-black text-white/40">#{myIdx + 1}</span>
-                        </div>
-                        <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: '#1ED75F22' }}>
-                          {livePhoto
-                            ? <Image src={livePhoto} alt={m.displayName} fill sizes="36px" className="object-cover" />
-                            : <span className="text-sm font-black text-brand-green">{m.displayName.charAt(0).toUpperCase()}</span>}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-sm font-bold text-white truncate block">{m.displayName}</span>
-                          <span className="text-[9px] font-bold text-brand-green">TU</span>
-                        </div>
-                        <span className="text-sm font-black text-brand-green flex-shrink-0">
-                          {m.points ?? 0}<span className="text-[10px] font-normal text-white/30 ml-0.5">pts</span>
-                        </span>
-                      </div>
-                    </>
-                  )
-                })()}
-              </div>
-            )}
-          </div>
-        )}
 
       </div>
 
