@@ -33,7 +33,6 @@ import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
 import { useToast } from '@/lib/context/ToastContext'
 import { SkeletonCard, SkeletonTrainingRow } from '@/components/ui/SkeletonLoaders'
-import { GroupChatTab } from '@/components/community/GroupChatTab'
 
 const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
@@ -102,7 +101,7 @@ export default function CommunityDetailPage() {
       const saved = sessionStorage.getItem(`comm_detail_tab_${params.id}`)
       if (saved !== null) return parseInt(saved)
     }
-    return 2 // default: Membri
+    return 1 // default: Antrenamente
   })
   const [loading, setLoading] = useState(true)
   const [postText, setPostText] = useState('')
@@ -226,7 +225,7 @@ export default function CommunityDetailPage() {
 
   useEffect(() => {
     sessionStorage.setItem(`comm_detail_tab_${id}`, String(tab))
-    if (tab === 3) loadSocialStatus()
+    if (tab === 2) loadSocialStatus()
   }, [tab, id, loadSocialStatus])
 
 
@@ -436,14 +435,13 @@ export default function CommunityDetailPage() {
   const visibleTabs = isMember
     ? [
         { label: 'Feed', Icon: MessageSquare },
-        { label: 'Chat', Icon: MessageCircle },
         { label: 'Antrenamente', Icon: Dumbbell },
         { label: 'Membri', Icon: Users },
       ]
     : [{ label: 'Membri', Icon: Users }]
 
-  // For non-members, always show tab index 0 (Membri → effectiveTab 3)
-  const effectiveTab = isMember ? tab : 3
+  // For non-members, always show tab index 0 (Membri → effectiveTab 2)
+  const effectiveTab = isMember ? tab : 2
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -679,7 +677,7 @@ export default function CommunityDetailPage() {
               style={{ backgroundColor: '#1ED75F12', border: '1px solid #1ED75F35' }}>
               <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse flex-shrink-0" />
               <span className="text-sm font-bold text-brand-green flex-1 min-w-0 truncate">{active.name} — în desfășurare acum</span>
-              <button onClick={() => setTab(2)} className="text-xs font-black text-brand-green/70 flex-shrink-0">Vezi →</button>
+              <button onClick={() => setTab(1)} className="text-xs font-black text-brand-green/70 flex-shrink-0">Vezi →</button>
             </div>
           </div>
         ) : null
@@ -772,21 +770,8 @@ export default function CommunityDetailPage() {
           </div>
         )}
 
-        {/* ── Chat ── */}
-        {effectiveTab === 1 && community && user && (
-          <GroupChatTab
-            communityId={id}
-            myUid={user.uid}
-            myName={myProfile?.displayName || user.displayName || ''}
-            myPhotoUrl={myProfile?.photoUrl || user.photoURL || null}
-            myRole={myRole}
-            members={members}
-            onMemberTap={(m) => setMemberSheetTarget(m)}
-          />
-        )}
-
         {/* ── Antrenamente ── */}
-        {effectiveTab === 2 && (
+        {effectiveTab === 1 && (
           <div>
             {isMember && (
               <button onClick={() => setShowAddTraining(true)}
@@ -854,7 +839,7 @@ export default function CommunityDetailPage() {
         )}
 
         {/* ── Membri ── */}
-        {effectiveTab === 3 && (!user ? (
+        {effectiveTab === 2 && (!user ? (
           <div className="text-center py-14">
             <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#1ED75F18' }}>
               <Users size={24} className="text-brand-green" />
