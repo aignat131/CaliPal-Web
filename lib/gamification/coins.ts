@@ -113,7 +113,7 @@ export async function awardTrainingAttendancePoints(
     pointsAwarded = 10
 
     tx.update(memberRef, {
-      points: increment(10),
+      trainingPoints: increment(10),
       lastTrainingPointDate: today,
       lastAttendanceDate: today,
       trainingAttendanceStreak: newStreak,
@@ -130,7 +130,7 @@ export async function awardTrainingAttendancePoints(
     if (!guardSnap.exists()) {
       await setDoc(guardRef, { uid, communityId, milestone, awardedAt: serverTimestamp() })
       const bonus = bonusAmounts[milestone]
-      await updateDoc(memberRef, { points: increment(bonus) })
+      await updateDoc(memberRef, { trainingPoints: increment(bonus) })
       streakBonus = bonus
     }
   }

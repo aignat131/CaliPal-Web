@@ -429,7 +429,7 @@ export default function CommunityDetailPage() {
     return order.indexOf(a.role) - order.indexOf(b.role)
   })
 
-  const membersByPoints = [...members].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+  const membersByPoints = [...members].sort((a, b) => (b.trainingPoints ?? 0) - (a.trainingPoints ?? 0))
 
 
 
@@ -923,7 +923,7 @@ export default function CommunityDetailPage() {
 
                   {/* Points */}
                   <div className="flex flex-col items-end flex-shrink-0">
-                    <span className="text-sm font-black text-brand-green">{m.points ?? 0}</span>
+                    <span className="text-sm font-black text-brand-green">{m.trainingPoints ?? 0}</span>
                     <span className="text-[9px] text-white/25">pts</span>
                   </div>
 
@@ -1123,7 +1123,7 @@ function MemberSheet({
               </span>
             )}
             <span className="text-xs text-white/35">•</span>
-            <span className="text-xs text-white/50">{member.points ?? 0} pts</span>
+            <span className="text-xs text-white/50">{member.trainingPoints ?? 0} pts</span>
             {daysSinceJoin !== null && (
               <>
                 <span className="text-xs text-white/35">•</span>

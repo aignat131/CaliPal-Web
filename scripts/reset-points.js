@@ -58,7 +58,7 @@ async function resetCommunityMemberPoints() {
       writes.push({
         ref: memberDoc.ref,
         data: {
-          points: 0,
+          trainingPoints: 0,
           totalTrainingsAttended: 0,
           lastTrainingPointDate: FieldValue.delete(),
           trainingAttendanceStreak: FieldValue.delete(),
