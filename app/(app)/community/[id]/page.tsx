@@ -429,6 +429,8 @@ export default function CommunityDetailPage() {
     return order.indexOf(a.role) - order.indexOf(b.role)
   })
 
+  const membersByPoints = [...members].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+
 
 
   // Tabs available to non-members: only Membri
@@ -857,25 +859,38 @@ export default function CommunityDetailPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-1">{members.length} MEMBRI</p>
-            {sortedMembers.map(m => {
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3">CLASAMENT · {members.length} MEMBRI</p>
+            {membersByPoints.map((m, index) => {
               const roleColor = ROLE_COLORS[m.role as MemberRole] ?? '#1ED75F'
-              const isFriend = friendIds.has(m.userId)
-              const isPending = pendingIds.has(m.userId)
               const isMe = m.userId === user?.uid
               const livePhoto = m.photoUrl || ''
+              const rankColors = ['#F59E0B', '#94A3B8', '#B45309']
+              const rankBg = ['#F59E0B15', '#94A3B815', '#B4530915']
+              const isTopThree = index < 3
 
               return (
                 <div
                   key={m.userId}
                   className="flex items-center gap-3 px-4 py-3.5 rounded-xl mx-1 cursor-pointer active:bg-white/5 transition-colors"
                   style={{
-                    backgroundColor: m.role !== 'MEMBER'
+                    backgroundColor: isTopThree
+                      ? rankBg[index]
+                      : m.role !== 'MEMBER'
                       ? `${roleColor}09`
                       : 'var(--app-surface)',
+                    border: isTopThree ? `1px solid ${rankColors[index]}25` : 'none',
                   }}
                   onClick={() => setMemberSheetTarget(m)}
                 >
+                  {/* Rank number */}
+                  <div className="w-6 flex-shrink-0 flex items-center justify-center">
+                    {isTopThree ? (
+                      <span className="text-base">{['🥇', '🥈', '🥉'][index]}</span>
+                    ) : (
+                      <span className="text-[11px] font-bold text-white/25">{index + 1}</span>
+                    )}
+                  </div>
+
                   {/* Avatar with role ring */}
                   <div className="relative flex-shrink-0">
                     <div className="relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center"
@@ -890,9 +905,15 @@ export default function CommunityDetailPage() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-sm font-bold text-white truncate">{m.displayName}</span>
                       {isMe && <span className="text-[9px] font-bold text-white/25">TU</span>}
+                      {(m.totalTrainingsAttended ?? 0) >= 5 && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md"
+                          style={{ backgroundColor: '#1ED75F18', color: '#1ED75F' }}>
+                          💪 Dedicat
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
                       style={{ backgroundColor: `${roleColor}18`, color: roleColor }}>
@@ -1095,6 +1116,12 @@ function MemberSheet({
               style={{ backgroundColor: `${roleColor}20`, color: roleColor }}>
               {ROLE_LABELS[member.role as MemberRole]}
             </span>
+            {(member.totalTrainingsAttended ?? 0) >= 5 && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-md"
+                style={{ backgroundColor: '#1ED75F18', color: '#1ED75F', border: '1px solid #1ED75F30' }}>
+                💪 Dedicat
+              </span>
+            )}
             <span className="text-xs text-white/35">•</span>
             <span className="text-xs text-white/50">{member.points ?? 0} pts</span>
             {daysSinceJoin !== null && (

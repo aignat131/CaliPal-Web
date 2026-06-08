@@ -9,9 +9,10 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
+import { awardTrainingAttendancePoints } from '@/lib/gamification/coins'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
-  Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil,
+  Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil, X,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -83,6 +84,11 @@ function toAndroidDateTime(date: string, time: string): string {
   return `${dd}/${mm}/${yyyy} ${time}`
 }
 
+function isPast(training: PlannedTraining): boolean {
+  const end = parseDateTime(training.timeEnd) ?? parseDateTime(training.timeStart, training.date)
+  return !!end && end.getTime() < Date.now()
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PublicTrainingPage() {
@@ -109,6 +115,12 @@ export default function PublicTrainingPage() {
   const [editTimeStart, setEditTimeStart] = useState('')
   const [editTimeEnd, setEditTimeEnd] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Close training state
+  const [showClosePanel, setShowClosePanel] = useState(false)
+  const [attendedUids, setAttendedUids] = useState<Set<string>>(new Set())
+  const [closing, setClosing] = useState(false)
+  const [closeResult, setCloseResult] = useState<{ awarded: number } | null>(null)
 
   // Guest state
   const [guestId, setGuestId] = useState<string>('')
@@ -305,8 +317,40 @@ export default function PublicTrainingPage() {
     finally { setSaving(false) }
   }
 
+  function openClosePanel() {
+    if (!training) return
+    const goingUids = Object.entries(training.rsvps ?? {})
+      .filter(([, s]) => s === 'GOING').map(([uid]) => uid)
+    setAttendedUids(new Set(goingUids))
+    setShowClosePanel(true)
+  }
+
+  async function closeTraining() {
+    if (!user || !training || closing) return
+    setClosing(true)
+    try {
+      const uidsArr = Array.from(attendedUids)
+      await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
+        isClosed: true,
+        attendedBy: uidsArr,
+        closedAt: serverTimestamp(),
+        closedByUid: user.uid,
+      })
+      const results = await Promise.all(
+        uidsArr.map(uid => awardTrainingAttendancePoints(uid, communityId))
+      )
+      const totalAwarded = results.reduce((s, r) => s + r.pointsAwarded + r.streakBonus, 0)
+      setCloseResult({ awarded: totalAwarded })
+      setShowClosePanel(false)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setClosing(false)
+    }
+  }
+
   async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
-    if (!user || !training) return
+    if (!user || !training || training.isClosed) return
     const wasGoing = training.rsvps?.[user.uid] === 'GOING'
     const storedName = members.find(m => m.userId === user.uid)?.displayName || myDisplayName
     const storedPhoto = members.find(m => m.userId === user.uid)?.photoUrl || myPhotoUrl || null
@@ -364,6 +408,9 @@ export default function PublicTrainingPage() {
 
   const myMemberStatus = user ? training.rsvps?.[user.uid] : undefined
   const isAuthor = user?.uid === training.authorId
+  const myMember = members.find(m => m.userId === user?.uid)
+  const isStaff = myMember && ['ADMIN', 'MODERATOR', 'TRAINER'].includes(myMember.role)
+  const canManageTraining = isAuthor || !!isStaff
 
   const officialStyle = training.official ? {
     background: 'linear-gradient(135deg, #0D3D28 0%, #164742 100%)',
@@ -396,12 +443,20 @@ export default function PublicTrainingPage() {
           className="rounded-3xl p-5 mb-4 border"
           style={training.official ? { ...officialStyle, borderColor: '#1ED75F40' } : { backgroundColor: 'var(--app-surface)', borderColor: 'transparent' }}
         >
-          {training.official && (
-            <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full tracking-widest mb-3"
-              style={{ backgroundColor: '#1ED75F22', color: '#1ED75F', border: '1px solid #1ED75F40' }}>
-              ⭐ OFICIAL
-            </span>
-          )}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            {training.official && (
+              <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full tracking-widest"
+                style={{ backgroundColor: '#1ED75F22', color: '#1ED75F', border: '1px solid #1ED75F40' }}>
+                ⭐ OFICIAL
+              </span>
+            )}
+            {training.isClosed && (
+              <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full tracking-widest"
+                style={{ backgroundColor: '#3B82F622', color: '#3B82F6', border: '1px solid #3B82F640' }}>
+                ✓ FINALIZAT
+              </span>
+            )}
+          </div>
 
           <h1 className="text-xl font-black text-white mb-1">{training.name}</h1>
           {training.authorName && (
@@ -520,8 +575,47 @@ export default function PublicTrainingPage() {
           </div>
         )}
 
+        {/* Confirmed attendance (closed training) */}
+        {training.isClosed && (training.attendedBy?.length ?? 0) > 0 && (
+          <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3">
+              AU PARTICIPAT ({training.attendedBy!.length})
+            </p>
+            <div className="flex flex-col gap-2">
+              {training.attendedBy!.map(uid => {
+                const isMe = user?.uid === uid
+                const m = members.find(mem => mem.userId === uid)
+                const name = training.rsvpNames?.[uid] ?? m?.displayName ?? profiles[uid]?.name ?? 'Participant'
+                const photo = profiles[uid]?.photoUrl || (isMe ? myPhotoUrl || null : null) || training.rsvpPhotos?.[uid] || m?.photoUrl || null
+                return (
+                  <div key={uid} className="flex items-center gap-2.5">
+                    <MemberAvatar photoUrl={photo} name={name} size={32} />
+                    <span className="text-sm font-semibold text-white/80 flex-1">{name}</span>
+                    {isMe && <span className="text-[10px] text-brand-green">Tu</span>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Close result toast */}
+        {closeResult && (
+          <div className="rounded-2xl p-4 mb-4 flex items-center gap-3"
+            style={{ backgroundColor: '#1ED75F15', border: '1px solid #1ED75F30' }}>
+            <Check size={18} className="text-brand-green flex-shrink-0" />
+            <p className="text-sm font-semibold text-white">
+              Antrenament finalizat! <span className="text-brand-green">+{closeResult.awarded} puncte</span> acordate.
+            </p>
+          </div>
+        )}
+
         {/* RSVP section */}
         <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          {training.isClosed ? (
+            <p className="text-sm text-white/40 text-center py-1">Antrenament finalizat — înregistrarea participanților este închisă.</p>
+          ) : (
+          <>
           <p className="text-sm font-black text-white mb-3">Participi?</p>
 
           {/* Authenticated member RSVP */}
@@ -620,6 +714,8 @@ export default function PublicTrainingPage() {
               </Link>
             </div>
           )}
+          </>
+          )}
         </div>
 
         {/* Edit panel (author only) */}
@@ -693,7 +789,7 @@ export default function PublicTrainingPage() {
         )}
 
         {/* Edit button (author only) */}
-        {isAuthor && !editing && (
+        {isAuthor && !editing && !training.isClosed && (
           <button
             onClick={openEdit}
             className="mt-4 w-full flex items-center justify-center gap-2 h-11 rounded-2xl border border-brand-green/30 text-brand-green text-sm font-bold hover:bg-brand-green/10 transition-colors"
@@ -701,6 +797,78 @@ export default function PublicTrainingPage() {
             <Pencil size={15} />
             Editează antrenamentul
           </button>
+        )}
+
+        {/* Close Training button (staff/author, past trainings only) */}
+        {canManageTraining && !training.isClosed && isPast(training) && (
+          <button
+            onClick={openClosePanel}
+            className="mt-4 w-full flex items-center justify-center gap-2 h-11 rounded-2xl border text-sm font-bold transition-colors"
+            style={{ borderColor: '#3B82F640', color: '#3B82F6', backgroundColor: '#3B82F610' }}
+          >
+            <Check size={15} />
+            Închide antrenamentul
+          </button>
+        )}
+
+        {/* Close Training panel */}
+        {showClosePanel && (
+          <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+            <div className="w-full max-w-lg mx-auto rounded-t-3xl p-5 pb-8"
+              style={{ backgroundColor: 'var(--app-surface)', maxHeight: '80vh', overflowY: 'auto' }}>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-base font-black text-white">Închide antrenamentul</p>
+                <button onClick={() => setShowClosePanel(false)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                  <X size={16} className="text-white/60" />
+                </button>
+              </div>
+              <p className="text-xs text-white/45 mb-4">Selectează persoanele care au participat efectiv. Se acordă 10 pts fiecăruia (max 10 pts/zi).</p>
+
+              <div className="flex flex-col gap-2 mb-5">
+                {goingUids.map(uid => {
+                  const m = members.find(mem => mem.userId === uid)
+                  const name = training.rsvpNames?.[uid] ?? m?.displayName ?? profiles[uid]?.name ?? 'Participant'
+                  const photo = training.rsvpPhotos?.[uid] || m?.photoUrl || profiles[uid]?.photoUrl || null
+                  const checked = attendedUids.has(uid)
+                  return (
+                    <button key={uid}
+                      onClick={() => setAttendedUids(prev => {
+                        const next = new Set(prev)
+                        if (next.has(uid)) next.delete(uid)
+                        else next.add(uid)
+                        return next
+                      })}
+                      className="flex items-center gap-3 p-3 rounded-2xl transition-colors text-left"
+                      style={{
+                        backgroundColor: checked ? '#1ED75F15' : 'rgba(255,255,255,0.05)',
+                        border: checked ? '1px solid #1ED75F40' : '1px solid rgba(255,255,255,0.08)',
+                      }}>
+                      <MemberAvatar photoUrl={photo} name={name} size={36} />
+                      <span className="flex-1 text-sm font-semibold text-white/80">{name}</span>
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: checked ? '#1ED75F' : 'rgba(255,255,255,0.12)' }}>
+                        {checked && <Check size={11} className="text-black" strokeWidth={3} />}
+                      </div>
+                    </button>
+                  )
+                })}
+                {goingUids.length === 0 && (
+                  <p className="text-sm text-white/40 text-center py-4">Niciun participant GOING înregistrat.</p>
+                )}
+              </div>
+
+              <button
+                onClick={closeTraining}
+                disabled={closing || attendedUids.size === 0}
+                className="w-full h-12 rounded-2xl text-sm font-black disabled:opacity-40 transition-opacity"
+                style={{ backgroundColor: '#3B82F6', color: 'white' }}
+              >
+                {closing ? 'Se procesează...' : `Confirmă și închide (${attendedUids.size} participanți)`}
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Back to Home */}

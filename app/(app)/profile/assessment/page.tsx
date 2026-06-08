@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { doc, getDoc, updateDoc, increment, writeBatch } from 'firebase/firestore'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { awardCoins, checkSkillMilestones } from '@/lib/gamification/coins'
@@ -188,21 +188,6 @@ export default function AssessmentPage() {
       await checkSkillMilestones(user.uid, totalHave)
       setCoinsEarned(coins)
       setDone(true)
-      // Update community points (fire-and-forget — don't block results screen)
-      try {
-        const userSnap = await getDoc(doc(db, 'users', user.uid))
-        const joinedCommunityIds: string[] = userSnap.data()?.joinedCommunityIds ?? []
-        if (joinedCommunityIds.length > 0) {
-          const batch = writeBatch(db)
-          for (const communityId of joinedCommunityIds) {
-            batch.update(
-              doc(db, 'communities', communityId, 'members', user.uid),
-              { points: increment(25) }
-            )
-          }
-          await batch.commit()
-        }
-      } catch { /* best-effort — community points are not critical */ }
     } finally {
       setSaving(false)
     }

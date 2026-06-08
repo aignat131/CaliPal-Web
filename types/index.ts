@@ -58,6 +58,10 @@ export interface CommunityMember {
   photoUrl: string | null
   joinedAt: Timestamp | null
   emailNotifications?: boolean
+  lastTrainingPointDate?: string    // "yyyy-MM-dd" — daily cap guard
+  trainingAttendanceStreak?: number // consecutive calendar days attended
+  lastAttendanceDate?: string       // "yyyy-MM-dd" — streak computation
+  totalTrainingsAttended?: number   // for "Committed" badge (>= 5)
 }
 
 export type MemberRole = 'ADMIN' | 'MODERATOR' | 'TRAINER' | 'MEMBER'
@@ -117,6 +121,11 @@ export interface PlannedTraining {
   lastRsvpNotifAt?: Timestamp | null
   // Legacy field — web-created trainings before the format change stored a separate date string
   date?: string
+  // Attendance close
+  isClosed?: boolean
+  attendedBy?: string[]        // confirmed attendee userIds
+  closedAt?: Timestamp | null
+  closedByUid?: string
 }
 
 export interface ConversationDoc {

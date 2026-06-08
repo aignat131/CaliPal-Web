@@ -77,6 +77,13 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Training streak milestone guards ──────────────────────────────────────
+    match /training_streak_tasks/{taskId} {
+      allow read: if isAuth() && (resource == null || resource.data.uid == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     // ── Push / email rate limiting (server-only write via Admin SDK) ─────────
     match /push_rate/{uid} {
       allow read, write: if false; // admin SDK only
@@ -105,7 +112,7 @@ service cloud.firestore {
       match /members/{uid} {
         allow read: if true;
         allow create: if isOwner(uid);
-        allow update: if isOwner(uid) || isCommunityAdmin(communityId) || isSuperAdmin();
+        allow update: if isOwner(uid) || isCommunityStaff(communityId) || isSuperAdmin();
         allow delete: if isOwner(uid) || isCommunityAdmin(communityId) || isSuperAdmin();
       }
 
@@ -157,7 +164,11 @@ service cloud.firestore {
           || (isCommunityMember(communityId) && request.auth.uid == resource.data.authorId);
         // Members: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt in same write)
         // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200 entries
+        // Staff: close training and mark attendees
         allow update: if isSuperAdmin()
+          || (isCommunityStaff(communityId)
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['isClosed', 'attendedBy', 'closedAt', 'closedByUid']))
           || isCommunityStaff(communityId)
           || (isCommunityMember(communityId)
               && request.resource.data.diff(resource.data).affectedKeys()

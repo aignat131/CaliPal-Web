@@ -494,6 +494,17 @@ const T: Record<string, { RO: string; EN: string }> = {
   'training.equipment_section':{ RO: 'ECHIPAMENT', EN: 'EQUIPMENT' },
   'training.participant_1':    { RO: '1 participant', EN: '1 participant' },
   'training.participant_n':    { RO: '{n} participanți', EN: '{n} participants' },
+  'training.close_title':      { RO: 'Închide antrenamentul', EN: 'Close Training' },
+  'training.close_desc':       { RO: 'Selectează persoanele care au participat efectiv.', EN: 'Select who actually showed up.' },
+  'training.close_confirm':    { RO: 'Confirmă și închide', EN: 'Confirm & Close' },
+  'training.closed_badge':     { RO: 'FINALIZAT ✓', EN: 'COMPLETED ✓' },
+  'training.attended_by':      { RO: 'AU PARTICIPAT', EN: 'ATTENDED' },
+  'training.points_awarded':   { RO: '+{n} puncte acordate', EN: '+{n} points awarded' },
+  'training.streak_bonus':     { RO: '🔥 Bonus streak: +{n} pts', EN: '🔥 Streak bonus: +{n} pts' },
+  'training.attendance_pts':   { RO: '10 pts per antrenament · max 10 pts/zi', EN: '10 pts per training · max 10 pts/day' },
+  'community.leaderboard':     { RO: 'CLASAMENT', EN: 'LEADERBOARD' },
+  'badge.committed':           { RO: '💪 Dedicat', EN: '💪 Committed' },
+  'badge.committed_desc':      { RO: 'Ai participat la 5+ antrenamente', EN: 'Attended 5+ trainings' },
 
   // ── Chat Conversation ────────────────────────────────────────────────────────
   'chat.conv_not_found':  { RO: 'Conversație negăsită.', EN: 'Conversation not found.' },
