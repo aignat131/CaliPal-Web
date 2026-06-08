@@ -167,6 +167,11 @@ export default function HomePage() {
     : (user?.displayName || storedName || 'Utilizator')
   const firstName = displayName.split(' ')[0]
   const streak = userDoc?.currentStreak ?? 0
+  const lastWorkoutDate = userDoc?.lastWorkoutDate ?? ''
+  const _ld = (msAgo: number) => { const d = new Date(Date.now() - msAgo); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-') }
+  const streakIsActive = lastWorkoutDate === _ld(0) || lastWorkoutDate === _ld(86400000)
+  const streakJustBroke = lastWorkoutDate === _ld(172800000)
+  const showStreak = streak > 0 && (streakIsActive || streakJustBroke)
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? t('home.greeting_morning') : hour < 18 ? t('home.greeting_afternoon') : t('home.greeting_evening')
@@ -191,14 +196,19 @@ export default function HomePage() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-black text-white">{t('home.title')}</h1>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowStreakCalendar(true)}
-              className="flex items-center gap-1 px-2.5 h-8 rounded-full transition-colors"
-              style={{ backgroundColor: '#FF6B2B18', border: '1px solid #FF6B2B30' }}
-            >
-              <span className={`text-base leading-none ${streak > 0 ? 'animate-pulse' : ''}`}>🔥</span>
-              {streak > 0 && <span className="text-xs font-black" style={{ color: '#FF6B2B' }}>{streak}</span>}
-            </button>
+            {showStreak && (
+              <button
+                onClick={() => setShowStreakCalendar(true)}
+                className="flex items-center gap-1 px-2.5 h-8 rounded-full transition-colors"
+                style={{
+                  backgroundColor: streakIsActive ? '#FF6B2B18' : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${streakIsActive ? '#FF6B2B30' : 'rgba(255,255,255,0.1)'}`,
+                }}
+              >
+                <span className={`text-base leading-none ${streakIsActive ? 'animate-pulse' : 'grayscale opacity-50'}`}>🔥</span>
+                <span className="text-xs font-black" style={{ color: streakIsActive ? '#FF6B2B' : 'rgba(255,255,255,0.35)' }}>{streak}</span>
+              </button>
+            )}
             {user?.email === SUPERADMIN && (
               <Link href="/admin">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center"

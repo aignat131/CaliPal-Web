@@ -864,8 +864,6 @@ export default function CommunityDetailPage() {
               const roleColor = ROLE_COLORS[m.role as MemberRole] ?? '#1ED75F'
               const isMe = m.userId === user?.uid
               const livePhoto = m.photoUrl || ''
-              const rankColors = ['#F59E0B', '#94A3B8', '#B45309']
-              const rankBg = ['#F59E0B15', '#94A3B815', '#B4530915']
               const isTopThree = index < 3
 
               return (
@@ -874,11 +872,11 @@ export default function CommunityDetailPage() {
                   className="flex items-center gap-3 px-4 py-3.5 rounded-xl mx-1 cursor-pointer active:bg-white/5 transition-colors"
                   style={{
                     backgroundColor: isTopThree
-                      ? rankBg[index]
+                      ? '#1ED75F08'
                       : m.role !== 'MEMBER'
                       ? `${roleColor}09`
                       : 'var(--app-surface)',
-                    border: isTopThree ? `1px solid ${rankColors[index]}25` : 'none',
+                    border: isTopThree ? '1px solid #1ED75F18' : 'none',
                   }}
                   onClick={() => setMemberSheetTarget(m)}
                 >
@@ -2028,12 +2026,24 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
       </div>
 
       <div className="flex items-center gap-2 flex-wrap mt-1">
-        {POST_REACTIONS.map(e => {
-          const uids = reactionCounts[e] ?? []
-          const count = uids.length
-          if (count === 0 && myReaction !== e) return null
+        {/* Primary reactions — always visible */}
+        {['💪', '❤️'].map(e => {
+          const count = (reactionCounts[e] ?? []).length
           return (
             <button key={e} onClick={() => setReaction(e)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                myReaction === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
+              }`}>
+              {e} {count > 0 && count}
+            </button>
+          )
+        })}
+        {/* Secondary reactions — visible if count > 0, myReaction, or picker open */}
+        {['🔥', '👏', '😮'].map(e => {
+          const count = (reactionCounts[e] ?? []).length
+          if (count === 0 && myReaction !== e && !showReactionPicker) return null
+          return (
+            <button key={e} onClick={() => { setReaction(e); setShowReactionPicker(false) }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                 myReaction === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
               }`}>
@@ -2044,14 +2054,6 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
         {!showReactionPicker && (
           <button onClick={() => setShowReactionPicker(true)}
             className="w-7 h-7 rounded-full bg-white/8 border border-white/12 text-white/40 text-sm flex items-center justify-center">+</button>
-        )}
-        {showReactionPicker && (
-          <div className="flex items-center gap-1">
-            {POST_REACTIONS.map(e => (
-              <button key={e} onClick={() => { setReaction(e); setShowReactionPicker(false) }}
-                className="w-8 h-8 text-lg flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">{e}</button>
-            ))}
-          </div>
         )}
         <button onClick={() => setShowComments(v => !v)}
           className={`flex items-center gap-1.5 text-xs font-semibold ml-1 transition-colors ${showComments ? 'text-brand-green' : 'text-white/40 hover:text-white/60'}`}>
@@ -2239,9 +2241,9 @@ function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmi
 
           {/* Reactions */}
           <div className="flex items-center gap-2 flex-wrap mb-4" onClick={e => e.stopPropagation()}>
-            {POST_REACTIONS.map(e => {
+            {/* Primary reactions — always visible */}
+            {['💪', '❤️'].map(e => {
               const count = (reactionCounts[e] ?? []).length
-              if (count === 0 && myReaction !== e) return null
               return (
                 <button key={e} onClick={() => handleReaction(e)}
                   className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
@@ -2251,14 +2253,23 @@ function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmi
                 </button>
               )
             })}
-            {!showReactionPicker
-              ? <button onClick={() => setShowReactionPicker(true)}
-                  className="w-7 h-7 rounded-full bg-white/8 border border-white/12 text-white/40 text-sm flex items-center justify-center">+</button>
-              : POST_REACTIONS.map(e => (
-                  <button key={e} onClick={() => handleReaction(e)}
-                    className="w-8 h-8 text-lg flex items-center justify-center rounded-full hover:bg-white/10">{e}</button>
-                ))
-            }
+            {/* Secondary reactions — visible if count > 0, myReaction, or picker open */}
+            {['🔥', '👏', '😮'].map(e => {
+              const count = (reactionCounts[e] ?? []).length
+              if (count === 0 && myReaction !== e && !showReactionPicker) return null
+              return (
+                <button key={e} onClick={() => { handleReaction(e); setShowReactionPicker(false) }}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                    myReaction === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
+                  }`}>
+                  {e} {count > 0 && count}
+                </button>
+              )
+            })}
+            {!showReactionPicker && (
+              <button onClick={() => setShowReactionPicker(true)}
+                className="w-7 h-7 rounded-full bg-white/8 border border-white/12 text-white/40 text-sm flex items-center justify-center">+</button>
+            )}
           </div>
 
           {/* Comments */}
