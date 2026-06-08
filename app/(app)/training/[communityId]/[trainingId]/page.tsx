@@ -9,7 +9,6 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
-import { awardTrainingAttendancePoints } from '@/lib/gamification/coins'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
   Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil, X,
@@ -336,11 +335,7 @@ export default function PublicTrainingPage() {
         closedAt: serverTimestamp(),
         closedByUid: user.uid,
       })
-      const results = await Promise.all(
-        uidsArr.map(uid => awardTrainingAttendancePoints(uid, communityId))
-      )
-      const totalAwarded = results.reduce((s, r) => s + r.pointsAwarded + r.streakBonus, 0)
-      setCloseResult({ awarded: totalAwarded })
+      setCloseResult({ awarded: 0 })
       setShowClosePanel(false)
     } catch (e) {
       console.error(e)

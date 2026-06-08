@@ -280,6 +280,15 @@ export default function WorkoutPage() {
         }))
       } catch { /* non-critical */ }
 
+      // Award 10 training points in every community the user belongs to
+      try {
+        await Promise.all(joinedCommunityIds.map(cid =>
+          updateDoc(doc(db, 'communities', cid, 'members', user.uid), {
+            trainingPoints: increment(10),
+          })
+        ))
+      } catch { /* non-critical */ }
+
     } catch (e) {
       console.error(e)
     }
