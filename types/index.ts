@@ -11,6 +11,7 @@ export interface UserDoc {
   photoUrl: string
   totalWorkouts: number
   currentStreak: number
+  lastWorkoutDate?: string
   coins: number
   friendCount: number
   assessmentCompleted: boolean
