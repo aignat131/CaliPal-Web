@@ -77,7 +77,7 @@ export async function checkWorkoutMilestones(uid: string, newTotal: number) {
 
 /**
  * Award 10 training attendance points to a community member.
- * Enforces a per-community daily cap (max 10 pts/day).
+ * Each training awards exactly 10 points in the specific community.
  * Tracks a streak of consecutive attendance days with milestone bonuses.
  */
 export async function awardTrainingAttendancePoints(
@@ -97,15 +97,8 @@ export async function awardTrainingAttendancePoints(
     if (!snap.exists()) return
 
     const data = snap.data()
-    const lastPointDate: string | undefined = data.lastTrainingPointDate
     const lastAttendDate: string | undefined = data.lastAttendanceDate
     const currentStreak: number = data.trainingAttendanceStreak ?? 0
-
-    // Daily cap — already awarded today
-    if (lastPointDate === today) {
-      newStreak = currentStreak
-      return
-    }
 
     // Streak calculation
     newStreak = lastAttendDate === yesterday ? currentStreak + 1 : 1
@@ -114,7 +107,6 @@ export async function awardTrainingAttendancePoints(
 
     tx.update(memberRef, {
       trainingPoints: increment(10),
-      lastTrainingPointDate: today,
       lastAttendanceDate: today,
       trainingAttendanceStreak: newStreak,
       totalTrainingsAttended: increment(1),

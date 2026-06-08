@@ -59,8 +59,7 @@ export interface CommunityMember {
   photoUrl: string | null
   joinedAt: Timestamp | null
   emailNotifications?: boolean
-  trainingPoints?: number           // points earned from training attendance (new system)
-  lastTrainingPointDate?: string    // "yyyy-MM-dd" — daily cap guard
+  trainingPoints?: number           // points earned from training attendance (10 pts per training)
   trainingAttendanceStreak?: number // consecutive calendar days attended
   lastAttendanceDate?: string       // "yyyy-MM-dd" — streak computation
   totalTrainingsAttended?: number   // for "Committed" badge (>= 5)
