@@ -805,6 +805,47 @@ function CommunitiesTab() {
   const [communities, setCommunities] = useState<CommunityDoc[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [members, setMembers] = useState<Record<string, { userId: string; displayName: string; role: string }[]>>({})
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillResult, setBackfillResult] = useState<string | null>(null)
+
+  async function backfillPoints() {
+    if (!confirm('Setezi trainingPoints = totalWorkouts × 10 pentru toți membrii cu 0 puncte?')) return
+    setBackfilling(true)
+    setBackfillResult(null)
+    try {
+      // Load all users to get totalWorkouts
+      const usersSnap = await getDocs(collection(db, 'users'))
+      const userWorkouts: Record<string, number> = {}
+      for (const d of usersSnap.docs) {
+        userWorkouts[d.id] = (d.data().totalWorkouts as number) ?? 0
+      }
+
+      const commSnap = await getDocs(collection(db, 'communities'))
+      let updated = 0
+      let skipped = 0
+
+      for (const commDoc of commSnap.docs) {
+        const membersSnap = await getDocs(collection(db, 'communities', commDoc.id, 'members'))
+        for (const memberDoc of membersSnap.docs) {
+          const uid = memberDoc.id
+          const currentPoints = (memberDoc.data().trainingPoints as number) ?? 0
+          if (currentPoints !== 0) { skipped++; continue }
+          const totalWorkouts = userWorkouts[uid] ?? 0
+          if (totalWorkouts === 0) { skipped++; continue }
+          await updateDoc(doc(db, 'communities', commDoc.id, 'members', uid), {
+            trainingPoints: totalWorkouts * 10,
+          })
+          updated++
+        }
+      }
+
+      setBackfillResult(`Gata! Actualizat: ${updated}, Sărit: ${skipped}`)
+    } catch (e) {
+      setBackfillResult(`Eroare: ${(e as Error).message}`)
+    } finally {
+      setBackfilling(false)
+    }
+  }
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -854,6 +895,19 @@ function CommunitiesTab() {
 
   return (
     <div className="flex flex-col gap-2">
+      <button
+        onClick={backfillPoints}
+        disabled={backfilling}
+        className="w-full h-11 rounded-xl mb-2 border border-yellow-400/40 text-yellow-400 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+      >
+        {backfilling
+          ? <span className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+          : <Dumbbell size={15} />}
+        {backfilling ? 'Se procesează...' : 'Backfill puncte (0 → workouts×10)'}
+      </button>
+      {backfillResult && (
+        <p className="text-xs text-center text-white/60 mb-2">{backfillResult}</p>
+      )}
       {communities.map(c => (
         <div key={c.id} className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--app-surface)' }}>
           <div className="flex items-center">
