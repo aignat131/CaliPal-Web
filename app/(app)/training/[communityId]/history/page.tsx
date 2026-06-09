@@ -169,10 +169,18 @@ export default function CommunityTrainingHistoryPage() {
         // Fetch community info and all trainings in parallel.
         // No orderBy — Firestore excludes docs that don't have the ordered field,
         // which would silently drop trainings without createdAt (common in Android-created docs).
+        console.log('[TrainingHistory] loading communityId:', communityId)
         const [commSnap, trainSnap] = await Promise.all([
           getDoc(doc(db, 'communities', communityId)),
           getDocs(collection(db, 'communities', communityId, 'trainings')),
         ])
+
+        console.log('[TrainingHistory] community exists:', commSnap.exists(), '| community name:', commSnap.data()?.name)
+        console.log('[TrainingHistory] total training docs returned:', trainSnap.size)
+        trainSnap.docs.forEach((d, i) => {
+          const data = d.data()
+          console.log(`[TrainingHistory] doc[${i}] id=${d.id} name="${data.name}" timeStart="${data.timeStart}" isClosed=${data.isClosed} createdAt=${data.createdAt?.toDate?.()}`)
+        })
 
         if (commSnap.exists()) setCommunity({ id: commSnap.id, ...(commSnap.data() as object) } as CommunityDoc)
 
@@ -187,6 +195,7 @@ export default function CommunityTrainingHistoryPage() {
             if (!db2) return -1
             return (db2?.getTime() ?? 0) - (da?.getTime() ?? 0)
           })
+        console.log('[TrainingHistory] sorted count:', sorted.length)
         setTrainings(sorted)
       } catch (e) {
         console.error('[TrainingHistory] failed to load:', e)
