@@ -1890,7 +1890,8 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
         })
         setReactionCounts(counts)
         setMyReaction(mine)
-      }
+      },
+      () => { /* permission denied or offline — keep last known state */ }
     )
     return unsub
   }, [post.id, communityId, myUid])
@@ -1901,9 +1902,10 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
       collection(db, 'communities', communityId, 'posts', post.id, 'comments'),
       orderBy('createdAt', 'asc')
     )
-    return onSnapshot(q, snap => {
-      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() }) as PostComment))
-    })
+    return onSnapshot(q,
+      snap => { setComments(snap.docs.map(d => ({ id: d.id, ...d.data() }) as PostComment)) },
+      () => { /* permission denied or offline — keep last known state */ }
+    )
   }, [showComments, post.id, communityId])
 
   const isOwnPost = post.authorId === myUid

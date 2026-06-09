@@ -150,6 +150,11 @@ service cloud.firestore {
           allow read: if isAuth();
           allow write: if isOwner(uid);
         }
+
+        match /reactions/{uid} {
+          allow read: if isAuth();
+          allow write: if isOwner(uid);
+        }
       }
 
       match /trainings/{trainingId} {
