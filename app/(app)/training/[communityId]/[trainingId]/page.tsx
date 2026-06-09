@@ -600,7 +600,7 @@ export default function PublicTrainingPage() {
             style={{ backgroundColor: '#1ED75F15', border: '1px solid #1ED75F30' }}>
             <Check size={18} className="text-brand-green flex-shrink-0" />
             <p className="text-sm font-semibold text-white">
-              Antrenament finalizat! <span className="text-brand-green">+{closeResult.awarded} puncte</span> acordate.
+              Antrenament finalizat! Participanții au fost înregistrați.
             </p>
           </div>
         )}
@@ -819,7 +819,7 @@ export default function PublicTrainingPage() {
                   <X size={16} className="text-white/60" />
                 </button>
               </div>
-              <p className="text-xs text-white/45 mb-4">Selectează persoanele care au participat efectiv. Se acordă 10 pts fiecăruia (max 10 pts/zi).</p>
+              <p className="text-xs text-white/45 mb-4">Selectează persoanele care au participat efectiv.</p>
 
               <div className="flex flex-col gap-2 mb-5">
                 {goingUids.map(uid => {
