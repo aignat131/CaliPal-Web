@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   }
   const callerRole = callerMemberSnap.data()?.role as string | undefined
   const isSuperAdmin = (await adminAuth().getUser(callerUid)).customClaims?.superAdmin === true
-  if (!isSuperAdmin && callerRole !== 'ADMIN') {
+  if (!isSuperAdmin && callerRole !== 'ADMIN' && callerRole !== 'MODERATOR') {
     return NextResponse.json({ ok: false, reason: 'not-admin' }, { status: 403 })
   }
 

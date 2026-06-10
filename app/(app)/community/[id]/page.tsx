@@ -787,7 +787,7 @@ export default function CommunityDetailPage() {
                 userId={user?.uid ?? ''}
                 userName={myName}
                 isStaff={myRole === 'ADMIN' || myRole === 'TRAINER' || myRole === 'MODERATOR' || isSuperAdmin}
-                isAdmin={myRole === 'ADMIN' || isSuperAdmin}
+                isAdmin={myRole === 'ADMIN' || myRole === 'MODERATOR' || isSuperAdmin}
                 defaultLocation={community?.location ?? ''}
                 firebaseUser={user ?? null}
                 onClose={() => setShowAddTraining(false)}
@@ -1655,6 +1655,10 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, defa
       } : {}),
         createdAt:       serverTimestamp(),
       })
+      // Increment creator's global training count
+      if (userId) {
+        updateDoc(doc(db, 'users', userId), { totalTrainings: increment(1) }).catch(() => {})
+      }
       if (sendEmail) {
         try {
           const idToken = await (firebaseUser ?? auth.currentUser)?.getIdToken(true)

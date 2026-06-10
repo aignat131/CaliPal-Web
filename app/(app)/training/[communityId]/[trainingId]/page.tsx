@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  doc, getDoc, onSnapshot, updateDoc, deleteField, getDocs, collection, serverTimestamp,
+  doc, getDoc, onSnapshot, updateDoc, deleteField, getDocs, collection, serverTimestamp, increment,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -340,10 +340,16 @@ export default function PublicTrainingPage() {
       // Award training points to all attendees + the creator
       const uidsToAward = new Set(uidsArr)
       if (training.authorId) uidsToAward.add(training.authorId)
+      const allUids = Array.from(uidsToAward)
       const results = await Promise.allSettled(
-        Array.from(uidsToAward).map(uid => awardTrainingAttendancePoints(uid, communityId))
+        allUids.map(uid => awardTrainingAttendancePoints(uid, communityId))
       )
       const awarded = results.filter(r => r.status === 'fulfilled').length
+
+      // Increment global totalTrainings on each attendee's user profile
+      await Promise.allSettled(
+        allUids.map(uid => updateDoc(doc(db, 'users', uid), { totalTrainings: increment(1) }))
+      )
 
       setCloseResult({ awarded })
       setShowClosePanel(false)

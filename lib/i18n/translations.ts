@@ -75,6 +75,7 @@ const T: Record<string, { RO: string; EN: string }> = {
 
   // ── Profile Page ─────────────────────────────────────────────────────────────
   'profile.workouts':           { RO: 'Antrenamente',  EN: 'Workouts' },
+  'profile.trainings':          { RO: 'Participări',   EN: 'Trainings' },
   'profile.coins':              { RO: 'Monede',        EN: 'Coins' },
   'profile.friends':            { RO: 'Prieteni',      EN: 'Friends' },
   'profile.days_streak':        { RO: '{n} zile',      EN: '{n} days' },
@@ -562,6 +563,7 @@ const T: Record<string, { RO: string; EN: string }> = {
   'pub_profile.skills_title':   { RO: 'Skills', EN: 'Skills' },
   'pub_profile.no_skills':      { RO: 'Niciun skill marcat.', EN: 'No skills marked.' },
   'pub_profile.workouts':       { RO: 'Antrenamente', EN: 'Workouts' },
+  'pub_profile.trainings':      { RO: 'Participări', EN: 'Trainings' },
   'pub_profile.friends':        { RO: 'Prieteni', EN: 'Friends' },
   'pub_profile.coins':          { RO: 'Monede', EN: 'Coins' },
 
