@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
+import { awardTrainingAttendancePoints } from '@/lib/gamification/coins'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
   Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil, X,
@@ -335,7 +336,16 @@ export default function PublicTrainingPage() {
         closedAt: serverTimestamp(),
         closedByUid: user.uid,
       })
-      setCloseResult({ awarded: 0 })
+
+      // Award training points to all attendees + the creator
+      const uidsToAward = new Set(uidsArr)
+      if (training.authorId) uidsToAward.add(training.authorId)
+      const results = await Promise.allSettled(
+        Array.from(uidsToAward).map(uid => awardTrainingAttendancePoints(uid, communityId))
+      )
+      const awarded = results.filter(r => r.status === 'fulfilled').length
+
+      setCloseResult({ awarded })
       setShowClosePanel(false)
     } catch (e) {
       console.error(e)
@@ -600,7 +610,9 @@ export default function PublicTrainingPage() {
             style={{ backgroundColor: '#1ED75F15', border: '1px solid #1ED75F30' }}>
             <Check size={18} className="text-brand-green flex-shrink-0" />
             <p className="text-sm font-semibold text-white">
-              Antrenament finalizat! Participanții au fost înregistrați.
+              Antrenament finalizat! {closeResult.awarded > 0
+                ? `+10 puncte acordate la ${closeResult.awarded} persoane.`
+                : 'Participanții au fost înregistrați.'}
             </p>
           </div>
         )}

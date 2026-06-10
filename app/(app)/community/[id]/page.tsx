@@ -821,7 +821,7 @@ export default function CommunityDetailPage() {
                   myUid={user?.uid ?? ''}
                   members={members}
                   canLoad={isMember && (t.exercises?.length ?? 0) > 0}
-                  canDelete={isSuperAdmin || myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER' || t.authorId === user?.uid}
+                  canDelete={isSuperAdmin || t.authorId === user?.uid}
                   canEdit={t.authorId === user?.uid}
                   onRsvp={status => rsvp(t.id, status)}
                   onLoad={() => loadTraining(t)}
