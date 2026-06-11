@@ -14,7 +14,7 @@ import type {
   PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress,
   WorkoutDoc,
 } from '@/types'
-import { Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, Play, BookOpen, MessageSquarePlus } from 'lucide-react'
+import { Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, Play, BookOpen, MessageSquarePlus, Calendar } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 import { useT } from '@/lib/context/LanguageContext'
@@ -32,6 +32,14 @@ function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null 
     return new Date(`${fallbackDate}T${str}`)
   }
   try { return new Date(str) } catch { return null }
+}
+
+function formatTrainingDate(timeStart: string, legacyDate?: string): string {
+  const d = parseTrainingDateTime(timeStart, legacyDate)
+  if (!d || isNaN(d.getTime())) return legacyDate ?? ''
+  try {
+    return d.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' })
+  } catch { return '' }
 }
 
 export default function HomePage() {
@@ -435,9 +443,22 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
   const t = useT()
   const [localRsvp, setLocalRsvp] = useState<'GOING' | 'MAYBE' | 'NOT_GOING' | null>(null)
   const myRsvp = localRsvp ?? (training.rsvps?.[uid] ?? null)
-  const goingCount = training.rsvps
-    ? Object.values(training.rsvps).filter(v => v === 'GOING').length
-    : 0
+
+  const rsvpEntries = Object.entries(training.rsvps ?? {})
+  const goingUids = rsvpEntries.filter(([, s]) => s === 'GOING').map(([id]) => id)
+  const guestGoing = Object.entries(training.guestRsvps ?? {})
+    .filter(([, g]) => g.status === 'GOING')
+  const totalGoing = goingUids.length + guestGoing.length
+
+  // Build going members from rsvpNames/rsvpPhotos (no need for full member list)
+  const goingMembers = goingUids.map(id => ({
+    uid: id,
+    name: training.rsvpNames?.[id] ?? id.slice(0, 6),
+    photoUrl: training.rsvpPhotos?.[id] ?? null,
+  }))
+
+  const PREVIEW = 3
+  const previewMembers = goingMembers.slice(0, PREVIEW)
 
   async function setRsvp(value: 'GOING' | 'MAYBE' | 'NOT_GOING') {
     setLocalRsvp(value)
@@ -451,26 +472,37 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
     }
   }
 
+  const dateStr = (training.timeStart || training.date)
+    ? formatTrainingDate(training.timeStart, training.date)
+    : ''
+  const timeStr = training.timeStart?.slice(-5) ?? ''
+
   return (
+    <Link href={`/training/${favId}/${training.id}`} className="block">
     <div className="rounded-2xl p-4 mb-5" style={{ backgroundColor: 'var(--app-surface)' }}>
-      <div className="flex items-start justify-between mb-2">
-        <p className="font-black text-white text-[15px] leading-tight flex-1 pr-2">{training.name}</p>
-        <span className="text-[11px] text-white/40 flex-shrink-0">
-          {(() => {
-            const d = training.timeStart ? parseTrainingDateTime(training.timeStart, training.date) : null
-            return d && !isNaN(d.getTime())
-              ? d.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short' })
-              : (training.date ?? '')
-          })()}
-        </span>
+      {/* Header: name + date badge */}
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <p className="font-black text-white text-[15px] leading-tight flex-1 min-w-0">{training.name}</p>
+        {dateStr && (
+          <span className="flex items-center gap-1 text-[11px] text-white/45 font-semibold flex-shrink-0 whitespace-nowrap mt-0.5">
+            <Calendar size={11} className="text-white/30" />
+            {dateStr}
+            {timeStr && <span className="text-white/30"> · {timeStr}</span>}
+          </span>
+        )}
       </div>
 
+      {/* Author */}
+      {training.authorName && (
+        <p className="text-[10px] text-white/35 mb-2">de {training.authorName}</p>
+      )}
+
       {/* Meta row */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2">
-        {(training.timeStart || training.timeEnd) && (
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2.5">
+        {training.timeEnd && (
           <span className="flex items-center gap-1 text-xs text-white/50">
             <Clock size={11} className="text-white/35" />
-            {training.timeStart}{training.timeEnd ? `–${training.timeEnd}` : ''}
+            {timeStr}{` – ${training.timeEnd.slice(-5)}`}
           </span>
         )}
         {training.location && (
@@ -479,19 +511,45 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
             {training.location}
           </span>
         )}
-        {goingCount > 0 && (
-          <span className="flex items-center gap-1 text-xs text-white/50">
-            <Users size={11} className="text-white/35" />
-            {goingCount === 1 ? t('common.going_1') : t('common.going_n', { n: goingCount })}
-          </span>
-        )}
       </div>
 
       {training.description ? (
         <p className="text-xs text-white/40 mb-3 line-clamp-2">{training.description}</p>
       ) : null}
 
-      <div className="flex gap-2">
+      {/* Who's coming — overlapping avatars */}
+      {totalGoing > 0 && (
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="flex items-center">
+            {previewMembers.map((m, i) => (
+              <div key={m.uid}
+                className="rounded-full border-2 overflow-hidden flex items-center justify-center flex-shrink-0 bg-white/20"
+                style={{ width: 26, height: 26, borderColor: 'var(--app-surface)', marginLeft: i > 0 ? -8 : 0 }}>
+                {m.photoUrl
+                  ? <Image src={m.photoUrl} alt={m.name} width={26} height={26} className="object-cover" />
+                  : <span className="text-white font-bold" style={{ fontSize: 10 }}>{m.name.charAt(0).toUpperCase()}</span>}
+              </div>
+            ))}
+            {totalGoing > PREVIEW && (
+              <div
+                className="rounded-full border-2 flex items-center justify-center bg-white/15 flex-shrink-0"
+                style={{ width: 26, height: 26, marginLeft: -8, borderColor: 'var(--app-surface)' }}>
+                <span className="text-[9px] font-bold text-white/80">+{totalGoing - PREVIEW}</span>
+              </div>
+            )}
+          </div>
+          <span className="text-xs text-white/55 flex-1 min-w-0 truncate">
+            {goingMembers.slice(0, 2).map(m => m.name.split(' ')[0]).join(', ')}
+            {totalGoing > 2 ? ` și ${totalGoing - 2} alții merg` : ' merg'}
+          </span>
+        </div>
+      )}
+      {totalGoing === 0 && (
+        <p className="text-xs text-white/25 mb-3">Nimeni nu a confirmat încă</p>
+      )}
+
+      {/* RSVP buttons */}
+      <div className="flex gap-2" onClick={e => e.preventDefault()}>
         <button
           onPointerDown={() => setRsvp('GOING')}
           className="flex-1 h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-bold transition-colors"
@@ -521,6 +579,7 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
         </button>
       </div>
     </div>
+    </Link>
   )
 }
 
