@@ -27,7 +27,6 @@ import { useTheme } from '@/lib/hooks/useTheme'
 import { useT } from '@/lib/context/LanguageContext'
 import type { ParkDoc, ParkPresenceMember, CommunityDoc, LocationSharingMode, ParkCommunityRequest, PlannedTraining, CommunityMember } from '@/types'
 import { createNotification } from '@/lib/firebase/notifications'
-import { awardTrainingAttendancePoints } from '@/lib/gamification/coins'
 import { MapPin, X, Navigation, ChevronRight, ChevronLeft, Calendar, Clock, Dumbbell, Users } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -805,7 +804,7 @@ export default function MapClient() {
   const centerLng = myLng ?? 24.9668
 
   return (
-    <div ref={mapContainerRef} className="relative flex flex-col h-[calc(100vh-64px)] md:h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div ref={mapContainerRef} className="relative flex flex-col h-[calc(100dvh-56px-env(safe-area-inset-bottom,0px))] md:h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
       {/* First-visit onboarding sheet */}
       {showMapIntro && (
         <MapOnboardingSheet
@@ -2166,13 +2165,6 @@ function AddParkTrainingModal({
       const ref = await addDoc(trainingsCol, payload)
       // Increment the park's upcoming training counter so the pin turns green
       await updateDoc(doc(db, 'parks', park.id), { upcomingTrainingCount: increment(1) })
-      // Increment creator's global training count + award community points (once/day)
-      if (uid) {
-        updateDoc(doc(db, 'users', uid), { totalTrainings: increment(1) }).catch(() => {})
-        if (park.communityId) {
-          awardTrainingAttendancePoints(uid, park.communityId, { countAttendance: false }).catch(() => {})
-        }
-      }
       onAdded({ id: ref.id, ...payload, createdAt: null } as unknown as PlannedTraining)
     } finally {
       setSaving(false)

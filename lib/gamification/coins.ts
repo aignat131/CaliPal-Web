@@ -76,8 +76,8 @@ export async function checkWorkoutMilestones(uid: string, newTotal: number) {
 }
 
 /**
- * Award 10 training attendance points to a community member.
- * Each training awards exactly 10 points in the specific community.
+ * Award 10 training attendance points to a community member per training.
+ * No daily cap — each call awards 10 points (e.g. 2 trainings = 20 pts).
  * Tracks a streak of consecutive attendance days with milestone bonuses.
  */
 export async function awardTrainingAttendancePoints(
@@ -101,25 +101,26 @@ export async function awardTrainingAttendancePoints(
     const lastAttendDate: string | undefined = data.lastAttendanceDate
     const currentStreak: number = data.trainingAttendanceStreak ?? 0
 
-    // Daily cap: only award points once per calendar day
-    if (lastAttendDate === today) {
-      if (countAttendance) {
-        tx.update(memberRef, { totalTrainingsAttended: increment(1) })
-      }
-      newStreak = currentStreak
-      return
-    }
-
-    // First award today — calculate streak and grant 10 points
-    newStreak = lastAttendDate === yesterday ? currentStreak + 1 : 1
+    // Always award 10 points per training (no daily cap)
     pointsAwarded = 10
 
-    tx.update(memberRef, {
-      trainingPoints: increment(10),
-      lastAttendanceDate: today,
-      trainingAttendanceStreak: newStreak,
-      ...(countAttendance ? { totalTrainingsAttended: increment(1) } : {}),
-    })
+    if (lastAttendDate === today) {
+      // Already updated streak today — just award points + count attendance
+      newStreak = currentStreak
+      tx.update(memberRef, {
+        trainingPoints: increment(10),
+        ...(countAttendance ? { totalTrainingsAttended: increment(1) } : {}),
+      })
+    } else {
+      // First attendance today — update streak + award points
+      newStreak = lastAttendDate === yesterday ? currentStreak + 1 : 1
+      tx.update(memberRef, {
+        trainingPoints: increment(10),
+        lastAttendanceDate: today,
+        trainingAttendanceStreak: newStreak,
+        ...(countAttendance ? { totalTrainingsAttended: increment(1) } : {}),
+      })
+    }
   })
 
   // Streak milestone bonuses (guarded against double-award)

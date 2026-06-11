@@ -233,22 +233,24 @@ export default function ParkTrainingHistoryPage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3"
+      <div className="sticky top-0 z-10"
         style={{ backgroundColor: 'var(--app-bg)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <button onClick={() => router.back()}
-          className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
-          <ArrowLeft size={18} className="text-white/80" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-black text-white truncate">{t('training.history_title')}</p>
-          {park && <p className="text-[10px] text-white/40 truncate">{park.name}</p>}
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+          <button onClick={() => router.back()}
+            className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
+            <ArrowLeft size={18} className="text-white/80" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-black text-white truncate">{t('training.history_title')}</p>
+            {park && <p className="text-[10px] text-white/40 truncate">{park.name}</p>}
+          </div>
+          {communityId && (
+            <Link href={`/community/${communityId}`}
+              className="text-xs text-brand-green font-semibold flex-shrink-0">
+              {t('training.community_link')}
+            </Link>
+          )}
         </div>
-        {communityId && (
-          <Link href={`/community/${communityId}`}
-            className="text-xs text-brand-green font-semibold flex-shrink-0">
-            {t('training.community_link')}
-          </Link>
-        )}
       </div>
 
       <div className="px-4 py-4 max-w-lg mx-auto">

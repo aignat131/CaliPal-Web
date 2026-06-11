@@ -88,7 +88,7 @@ export default function HomePage() {
     if (!favId) { setLatestFavTraining(null); setCommChallenge(null); return }
 
     const unsubTraining = onSnapshot(
-      query(collection(db, 'communities', favId, 'trainings'), orderBy('createdAt', 'desc'), limit(20)),
+      collection(db, 'communities', favId, 'trainings'),
       snap => {
         if (snap.empty) { setLatestFavTraining(null); return }
         const now = new Date()
