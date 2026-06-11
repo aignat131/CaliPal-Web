@@ -1316,7 +1316,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
               </div>
             )}
             <div className="flex items-start justify-between gap-2">
-              <p className={`font-black text-white ${training.official ? 'text-base' : 'text-sm'} flex-1 min-w-0`}>{training.name}</p>
+              <p className={`font-black text-white ${training.official ? 'text-base' : 'text-sm'} flex-1 min-w-0 overflow-hidden break-words`}>{training.name}</p>
               {(training.timeStart || training.date) && (
                 <span className="text-[11px] text-white/45 font-semibold flex-shrink-0 text-right leading-tight mt-0.5 whitespace-nowrap">
                   {formatTrainingDate(training.timeStart, training.date)}

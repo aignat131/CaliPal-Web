@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, doc,
   updateDoc, setDoc, arrayUnion, increment, serverTimestamp,
-  getDocs, getDoc, limit,
+  getDocs, getDoc, limit, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -215,7 +215,8 @@ export default function CommunityPage() {
     setCommunities(prev => prev.map(c => c.id === community.id ? { ...c, memberCount: c.memberCount + 1 } : c))
     setPreviewCommunity(null)
     try {
-      await setDoc(doc(db, 'communities', community.id, 'members', user.uid), {
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'communities', community.id, 'members', user.uid), {
         userId: user.uid,
         displayName: user.displayName ?? '',
         role: 'MEMBER',
@@ -224,10 +225,11 @@ export default function CommunityPage() {
         photoUrl: user.photoURL ?? null,
         joinedAt: serverTimestamp(),
       })
-      await updateDoc(doc(db, 'communities', community.id), { memberCount: increment(1) })
-      await updateDoc(doc(db, 'users', user.uid), {
+      batch.update(doc(db, 'communities', community.id), { memberCount: increment(1) })
+      batch.update(doc(db, 'users', user.uid), {
         joinedCommunityIds: arrayUnion(community.id),
       })
+      await batch.commit()
       awardCoins(user.uid, 'JOIN_COMMUNITY').catch(() => {})
       setJoinedCommunityName(community.name)
       showToast(`Ai intrat în ${community.name}!`)
@@ -740,7 +742,7 @@ function EventCard({ event }: { event: PlannedTraining & { communityId: string; 
     <Link href={`/community/${event.communityId}`}>
       <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="flex items-start justify-between mb-1.5">
-          <p className="font-bold text-white text-[14px] leading-tight flex-1 pr-2">{event.name}</p>
+          <p className="font-bold text-white text-[14px] leading-tight flex-1 min-w-0 overflow-hidden break-words pr-2">{event.name}</p>
           <span className="text-[10px] text-brand-green font-bold flex-shrink-0">{formatDate(event.timeStart ?? event.date)}</span>
         </div>
         <p className="text-[11px] text-white/40 font-semibold mb-1.5">{event.communityName}</p>
