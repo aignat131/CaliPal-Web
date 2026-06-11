@@ -83,6 +83,7 @@ export async function checkWorkoutMilestones(uid: string, newTotal: number) {
 export async function awardTrainingAttendancePoints(
   uid: string,
   communityId: string,
+  { countAttendance = true }: { countAttendance?: boolean } = {},
 ): Promise<{ pointsAwarded: number; streakBonus: number; newStreak: number }> {
   const today = localDate(new Date())
   const yesterday = localDate(new Date(Date.now() - 86400000))
@@ -100,16 +101,24 @@ export async function awardTrainingAttendancePoints(
     const lastAttendDate: string | undefined = data.lastAttendanceDate
     const currentStreak: number = data.trainingAttendanceStreak ?? 0
 
-    // Streak calculation
-    newStreak = lastAttendDate === yesterday ? currentStreak + 1 : 1
+    // Daily cap: only award points once per calendar day
+    if (lastAttendDate === today) {
+      if (countAttendance) {
+        tx.update(memberRef, { totalTrainingsAttended: increment(1) })
+      }
+      newStreak = currentStreak
+      return
+    }
 
+    // First award today — calculate streak and grant 10 points
+    newStreak = lastAttendDate === yesterday ? currentStreak + 1 : 1
     pointsAwarded = 10
 
     tx.update(memberRef, {
       trainingPoints: increment(10),
       lastAttendanceDate: today,
       trainingAttendanceStreak: newStreak,
-      totalTrainingsAttended: increment(1),
+      ...(countAttendance ? { totalTrainingsAttended: increment(1) } : {}),
     })
   })
 

@@ -402,8 +402,7 @@ export default function ProfilePage() {
 
           <div className="flex-1">
             <div className="flex justify-around mb-2">
-              <Link href="/workout"><Stat value={String(profile?.totalWorkouts ?? 0)} label={t('profile.workouts')} /></Link>
-              <Stat value={String(profile?.totalTrainings ?? 0)} label={t('profile.trainings')} />
+              <Link href="/workout"><Stat value={String((profile?.totalWorkouts ?? 0) + (profile?.totalTrainings ?? 0))} label={t('profile.workouts')} /></Link>
               <button onClick={() => setShowShop(true)}><Stat value={String(profile?.coins ?? 0)} label={t('profile.coins')} /></button>
               <Link href="/profile/friends"><Stat value={String(profile?.friendCount ?? 0)} label={t('profile.friends')} /></Link>
             </div>

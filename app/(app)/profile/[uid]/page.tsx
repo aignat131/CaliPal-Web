@@ -286,8 +286,7 @@ export default function UserProfilePage() {
 
           <div className="flex-1">
             <div className="flex justify-around mb-2">
-              <Stat value={String(profile.totalWorkouts ?? 0)} label={t('pub_profile.workouts')} />
-              <Stat value={String(profile.totalTrainings ?? 0)} label={t('pub_profile.trainings')} />
+              <Stat value={String((profile.totalWorkouts ?? 0) + (profile.totalTrainings ?? 0))} label={t('pub_profile.workouts')} />
               <Stat value={String(profile.coins ?? 0)} label={t('pub_profile.coins')} />
               <Stat value={String(profile.friendCount ?? 0)} label={t('pub_profile.friends')} />
             </div>

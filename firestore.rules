@@ -167,8 +167,9 @@ service cloud.firestore {
           && request.resource.data.description is string
           && request.resource.data.description.size() <= 1000;
         allow delete: if isSuperAdmin()
-          || isCommunityStaff(communityId)
-          || (isCommunityMember(communityId) && request.auth.uid == resource.data.authorId);
+          || ((resource.data.isClosed == null || resource.data.isClosed == false)
+              && (isCommunityStaff(communityId)
+                  || (isCommunityMember(communityId) && request.auth.uid == resource.data.authorId)));
         // Members: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt in same write)
         // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200 entries
         // Staff: close training and mark attendees
@@ -256,7 +257,8 @@ service cloud.firestore {
           && request.resource.data.description is string
           && request.resource.data.description.size() <= 1000;
         allow delete: if isSuperAdmin()
-          || (isAuth() && request.auth.uid == resource.data.authorId);
+          || ((resource.data.isClosed == null || resource.data.isClosed == false)
+              && isAuth() && request.auth.uid == resource.data.authorId);
         // Authenticated users: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt)
         // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200
         // Author: update anything

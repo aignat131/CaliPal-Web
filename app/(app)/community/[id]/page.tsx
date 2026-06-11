@@ -16,7 +16,7 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { createNotification } from '@/lib/firebase/notifications'
-import { awardCoins } from '@/lib/gamification/coins'
+import { awardCoins, awardTrainingAttendancePoints } from '@/lib/gamification/coins'
 import type {
   CommunityDoc, CommunityMember, CommunityPost,
   PlannedTraining, MemberRole, PostComment,
@@ -1655,9 +1655,10 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, defa
       } : {}),
         createdAt:       serverTimestamp(),
       })
-      // Increment creator's global training count
+      // Increment creator's global training count + award community points (once/day)
       if (userId) {
         updateDoc(doc(db, 'users', userId), { totalTrainings: increment(1) }).catch(() => {})
+        awardTrainingAttendancePoints(userId, communityId, { countAttendance: false }).catch(() => {})
       }
       if (sendEmail) {
         try {

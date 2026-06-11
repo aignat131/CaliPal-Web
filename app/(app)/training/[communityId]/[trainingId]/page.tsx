@@ -617,7 +617,7 @@ export default function PublicTrainingPage() {
             <Check size={18} className="text-brand-green flex-shrink-0" />
             <p className="text-sm font-semibold text-white">
               Antrenament finalizat! {closeResult.awarded > 0
-                ? `+10 puncte acordate la ${closeResult.awarded} persoane.`
+                ? `${closeResult.awarded} participanți înregistrați.`
                 : 'Participanții au fost înregistrați.'}
             </p>
           </div>

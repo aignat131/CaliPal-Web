@@ -8,7 +8,7 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
-import { awardCoins } from '@/lib/gamification/coins'
+import { awardCoins, awardTrainingAttendancePoints } from '@/lib/gamification/coins'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
 import { DEFAULT_EXERCISE_CATALOGUE, getCategory, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
@@ -280,12 +280,10 @@ export default function WorkoutPage() {
         }))
       } catch { /* non-critical */ }
 
-      // Award 10 training points in every community the user belongs to
+      // Award 10 training points in every community (once per day per community)
       try {
-        await Promise.all(joinedCommunityIds.map(cid =>
-          updateDoc(doc(db, 'communities', cid, 'members', user.uid), {
-            trainingPoints: increment(10),
-          })
+        await Promise.allSettled(joinedCommunityIds.map(cid =>
+          awardTrainingAttendancePoints(user.uid, cid, { countAttendance: false })
         ))
       } catch { /* non-critical */ }
 
