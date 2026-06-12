@@ -128,6 +128,9 @@ export interface PlannedTraining {
   attendedBy?: string[]        // confirmed attendee userIds
   closedAt?: Timestamp | null
   closedByUid?: string
+  // Soft-delete
+  deletedAt?: Timestamp | null
+  deletedByUid?: string
 }
 
 export interface ConversationDoc {

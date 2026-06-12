@@ -207,7 +207,7 @@ export default function PublicTrainingPage() {
     const unsub = onSnapshot(
       doc(db, 'communities', communityId, 'trainings', trainingId),
       snap => {
-        if (snap.exists()) {
+        if (snap.exists() && !snap.data().deletedAt) {
           setTraining({ id: snap.id, ...snap.data() } as PlannedTraining)
         } else {
           setTraining(null)

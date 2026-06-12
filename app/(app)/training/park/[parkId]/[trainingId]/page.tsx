@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  doc, onSnapshot, updateDoc, deleteDoc, deleteField, getDoc, serverTimestamp, increment,
+  doc, onSnapshot, updateDoc, deleteField, getDoc, serverTimestamp, increment,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -160,7 +160,7 @@ export default function StandaloneParkTrainingPage() {
     const unsub = onSnapshot(
       doc(db, 'parks', parkId, 'trainings', trainingId),
       snap => {
-        if (snap.exists()) setTraining({ id: snap.id, ...snap.data() } as PlannedTraining)
+        if (snap.exists() && !snap.data().deletedAt) setTraining({ id: snap.id, ...snap.data() } as PlannedTraining)
         else setTraining(null)
         setLoading(false)
       },
@@ -293,7 +293,9 @@ export default function StandaloneParkTrainingPage() {
     if (!training || deleting) return
     setDeleting(true)
     try {
-      await deleteDoc(doc(db, 'parks', parkId, 'trainings', trainingId))
+      await updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), {
+        deletedAt: serverTimestamp(), deletedByUid: user?.uid,
+      })
       const d = parseDateTime(training.timeStart)
       if (!d || d >= new Date()) {
         await updateDoc(doc(db, 'parks', parkId), { upcomingTrainingCount: increment(-1) })

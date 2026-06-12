@@ -166,18 +166,19 @@ service cloud.firestore {
           && request.resource.data.name.size() <= 120
           && request.resource.data.description is string
           && request.resource.data.description.size() <= 1000;
-        allow delete: if isSuperAdmin()
-          || ((resource.data.isClosed == null || resource.data.isClosed == false)
-              && (isCommunityStaff(communityId)
-                  || (isCommunityMember(communityId) && request.auth.uid == resource.data.authorId)));
+        allow delete: if isSuperAdmin();
+        // Staff: close training and mark attendees
+        // Author: edit own training details or soft-delete
         // Members: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt in same write)
         // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200 entries
-        // Staff: close training and mark attendees
         allow update: if isSuperAdmin()
           || (isCommunityStaff(communityId)
               && request.resource.data.diff(resource.data).affectedKeys()
                   .hasOnly(['isClosed', 'attendedBy', 'closedAt', 'closedByUid']))
-          || isCommunityStaff(communityId)
+          || (isCommunityMember(communityId)
+              && request.auth.uid == resource.data.authorId
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['name', 'description', 'timeStart', 'timeEnd', 'deletedAt', 'deletedByUid']))
           || (isCommunityMember(communityId)
               && request.resource.data.diff(resource.data).affectedKeys()
                   .hasOnly(['rsvps', 'rsvpNames', 'rsvpPhotos', 'lastRsvpNotifAt']))
@@ -256,9 +257,7 @@ service cloud.firestore {
           && request.resource.data.name.size() <= 120
           && request.resource.data.description is string
           && request.resource.data.description.size() <= 1000;
-        allow delete: if isSuperAdmin()
-          || ((resource.data.isClosed == null || resource.data.isClosed == false)
-              && isAuth() && request.auth.uid == resource.data.authorId);
+        allow delete: if isSuperAdmin();
         // Authenticated users: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt)
         // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200
         // Author: update anything

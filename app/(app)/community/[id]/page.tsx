@@ -27,7 +27,7 @@ import {
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
   MessageCircle, User, Bell, X, LogOut, UserX, Share2,
   Pencil, Camera, Info, Mail, MailX, History, ImagePlus,
-  ChevronRight, ShieldCheck,
+  ChevronRight, ChevronDown, ChevronUp, ShieldCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
@@ -61,6 +61,12 @@ function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null 
   }
   // Try direct parse
   try { return new Date(str) } catch { return null }
+}
+
+function isTrainingPast(t: PlannedTraining): boolean {
+  if (!t.timeEnd) return false
+  const end = parseTrainingDateTime(t.timeEnd, t.date)
+  return !!end && end < new Date()
 }
 
 function formatTrainingDate(timeStart: string, legacyDate?: string): string {
@@ -126,6 +132,7 @@ export default function CommunityDetailPage() {
   // Tab content loading
   const [postsLoaded, setPostsLoaded] = useState(false)
   const [trainingsLoaded, setTrainingsLoaded] = useState(false)
+  const [recentCollapsed, setRecentCollapsed] = useState(false)
 
   // Kick confirmation
   const [kickTarget, setKickTarget] = useState<CommunityMember | null>(null)
@@ -195,7 +202,9 @@ export default function CommunityDetailPage() {
     // No orderBy — sort client-side to avoid any composite-index dependency
     return onSnapshot(collection(db, 'communities', id, 'trainings'),
       snap => {
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
+        const list = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
+          .filter(t => !t.deletedAt)
         list.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
         setTrainings(list)
         setTrainingsLoaded(true)
@@ -444,6 +453,21 @@ export default function CommunityDetailPage() {
 
   // For non-members, always show tab index 0 (Membri → effectiveTab 2)
   const effectiveTab = isMember ? tab : 2
+
+  // Split trainings into upcoming and recent past (last 7 days)
+  const RECENT_PAST_DAYS = 7
+  const recentCutoff = new Date(Date.now() - RECENT_PAST_DAYS * 24 * 60 * 60 * 1000)
+  const trainingSorter = (a: PlannedTraining, b: PlannedTraining) => {
+    if (a.official && !b.official) return -1
+    if (!a.official && b.official) return 1
+    return (a.timeStart ?? a.date ?? '').localeCompare(b.timeStart ?? b.date ?? '')
+  }
+  const upcoming = [...trainings].filter(t => !isTrainingPast(t)).sort(trainingSorter)
+  const recentPast = [...trainings].filter(t => {
+    if (!isTrainingPast(t)) return false
+    const end = parseTrainingDateTime(t.timeEnd, t.date)
+    return !!end && end >= recentCutoff
+  }).sort(trainingSorter)
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -795,40 +819,58 @@ export default function CommunityDetailPage() {
             )}
             {!trainingsLoaded
               ? <div className="flex flex-col gap-3">{[0,1,2].map(i => <SkeletonTrainingRow key={i} />)}</div>
-              : trainings.length === 0
+              : upcoming.length === 0 && recentPast.length === 0
               ? (
                 <div className="text-center py-12">
                   <Dumbbell size={36} className="text-white/15 mx-auto mb-3" />
                   <p className="text-sm text-white/35">Niciun antrenament planificat.</p>
                 </div>
               )
-              : [...trainings]
-                  .filter(t => {
-                    if (!t.timeEnd) return true
-                    const end = parseTrainingDateTime(t.timeEnd, t.date)
-                    return !end || end >= new Date()
-                  })
-                  .sort((a, b) => {
-                    if (a.official && !b.official) return -1
-                    if (!a.official && b.official) return 1
-                    return (a.timeStart ?? a.date ?? '').localeCompare(b.timeStart ?? b.date ?? '')
-                  })
-                  .map(t => (
-                <TrainingCard
-                  key={t.id}
-                  training={t}
-                  communityId={id}
-                  myUid={user?.uid ?? ''}
-                  members={members}
-                  canLoad={isMember && (t.exercises?.length ?? 0) > 0}
-                  canDelete={isSuperAdmin || t.authorId === user?.uid}
-                  canEdit={t.authorId === user?.uid}
-                  onRsvp={status => rsvp(t.id, status)}
-                  onLoad={() => loadTraining(t)}
-                  onDelete={() => deleteDoc(doc(db, 'communities', id, 'trainings', t.id))}
-                  onEdit={fields => updateDoc(doc(db, 'communities', id, 'trainings', t.id), fields)}
-                />
-              ))}
+              : <>
+                {upcoming.map(t => (
+                  <TrainingCard
+                    key={t.id}
+                    training={t}
+                    communityId={id}
+                    myUid={user?.uid ?? ''}
+                    members={members}
+                    canLoad={isMember && (t.exercises?.length ?? 0) > 0}
+                    canDelete={isSuperAdmin || t.authorId === user?.uid}
+                    canEdit={t.authorId === user?.uid}
+                    onRsvp={status => rsvp(t.id, status)}
+                    onLoad={() => loadTraining(t)}
+                    onDelete={() => updateDoc(doc(db, 'communities', id, 'trainings', t.id), { deletedAt: serverTimestamp(), deletedByUid: user?.uid })}
+                    onEdit={fields => updateDoc(doc(db, 'communities', id, 'trainings', t.id), fields)}
+                  />
+                ))}
+                {recentPast.length > 0 && (
+                  <div className="mt-4">
+                    <button onClick={() => setRecentCollapsed(v => !v)}
+                      className="flex items-center gap-2 text-xs text-white/40 mb-2 hover:text-white/60 transition-colors">
+                      <Clock size={12} />
+                      Antrenamente recente ({recentPast.length})
+                      {recentCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+                    </button>
+                    {!recentCollapsed && recentPast.map(t => (
+                      <div key={t.id} className="opacity-60">
+                        <TrainingCard
+                          training={t}
+                          communityId={id}
+                          myUid={user?.uid ?? ''}
+                          members={members}
+                          canLoad={isMember && (t.exercises?.length ?? 0) > 0}
+                          canDelete={false}
+                          canEdit={false}
+                          onRsvp={() => {}}
+                          onLoad={() => loadTraining(t)}
+                          onDelete={() => {}}
+                          onEdit={() => {}}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>}
 
             {/* History link */}
             <Link href={`/training/${id}/history`}

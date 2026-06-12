@@ -143,6 +143,7 @@ export default function CommunityPage() {
               communityId: cid,
               communityName: communityMap.get(cid) ?? '',
             } as PlannedTraining & { communityId: string; communityName: string }))
+            .filter(t => !t.deletedAt)
             .filter(t => {
               // Keep only future/ongoing trainings
               const str = t.timeEnd || t.timeStart || t.date || ''

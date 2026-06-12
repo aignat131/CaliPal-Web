@@ -184,7 +184,7 @@ export default function CommunityTrainingHistoryPage() {
 
         if (commSnap.exists()) setCommunity({ id: commSnap.id, ...(commSnap.data() as object) } as CommunityDoc)
 
-        const all = trainSnap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId))
+        const all = trainSnap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId)).filter(t => !t.deletedAt)
         const sorted = all
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)

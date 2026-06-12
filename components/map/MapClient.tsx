@@ -629,6 +629,7 @@ export default function MapClient() {
                 const trainSnap = await getDocs(collection(db, 'communities', park.communityId!, 'trainings'))
                 const hasUpcoming = trainSnap.docs.some(d => {
                   const tr = d.data() as PlannedTraining
+                  if (tr.deletedAt) return false
                   const s = parseMapTrainingDate(tr)
                   return !s || s >= now
                 })
@@ -705,7 +706,7 @@ export default function MapClient() {
       const now = new Date()
       getDocs(collection(db, 'parks', selectedPark.id, 'trainings'))
         .then(snap => {
-          const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
+          const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining).filter(t => !t.deletedAt)
           const upcoming = all
             .filter(t => { const s = parseMapTrainingDate(t); return !s || s >= now })
             .sort((a, b) => (parseMapTrainingDate(a)?.getTime() ?? 0) - (parseMapTrainingDate(b)?.getTime() ?? 0))
@@ -742,7 +743,7 @@ export default function MapClient() {
     getDocs(collection(db, 'communities', selectedPark.communityId, 'trainings'))
       .then(snap => {
         const now = new Date()
-        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as PlannedTraining).filter(t => !t.deletedAt)
         const upcoming = all
           .filter(t => { const start = parseMapTrainingDate(t); return !start || start >= now })
           .sort((a, b) => (parseMapTrainingDate(a)?.getTime() ?? 0) - (parseMapTrainingDate(b)?.getTime() ?? 0))
@@ -1340,7 +1341,9 @@ function ParkBottomSheet({
                     e.preventDefault()
                     e.stopPropagation()
                     try {
-                      await deleteDoc(doc(db, 'parks', park.id, 'trainings', tr.id))
+                      await updateDoc(doc(db, 'parks', park.id, 'trainings', tr.id), {
+                        deletedAt: serverTimestamp(), deletedByUid: uid,
+                      })
                       await updateDoc(doc(db, 'parks', park.id), { upcomingTrainingCount: increment(-1) })
                       onStandaloneTrainingDeleted(tr.id)
                     } catch { /* ignore */ }

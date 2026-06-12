@@ -201,10 +201,11 @@ export default function ParkTrainingHistoryPage() {
           }
         }
 
+        const visible = merged.filter(t => !t.deletedAt)
         setTrainingSource(sourceMap)
-        setTotalCount(merged.length)
+        setTotalCount(visible.length)
 
-        const sorted = merged
+        const sorted = visible
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)
             const db2 = parseDateTime(b.timeStart, b.date)

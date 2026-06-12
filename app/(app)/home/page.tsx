@@ -102,6 +102,7 @@ export default function HomePage() {
         const now = new Date()
         const upcoming = snap.docs
           .map(d => ({ id: d.id, ...d.data() } as PlannedTraining))
+          .filter(t => !t.deletedAt)
           .filter(t => {
             const start = t.timeStart ? parseTrainingDateTime(t.timeStart, t.date) : null
             return start !== null && start >= now
