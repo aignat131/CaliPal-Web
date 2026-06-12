@@ -3,8 +3,8 @@
 import { useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, AuthError } from 'firebase/auth'
-import { auth } from '@/lib/firebase/auth'
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signInWithPopup, AuthError } from 'firebase/auth'
+import { auth, googleProvider } from '@/lib/firebase/auth'
 import { ensureUserDoc } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
 import Turnstile from 'react-turnstile'
@@ -20,6 +20,7 @@ function authErrorMessage(e: AuthError, t: (key: string) => string): string {
     case 'auth/email-already-in-use': return t('auth.email_in_use')
     case 'auth/weak-password': return t('auth.password_weak')
     case 'auth/network-request-failed': return t('auth.error_network')
+    case 'auth/popup-closed-by-user': return ''
     default: return t('auth.error_generic')
   }
 }
@@ -74,6 +75,22 @@ export default function RegisterPage() {
     }
   }
 
+  async function handleGoogle() {
+    if (!auth) { setErrorMessage(t('auth.firebase_not_configured')); return }
+    setLoading(true)
+    setErrorMessage('')
+    try {
+      const result = await signInWithPopup(auth, googleProvider)
+      await ensureUserDoc(result.user)
+      router.replace('/home')
+    } catch (e) {
+      const msg = authErrorMessage(e as AuthError, t)
+      if (msg) setErrorMessage(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const genderOptions: [string, string, string][] = [
     ['Masculin', t('auth.male'), '♂'],
     ['Feminin', t('auth.female'), '♀'],
@@ -104,6 +121,24 @@ export default function RegisterPage() {
           {['bg-brand-green', 'bg-brand-green/50', 'bg-white/15'].map((cls, i) => (
             <div key={i} className={`flex-1 h-0.5 rounded-full ${cls}`} />
           ))}
+        </div>
+
+        {/* Google sign-in */}
+        <button
+          onClick={handleGoogle}
+          disabled={loading}
+          className="w-full rounded-full border border-white/25 flex items-center justify-center gap-2.5 font-bold text-sm text-white/85 hover:bg-white/5 transition-colors disabled:opacity-50"
+          style={{ height: 50 }}
+        >
+          <span className="text-lg font-extrabold text-[#4285F4]">G</span>
+          {t('auth.continue_google')}
+        </button>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 my-4">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-xs font-bold text-white/30 tracking-widest">{t('auth.or')}</span>
+          <div className="flex-1 h-px bg-white/10" />
         </div>
 
         {/* Error */}

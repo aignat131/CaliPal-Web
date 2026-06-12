@@ -508,6 +508,10 @@ export default function MapClient() {
 
   function finishMapIntro() {
     localStorage.setItem('calipal_map_intro_done', '1')
+    if (!localStorage.getItem(LOCATION_CONSENT_KEY)) {
+      localStorage.setItem(LOCATION_CONSENT_KEY, 'denied')
+    }
+    setShowPermSheet(false)
     setShowMapIntro(false)
   }
 
@@ -520,6 +524,7 @@ export default function MapClient() {
 
   function handleIntroCitySelected(lat: number, lng: number) {
     setFlyTarget([lat, lng])
+    localStorage.setItem(LOCATION_CONSENT_KEY, 'denied')
     finishMapIntro()
   }
 
@@ -816,7 +821,7 @@ export default function MapClient() {
       )}
 
       {/* Location permission sheet (auth users only) */}
-      {showPermSheet && (
+      {showPermSheet && !showMapIntro && (
         <LocationPermissionSheet
           onAllow={handleLocationAllow}
           onDeny={handleLocationDeny}

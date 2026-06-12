@@ -181,6 +181,17 @@ export default function CommunityDetailPage() {
     return unsub
   }, [id, user])
 
+  // Silent reconciliation: fix drifted memberCount
+  const reconciledRef = useRef(false)
+  useEffect(() => {
+    if (reconciledRef.current) return
+    if (!community || !user || members.length === 0) return
+    if (community.memberCount !== members.length) {
+      reconciledRef.current = true
+      updateDoc(doc(db, 'communities', id), { memberCount: members.length }).catch(() => {})
+    }
+  }, [community, members, user, id])
+
   // Show community notification prompt the first time a member visits this community
   useEffect(() => {
     if (!isMember || !community || !user || showJoinNotif) return
@@ -608,7 +619,7 @@ export default function CommunityDetailPage() {
                 <p className="text-base font-black text-white flex-1 truncate leading-tight">{community.name}</p>
                 {community.verified && <ShieldCheck size={15} className="text-brand-green flex-shrink-0" />}
               </div>
-              <p className="text-xs text-white/50 mt-0.5">{community.memberCount ?? 0} membri · {community.location ?? ''}</p>
+              <p className="text-xs text-white/50 mt-0.5">{members.length} membri · {community.location ?? ''}</p>
             </div>
           </div>
         </div>
@@ -624,7 +635,7 @@ export default function CommunityDetailPage() {
                 <p className="font-black text-white text-base truncate">{community?.name ?? '...'}</p>
                 {community?.verified && <ShieldCheck size={14} className="text-brand-green flex-shrink-0" />}
               </div>
-              <p className="text-xs text-white/45">{community?.memberCount ?? 0} membri · {isMember ? 'Membru' : 'Vizitator'}</p>
+              <p className="text-xs text-white/45">{members.length} membri · {isMember ? 'Membru' : 'Vizitator'}</p>
             </div>
             <button aria-label="Distribuie" onClick={shareCommunity} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
               <Share2 size={16} className="text-white/70" />
