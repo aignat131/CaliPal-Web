@@ -118,6 +118,7 @@ export default function StandaloneParkTrainingPage() {
   const [parkName, setParkName] = useState('')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
+  const isSuperAdmin = user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '')
   const [profiles, setProfiles] = useState<Record<string, { name: string; photoUrl: string | null }>>({})
 
   // Edit state
@@ -291,6 +292,7 @@ export default function StandaloneParkTrainingPage() {
 
   async function deleteTraining() {
     if (!training || deleting) return
+    if (!window.confirm('Ești sigur că vrei să ștergi acest antrenament?')) return
     setDeleting(true)
     try {
       await updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), {
@@ -616,24 +618,28 @@ export default function StandaloneParkTrainingPage() {
           </div>
         )}
 
-        {/* Edit + Delete buttons (author only) */}
-        {isAuthor && !editing && (
+        {/* Edit button (author only) + Delete button (superadmin only) */}
+        {(isAuthor || isSuperAdmin) && !editing && (
           <div className="flex gap-2 mb-4">
-            <button
-              onClick={openEdit}
-              className="flex-1 flex items-center justify-center gap-2 h-11 rounded-2xl border border-brand-green/30 text-brand-green text-sm font-bold hover:bg-brand-green/10 transition-colors"
-            >
-              <Pencil size={15} />
-              Editează
-            </button>
-            <button
-              onClick={deleteTraining}
-              disabled={deleting}
-              className="flex-1 flex items-center justify-center gap-2 h-11 rounded-2xl border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/10 transition-colors disabled:opacity-40"
-            >
-              <Trash2 size={15} />
-              {deleting ? 'Se șterge...' : 'Șterge'}
-            </button>
+            {isAuthor && (
+              <button
+                onClick={openEdit}
+                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-2xl border border-brand-green/30 text-brand-green text-sm font-bold hover:bg-brand-green/10 transition-colors"
+              >
+                <Pencil size={15} />
+                Editează
+              </button>
+            )}
+            {isSuperAdmin && (
+              <button
+                onClick={deleteTraining}
+                disabled={deleting}
+                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-2xl border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/10 transition-colors disabled:opacity-40"
+              >
+                <Trash2 size={15} />
+                {deleting ? 'Se șterge...' : 'Șterge'}
+              </button>
+            )}
           </div>
         )}
 

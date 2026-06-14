@@ -168,7 +168,7 @@ service cloud.firestore {
           && request.resource.data.description.size() <= 1000;
         allow delete: if isSuperAdmin();
         // Staff: close training and mark attendees
-        // Author: edit own training details or soft-delete
+        // Author: edit own training details (soft-delete restricted to superadmin)
         // Members: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt in same write)
         // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200 entries
         allow update: if isSuperAdmin()
@@ -178,7 +178,7 @@ service cloud.firestore {
           || (isCommunityMember(communityId)
               && request.auth.uid == resource.data.authorId
               && request.resource.data.diff(resource.data).affectedKeys()
-                  .hasOnly(['name', 'description', 'timeStart', 'timeEnd', 'deletedAt', 'deletedByUid']))
+                  .hasOnly(['name', 'description', 'timeStart', 'timeEnd']))
           || (isCommunityMember(communityId)
               && request.resource.data.diff(resource.data).affectedKeys()
                   .hasOnly(['rsvps', 'rsvpNames', 'rsvpPhotos', 'lastRsvpNotifAt']))
@@ -260,9 +260,12 @@ service cloud.firestore {
         allow delete: if isSuperAdmin();
         // Authenticated users: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt)
         // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200
-        // Author: update anything
+        // Author: edit training details (soft-delete restricted to superadmin)
         allow update: if isSuperAdmin()
-          || (isAuth() && request.auth.uid == resource.data.authorId)
+          || (isAuth() && request.auth.uid == resource.data.authorId
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['name', 'description', 'timeStart', 'timeEnd',
+                            'rsvps', 'rsvpNames', 'rsvpPhotos', 'lastRsvpNotifAt']))
           || (isAuth()
               && request.resource.data.diff(resource.data).affectedKeys()
                   .hasOnly(['rsvps', 'rsvpNames', 'rsvpPhotos', 'lastRsvpNotifAt']))

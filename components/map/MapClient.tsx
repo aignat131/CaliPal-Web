@@ -413,6 +413,7 @@ export default function MapClient() {
   const { displayName: myDisplayName } = useMyProfile()
   const { theme } = useTheme()
   const t = useT()
+  const isSuperAdmin = user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '')
 
   const [parks, setParks] = useState<ParkDoc[]>([])
   const [presence, setPresence] = useState<Record<string, ParkPresenceMember[]>>({})
@@ -1081,6 +1082,7 @@ export default function MapClient() {
           liveLocations={liveLocations}
           onClose={() => { setSelectedPark(null); setShowParkCommModal(false); setShowParkTrainingForm(false); setSelectedTraining(null); setSelectedTrainingSource(null) }}
           uid={user?.uid ?? null}
+          isSuperAdmin={isSuperAdmin}
           userName={myDisplayName}
           parkTrainings={parkTrainings}
           parkStandaloneTrainings={parkStandaloneTrainings}
@@ -1111,7 +1113,7 @@ export default function MapClient() {
 
 function ParkBottomSheet({
   park, community, members, liveLocations, onClose,
-  uid, userName, parkTrainings, parkStandaloneTrainings, onStandaloneTrainingAdded,
+  uid, isSuperAdmin, userName, parkTrainings, parkStandaloneTrainings, onStandaloneTrainingAdded,
   onStandaloneTrainingDeleted,
   showParkTrainingForm, setShowParkTrainingForm,
   parkPendingReq, userAdminCommunities,
@@ -1127,6 +1129,7 @@ function ParkBottomSheet({
   liveLocations: Record<string, string>
   onClose: () => void
   uid: string | null
+  isSuperAdmin: boolean
   userName: string
   parkTrainings: PlannedTraining[]
   parkStandaloneTrainings: PlannedTraining[]
@@ -1345,6 +1348,7 @@ function ParkBottomSheet({
                   async function handleDelete(e: React.MouseEvent) {
                     e.preventDefault()
                     e.stopPropagation()
+                    if (!window.confirm('Ești sigur că vrei să ștergi acest antrenament?')) return
                     try {
                       await updateDoc(doc(db, 'parks', park.id, 'trainings', tr.id), {
                         deletedAt: serverTimestamp(), deletedByUid: uid,
@@ -1364,7 +1368,7 @@ function ParkBottomSheet({
                             {totalGoing > 0 && (
                               <span className="text-xs text-brand-green font-bold">{totalGoing} {t(totalGoing === 1 ? 'map.going_singular' : 'map.going_plural')}</span>
                             )}
-                            {isAuthor && (
+                            {isSuperAdmin && (
                               <button
                                 onClick={handleDelete}
                                 className="w-6 h-6 rounded-full bg-red-500/15 flex items-center justify-center hover:bg-red-500/30 transition-colors"
