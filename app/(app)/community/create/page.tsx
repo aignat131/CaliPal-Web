@@ -12,6 +12,7 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { uploadCommunityPhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useT } from '@/lib/context/LanguageContext'
 import type { ParkDoc } from '@/types'
 import { ArrowLeft, Camera, Search, MapPin, Map, HelpCircle, Check, X, Loader } from 'lucide-react'
@@ -36,6 +37,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ city: string;
 
 export default function CreateCommunityPage() {
   const { user } = useAuth()
+  const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
   const router = useRouter()
   const t = useT()
 
@@ -179,11 +181,11 @@ export default function CreateCommunityPage() {
       // Add creator as ADMIN member
       await setDoc(doc(db, 'communities', communityRef.id, 'members', user.uid), {
         userId: user.uid,
-        displayName: user.displayName ?? '',
+        displayName: myName || user.displayName || '',
         role: 'ADMIN',
         level: 1,
         points: 0,
-        photoUrl: user.photoURL ?? null,
+        photoUrl: myPhoto || user.photoURL || null,
         joinedAt: serverTimestamp(),
       })
       // Update user's joinedCommunityIds

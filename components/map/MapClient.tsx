@@ -410,7 +410,7 @@ const LOCATION_CONSENT_KEY = 'calipal_location_consent'
 
 export default function MapClient() {
   const { user } = useAuth()
-  const { displayName: myDisplayName } = useMyProfile()
+  const { displayName: myDisplayName, photoUrl: myPhoto } = useMyProfile()
   const { theme } = useTheme()
   const t = useT()
   const isSuperAdmin = user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '')
@@ -466,8 +466,8 @@ export default function MapClient() {
         setMyLng(longitude)
         setDoc(doc(db, 'live_locations', user.uid), {
           uid: user.uid,
-          displayName: user.displayName ?? '',
-          photoUrl: user.photoURL ?? '',
+          displayName: myDisplayName || user.displayName || '',
+          photoUrl: myPhoto || user.photoURL || '',
           latitude,
           longitude,
           updatedAt: serverTimestamp(),
@@ -1972,6 +1972,7 @@ function CreateCommunityForParkModal({
   onPending: (req: ParkCommunityRequest) => void
 }) {
   const t = useT()
+  const { photoUrl: myPhoto } = useMyProfile()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isPublic, setIsPublic] = useState(true)
@@ -2024,7 +2025,7 @@ function CreateCommunityForParkModal({
         role: 'ADMIN',
         level: 1,
         points: 0,
-        photoUrl: '',
+        photoUrl: myPhoto || '',
         joinedAt: serverTimestamp(),
       })
       // Add to user's joined communities

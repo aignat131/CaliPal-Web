@@ -6,7 +6,8 @@ import {
   updateProfile, updateEmail, updatePassword,
   reauthenticateWithCredential, EmailAuthProvider,
 } from 'firebase/auth'
-import { getUserDoc, updateUserDoc } from '@/lib/firebase/firestore'
+import { doc, updateDoc, collection, getDocs } from 'firebase/firestore'
+import { db, getUserDoc, updateUserDoc } from '@/lib/firebase/firestore'
 import { uploadProfilePhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { ArrowLeft, Camera, ChevronDown, ChevronUp } from 'lucide-react'
@@ -167,12 +168,26 @@ export default function EditProfilePage() {
       if (pendingFile) {
         finalPhotoUrl = await uploadProfilePhoto(user.uid, pendingFile)
       }
+      const trimmedName = name.trim()
       await updateUserDoc(user.uid, {
-        displayName: name.trim(),
+        displayName: trimmedName,
         bio: bio.trim(),
         photoUrl: finalPhotoUrl,
       })
-      await updateProfile(user, { displayName: name.trim(), photoURL: finalPhotoUrl })
+      await updateProfile(user, { displayName: trimmedName, photoURL: finalPhotoUrl })
+
+      // Sync photo + name to all community member documents
+      const userDoc = await getUserDoc(user.uid)
+      const communityIds: string[] = userDoc?.joinedCommunityIds ?? []
+      await Promise.allSettled(
+        communityIds.map(cid =>
+          updateDoc(doc(db, 'communities', cid, 'members', user.uid), {
+            photoUrl: finalPhotoUrl,
+            displayName: trimmedName,
+          }).catch(() => {})
+        )
+      )
+
       router.back()
     } catch {
       setError(t('edit.error_save'))

@@ -195,6 +195,24 @@ export default function CommunityDetailPage() {
     }
   }, [community, members, user, id])
 
+  // Self-heal stale member photo/name: sync from user profile to member doc
+  const photoSyncedRef = useRef(false)
+  useEffect(() => {
+    if (photoSyncedRef.current || !user || !isMember || !members.length) return
+    const me = members.find(m => m.userId === user.uid)
+    if (!me) return
+    const freshPhoto = myPhoto ?? user.photoURL ?? ''
+    const freshName = myName || user.displayName || ''
+    const needsPhoto = freshPhoto && me.photoUrl !== freshPhoto
+    const needsName = freshName && me.displayName !== freshName
+    if (!needsPhoto && !needsName) return
+    photoSyncedRef.current = true
+    const patch: Record<string, string> = {}
+    if (needsPhoto) patch.photoUrl = freshPhoto
+    if (needsName) patch.displayName = freshName
+    updateDoc(doc(db, 'communities', id, 'members', user.uid), patch).catch(() => {})
+  }, [user, isMember, members, myPhoto, myName, id])
+
   // Show community notification prompt the first time a member visits this community
   useEffect(() => {
     if (!isMember || !community || !user || showJoinNotif) return
@@ -309,11 +327,11 @@ export default function CommunityDetailPage() {
       const batch = writeBatch(db)
       batch.set(doc(db, 'communities', id, 'members', user.uid), {
         userId: user.uid,
-        displayName: user.displayName ?? '',
+        displayName: myName || user.displayName || '',
         role: 'MEMBER',
         level: 1,
         points: 0,
-        photoUrl: user.photoURL ?? null,
+        photoUrl: myPhoto || user.photoURL || null,
         joinedAt: serverTimestamp(),
       })
       batch.update(doc(db, 'communities', id), { memberCount: increment(1) })

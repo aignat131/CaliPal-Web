@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import type { CommunityDoc, CommunityMember, PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress } from '@/types'
@@ -37,6 +38,7 @@ function formatDate(str: string | undefined): string {
 
 export default function CommunityPage() {
   const { user } = useAuth()
+  const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
   const router = useRouter()
   const t = useT()
   const { showToast } = useToast()
@@ -219,11 +221,11 @@ export default function CommunityPage() {
       const batch = writeBatch(db)
       batch.set(doc(db, 'communities', community.id, 'members', user.uid), {
         userId: user.uid,
-        displayName: user.displayName ?? '',
+        displayName: myName || user.displayName || '',
         role: 'MEMBER',
         level: 1,
         points: 0,
-        photoUrl: user.photoURL ?? null,
+        photoUrl: myPhoto || user.photoURL || null,
         joinedAt: serverTimestamp(),
       })
       batch.update(doc(db, 'communities', community.id), { memberCount: increment(1) })
