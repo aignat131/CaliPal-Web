@@ -17,7 +17,7 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { createNotification } from '@/lib/firebase/notifications'
-import { awardCoins } from '@/lib/gamification/coins'
+import { awardCoins, awardTrainingAttendancePoints } from '@/lib/gamification/coins'
 import type {
   CommunityDoc, CommunityMember, CommunityPost,
   PlannedTraining, MemberRole, PostComment,
@@ -135,6 +135,7 @@ export default function CommunityDetailPage() {
   const [postsLoaded, setPostsLoaded] = useState(false)
   const [trainingsLoaded, setTrainingsLoaded] = useState(false)
   const [recentCollapsed, setRecentCollapsed] = useState(false)
+  const autoClosedRef = useRef<Set<string>>(new Set())
 
   // Kick confirmation
   const [kickTarget, setKickTarget] = useState<CommunityMember | null>(null)
@@ -225,6 +226,51 @@ export default function CommunityDetailPage() {
       () => { setTrainingsLoaded(true) /* non-members can't read trainings — silently ignore */ }
     )
   }, [id, user])
+
+  // Auto-close past trainings and award points to all GOING members
+  useEffect(() => {
+    if (!user || !isMember) return
+    const isStaff = myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER'
+    if (!isStaff && user.email !== SUPERADMIN) return
+
+    const pastUnclosed = trainings.filter(t => isTrainingPast(t) && !t.isClosed)
+    if (!pastUnclosed.length) return
+
+    pastUnclosed.forEach(async (t) => {
+      if (autoClosedRef.current.has(t.id)) return
+      autoClosedRef.current.add(t.id)
+
+      const goingUids = Object.entries(t.rsvps ?? {})
+        .filter(([, s]) => s === 'GOING').map(([uid]) => uid)
+      if (!goingUids.length) return
+
+      try {
+        // Mark the training as closed
+        await updateDoc(doc(db, 'communities', id, 'trainings', t.id), {
+          isClosed: true,
+          attendedBy: goingUids,
+          closedAt: serverTimestamp(),
+          closedByUid: user.uid,
+        })
+
+        // Award points to all attendees + author
+        const uidsToAward = new Set(goingUids)
+        if (t.authorId) uidsToAward.add(t.authorId)
+        const allUids = Array.from(uidsToAward)
+        await Promise.allSettled(
+          allUids.map(uid => awardTrainingAttendancePoints(uid, id))
+        )
+        // Increment global totalTrainings on each attendee's user profile
+        await Promise.allSettled(
+          allUids.map(uid => updateDoc(doc(db, 'users', uid), { totalTrainings: increment(1) }))
+        )
+      } catch (e) {
+        console.error('[AutoClose] failed for training', t.id, e)
+        autoClosedRef.current.delete(t.id)
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trainings, user, isMember, myRole, id])
 
   // Load friend/pending status for member tab
   const loadSocialStatus = useCallback(async () => {
