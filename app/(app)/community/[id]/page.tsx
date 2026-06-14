@@ -213,6 +213,34 @@ export default function CommunityDetailPage() {
     updateDoc(doc(db, 'communities', id, 'members', user.uid), patch).catch(() => {})
   }, [user, isMember, members, myPhoto, myName, id])
 
+  // Bulk-fetch photos from user profiles for members with missing photos
+  const [memberPhotos, setMemberPhotos] = useState<Record<string, string>>({})
+  const memberPhotosFetchedRef = useRef(false)
+  useEffect(() => {
+    if (memberPhotosFetchedRef.current || !user || !members.length) return
+    const missing = members.filter(m => !m.photoUrl && m.userId !== user.uid)
+    if (missing.length === 0) { memberPhotosFetchedRef.current = true; return }
+    memberPhotosFetchedRef.current = true
+    async function fetchPhotos() {
+      const photos: Record<string, string> = {}
+      await Promise.allSettled(
+        missing.map(async (m) => {
+          const snap = await getDoc(doc(db, 'users', m.userId))
+          if (!snap.exists()) return
+          const data = snap.data()
+          const url = (data.photoUrl as string) || ''
+          if (url) {
+            photos[m.userId] = url
+            // Also heal the member doc so future loads don't need this fetch
+            updateDoc(doc(db, 'communities', id, 'members', m.userId), { photoUrl: url }).catch(() => {})
+          }
+        })
+      )
+      if (Object.keys(photos).length > 0) setMemberPhotos(photos)
+    }
+    fetchPhotos()
+  }, [user, members, id])
+
   // Show community notification prompt the first time a member visits this community
   useEffect(() => {
     if (!isMember || !community || !user || showJoinNotif) return
@@ -982,7 +1010,7 @@ export default function CommunityDetailPage() {
             {membersByPoints.map((m, index) => {
               const roleColor = ROLE_COLORS[m.role as MemberRole] ?? '#1ED75F'
               const isMe = m.userId === user?.uid
-              const livePhoto = m.photoUrl || ''
+              const livePhoto = (isMe ? (myPhoto || m.photoUrl) : m.photoUrl) || memberPhotos[m.userId] || ''
               const isTopThree = index < 3
 
               return (
@@ -1014,12 +1042,7 @@ export default function CommunityDetailPage() {
 
                   {/* Avatar with role ring */}
                   <div className="relative flex-shrink-0">
-                    <div className="relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center"
-                      style={{ backgroundColor: `${roleColor}22`, border: `2px solid ${roleColor}` }}>
-                      {livePhoto
-                        ? <Image src={livePhoto} alt={m.displayName} fill sizes="40px" className="object-cover" />
-                        : <span className="text-sm font-black" style={{ color: roleColor }}>{m.displayName.charAt(0).toUpperCase()}</span>}
-                    </div>
+                    <RoleAvatar photoUrl={livePhoto} name={m.displayName} roleColor={roleColor} />
                     {m.role === 'ADMIN' && <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">👑</span>}
                     {m.role === 'TRAINER' && <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">🏋️</span>}
                   </div>
@@ -1230,12 +1253,7 @@ function MemberSheet({
         {/* Avatar + name row */}
         <div className="flex flex-col items-center px-6 mb-6">
           <div className="relative mb-3">
-            <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center"
-              style={{ backgroundColor: `${roleColor}22`, border: `2.5px solid ${roleColor}` }}>
-              {member.photoUrl
-                ? <Image src={member.photoUrl} alt={member.displayName} width={64} height={64} className="object-cover w-full h-full" />
-                : <span className="text-2xl font-black" style={{ color: roleColor }}>{member.displayName.charAt(0).toUpperCase()}</span>}
-            </div>
+            <RoleAvatar photoUrl={member.photoUrl || ''} name={member.displayName} roleColor={roleColor} size={64} />
             {member.role === 'ADMIN' && <span className="absolute -bottom-0.5 -right-0.5 text-base">👑</span>}
             {member.role === 'TRAINER' && <span className="absolute -bottom-0.5 -right-0.5 text-base">🏋️</span>}
           </div>
@@ -1319,15 +1337,34 @@ function MemberSheet({
 
 // ── Training Card ─────────────────────────────────────────────────────────────
 
+function RoleAvatar({ photoUrl, name, roleColor, size = 40 }: { photoUrl: string; name: string; roleColor: string; size?: number }) {
+  const [imgError, setImgError] = useState(false)
+  const showImg = photoUrl && !imgError
+  return (
+    <div className="relative rounded-full overflow-hidden flex items-center justify-center"
+      style={{ width: size, height: size, backgroundColor: `${roleColor}22`, border: `2px solid ${roleColor}` }}>
+      {showImg
+        /* eslint-disable-next-line @next/next/no-img-element */
+        ? <img src={photoUrl} alt={name} className="object-cover w-full h-full"
+            onError={() => setImgError(true)} />
+        : <span className="font-black" style={{ color: roleColor, fontSize: size * 0.35 }}>{name.charAt(0).toUpperCase()}</span>}
+    </div>
+  )
+}
+
 function MemberAvatar({ photoUrl, name, size = 28 }: { photoUrl?: string | null; name: string; size?: number }) {
+  const [imgError, setImgError] = useState(false)
   const initials = name.trim().charAt(0).toUpperCase()
+  const showImg = photoUrl && !imgError
   return (
     <div
       className="rounded-full border-2 overflow-hidden flex items-center justify-center flex-shrink-0 bg-white/20"
       style={{ width: size, height: size, borderColor: 'var(--app-surface)' }}
     >
-      {photoUrl
-        ? <Image src={photoUrl} alt={name} width={size} height={size} className="object-cover" />
+      {showImg
+        /* eslint-disable-next-line @next/next/no-img-element */
+        ? <img src={photoUrl} alt={name} width={size} height={size} className="object-cover w-full h-full"
+            onError={() => setImgError(true)} />
         : <span className="text-white font-bold" style={{ fontSize: size * 0.38 }}>{initials}</span>}
     </div>
   )

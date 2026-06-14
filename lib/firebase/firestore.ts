@@ -7,7 +7,6 @@ import {
   serverTimestamp,
   collection,
   addDoc,
-  getDocs,
 } from 'firebase/firestore'
 import type { User } from 'firebase/auth'
 import { app } from './config'
