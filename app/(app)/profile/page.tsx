@@ -12,6 +12,7 @@ import {
   runTransaction, increment, serverTimestamp,
 } from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useTheme } from '@/lib/hooks/useTheme'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import type { UserDoc, WorkoutDoc } from '@/types'
 import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag } from 'lucide-react'
@@ -87,6 +88,7 @@ const SHOP_ITEMS = [
 
 export default function ProfilePage() {
   const { user } = useAuth()
+  const { theme } = useTheme()
   const router = useRouter()
   const t = useT()
   const { showToast } = useToast()
@@ -430,13 +432,21 @@ export default function ProfilePage() {
             </span>
             {purchases.has('EARLY_BADGE') && (
               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                style={{ backgroundColor: '#FFB80022', color: '#FFB800', border: '1px solid #FFB80040' }}>
+                style={{
+                  backgroundColor: theme === 'light' ? '#fff3cc' : '#FFB80022',
+                  color: theme === 'light' ? '#c17f00' : '#FFB800',
+                  border: `1px solid ${theme === 'light' ? '#e6d49a' : '#FFB80040'}`,
+                }}>
                 ⭐ Early Supporter
               </span>
             )}
             {user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '') && (
               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                style={{ backgroundColor: '#FFB80022', color: '#FFB800', border: '1px solid #FFB80040' }}>
+                style={{
+                  backgroundColor: theme === 'light' ? '#fff3cc' : '#FFB80022',
+                  color: theme === 'light' ? '#c17f00' : '#FFB800',
+                  border: `1px solid ${theme === 'light' ? '#e6d49a' : '#FFB80040'}`,
+                }}>
                 👑 Super Admin
               </span>
             )}
@@ -446,7 +456,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/10 mb-4">
+        <div className="flex border-b border-white/10 mb-4 tab-bar">
           {tabs.map((label, i) => (
             <button key={label} onClick={() => setTab(i)}
               className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${

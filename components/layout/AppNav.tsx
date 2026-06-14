@@ -12,7 +12,7 @@ export default function AppNav() {
   const { theme } = useTheme()
   const { user, loading } = useAuth()
   const t = useT()
-  const inactiveColor = theme === 'light' ? 'rgba(13,27,26,0.40)' : 'rgba(255,255,255,0.45)'
+  const inactiveColor = theme === 'light' ? '#888888' : 'rgba(255,255,255,0.45)'
 
   const tabs = [
     { href: '/home',      label: t('nav.home'),      Icon: Home },

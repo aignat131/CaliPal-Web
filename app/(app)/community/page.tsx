@@ -286,7 +286,7 @@ export default function CommunityPage() {
 
         {/* Tabs (authenticated only) */}
         {!!user && (
-          <div className="flex border-b border-white/10 mb-4">
+          <div className="flex border-b border-white/10 mb-4 tab-bar">
             {[
               { label: t('community.tab_community'), Icon: Users },
               { label: t('community.tab_events'), Icon: Calendar },

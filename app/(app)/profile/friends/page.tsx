@@ -203,7 +203,7 @@ export default function FriendsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/10 mb-4">
+        <div className="flex border-b border-white/10 mb-4 tab-bar">
           {[
             t('friends.requests_tab', { n: String(requests.length) }),
             t('friends.friends_tab', { n: String(friends.length) }),

@@ -12,6 +12,7 @@ import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'
 import { uploadCommunityPhoto, uploadPostPhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { useTheme } from '@/lib/hooks/useTheme'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
@@ -87,6 +88,7 @@ function toAndroidDateTime(date: string, time: string): string {
 
 export default function CommunityDetailPage() {
   const { user } = useAuth()
+  const { theme } = useTheme()
   const { displayName: myName, photoUrl: myPhoto, profile: myProfile } = useMyProfile()
   const { requestPermission } = usePushNotifications(user?.uid)
   const t = useT()
@@ -722,7 +724,7 @@ export default function CommunityDetailPage() {
 
       {/* Tabs — non-members only see Membri */}
       <div className="max-w-lg mx-auto">
-      <div className="flex border-b border-white/10 mt-3 sticky top-0 z-20" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <div className="flex border-b border-white/10 mt-3 sticky top-0 z-20 tab-bar" style={{ backgroundColor: 'var(--app-bg)' }}>
         {visibleTabs.map(({ label, Icon }, i) => {
           const tabIndex = isMember ? i : 2
           const isActive = isMember ? tab === i : true
@@ -938,7 +940,11 @@ export default function CommunityDetailPage() {
                     {isTopThree ? (
                       <span className="text-base">{['🥇', '🥈', '🥉'][index]}</span>
                     ) : (
-                      <span className="text-[11px] font-bold text-white/25">{index + 1}</span>
+                      <span className={`text-[11px] font-bold ${
+                        (m.trainingPoints ?? 0) === 0
+                          ? (theme === 'light' ? 'text-[#bbbbbb]' : 'text-white/15')
+                          : 'text-white/25'
+                      }`}>{index + 1}</span>
                     )}
                   </div>
 
@@ -974,8 +980,16 @@ export default function CommunityDetailPage() {
 
                   {/* Points */}
                   <div className="flex flex-col items-end flex-shrink-0">
-                    <span className="text-sm font-black text-brand-green">{m.trainingPoints ?? 0}</span>
-                    <span className="text-[9px] text-white/25">pts</span>
+                    <span className={`text-sm font-black ${
+                      (m.trainingPoints ?? 0) === 0
+                        ? (theme === 'light' ? 'text-[#cccccc]' : 'text-white/25')
+                        : 'text-brand-green'
+                    }`}>{m.trainingPoints ?? 0}</span>
+                    <span className={`text-[9px] ${
+                      (m.trainingPoints ?? 0) === 0
+                        ? (theme === 'light' ? 'text-[#cccccc]' : 'text-white/20')
+                        : 'text-white/25'
+                    }`}>pts</span>
                   </div>
 
                   {/* Chevron hint */}

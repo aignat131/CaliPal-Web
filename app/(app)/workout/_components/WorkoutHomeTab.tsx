@@ -37,7 +37,7 @@ export function WorkoutHomeTab({
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/10 mb-4">
+      <div className="flex border-b border-white/10 mb-4 tab-bar">
         {['Acasă', 'Istoric'].map((t, i) => (
           <button key={i} onClick={() => onTabChange(i)}
             className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${tab === i ? 'text-brand-green border-b-2 border-brand-green' : 'text-white/45'}`}>
