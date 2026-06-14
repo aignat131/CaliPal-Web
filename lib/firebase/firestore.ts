@@ -48,10 +48,12 @@ export async function ensureUserDoc(user: User): Promise<void> {
       patch.displayName = authName
     }
 
-    // Sync photoUrl from Auth — catches Google profile picture changes
+    // Sync photoUrl from Auth — catches Google profile picture changes.
+    // Only overwrite if the user hasn't uploaded a custom photo (Firebase Storage).
     const storedPhoto = data.photoUrl as string | undefined
     const authPhoto = user.photoURL ?? ''
-    if (authPhoto && authPhoto !== storedPhoto) {
+    const hasCustomUpload = storedPhoto && storedPhoto.includes('firebasestorage.googleapis.com')
+    if (authPhoto && authPhoto !== storedPhoto && !hasCustomUpload) {
       patch.photoUrl = authPhoto
     }
 

@@ -957,17 +957,18 @@ export default function CommunityDetailPage() {
                       {recentCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
                     </button>
                     {!recentCollapsed && recentPast.map(t => (
-                      <div key={t.id} className="opacity-60">
+                      <div key={t.id} className="opacity-40 pointer-events-none select-none">
                         <TrainingCard
                           training={t}
                           communityId={id}
                           myUid={user?.uid ?? ''}
                           members={members}
-                          canLoad={isMember && (t.exercises?.length ?? 0) > 0}
+                          canLoad={false}
                           canDelete={false}
                           canEdit={false}
+                          readOnly
                           onRsvp={() => {}}
-                          onLoad={() => loadTraining(t)}
+                          onLoad={() => {}}
                           onDelete={() => {}}
                           onEdit={() => {}}
                         />
@@ -1380,7 +1381,7 @@ function toTimeInputValue(str: string): string {
   return m ? m[1] : ''
 }
 
-function TrainingCard({ training, communityId, myUid, members, canLoad, canDelete, canEdit, onRsvp, onLoad, onDelete, onEdit }: {
+function TrainingCard({ training, communityId, myUid, members, canLoad, canDelete, canEdit, readOnly, onRsvp, onLoad, onDelete, onEdit }: {
   training: PlannedTraining
   communityId: string
   myUid: string
@@ -1388,6 +1389,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
   canLoad: boolean
   canDelete: boolean
   canEdit: boolean
+  readOnly?: boolean
   onRsvp: (s: 'GOING' | 'NOT_GOING' | 'MAYBE') => void
   onLoad: () => void
   onDelete: () => void
@@ -1496,25 +1498,27 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
               <p className="text-[10px] text-white/35 mt-0.5">de {training.authorName}</p>
             )}
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={handleShare}
-              title="Distribuie pe WhatsApp"
-              className="w-8 h-8 flex items-center justify-center rounded-full text-brand-green/60 hover:text-brand-green hover:bg-brand-green/10 transition-colors"
-            >
-              <Share2 size={14} />
-            </button>
-            {canEdit && !showEdit && !showDeleteConfirm && (
-              <button onClick={openEdit} aria-label="Editează antrenament" className="w-8 h-8 flex items-center justify-center rounded-full text-brand-green/50 hover:text-brand-green hover:bg-brand-green/10 transition-colors">
-                <Pencil size={14} />
+          {!readOnly && (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={handleShare}
+                title="Distribuie pe WhatsApp"
+                className="w-8 h-8 flex items-center justify-center rounded-full text-brand-green/60 hover:text-brand-green hover:bg-brand-green/10 transition-colors"
+              >
+                <Share2 size={14} />
               </button>
-            )}
-            {canDelete && !showEdit && !showDeleteConfirm && (
-              <button onClick={() => setShowDeleteConfirm(true)} aria-label="Șterge antrenament" className="w-8 h-8 flex items-center justify-center rounded-full text-red-400/50 hover:text-red-400 hover:bg-red-400/10 transition-colors">
-                <Trash2 size={14} />
-              </button>
-            )}
-          </div>
+              {canEdit && !showEdit && !showDeleteConfirm && (
+                <button onClick={openEdit} aria-label="Editează antrenament" className="w-8 h-8 flex items-center justify-center rounded-full text-brand-green/50 hover:text-brand-green hover:bg-brand-green/10 transition-colors">
+                  <Pencil size={14} />
+                </button>
+              )}
+              {canDelete && !showEdit && !showDeleteConfirm && (
+                <button onClick={() => setShowDeleteConfirm(true)} aria-label="Șterge antrenament" className="w-8 h-8 flex items-center justify-center rounded-full text-red-400/50 hover:text-red-400 hover:bg-red-400/10 transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Edit form */}
@@ -1712,24 +1716,26 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
         )}
 
         {/* RSVP buttons */}
-        <div className="flex gap-2">
-          {(['GOING', 'MAYBE', 'NOT_GOING'] as const).map(status => (
-            <button key={status}
-              onClick={() => { setLocalRsvpStatus(status); onRsvp(status) }}
-              className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors border ${
-                myStatus === status
-                  ? 'bg-brand-green text-black border-brand-green'
-                  : 'border-white/15 text-white/50 hover:bg-white/8'
-              }`}>
-              {status === 'GOING' ? 'Merg' : status === 'MAYBE' ? 'Poate' : 'Nu merg'}
-            </button>
-          ))}
-          {canLoad && (
-            <button onClick={onLoad} className="h-8 px-3 rounded-lg text-xs font-bold bg-brand-green text-black flex items-center gap-1 flex-shrink-0">
-              <Dumbbell size={12} /> Încarcă
-            </button>
-          )}
-        </div>
+        {!readOnly && (
+          <div className="flex gap-2">
+            {(['GOING', 'MAYBE', 'NOT_GOING'] as const).map(status => (
+              <button key={status}
+                onClick={() => { setLocalRsvpStatus(status); onRsvp(status) }}
+                className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors border ${
+                  myStatus === status
+                    ? 'bg-brand-green text-black border-brand-green'
+                    : 'border-white/15 text-white/50 hover:bg-white/8'
+                }`}>
+                {status === 'GOING' ? 'Merg' : status === 'MAYBE' ? 'Poate' : 'Nu merg'}
+              </button>
+            ))}
+            {canLoad && (
+              <button onClick={onLoad} className="h-8 px-3 rounded-lg text-xs font-bold bg-brand-green text-black flex items-center gap-1 flex-shrink-0">
+                <Dumbbell size={12} /> Încarcă
+              </button>
+            )}
+          </div>
+        )}
 
       </div>
     </div>
