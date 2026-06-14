@@ -9,13 +9,13 @@ import { auth } from '@/lib/firebase/auth'
 import { db } from '@/lib/firebase/firestore'
 import {
   collection, query, orderBy, limit, where, onSnapshot, doc,
-  runTransaction, increment, serverTimestamp,
+  runTransaction, increment, serverTimestamp, getDocs, getDoc,
 } from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
-import type { UserDoc, WorkoutDoc } from '@/types'
-import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag } from 'lucide-react'
+import type { UserDoc, WorkoutDoc, PlannedTraining, CommunityDoc } from '@/types'
+import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag, Calendar, Clock, MapPin } from 'lucide-react'
 import { useToast } from '@/lib/context/ToastContext'
 import { useT } from '@/lib/context/LanguageContext'
 
@@ -46,6 +46,32 @@ function exercisePreview(ex: import('@/types').WorkoutExercise): string {
   }
   const total = ex.sets.reduce((s, set) => s + (set.reps ?? 0), 0)
   return total > 0 ? `${ex.name} ${total} rep` : ex.name
+}
+
+function parseTrainingDate(timeStart: string | undefined, fallbackDate?: string): Date | null {
+  if (!timeStart) {
+    if (fallbackDate) {
+      try { const d = new Date(fallbackDate); return isNaN(d.getTime()) ? null : d } catch { return null }
+    }
+    return null
+  }
+  const m = timeStart.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
+  if (m) {
+    const [, dd, mm, yyyy, hh, min] = m
+    return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`)
+  }
+  if (fallbackDate && /^\d{2}:\d{2}$/.test(timeStart)) return new Date(`${fallbackDate}T${timeStart}`)
+  try { return new Date(timeStart) } catch { return null }
+}
+
+function formatTrainingHistoryDate(timeStart: string, fallbackDate?: string): string {
+  const d = parseTrainingDate(timeStart, fallbackDate)
+  if (!d || isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('ro', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function formatTrainingTime(str: string): string {
+  return str?.slice(-5) ?? ''
 }
 
 const COIN_TASK_KEYS: Record<string, string> = {
@@ -161,6 +187,60 @@ export default function ProfilePage() {
     })
     return unsub
   }, [user])
+
+  // Training history — fetch from all joined communities
+  type TrainingHistoryItem = PlannedTraining & { communityId: string; communityName: string; role: 'attended' | 'created' }
+  const [trainingHistory, setTrainingHistory] = useState<TrainingHistoryItem[]>([])
+  const [trainingHistoryLoading, setTrainingHistoryLoading] = useState(false)
+  const trainingHistoryLoadedRef = useRef(false)
+
+  useEffect(() => {
+    if (!user || !profile || trainingHistoryLoadedRef.current) return
+    const communityIds = profile.joinedCommunityIds ?? []
+    if (communityIds.length === 0) return
+    trainingHistoryLoadedRef.current = true
+    setTrainingHistoryLoading(true)
+
+    async function loadHistory() {
+      const items: TrainingHistoryItem[] = []
+      await Promise.allSettled(
+        communityIds.map(async (cid) => {
+          const [commSnap, trainSnap] = await Promise.all([
+            getDoc(doc(db, 'communities', cid)),
+            getDocs(collection(db, 'communities', cid, 'trainings')),
+          ])
+          const commName = commSnap.exists() ? (commSnap.data().name as string) : cid
+          for (const d of trainSnap.docs) {
+            const t = { id: d.id, ...d.data() } as PlannedTraining
+            if (t.deletedAt) continue
+            const isAuthor = t.authorId === user!.uid
+            const attended = t.attendedBy?.includes(user!.uid)
+            const rsvpGoing = t.rsvps?.[user!.uid] === 'GOING'
+            if (isAuthor || attended || (t.isClosed && rsvpGoing)) {
+              items.push({
+                ...t,
+                communityId: cid,
+                communityName: commName,
+                role: isAuthor ? 'created' : 'attended',
+              })
+            }
+          }
+        })
+      )
+      // Sort by date descending
+      items.sort((a, b) => {
+        const da = parseTrainingDate(a.timeStart, a.date)
+        const db2 = parseTrainingDate(b.timeStart, b.date)
+        if (!da && !db2) return 0
+        if (!da) return 1
+        if (!db2) return -1
+        return db2.getTime() - da.getTime()
+      })
+      setTrainingHistory(items)
+      setTrainingHistoryLoading(false)
+    }
+    loadHistory()
+  }, [user, profile]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handlePurchase(itemId: string, price: number) {
     if (!user) return
@@ -547,6 +627,77 @@ export default function ProfilePage() {
                         {t('profile.more_skills', { n: totalMastered - 5 })}
                       </span>
                     </Link>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Training history */}
+            <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-bold text-white">{t('profile.training_history')}</p>
+                {trainingHistory.length > 0 && (
+                  <span className="text-xs text-white/40 font-semibold">
+                    {trainingHistory.length === 1
+                      ? t('profile.training_history_count_1')
+                      : t('profile.training_history_count_n', { n: trainingHistory.length })}
+                  </span>
+                )}
+              </div>
+              {trainingHistoryLoading ? (
+                <div className="flex flex-col gap-2">
+                  {[1, 2].map(i => (
+                    <div key={i} className="h-16 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--app-bg)' }} />
+                  ))}
+                </div>
+              ) : trainingHistory.length === 0 ? (
+                <div className="text-center py-4">
+                  <Calendar size={28} className="text-white/15 mx-auto mb-2" />
+                  <p className="text-xs text-white/35">{t('profile.no_training_history')}</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {trainingHistory.slice(0, 10).map(tr => (
+                    <Link key={`${tr.communityId}-${tr.id}`} href={`/training/${tr.communityId}/${tr.id}`}>
+                      <div className="flex items-start gap-3 py-2.5 px-3 rounded-xl cursor-pointer hover:bg-white/5 transition-colors"
+                        style={{ backgroundColor: 'var(--app-bg)' }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                          style={{ backgroundColor: tr.role === 'created' ? '#F9731622' : '#1ED75F18' }}>
+                          <Dumbbell size={14} style={{ color: tr.role === 'created' ? '#F97316' : '#1ED75F' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-white truncate">{tr.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="flex items-center gap-1 text-[10px] text-white/40">
+                              <Calendar size={9} />
+                              {formatTrainingHistoryDate(tr.timeStart, tr.date)}
+                            </span>
+                            {tr.location && (
+                              <span className="flex items-center gap-1 text-[10px] text-white/40">
+                                <MapPin size={9} />
+                                <span className="truncate max-w-[100px]">{tr.location}</span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-white/30 truncate">{tr.communityName}</span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md"
+                              style={{
+                                backgroundColor: tr.role === 'created' ? '#F9731618' : '#1ED75F18',
+                                color: tr.role === 'created' ? '#F97316' : '#1ED75F',
+                              }}>
+                              {tr.role === 'created' ? t('profile.training_created') : t('profile.training_attended')}
+                            </span>
+                          </div>
+                        </div>
+                        <ChevronRight size={14} className="text-white/15 flex-shrink-0 mt-2" />
+                      </div>
+                    </Link>
+                  ))}
+                  {trainingHistory.length > 10 && (
+                    <p className="text-[10px] text-white/25 text-center mt-1">
+                      +{trainingHistory.length - 10} {trainingHistory.length - 10 === 1 ? 'antrenament' : 'antrenamente'}
+                    </p>
                   )}
                 </div>
               )}

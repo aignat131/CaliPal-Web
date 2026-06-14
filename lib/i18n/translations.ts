@@ -112,6 +112,13 @@ const T: Record<string, { RO: string; EN: string }> = {
   'profile.task_skills_5':           { RO: '5 skill-uri deblocate',      EN: '5 skills unlocked' },
   'profile.task_skills_10':          { RO: '10 skill-uri deblocate',     EN: '10 skills unlocked' },
 
+  'profile.training_history':        { RO: 'Istoric antrenamente comunitate', EN: 'Community training history' },
+  'profile.no_training_history':     { RO: 'Niciun antrenament de comunitate încă.', EN: 'No community trainings yet.' },
+  'profile.training_attended':       { RO: 'Participat',       EN: 'Attended' },
+  'profile.training_created':        { RO: 'Organizat',        EN: 'Organized' },
+  'profile.training_history_count_1':{ RO: '1 antrenament',    EN: '1 training' },
+  'profile.training_history_count_n':{ RO: '{n} antrenamente', EN: '{n} trainings' },
+
   // ── Settings Page ────────────────────────────────────────────────────────────
   'settings.title':           { RO: 'Setări',           EN: 'Settings' },
   'settings.section_account': { RO: 'CONT',             EN: 'ACCOUNT' },

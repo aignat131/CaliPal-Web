@@ -7,6 +7,7 @@ import {
   serverTimestamp,
   collection,
   addDoc,
+  getDocs,
 } from 'firebase/firestore'
 import type { User } from 'firebase/auth'
 import { app } from './config'
@@ -15,7 +16,9 @@ import type { UserDoc } from '@/types'
 if (!app) throw new Error('Firebase failed to initialize. Check NEXT_PUBLIC_FIREBASE_* env vars.')
 export const db = getFirestore(app)
 
-/** Create user document on first sign-up. Safe to call multiple times. Also fixes incorrect displayNames. */
+/** Create user document on first sign-up. Safe to call multiple times.
+ *  Also syncs photoUrl and displayName from Firebase Auth on every login
+ *  and propagates changes to community member docs. */
 export async function ensureUserDoc(user: User): Promise<void> {
   const ref = doc(db, 'users', user.uid)
   const snap = await getDoc(ref)
@@ -36,11 +39,35 @@ export async function ensureUserDoc(user: User): Promise<void> {
       createdAt: serverTimestamp(),
     } satisfies Omit<UserDoc, 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> })
   } else {
-    // Fix displayName if it was stored as 'Utilizator' or is missing
-    const stored = snap.data().displayName as string | undefined
-    const betterName = user.displayName || user.email?.split('@')[0]
-    if (betterName && (!stored || stored === 'Utilizator')) {
-      await updateDoc(ref, { displayName: betterName })
+    const data = snap.data()
+    const patch: Record<string, string> = {}
+
+    // Sync displayName from Auth if stored name is missing/default
+    const storedName = data.displayName as string | undefined
+    const authName = user.displayName || user.email?.split('@')[0]
+    if (authName && (!storedName || storedName === 'Utilizator')) {
+      patch.displayName = authName
+    }
+
+    // Sync photoUrl from Auth — catches Google profile picture changes
+    const storedPhoto = data.photoUrl as string | undefined
+    const authPhoto = user.photoURL ?? ''
+    if (authPhoto && authPhoto !== storedPhoto) {
+      patch.photoUrl = authPhoto
+    }
+
+    if (Object.keys(patch).length > 0) {
+      await updateDoc(ref, patch)
+
+      // Propagate photo/name changes to all community member docs
+      const communityIds = (data.joinedCommunityIds as string[] | undefined) ?? []
+      if (communityIds.length > 0) {
+        await Promise.allSettled(
+          communityIds.map(cid =>
+            updateDoc(doc(db, 'communities', cid, 'members', user.uid), patch).catch(() => {})
+          )
+        )
+      }
     }
   }
 }
