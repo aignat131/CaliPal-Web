@@ -234,6 +234,7 @@
 :root {
   --app-bg: #0D2E2B;
   --app-surface: #164742;
+  --app-divider: rgba(255,255,255,0.07);
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -241,6 +242,13 @@
   --app-bg: #F3F4F0;
   --app-surface: #ffffff;
   --app-surface-variant: #E6E7E3;
+  --app-divider: rgba(17,17,17,0.08);
+}
+
+.dark-deep {
+  --app-bg: #0B1411;
+  --app-surface: #111D19;
+  --app-divider: rgba(255,255,255,0.07);
 }
 
 /* ── Prevent iOS Safari auto-zoom on input focus ─────────────────────────── */

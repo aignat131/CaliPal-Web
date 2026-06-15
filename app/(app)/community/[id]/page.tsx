@@ -28,7 +28,7 @@ import {
   UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
   MessageCircle, User, Bell, X, LogOut, UserX, Share2,
   Pencil, Camera, Info, Mail, MailX, History, ImagePlus,
-  ChevronRight, ChevronDown, ChevronUp, ShieldCheck,
+  ChevronDown, ChevronUp, ShieldCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
@@ -43,6 +43,19 @@ const ROLE_COLORS: Record<MemberRole, string> = {
   TRAINER: '#F97316',
   MEMBER: '#1ED75F',
 }
+
+const ROLE_TEXT_COLORS: Record<MemberRole, string> = {
+  ADMIN: '#DCA64E',
+  MODERATOR: '#6FA8E8',
+  TRAINER: '#F97316',
+  MEMBER: '#7E8A84',
+}
+
+const MEDAL_STYLES = [
+  { bg: '#E3B24C', color: '#412402' }, // gold
+  { bg: '#C3C9D1', color: '#2C2C2A' }, // silver
+  { bg: '#C5824A', color: '#4A1B0C' }, // bronze
+]
 
 /**
  * Parse a training datetime string.
@@ -1006,34 +1019,38 @@ export default function CommunityDetailPage() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3">CLASAMENT · {members.length} MEMBRI</p>
+          <div className="flex flex-col">
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-4">CLASAMENT · {members.length} MEMBRI</p>
             {membersByPoints.map((m, index) => {
               const roleColor = ROLE_COLORS[m.role as MemberRole] ?? '#1ED75F'
+              const roleTextColor = ROLE_TEXT_COLORS[m.role as MemberRole] ?? '#7E8A84'
               const isMe = m.userId === user?.uid
               const livePhoto = (isMe ? (myPhoto || m.photoUrl) : m.photoUrl) || memberPhotos[m.userId] || ''
               const isTopThree = index < 3
+              const medal = isTopThree ? MEDAL_STYLES[index] : null
 
               return (
                 <div
                   key={m.userId}
-                  className="flex items-center gap-3 px-4 py-3.5 rounded-xl mx-1 cursor-pointer active:bg-white/5 transition-colors"
+                  className="relative flex items-center gap-3 px-4 cursor-pointer active:bg-white/5 transition-colors"
                   style={{
-                    backgroundColor: isTopThree
-                      ? '#1ED75F08'
-                      : m.role !== 'MEMBER'
-                      ? `${roleColor}09`
-                      : 'var(--app-surface)',
-                    border: isTopThree ? '1px solid #1ED75F18' : 'none',
+                    minHeight: 64,
+                    backgroundColor: isMe ? 'rgba(30,215,95,0.06)' : 'transparent',
                   }}
                   onClick={() => setMemberSheetTarget(m)}
                 >
-                  {/* Rank number */}
+                  {/* Hairline divider (inset under name) */}
+                  {index < membersByPoints.length - 1 && (
+                    <span className="absolute bottom-0 right-0 h-px" style={{ left: 88, background: 'var(--app-divider)' }} />
+                  )}
+
+                  {/* Rank */}
                   <div className="w-6 flex-shrink-0 flex items-center justify-center">
-                    {isTopThree ? (
-                      <span className="text-base">{['🥇', '🥈', '🥉'][index]}</span>
+                    {medal ? (
+                      <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-xs font-semibold"
+                        style={{ background: medal.bg, color: medal.color }}>{index + 1}</span>
                     ) : (
-                      <span className={`text-[11px] font-bold ${
+                      <span className={`text-[13px] font-medium ${
                         (m.trainingPoints ?? 0) === 0
                           ? (theme === 'light' ? 'text-[#bbbbbb]' : 'text-white/15')
                           : 'text-white/25'
@@ -1041,47 +1058,45 @@ export default function CommunityDetailPage() {
                     )}
                   </div>
 
-                  {/* Avatar with role ring */}
+                  {/* Avatar */}
                   <div className="relative flex-shrink-0">
-                    <RoleAvatar photoUrl={livePhoto} name={m.displayName} roleColor={roleColor} />
-                    {m.role === 'ADMIN' && <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">👑</span>}
-                    {m.role === 'TRAINER' && <span className="absolute -bottom-0.5 -right-0.5 text-[10px]">🏋️</span>}
+                    <RoleAvatar photoUrl={livePhoto} name={m.displayName} roleColor={roleColor}
+                      goldRing={index === 0} />
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-sm font-bold text-white truncate">{m.displayName}</span>
-                      {isMe && <span className="text-[9px] font-bold text-white/25">TU</span>}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[15px] font-medium text-white truncate">{m.displayName}</span>
+                      {isMe && (
+                        <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{ color: '#1ED75F', backgroundColor: 'rgba(30,215,95,0.13)' }}>Tu</span>
+                      )}
                       {(m.totalTrainingsAttended ?? 0) >= 5 && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md"
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
                           style={{ backgroundColor: '#1ED75F18', color: '#1ED75F' }}>
-                          💪 Dedicat
+                          Dedicat
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
-                      style={{ backgroundColor: `${roleColor}18`, color: roleColor }}>
-                      {isMe && myProfile?.proTitle ? '🎯 Pro' : ROLE_LABELS[m.role as MemberRole]}
+                    <span className="text-[12.5px] mt-0.5 block" style={{ color: roleTextColor }}>
+                      {isMe && myProfile?.proTitle ? 'Pro' : ROLE_LABELS[m.role as MemberRole]}
                     </span>
                   </div>
 
                   {/* Points */}
-                  <div className="flex flex-col items-end flex-shrink-0">
-                    <span className={`text-sm font-black ${
+                  <div className="flex flex-col items-end flex-shrink-0 leading-tight">
+                    <span className={`text-[17px] font-medium ${
                       (m.trainingPoints ?? 0) === 0
                         ? (theme === 'light' ? 'text-[#cccccc]' : 'text-white/25')
                         : 'text-brand-green'
                     }`}>{m.trainingPoints ?? 0}</span>
-                    <span className={`text-[9px] ${
+                    <span className={`text-[11px] mt-0.5 ${
                       (m.trainingPoints ?? 0) === 0
                         ? (theme === 'light' ? 'text-[#cccccc]' : 'text-white/20')
                         : 'text-white/25'
                     }`}>pts</span>
                   </div>
-
-                  {/* Chevron hint */}
-                  <ChevronRight size={14} className="text-white/15 flex-shrink-0" />
                 </div>
               )
             })}
@@ -1338,12 +1353,18 @@ function MemberSheet({
 
 // ── Training Card ─────────────────────────────────────────────────────────────
 
-function RoleAvatar({ photoUrl, name, roleColor, size = 40 }: { photoUrl: string; name: string; roleColor: string; size?: number }) {
+function RoleAvatar({ photoUrl, name, roleColor, size = 40, goldRing = false }: { photoUrl: string; name: string; roleColor: string; size?: number; goldRing?: boolean }) {
   const [imgError, setImgError] = useState(false)
   const showImg = photoUrl && !imgError
   return (
     <div className="relative rounded-full overflow-hidden flex items-center justify-center"
-      style={{ width: size, height: size, backgroundColor: `${roleColor}22`, border: `2px solid ${roleColor}` }}>
+      style={{
+        width: size, height: size,
+        backgroundColor: `${roleColor}22`,
+        border: `2px solid ${roleColor}`,
+        outline: goldRing ? '1.5px solid #E3B24C' : 'none',
+        outlineOffset: goldRing ? 2 : 0,
+      }}>
       {showImg
         /* eslint-disable-next-line @next/next/no-img-element */
         ? <img src={photoUrl} alt={name} className="object-cover w-full h-full"

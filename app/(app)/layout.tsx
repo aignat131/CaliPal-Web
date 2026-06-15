@@ -249,7 +249,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   if (!user && !isGuestRoute) return null
 
   return (
-    <div className={`min-h-screen${theme === 'light' ? ' light' : ''}`} style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className={`min-h-screen${theme === 'light' ? ' light' : theme === 'dark' ? ' dark-deep' : ''}`} style={{ backgroundColor: 'var(--app-bg)' }}>
       {showNotifModal && user && (
         <NotifPermissionModal onAllow={allowNotifications} onDismiss={dismissNotifModal} />
       )}

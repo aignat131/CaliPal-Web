@@ -12,7 +12,7 @@ import { db } from '@/lib/firebase/firestore'
 import type { LocationSharingMode } from '@/types'
 import {
   ArrowLeft, ChevronRight, User, LogOut, Lock, Info, Bell,
-  Shield, Sun, Moon, MapPin, Globe, MessageSquarePlus, Mail,
+  Shield, Sun, Moon, TreePine, MapPin, Globe, MessageSquarePlus, Mail,
   MessageSquare, Dumbbell, Newspaper, Send, CheckCircle, Users, UserPlus,
   Download,
 } from 'lucide-react'
@@ -59,7 +59,7 @@ export default function SettingsPage() {
   const router = useRouter()
   const [showLogout, setShowLogout] = useState(false)
   const { status: pushStatus, requestPermission } = usePushNotifications(user?.uid)
-  const { theme, toggle } = useTheme()
+  const { theme, setTheme } = useTheme()
   const { lang, setLang, t } = useLanguage()
 
   const isSuperAdmin = user?.email === SUPERADMIN
@@ -366,17 +366,27 @@ export default function SettingsPage() {
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           <div className="flex items-center gap-3 px-4 py-3.5">
             <span className="text-brand-green">
-              {theme === 'light' ? <Sun size={17} /> : <Moon size={17} />}
+              {theme === 'light' ? <Sun size={17} /> : theme === 'green' ? <TreePine size={17} /> : <Moon size={17} />}
             </span>
             <span className="flex-1 text-sm font-medium text-white">
-              {theme === 'light' ? t('settings.light_mode') : t('settings.dark_mode')}
+              {t('settings.theme')}
             </span>
-            <button onClick={toggle}
-              className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-              style={{ backgroundColor: theme === 'light' ? '#1ED75F' : 'rgba(255,255,255,0.2)' }}>
-              <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
-                style={{ left: theme === 'light' ? '22px' : '2px' }} />
-            </button>
+            <div className="flex gap-1.5">
+              {([
+                { key: 'light' as const, Icon: Sun,      label: t('settings.theme_bright') },
+                { key: 'green' as const, Icon: TreePine,  label: t('settings.theme_green') },
+                { key: 'dark'  as const, Icon: Moon,      label: t('settings.theme_dark') },
+              ]).map(({ key, label }) => (
+                <button key={key} onClick={() => setTheme(key)}
+                  className={`h-7 px-3 rounded-full text-xs font-bold transition-colors ${
+                    theme === key
+                      ? 'bg-brand-green text-black'
+                      : 'border border-white/20 text-white/50'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

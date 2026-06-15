@@ -69,9 +69,9 @@ export interface CommunityMember {
 export type MemberRole = 'ADMIN' | 'MODERATOR' | 'TRAINER' | 'MEMBER'
 
 export const ROLE_LABELS: Record<MemberRole, string> = {
-  ADMIN: '👑 Fondator',
-  MODERATOR: '🛡️ Voluntar',
-  TRAINER: '🏋️ Antrenor',
+  ADMIN: 'Fondator',
+  MODERATOR: 'Voluntar',
+  TRAINER: 'Antrenor',
   MEMBER: 'Membru',
 }
 
