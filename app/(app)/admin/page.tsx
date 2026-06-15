@@ -29,6 +29,31 @@ export default function AdminPage() {
   const { user } = useAuth()
   const router = useRouter()
   const [tab, setTab] = useState<AdminTab>('parks')
+  const [resettingPoints, setResettingPoints] = useState(false)
+  const [resetResult, setResetResult] = useState<string | null>(null)
+
+  async function handleResetPoints() {
+    if (resettingPoints) return
+    setResettingPoints(true)
+    setResetResult(null)
+    try {
+      const token = await auth.currentUser?.getIdToken()
+      const res = await fetch('/api/admin/reset-points', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setResetResult(`${data.communitiesProcessed} comunități, ${data.membersUpdated} membri actualizați.`)
+      } else {
+        setResetResult(`Eroare: ${data.reason}`)
+      }
+    } catch {
+      setResetResult('Eroare de rețea.')
+    } finally {
+      setResettingPoints(false)
+    }
+  }
 
   useEffect(() => {
     if (user && user.email !== SUPERADMIN) router.replace('/home')
@@ -72,6 +97,15 @@ export default function AdminPage() {
               {icon}{label}
             </button>
           ))}
+        </div>
+
+        {/* Quick actions */}
+        <div className="flex items-center gap-2 mb-5">
+          <button onClick={handleResetPoints} disabled={resettingPoints}
+            className="h-8 px-3 rounded-xl text-[11px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/25 disabled:opacity-40">
+            {resettingPoints ? 'Se resetează...' : 'Reset puncte antrenament'}
+          </button>
+          {resetResult && <span className="text-[11px] text-white/50">{resetResult}</span>}
         </div>
 
         {tab === 'parks' && <ParksTab />}

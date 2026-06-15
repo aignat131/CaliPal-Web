@@ -1010,7 +1010,8 @@ export default function PublicTrainingPage() {
 
               {/* Member list */}
               <div className="flex flex-col gap-2 mb-5">
-                {members
+                {[...members]
+                  .sort((a, b) => (b.trainingPoints ?? 0) - (a.trainingPoints ?? 0))
                   .filter(m => m.displayName.toLowerCase().includes(addMembersSearch.toLowerCase()))
                   .map(m => {
                     const checked = selectedMemberUids.has(m.userId)
@@ -1040,7 +1041,7 @@ export default function PublicTrainingPage() {
                       </button>
                     )
                   })}
-                {members.filter(m => m.displayName.toLowerCase().includes(addMembersSearch.toLowerCase())).length === 0 && (
+                {members.length > 0 && members.filter(m => m.displayName.toLowerCase().includes(addMembersSearch.toLowerCase())).length === 0 && (
                   <p className="text-sm text-white/40 text-center py-4">Niciun membru găsit.</p>
                 )}
               </div>
