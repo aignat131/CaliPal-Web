@@ -242,10 +242,10 @@ export default function HomePage() {
         {/* Onboarding card for new users with no communities */}
         {userDoc && !userDoc.joinedCommunityIds?.length && (
           <div className="rounded-2xl p-5 mb-4 border border-brand-green/30"
-            style={{ background: 'linear-gradient(135deg, #1ED75F08 0%, #0D3D2808 100%)' }}>
+            style={{ background: 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.03) 0%, rgba(13,61,40,0.03) 100%)' }}>
             <div className="flex items-start gap-3">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F30' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
                 <span className="text-2xl">🏋️</span>
               </div>
               <div className="flex-1 min-w-0">
@@ -265,7 +265,7 @@ export default function HomePage() {
         {/* Assessment banner for new users */}
         {userDoc && userDoc.assessmentCompleted === false && (
           <div className="rounded-2xl p-4 mb-4 border border-brand-green/30"
-            style={{ backgroundColor: '#1ED75F08' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.03)' }}>
             <p className="font-black text-white text-sm">{t('home.assessment_title')}</p>
             <p className="text-xs text-white/60 mt-1">{t('home.assessment_text')}</p>
             <Link href="/profile/assessment">
@@ -296,7 +296,7 @@ export default function HomePage() {
                 <div className="rounded-2xl p-4 flex items-center gap-3 border border-yellow-400/20"
                   style={{ backgroundColor: '#FFB80010' }}>
                   <div className="relative w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-                    style={{ backgroundColor: '#1ED75F22' }}>
+                    style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>
                     {fav.imageUrl
                       ? <Image src={fav.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-xl" />
                       : <span className="text-xl font-black text-brand-green">{fav.name.charAt(0)}</span>}
@@ -326,7 +326,7 @@ export default function HomePage() {
                 <Link key={c.id} href={`/community/${c.id}`}>
                   <div className="flex-shrink-0 flex flex-col items-center gap-1.5 w-16">
                     <div className="relative w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden"
-                      style={{ backgroundColor: '#1ED75F22', border: '1px solid #1ED75F33' }}>
+                      style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', border: '1px solid rgba(var(--accent-rgb), 0.20)' }}>
                       {c.imageUrl
                         ? <Image src={c.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-2xl" />
                         : <span className="text-lg font-black text-brand-green">{c.name.charAt(0)}</span>}
@@ -371,7 +371,8 @@ export default function HomePage() {
                   coinsReward={commChallenge.coinsReward}
                   current={commChallengeProgress?.currentReps ?? 0}
                   completed={commChallengeProgress?.completed ?? false}
-                  accent="#F97316"
+
+
                 />
               </Link>
             )}
@@ -390,7 +391,7 @@ export default function HomePage() {
           <div className="rounded-2xl p-4 flex items-center gap-3 border border-white/8 cursor-pointer hover:border-brand-green/30 transition-colors"
             style={{ backgroundColor: 'var(--app-surface)' }}>
             <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: '#1ED75F14', border: '1px solid #1ED75F25' }}>
+              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.15)' }}>
               <MessageSquarePlus size={18} className="text-brand-green" />
             </div>
             <div className="flex-1 min-w-0">
@@ -407,7 +408,7 @@ export default function HomePage() {
 }
 
 function ChallengeCard({
-  label, title, exerciseName, targetReps, coinsReward, current, completed, accent = '#3B82F6',
+  label, title, exerciseName, targetReps, coinsReward, current, completed,
 }: {
   label: string
   title: string
@@ -416,7 +417,7 @@ function ChallengeCard({
   coinsReward: number
   current: number
   completed: boolean
-  accent?: string
+
 }) {
   const t = useT()
   const pct = Math.min(100, Math.round((current / targetReps) * 100))
@@ -434,7 +435,7 @@ function ChallengeCard({
       </div>
       <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
         <div className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, backgroundColor: completed ? '#1ED75F' : accent }} />
+          style={{ width: `${pct}%`, backgroundColor: completed ? 'var(--accent)' : 'rgba(var(--accent-rgb), 0.55)' }} />
       </div>
     </div>
   )
@@ -555,8 +556,8 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
           onPointerDown={() => setRsvp('GOING')}
           className="flex-1 h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-bold transition-colors"
           style={myRsvp === 'GOING'
-            ? { backgroundColor: '#1ED75F', color: '#000' }
-            : { backgroundColor: '#1ED75F18', color: '#1ED75F' }}
+            ? { backgroundColor: 'var(--accent)', color: '#000' }
+            : { backgroundColor: 'rgba(var(--accent-rgb), 0.09)', color: 'var(--accent)' }}
         >
           <Check size={13} /> {t('home.rsvp_going')}
         </button>
@@ -722,7 +723,7 @@ function RecommendationCard({ recommendation }: { recommendation: DailyRecommend
   return (
     <div className="mb-5">
       <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">{t('home.recommended_today')}</p>
-      <div className="rounded-2xl p-4 border border-brand-green/20" style={{ backgroundColor: '#1ED75F08' }}>
+      <div className="rounded-2xl p-4 border border-brand-green/20" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.03)' }}>
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1 min-w-0 pr-3">
             <p className="font-black text-white text-[15px] leading-tight">{recommendation.title}</p>
@@ -738,7 +739,7 @@ function RecommendationCard({ recommendation }: { recommendation: DailyRecommend
         <div className="flex flex-wrap gap-1.5 mb-3">
           {recommendation.exercises.slice(0, 4).map(ex => (
             <span key={ex.name} className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: '#1ED75F18', color: '#1ED75F' }}>
+              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', color: 'var(--accent)' }}>
               {ex.name}
             </span>
           ))}
@@ -751,7 +752,7 @@ function RecommendationCard({ recommendation }: { recommendation: DailyRecommend
           <button
             onClick={startRecommendation}
             className="flex-1 h-9 rounded-xl font-black text-black text-xs flex items-center justify-center gap-1.5"
-            style={{ backgroundColor: '#1ED75F' }}
+            style={{ backgroundColor: 'var(--accent)' }}
           >
             <Play size={13} className="fill-black" />
             {t('home.start')}
@@ -793,9 +794,9 @@ function GuestHomePage() {
         {/* Map CTA */}
         <Link href="/map">
           <div className="rounded-2xl p-4 mb-4 flex items-center gap-4 border border-brand-green/20 cursor-pointer"
-            style={{ backgroundColor: '#1ED75F0A' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.04)' }}>
             <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: '#1ED75F18' }}>
+              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)' }}>
               <MapPin size={22} className="text-brand-green" />
             </div>
             <div className="flex-1 min-w-0">
@@ -837,7 +838,7 @@ function GuestHomePage() {
         <div className="flex flex-col gap-3 mt-2">
           <Link href="/register" className="block">
             <button className="w-full h-12 rounded-2xl font-black text-black text-sm"
-              style={{ backgroundColor: '#1ED75F' }}>
+              style={{ backgroundColor: 'var(--accent)' }}>
               {t('home.create_account')}
             </button>
           </Link>

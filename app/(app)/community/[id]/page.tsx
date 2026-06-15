@@ -41,7 +41,7 @@ const ROLE_COLORS: Record<MemberRole, string> = {
   ADMIN: '#FFB800',
   MODERATOR: '#3B82F6',
   TRAINER: '#F97316',
-  MEMBER: '#1ED75F',
+  MEMBER: 'var(--accent)',
 }
 
 const ROLE_TEXT_COLORS: Record<MemberRole, string> = {
@@ -777,7 +777,7 @@ export default function CommunityDetailPage() {
       {/* Non-member join banner */}
       {!isMember && !loading && (
         <div className="mx-4 mt-3 mb-1 rounded-2xl p-4 flex items-center gap-3 border border-brand-green/25"
-          style={{ backgroundColor: '#1ED75F0A' }}>
+          style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.04)' }}>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-black text-white">
               {user ? 'Ești vizitator' : 'Autentifică-te pentru a te alătura'}
@@ -818,7 +818,7 @@ export default function CommunityDetailPage() {
         return active ? (
           <div className="max-w-lg mx-auto px-4 pt-3">
             <div className="px-4 py-2.5 rounded-2xl flex items-center gap-3"
-              style={{ backgroundColor: '#1ED75F12', border: '1px solid #1ED75F35' }}>
+              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.07)', border: '1px solid rgba(var(--accent-rgb), 0.21)' }}>
               <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse flex-shrink-0" />
               <span className="text-sm font-bold text-brand-green flex-1 min-w-0 truncate">{active.name} — în desfășurare acum</span>
               <button onClick={() => setTab(1)} className="text-xs font-black text-brand-green/70 flex-shrink-0">Vezi →</button>
@@ -1004,7 +1004,7 @@ export default function CommunityDetailPage() {
         {/* ── Membri ── */}
         {effectiveTab === 2 && (!user ? (
           <div className="text-center py-14">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#1ED75F18' }}>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)' }}>
               <Users size={24} className="text-brand-green" />
             </div>
             <p className="font-black text-white mb-1">Vezi membrii comunității</p>
@@ -1022,7 +1022,7 @@ export default function CommunityDetailPage() {
           <div className="flex flex-col">
             <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-4">CLASAMENT · {members.length} MEMBRI</p>
             {membersByPoints.map((m, index) => {
-              const roleColor = ROLE_COLORS[m.role as MemberRole] ?? '#1ED75F'
+              const roleColor = ROLE_COLORS[m.role as MemberRole] ?? 'var(--accent)'
               const roleTextColor = ROLE_TEXT_COLORS[m.role as MemberRole] ?? '#7E8A84'
               const isMe = m.userId === user?.uid
               const livePhoto = (isMe ? (myPhoto || m.photoUrl) : m.photoUrl) || memberPhotos[m.userId] || ''
@@ -1070,11 +1070,11 @@ export default function CommunityDetailPage() {
                       <span className="text-[15px] font-medium text-white truncate">{m.displayName}</span>
                       {isMe && (
                         <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
-                          style={{ color: '#1ED75F', backgroundColor: 'rgba(30,215,95,0.13)' }}>Tu</span>
+                          style={{ color: 'var(--accent)', backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>Tu</span>
                       )}
                       {(m.totalTrainingsAttended ?? 0) >= 5 && (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
-                          style={{ backgroundColor: '#1ED75F18', color: '#1ED75F' }}>
+                          style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', color: 'var(--accent)' }}>
                           Dedicat
                         </span>
                       )}
@@ -1199,7 +1199,7 @@ function JoinNotificationModal({
         </div>
         <div className="flex flex-col items-center text-center gap-3 mb-6">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-            style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F30' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
             <Bell size={24} className="text-brand-green" />
           </div>
           <div>
@@ -1242,7 +1242,7 @@ function MemberSheet({
   onAddFriend: () => void
   onKick: () => void
 }) {
-  const roleColor = ROLE_COLORS[member.role as MemberRole] ?? '#1ED75F'
+  const roleColor = ROLE_COLORS[member.role as MemberRole] ?? 'var(--accent)'
   const isMe = member.userId === myUid
 
   const joinedAtMs = member.joinedAt
@@ -1281,7 +1281,7 @@ function MemberSheet({
             </span>
             {(member.totalTrainingsAttended ?? 0) >= 5 && (
               <span className="text-xs font-bold px-2 py-0.5 rounded-md"
-                style={{ backgroundColor: '#1ED75F18', color: '#1ED75F', border: '1px solid #1ED75F30' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
                 💪 Dedicat
               </span>
             )}
@@ -1303,7 +1303,7 @@ function MemberSheet({
               <button
                 onClick={onGoToChat}
                 className="h-12 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm transition-all active:scale-95"
-                style={{ backgroundColor: '#1ED75F20', border: '1px solid #1ED75F40', color: '#1ED75F' }}
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', border: '1px solid rgba(var(--accent-rgb), 0.25)', color: 'var(--accent)' }}
               >
                 <MessageSquare size={16} /> Mesaj
               </button>
@@ -1486,9 +1486,9 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
   const previewMembers = goingMembers.slice(0, PREVIEW)
 
   const officialStyle = training.official ? {
-    backgroundColor: '#0D3D28',
-    border: '1.5px solid #1ED75F60',
-    boxShadow: '0 0 18px 0 #1ED75F18, inset 0 1px 0 #1ED75F20',
+    backgroundColor: 'rgba(var(--accent-rgb), 0.08)',
+    border: '1.5px solid rgba(var(--accent-rgb), 0.38)',
+    boxShadow: '0 0 18px 0 rgba(var(--accent-rgb), 0.09), inset 0 1px 0 rgba(var(--accent-rgb), 0.13)',
   } : { backgroundColor: 'var(--app-surface)' }
 
   return (
@@ -1501,7 +1501,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
             {training.official && (
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="text-[10px] font-black px-2 py-0.5 rounded-full tracking-widest"
-                  style={{ backgroundColor: '#1ED75F22', color: '#1ED75F', border: '1px solid #1ED75F40' }}>
+                  style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.25)' }}>
                   ⭐ OFICIAL
                 </span>
               </div>
@@ -2130,7 +2130,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
     } finally { setCommenting(false) }
   }
 
-  const roleColor = ROLE_COLORS[post.authorRole as MemberRole] ?? '#1ED75F'
+  const roleColor = ROLE_COLORS[post.authorRole as MemberRole] ?? 'var(--accent)'
 
   return (
     <div className="rounded-2xl p-4 mb-3" style={{ backgroundColor: 'var(--app-surface)' }}>
@@ -2143,7 +2143,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
           onClick={e => e.stopPropagation()}
         >
           <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: '#1ED75F22', border: `1.5px solid ${roleColor}` }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', border: `1.5px solid ${roleColor}` }}>
             {post.authorPhotoUrl
               ? <Image src={post.authorPhotoUrl} alt={post.authorName} width={36} height={36} className="object-cover w-full h-full" />
               : <span className="text-sm font-black" style={{ color: roleColor }}>{post.authorName.charAt(0).toUpperCase()}</span>
@@ -2317,7 +2317,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmi
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const POST_REACTIONS = ['💪', '❤️', '🔥', '👏', '😮']
-  const roleColor = ROLE_COLORS[post.authorRole as MemberRole] ?? '#1ED75F'
+  const roleColor = ROLE_COLORS[post.authorRole as MemberRole] ?? 'var(--accent)'
   const isOwnPost = post.authorId === myUid
   const isWorkoutPost = post.workoutExercises !== undefined
 
@@ -2392,7 +2392,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmi
           {/* Author */}
           <div className="flex items-center gap-2.5 mb-3">
             <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: '#1ED75F22', border: `1.5px solid ${roleColor}` }}>
+              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', border: `1.5px solid ${roleColor}` }}>
               {post.authorPhotoUrl
                 ? <Image src={post.authorPhotoUrl} alt={post.authorName} width={36} height={36} className="object-cover w-full h-full" />
                 : <span className="text-sm font-black" style={{ color: roleColor }}>{post.authorName.charAt(0).toUpperCase()}</span>}
@@ -2601,7 +2601,7 @@ function EditCommunityModal({ community, onClose }: {
           >
             <div
               className="w-24 h-24 rounded-2xl overflow-hidden flex items-center justify-center"
-              style={{ backgroundColor: '#1ED75F18', border: '2px dashed rgba(30,215,95,0.4)' }}
+              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', border: '2px dashed rgba(var(--accent-rgb), 0.4)' }}
             >
               {displayPhoto ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -2614,7 +2614,7 @@ function EditCommunityModal({ community, onClose }: {
             </div>
             <div
               className="absolute bottom-1 right-1 w-7 h-7 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"
-              style={{ backgroundColor: '#1ED75F' }}
+              style={{ backgroundColor: 'var(--accent)' }}
             >
               <Camera size={14} className="text-black" />
             </div>

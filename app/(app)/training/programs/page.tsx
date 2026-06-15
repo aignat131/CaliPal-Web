@@ -45,7 +45,7 @@ function ProgramCard({ program }: { program: TrainingProgram }) {
 
         {/* Colored header strip */}
         <div className="h-1.5 w-full"
-          style={{ background: program.level === 'beginner' ? '#1ED75F' : program.level === 'intermediate' ? '#3B82F6' : '#8B5CF6' }} />
+          style={{ background: program.level === 'beginner' ? 'var(--accent)' : program.level === 'intermediate' ? 'rgba(var(--accent-rgb), 0.7)' : '#8B5CF6' }} />
 
         <div className="p-4">
           {/* Top row */}
@@ -75,8 +75,8 @@ function ProgramCard({ program }: { program: TrainingProgram }) {
             <div className="ml-auto">
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                 style={{
-                  backgroundColor: program.level === 'beginner' ? '#1ED75F20' : program.level === 'intermediate' ? '#3B82F620' : '#8B5CF620',
-                  color: program.level === 'beginner' ? '#1ED75F' : program.level === 'intermediate' ? '#60A5FA' : '#A78BFA',
+                  backgroundColor: program.level === 'beginner' ? 'rgba(var(--accent-rgb), 0.13)' : program.level === 'intermediate' ? 'rgba(var(--accent-rgb), 0.09)' : '#8B5CF620',
+                  color: program.level === 'beginner' ? 'var(--accent)' : program.level === 'intermediate' ? 'rgba(var(--accent-rgb), 0.7)' : '#A78BFA',
                 }}>
                 {program.focusLabel}
               </span>

@@ -425,7 +425,7 @@ export default function CommunityPage() {
                       </div>
                       <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
                         <div className="h-full rounded-full transition-all"
-                          style={{ width: `${pct}%`, backgroundColor: completed ? '#1ED75F' : '#F97316' }} />
+                          style={{ width: `${pct}%`, backgroundColor: completed ? 'var(--accent)' : '#F97316' }} />
                       </div>
                     </div>
                   )
@@ -454,7 +454,7 @@ function MemberCommunityCard({
       <div className="rounded-2xl p-4 active:opacity-80 transition-opacity" style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="flex items-center gap-3">
           <div className="relative w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-            style={{ backgroundColor: '#1ED75F22' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>
             {community.imageUrl
               ? <Image src={community.imageUrl} alt={`${community.name} logo`} fill sizes="48px" className="object-cover rounded-xl" />
               : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
@@ -465,7 +465,7 @@ function MemberCommunityCard({
               <p className="font-bold text-white text-[15px] leading-tight">{community.name}</p>
               {community.verified && (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
+                  style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.125)', color: 'var(--accent)' }}>✓</span>
               )}
             </div>
             {community.description && (
@@ -518,7 +518,7 @@ function DiscoverCommunityCard({
         ? <Image src={community.imageUrl} alt={community.name} fill sizes="(max-width: 768px) 50vw, 200px" className="object-cover opacity-65" />
         : (
           <div className="absolute inset-0 flex items-center justify-center"
-            style={{ backgroundColor: '#1ED75F12' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.07)' }}>
             <span className="text-4xl font-black text-brand-green/30">{community.name.charAt(0)}</span>
           </div>
         )
@@ -531,7 +531,7 @@ function DiscoverCommunityCard({
           <p className="text-sm font-black text-white leading-tight line-clamp-2 flex-1">{community.name}</p>
           {community.verified && (
             <span className="text-[8px] font-bold px-1 py-0.5 rounded-full flex-shrink-0 ml-1"
-              style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
+              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.125)', color: 'var(--accent)' }}>✓</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -548,7 +548,7 @@ function DiscoverCommunityCard({
         </div>
         <div className="mt-2">
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', color: 'var(--accent)' }}>
             {onPreview ? t('community.join_btn') : t('community.view_btn')}
           </span>
         </div>
@@ -590,7 +590,7 @@ function MembersPreviewModal({
   }, [community.id])
 
   const ROLE_COLORS: Record<string, string> = {
-    ADMIN: '#FFB800', MODERATOR: '#3B82F6', TRAINER: '#F97316', MEMBER: '#1ED75F',
+    ADMIN: '#FFB800', MODERATOR: '#3B82F6', TRAINER: '#F97316', MEMBER: 'var(--accent)',
   }
 
   return (
@@ -610,7 +610,7 @@ function MembersPreviewModal({
         <div className="px-5 pt-2 pb-4 border-b border-white/8">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: '#1ED75F22' }}>
+              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>
               {community.imageUrl
                 ? <Image src={community.imageUrl} alt={`${community.name} logo`} fill sizes="48px" className="object-cover rounded-xl" />
                 : <span className="text-xl font-black text-brand-green">{community.name.charAt(0)}</span>}
@@ -620,7 +620,7 @@ function MembersPreviewModal({
                 <p className="font-black text-white text-sm truncate">{community.name}</p>
                 {community.verified && (
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: '#3B82F620', color: '#3B82F6' }}>✓</span>
+                    style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.125)', color: 'var(--accent)' }}>✓</span>
                 )}
               </div>
               <p className="text-xs text-white/45 mt-0.5">{community.memberCount} {t('common.members')} · {community.location}</p>
@@ -646,7 +646,7 @@ function MembersPreviewModal({
           ) : (
             <div className="flex flex-col gap-2">
               {members.map(m => {
-                const roleColor = ROLE_COLORS[m.role] ?? '#1ED75F'
+                const roleColor = ROLE_COLORS[m.role] ?? 'var(--accent)'
                 return (
                   <div key={m.userId} className="flex items-center gap-2.5">
                     <div className="relative w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
@@ -711,7 +711,7 @@ function JoinNotificationModal({
         </div>
         <div className="flex flex-col items-center text-center gap-3 mb-6">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-            style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F30' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
             <Bell size={24} className="text-brand-green" />
           </div>
           <div>

@@ -52,7 +52,7 @@ export function WorkoutHomeTab({
           <button
             onClick={onStartWorkout}
             className="w-full h-16 rounded-2xl mb-3 flex items-center justify-center gap-3 font-black text-lg text-black"
-            style={{ backgroundColor: '#1ED75F' }}
+            style={{ backgroundColor: 'var(--accent)' }}
           >
             <Play size={22} className="text-black fill-black" />
             Începe antrenamentul
@@ -62,7 +62,7 @@ export function WorkoutHomeTab({
           <button
             onClick={onCountReps}
             className="w-full h-[52px] rounded-2xl mb-4 flex items-center justify-center gap-3 font-bold text-base text-white"
-            style={{ backgroundColor: '#3B82F6' }}
+            style={{ backgroundColor: 'var(--accent)' }}
           >
             <Hash size={20} className="text-white" />
             Numără repetări
@@ -72,7 +72,7 @@ export function WorkoutHomeTab({
           <div className="grid grid-cols-2 gap-2 mb-4">
             <Link href="/workout/form-check">
               <div className="rounded-2xl p-3.5 flex items-center gap-3 border border-brand-green/25"
-                style={{ backgroundColor: '#1ED75F0D' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.05)' }}>
                 <Zap size={20} className="text-brand-green flex-shrink-0" />
                 <div>
                   <p className="text-sm font-bold text-white">Analiză formă</p>
@@ -94,7 +94,7 @@ export function WorkoutHomeTab({
 
           {/* Programs card */}
           <Link href="/training/programs">
-            <div className="rounded-2xl p-4 mb-4 border border-blue-500/20 hover:border-blue-500/40 transition-colors" style={{ backgroundColor: '#3B82F610' }}>
+            <div className="rounded-2xl p-4 mb-4 border border-blue-500/20 hover:border-blue-500/40 transition-colors" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.06)' }}>
               <div className="flex items-center gap-3">
                 <BookOpen size={18} className="text-blue-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">

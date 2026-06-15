@@ -42,7 +42,7 @@ function MemberAvatar({ photoUrl, name, size = 32 }: { photoUrl?: string | null;
   return (
     <div
       className="rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-      style={{ width: size, height: size, backgroundColor: '#1ED75F22', border: '2px solid #1ED75F44' }}
+      style={{ width: size, height: size, backgroundColor: 'rgba(var(--accent-rgb), 0.13)', border: '2px solid rgba(var(--accent-rgb), 0.27)' }}
     >
       {photoUrl && !imgError
         // eslint-disable-next-line @next/next/no-img-element
@@ -424,8 +424,8 @@ export default function PublicTrainingPage() {
   const canManageTraining = isAuthor || !!isStaff
 
   const officialStyle = training.official ? {
-    background: 'linear-gradient(135deg, #0D3D28 0%, #164742 100%)',
-    borderColor: '#1ED75F40',
+    background: 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.08) 0%, var(--app-surface) 100%)',
+    borderColor: 'rgba(var(--accent-rgb), 0.25)',
   } : {}
 
   return (
@@ -437,13 +437,13 @@ export default function PublicTrainingPage() {
           <Link href={`/community/${communityId}`}>
             <div className="flex items-center gap-2 mb-4 text-brand-green/80 hover:text-brand-green transition-colors">
               <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: '#1ED75F22' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>
                 <span className="text-[10px] font-black text-brand-green">{community.name.charAt(0)}</span>
               </div>
               <span className="text-sm font-semibold truncate">{community.name}</span>
               {community.verified && (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: '#3B82F625', color: '#3B82F6' }}>✓</span>
+                  style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.145)', color: 'var(--accent)' }}>✓</span>
               )}
             </div>
           </Link>
@@ -452,18 +452,18 @@ export default function PublicTrainingPage() {
         {/* Training card */}
         <div
           className="rounded-3xl p-5 mb-4 border"
-          style={training.official ? { ...officialStyle, borderColor: '#1ED75F40' } : { backgroundColor: 'var(--app-surface)', borderColor: 'transparent' }}
+          style={training.official ? { ...officialStyle, borderColor: 'rgba(var(--accent-rgb), 0.25)' } : { backgroundColor: 'var(--app-surface)', borderColor: 'transparent' }}
         >
           <div className="flex items-center gap-2 flex-wrap mb-3">
             {training.official && (
               <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full tracking-widest"
-                style={{ backgroundColor: '#1ED75F22', color: '#1ED75F', border: '1px solid #1ED75F40' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.25)' }}>
                 ⭐ OFICIAL
               </span>
             )}
             {training.isClosed && (
               <span className="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full tracking-widest"
-                style={{ backgroundColor: '#3B82F622', color: '#3B82F6', border: '1px solid #3B82F640' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.25)' }}>
                 ✓ FINALIZAT
               </span>
             )}
@@ -613,7 +613,7 @@ export default function PublicTrainingPage() {
         {/* Close result toast */}
         {closeResult && (
           <div className="rounded-2xl p-4 mb-4 flex items-center gap-3"
-            style={{ backgroundColor: '#1ED75F15', border: '1px solid #1ED75F30' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
             <Check size={18} className="text-brand-green flex-shrink-0" />
             <p className="text-sm font-semibold text-white">
               Antrenament finalizat! {closeResult.awarded > 0
@@ -654,7 +654,7 @@ export default function PublicTrainingPage() {
               {guestConfirmed ? (
                 <div>
                   <div className="flex items-center gap-3 p-3 rounded-xl mb-3"
-                    style={{ backgroundColor: '#1ED75F15', border: '1px solid #1ED75F30' }}>
+                    style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
                     <div className="w-8 h-8 rounded-full bg-brand-green/20 flex items-center justify-center flex-shrink-0">
                       <Check size={16} className="text-brand-green" />
                     </div>
@@ -817,7 +817,7 @@ export default function PublicTrainingPage() {
           <button
             onClick={openClosePanel}
             className="mt-4 w-full flex items-center justify-center gap-2 h-11 rounded-2xl border text-sm font-bold transition-colors"
-            style={{ borderColor: '#3B82F640', color: '#3B82F6', backgroundColor: '#3B82F610' }}
+            style={{ borderColor: 'rgba(var(--accent-rgb), 0.25)', color: 'var(--accent)', backgroundColor: 'rgba(var(--accent-rgb), 0.06)' }}
           >
             <Check size={15} />
             Închide antrenamentul
@@ -855,13 +855,13 @@ export default function PublicTrainingPage() {
                       })}
                       className="flex items-center gap-3 p-3 rounded-2xl transition-colors text-left"
                       style={{
-                        backgroundColor: checked ? '#1ED75F15' : 'rgba(255,255,255,0.05)',
-                        border: checked ? '1px solid #1ED75F40' : '1px solid rgba(255,255,255,0.08)',
+                        backgroundColor: checked ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(255,255,255,0.05)',
+                        border: checked ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid rgba(255,255,255,0.08)',
                       }}>
                       <MemberAvatar photoUrl={photo} name={name} size={36} />
                       <span className="flex-1 text-sm font-semibold text-white/80">{name}</span>
                       <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: checked ? '#1ED75F' : 'rgba(255,255,255,0.12)' }}>
+                        style={{ backgroundColor: checked ? 'var(--accent)' : 'rgba(255,255,255,0.12)' }}>
                         {checked && <Check size={11} className="text-black" strokeWidth={3} />}
                       </div>
                     </button>
@@ -876,7 +876,7 @@ export default function PublicTrainingPage() {
                 onClick={closeTraining}
                 disabled={closing || attendedUids.size === 0}
                 className="w-full h-12 rounded-2xl text-sm font-black disabled:opacity-40 transition-opacity"
-                style={{ backgroundColor: '#3B82F6', color: 'white' }}
+                style={{ backgroundColor: 'var(--accent)', color: 'white' }}
               >
                 {closing ? 'Se procesează...' : `Confirmă și închide (${attendedUids.size} participanți)`}
               </button>

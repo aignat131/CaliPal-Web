@@ -11,7 +11,8 @@ import { WorkoutProvider, useWorkout } from '@/lib/context/WorkoutContext'
 import { NotificationProvider } from '@/lib/context/NotificationContext'
 import { LanguageProvider } from '@/lib/context/LanguageContext'
 import { ToastProvider } from '@/lib/context/ToastContext'
-import { ChevronRight, Dumbbell, Bell, Users, MessageSquare, UserPlus } from 'lucide-react'
+import { ChevronRight, Dumbbell, Bell, Users, MessageSquare, UserPlus, Palette } from 'lucide-react'
+import type { Theme } from '@/lib/hooks/useTheme'
 import { useT } from '@/lib/context/LanguageContext'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
@@ -53,7 +54,7 @@ function WorkoutMiniBar() {
     <button
       onClick={() => router.push('/workout')}
       className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2.5 px-5 h-11 rounded-full shadow-xl cursor-pointer active:scale-95 transition-transform"
-      style={{ backgroundColor: '#1ED75F' }}
+      style={{ backgroundColor: 'var(--accent)' }}
     >
       <span className="w-2 h-2 rounded-full bg-black animate-pulse flex-shrink-0" />
       <Dumbbell size={14} className="text-black flex-shrink-0" />
@@ -114,7 +115,7 @@ function NotifPermissionModal({
       <div ref={panelRef} className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="flex flex-col items-center text-center gap-3 mb-5">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-            style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F30' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
             <Bell size={24} className="text-brand-green" />
           </div>
           <div>
@@ -135,8 +136,8 @@ function NotifPermissionModal({
               <span
                 className="w-5 h-5 rounded-md flex-shrink-0 flex items-center justify-center transition-colors"
                 style={{
-                  backgroundColor: prefs[key] ? '#1ED75F' : 'transparent',
-                  border: prefs[key] ? '2px solid #1ED75F' : '2px solid rgba(255,255,255,0.25)',
+                  backgroundColor: prefs[key] ? 'var(--accent)' : 'transparent',
+                  border: prefs[key] ? '2px solid var(--accent)' : '2px solid rgba(255,255,255,0.25)',
                 }}
               >
                 {prefs[key] && (
@@ -178,6 +179,75 @@ function NotifPermissionModal({
   )
 }
 
+const THEME_PICKER_KEY = 'calipal_theme_picked'
+
+const THEME_CLASS: Record<Theme, string> = {
+  light: 'light',
+  soft: 'soft',
+  green: '',
+  dark: 'dark-deep',
+  blue: 'theme-blue',
+  purple: 'theme-purple',
+}
+
+const THEME_SWATCHES: { key: Theme; swatch: string }[] = [
+  { key: 'light',  swatch: '#F3F4F0' },
+  { key: 'soft',   swatch: '#D4D5D0' },
+  { key: 'green',  swatch: '#1ED75F' },
+  { key: 'dark',   swatch: '#0D2E2B' },
+  { key: 'blue',   swatch: '#3B82F6' },
+  { key: 'purple', swatch: '#A855F7' },
+]
+
+function ThemePickerModal({ onConfirm, onSkip }: { onConfirm: () => void; onSkip: () => void }) {
+  const { theme, setTheme } = useTheme()
+  const t = useT()
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
+
+  return (
+    <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/70 px-6">
+      <div ref={panelRef} className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
+        <div className="flex flex-col items-center text-center gap-3 mb-6">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
+            <Palette size={24} className="text-brand-green" />
+          </div>
+          <div>
+            <p className="font-black text-white text-base">{t('theme_picker.title')}</p>
+            <p className="text-sm text-white/55 mt-1.5 leading-relaxed">{t('theme_picker.subtitle')}</p>
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-3 mb-6">
+          {THEME_SWATCHES.map(({ key, swatch }) => (
+            <button key={key} onClick={() => setTheme(key)}
+              className="w-10 h-10 rounded-full transition-all duration-200"
+              style={{
+                backgroundColor: swatch,
+                border: theme === key ? '2.5px solid var(--accent)' : '2px solid rgba(255,255,255,0.15)',
+                transform: theme === key ? 'scale(1.18)' : 'scale(1)',
+                boxShadow: theme === key ? '0 0 14px rgba(var(--accent-rgb), 0.35)' : 'none',
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <button onClick={onConfirm}
+            className="w-full h-12 rounded-2xl bg-brand-green text-black font-black text-sm">
+            {t('theme_picker.confirm')}
+          </button>
+          <button onClick={onSkip}
+            className="w-full h-10 rounded-2xl text-white/45 text-sm font-semibold">
+            {t('theme_picker.skip')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const GUEST_ROUTES = ['/home', '/map', '/community', '/training']
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
@@ -188,6 +258,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const isGuestRoute = GUEST_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'))
   const { status: pushStatus, requestPermission } = usePushNotifications(user?.uid)
   const [showNotifModal, setShowNotifModal] = useState(false)
+  const [showThemePicker, setShowThemePicker] = useState(false)
 
   useEffect(() => {
     if (!loading && !user && !isGuestRoute) {
@@ -200,10 +271,17 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     window.scrollTo(0, 0)
   }, [pathname])
 
+  // Show theme picker on first visit (before notification modal)
+  useEffect(() => {
+    if (!user) return
+    if (!localStorage.getItem(THEME_PICKER_KEY)) setShowThemePicker(true)
+  }, [user])
+
   useEffect(() => {
     if (!user || pushStatus !== 'idle') return
+    if (showThemePicker) return // Wait for theme picker to be dismissed first
     if (!localStorage.getItem(NOTIF_PROMPT_KEY)) setShowNotifModal(true)
-  }, [user, pushStatus])
+  }, [user, pushStatus, showThemePicker])
 
   // Track online/lastSeen status
   useEffect(() => {
@@ -222,6 +300,11 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       window.removeEventListener('beforeunload', setOffline)
     }
   }, [user])
+
+  function dismissThemePicker() {
+    localStorage.setItem(THEME_PICKER_KEY, '1')
+    setShowThemePicker(false)
+  }
 
   function dismissNotifModal() {
     localStorage.setItem(NOTIF_PROMPT_KEY, '1')
@@ -248,9 +331,14 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (!user && !isGuestRoute) return null
 
+  const themeClass = THEME_CLASS[theme]
+
   return (
-    <div className={`min-h-screen${theme === 'light' ? ' light' : theme === 'dark' ? ' dark-deep' : ''}`} style={{ backgroundColor: 'var(--app-bg)' }}>
-      {showNotifModal && user && (
+    <div className={`min-h-screen${themeClass ? ` ${themeClass}` : ''}`} style={{ backgroundColor: 'var(--app-bg)' }}>
+      {showThemePicker && user && (
+        <ThemePickerModal onConfirm={dismissThemePicker} onSkip={dismissThemePicker} />
+      )}
+      {showNotifModal && !showThemePicker && user && (
         <NotifPermissionModal onAllow={allowNotifications} onDismiss={dismissNotifModal} />
       )}
       <WorkoutUnloadGuard />

@@ -14,7 +14,7 @@ import { useT } from '@/lib/context/LanguageContext'
 
 const STATUS_COLORS = {
   PENDING: '#F59E0B',
-  REVIEWED: '#1ED75F',
+  REVIEWED: 'var(--accent)',
 }
 
 export default function CoachPage() {

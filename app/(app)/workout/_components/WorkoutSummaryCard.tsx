@@ -216,7 +216,7 @@ export function WorkoutSummaryCard({
                       selectedCommId === c.id ? 'border-brand-green/50 bg-brand-green/10' : 'border-white/10 bg-white/4'
                     }`}>
                     <div className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: selectedCommId === c.id ? '#1ED75F' : '#ffffff30' }} />
+                      style={{ backgroundColor: selectedCommId === c.id ? 'var(--accent)' : '#ffffff30' }} />
                     <span className="text-sm font-bold text-white">{c.name}</span>
                   </button>
                 ))}

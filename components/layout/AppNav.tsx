@@ -53,14 +53,14 @@ export default function AppNav() {
                 size={20}
                 className="transition-all duration-200"
                 style={{
-                  color: active ? '#1ED75F' : inactiveColor,
+                  color: active ? 'var(--accent)' : inactiveColor,
                   transform: active ? 'translateY(-1px)' : 'translateY(0)',
                 }}
                 strokeWidth={active ? 2.5 : 1.8}
               />
               <span
                 className="text-[9px] font-semibold tracking-wide transition-colors"
-                style={{ color: active ? '#1ED75F' : inactiveColor }}
+                style={{ color: active ? 'var(--accent)' : inactiveColor }}
               >
                 {label}
               </span>
@@ -89,18 +89,18 @@ export default function AppNav() {
                 href={href}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors duration-150 group"
                 style={{
-                  backgroundColor: active ? '#1ED75F18' : 'transparent',
+                  backgroundColor: active ? 'rgba(var(--accent-rgb), 0.09)' : 'transparent',
                 }}
               >
                 <Icon
                   size={20}
                   className="flex-shrink-0 transition-colors"
-                  style={{ color: active ? '#1ED75F' : inactiveColor }}
+                  style={{ color: active ? 'var(--accent)' : inactiveColor }}
                   strokeWidth={active ? 2.5 : 1.8}
                 />
                 <span
                   className="text-sm font-semibold tracking-wide transition-colors hidden lg:block"
-                  style={{ color: active ? '#1ED75F' : inactiveColor }}
+                  style={{ color: active ? 'var(--accent)' : inactiveColor }}
                 >
                   {label}
                 </span>

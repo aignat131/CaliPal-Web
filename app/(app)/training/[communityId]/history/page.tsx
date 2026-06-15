@@ -104,7 +104,7 @@ function TrainingCard({
             {t('training.organized_by')} <span className="text-white/60 font-semibold">{training.authorName}</span>
             {training.official && (
               <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold"
-                style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>{t('training.official_badge')}</span>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', color: 'var(--accent)' }}>{t('training.official_badge')}</span>
             )}
           </p>
         )}
@@ -137,7 +137,7 @@ function TrainingCard({
                   {training.equipment.map((eq, i) => (
                     <span key={i}
                       className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                      style={{ backgroundColor: '#1ED75F18', color: '#1ED75F', border: '1px solid #1ED75F30' }}>
+                      style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
                       {eq}
                     </span>
                   ))}

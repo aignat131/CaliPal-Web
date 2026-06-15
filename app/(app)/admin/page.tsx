@@ -147,7 +147,7 @@ function ParksTab() {
     <div>
       {/* Pending park requests */}
       {parkRequests.length > 0 && (
-        <div className="rounded-2xl overflow-hidden mb-4 border border-yellow-400/25" style={{ backgroundColor: '#1a3010' }}>
+        <div className="rounded-2xl overflow-hidden mb-4 border border-yellow-400/25" style={{ backgroundColor: 'var(--app-surface)' }}>
           <button
             onClick={() => setShowRequests(s => !s)}
             className="w-full flex items-center justify-between px-4 py-3"
@@ -299,7 +299,7 @@ function ParkForm({ park, communities, onClose }: {
   const inputCls = "w-full h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/25 outline-none border border-white/12 bg-white/7 focus:border-brand-green/50"
 
   return (
-    <div className="rounded-2xl p-4 mb-4 border border-brand-green/25" style={{ backgroundColor: '#1a3d38' }}>
+    <div className="rounded-2xl p-4 mb-4 border border-brand-green/25" style={{ backgroundColor: 'var(--app-surface)' }}>
       <p className="text-sm font-bold text-white mb-3">{park ? 'Editează parc' : 'Parc nou'}</p>
       <div className="flex flex-col gap-2">
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Nume *" className={inputCls} />
@@ -315,7 +315,7 @@ function ParkForm({ park, communities, onClose }: {
           </button>
         </div>
         <select value={communityId} onChange={e => setCommunityId(e.target.value)}
-          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[#0D2E2B]">
+          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[var(--app-bg)]">
           <option value="">— Fără comunitate —</option>
           {communities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
@@ -518,7 +518,7 @@ function CommunityChallengeForm({
   }
 
   return (
-    <div className="rounded-2xl p-4 mb-4 border border-brand-green/25" style={{ backgroundColor: '#1a3d38' }}>
+    <div className="rounded-2xl p-4 mb-4 border border-brand-green/25" style={{ backgroundColor: 'var(--app-surface)' }}>
       <div className="flex items-center justify-between mb-3">
         <p className="text-sm font-bold text-white">Provocare comunitate</p>
         <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
@@ -527,12 +527,12 @@ function CommunityChallengeForm({
       </div>
       <div className="flex flex-col gap-2">
         <select value={selectedCommunity} onChange={e => setSelectedCommunity(e.target.value)}
-          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[#0D2E2B]">
+          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[var(--app-bg)]">
           {communities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Titlu *" className={inputCls} />
         <select value={exerciseName} onChange={e => { setExerciseName(e.target.value); if (e.target.value !== 'Altul...') setCustomExercise('') }}
-          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[#0D2E2B]">
+          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[var(--app-bg)]">
           <option value="">— Fără exercițiu specific —</option>
           {EXERCISES.map(ex => <option key={ex} value={ex}>{ex}</option>)}
         </select>
@@ -602,13 +602,13 @@ function ChallengeForm({ challenge, onClose }: { challenge: WeeklyChallenge | nu
   }
 
   return (
-    <div className="rounded-2xl p-4 mb-4 border border-yellow-400/25" style={{ backgroundColor: '#1a3d38' }}>
+    <div className="rounded-2xl p-4 mb-4 border border-yellow-400/25" style={{ backgroundColor: 'var(--app-surface)' }}>
       <p className="text-sm font-bold text-white mb-3">{challenge ? 'Editează provocare' : 'Provocare nouă'}</p>
       <div className="flex flex-col gap-2">
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Titlu *" className={inputCls} />
         <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Descriere" className={inputCls} />
         <select value={exerciseName} onChange={e => { setExerciseName(e.target.value); if (e.target.value !== 'Altul...') setCustomExercise('') }}
-          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[#0D2E2B]">
+          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[var(--app-bg)]">
           <option value="">— Fără exercițiu specific —</option>
           {EXERCISES.map(ex => <option key={ex} value={ex}>{ex}</option>)}
         </select>
@@ -789,7 +789,7 @@ function VerificationsTab() {
             </button>
             <button onClick={() => approve(req)}
               className="flex-1 h-8 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1"
-              style={{ backgroundColor: '#3B82F6' }}>
+              style={{ backgroundColor: 'var(--accent)' }}>
               <BadgeCheck size={12} /> Verifică
             </button>
           </div>
@@ -913,7 +913,7 @@ function CommunitiesTab() {
           <div className="flex items-center">
             <button onClick={() => loadMembers(c.id)} className="flex-1 flex items-center gap-3 p-3.5 text-left">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: '#1ED75F22' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>
                 <span className="font-black text-brand-green text-sm">{c.name.charAt(0)}</span>
               </div>
               <div className="flex-1 min-w-0">
@@ -1117,7 +1117,7 @@ function ExerciseForm({
   }
 
   return (
-    <div className="rounded-2xl p-4 mb-4 border border-brand-green/25" style={{ backgroundColor: '#1a3d38' }}>
+    <div className="rounded-2xl p-4 mb-4 border border-brand-green/25" style={{ backgroundColor: 'var(--app-surface)' }}>
       <div className="flex items-center justify-between mb-3">
         <p className="text-sm font-bold text-white">{entry ? 'Editează exercițiu' : 'Exercițiu nou'}</p>
         <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
@@ -1134,7 +1134,7 @@ function ExerciseForm({
         <select
           value={category}
           onChange={e => setCategory(e.target.value)}
-          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[#0D2E2B]"
+          className="w-full h-10 rounded-xl px-3 text-sm text-white outline-none border border-white/12 bg-[var(--app-bg)]"
         >
           {['Trageri', 'Împingeri', 'Core', 'Picioare', 'Statice', 'Cardio', 'Altele'].map(c => (
             <option key={c} value={c}>{c}</option>
@@ -1212,9 +1212,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   other:       '📝 Altele',
 }
 const CATEGORY_COLORS: Record<string, string> = {
-  improvement: '#3B82F6',
+  improvement: 'var(--accent)',
   bug:         '#EF4444',
-  feedback:    '#1ED75F',
+  feedback:    'var(--accent)',
   other:       '#9CA3AF',
 }
 
@@ -1364,7 +1364,7 @@ function FeedbackTab() {
 
       <div className="flex flex-col gap-2">
         {filtered.map(item => {
-          const accent = CATEGORY_COLORS[item.category] ?? '#1ED75F'
+          const accent = CATEGORY_COLORS[item.category] ?? 'var(--accent)'
           const isOpen = expanded === item.id
           const isReplyOpen = replying === item.id
           const wasSent = sentFor === item.id
@@ -1422,7 +1422,7 @@ function FeedbackTab() {
                       <p className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-2">Răspunsuri trimise</p>
                       <div className="flex flex-col gap-2">
                         {item.replies.map((r, ri) => (
-                          <div key={ri} className="rounded-xl p-3 border border-brand-green/20" style={{ backgroundColor: '#1ED75F08' }}>
+                          <div key={ri} className="rounded-xl p-3 border border-brand-green/20" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.03)' }}>
                             <div className="flex items-center gap-2 mb-1.5">
                               <Globe size={11} className="text-brand-green" />
                               <span className="text-[10px] font-bold text-brand-green">{r.lang}</span>
@@ -1443,7 +1443,7 @@ function FeedbackTab() {
                     <button
                       onClick={() => { setReplying(item.id); setSentFor(null); setReplyBody(''); setSendError('') }}
                       className="flex items-center gap-2 h-9 px-4 rounded-xl text-sm font-bold text-black"
-                      style={{ backgroundColor: '#1ED75F' }}
+                      style={{ backgroundColor: 'var(--accent)' }}
                     >
                       <Send size={13} />
                       {wasSent ? 'R\u0103spunde din nou' : 'R\u0103spunde'}
@@ -1504,7 +1504,7 @@ function FeedbackTab() {
                           onClick={() => sendReply(item)}
                           disabled={sending || !replyBody.trim()}
                           className="flex-1 h-10 rounded-xl text-sm font-bold text-black flex items-center justify-center gap-2 disabled:opacity-40"
-                          style={{ backgroundColor: '#1ED75F' }}
+                          style={{ backgroundColor: 'var(--accent)' }}
                         >
                           {sending
                             ? <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
@@ -1604,7 +1604,7 @@ function FeedbackTab() {
                 onClick={saveManualEntry}
                 disabled={manualSaving || !manualName.trim() || !manualEmail.trim() || !manualSubject.trim() || !manualMessage.trim()}
                 className="flex-1 h-10 rounded-xl text-sm font-bold text-black flex items-center justify-center gap-2 disabled:opacity-40"
-                style={{ backgroundColor: '#1ED75F' }}
+                style={{ backgroundColor: 'var(--accent)' }}
               >
                 {manualSaving
                   ? <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />

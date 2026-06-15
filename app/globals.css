@@ -220,7 +220,7 @@
   border-radius: 8px;
 }
 
-.light .skeleton {
+.light .skeleton, .soft .skeleton {
   background: linear-gradient(
     90deg,
     rgba(17,17,17,0.06) 25%,
@@ -235,6 +235,8 @@
   --app-bg: #0D2E2B;
   --app-surface: #164742;
   --app-divider: rgba(255,255,255,0.07);
+  --accent: #1ED75F;
+  --accent-rgb: 30, 215, 95;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -243,12 +245,43 @@
   --app-surface: #ffffff;
   --app-surface-variant: #E6E7E3;
   --app-divider: rgba(17,17,17,0.08);
+  --accent: #1ED75F;
+  --accent-rgb: 30, 215, 95;
+}
+
+.soft {
+  --app-bg: #E2E3DE;
+  --app-surface: #F0F0ED;
+  --app-surface-variant: #D6D7D2;
+  --app-divider: rgba(17,17,17,0.10);
+  --accent: #1ED75F;
+  --accent-rgb: 30, 215, 95;
 }
 
 .dark-deep {
   --app-bg: #0B1411;
   --app-surface: #111D19;
   --app-divider: rgba(255,255,255,0.07);
+  --accent: #1ED75F;
+  --accent-rgb: 30, 215, 95;
+}
+
+.theme-blue {
+  --app-bg: #0B1628;
+  --app-surface: #111F3A;
+  --app-divider: rgba(255,255,255,0.07);
+  --accent: #3B82F6;
+  --accent-rgb: 59, 130, 246;
+  --color-brand-green: #3B82F6;
+}
+
+.theme-purple {
+  --app-bg: #150E24;
+  --app-surface: #1E1435;
+  --app-divider: rgba(255,255,255,0.07);
+  --accent: #A855F7;
+  --accent-rgb: 168, 85, 247;
+  --color-brand-green: #A855F7;
 }
 
 /* ── Prevent iOS Safari auto-zoom on input focus ─────────────────────────── */
@@ -268,55 +301,55 @@
 
 /* ── Light mode overrides for white-based Tailwind utilities ─────────────── */
 /* Text */
-.light .text-white           { color: #111111 !important; }
-.light .text-white\/85       { color: rgba(17,17,17,0.85) !important; }
-.light .text-white\/80       { color: rgba(17,17,17,0.80) !important; }
-.light .text-white\/70       { color: rgba(17,17,17,0.70) !important; }
-.light .text-white\/60       { color: rgba(17,17,17,0.60) !important; }
-.light .text-white\/50       { color: rgba(17,17,17,0.50) !important; }
-.light .text-white\/45       { color: rgba(17,17,17,0.45) !important; }
-.light .text-white\/40       { color: rgba(17,17,17,0.40) !important; }
-.light .text-white\/35       { color: rgba(17,17,17,0.35) !important; }
-.light .text-white\/30       { color: rgba(17,17,17,0.30) !important; }
-.light .text-white\/25       { color: rgba(17,17,17,0.25) !important; }
-.light .text-white\/20       { color: rgba(17,17,17,0.20) !important; }
-.light .text-white\/15       { color: rgba(17,17,17,0.15) !important; }
-.light .text-white\/10       { color: rgba(17,17,17,0.10) !important; }
+.light .text-white, .soft .text-white                     { color: #111111 !important; }
+.light .text-white\/85, .soft .text-white\/85             { color: rgba(17,17,17,0.85) !important; }
+.light .text-white\/80, .soft .text-white\/80             { color: rgba(17,17,17,0.80) !important; }
+.light .text-white\/70, .soft .text-white\/70             { color: rgba(17,17,17,0.70) !important; }
+.light .text-white\/60, .soft .text-white\/60             { color: rgba(17,17,17,0.60) !important; }
+.light .text-white\/50, .soft .text-white\/50             { color: rgba(17,17,17,0.50) !important; }
+.light .text-white\/45, .soft .text-white\/45             { color: rgba(17,17,17,0.45) !important; }
+.light .text-white\/40, .soft .text-white\/40             { color: rgba(17,17,17,0.40) !important; }
+.light .text-white\/35, .soft .text-white\/35             { color: rgba(17,17,17,0.35) !important; }
+.light .text-white\/30, .soft .text-white\/30             { color: rgba(17,17,17,0.30) !important; }
+.light .text-white\/25, .soft .text-white\/25             { color: rgba(17,17,17,0.25) !important; }
+.light .text-white\/20, .soft .text-white\/20             { color: rgba(17,17,17,0.20) !important; }
+.light .text-white\/15, .soft .text-white\/15             { color: rgba(17,17,17,0.15) !important; }
+.light .text-white\/10, .soft .text-white\/10             { color: rgba(17,17,17,0.10) !important; }
 
 /* Backgrounds */
-.light .bg-white\/5          { background-color: rgba(17,17,17,0.05) !important; }
-.light .bg-white\/7          { background-color: rgba(17,17,17,0.06) !important; }
-.light .bg-white\/8          { background-color: rgba(17,17,17,0.07) !important; }
-.light .bg-white\/10         { background-color: rgba(17,17,17,0.10) !important; }
-.light .bg-white\/12         { background-color: rgba(17,17,17,0.12) !important; }
-.light .bg-white\/15         { background-color: rgba(17,17,17,0.15) !important; }
-.light .bg-white\/20         { background-color: rgba(17,17,17,0.20) !important; }
+.light .bg-white\/5, .soft .bg-white\/5                   { background-color: rgba(17,17,17,0.05) !important; }
+.light .bg-white\/7, .soft .bg-white\/7                   { background-color: rgba(17,17,17,0.06) !important; }
+.light .bg-white\/8, .soft .bg-white\/8                   { background-color: rgba(17,17,17,0.07) !important; }
+.light .bg-white\/10, .soft .bg-white\/10                 { background-color: rgba(17,17,17,0.10) !important; }
+.light .bg-white\/12, .soft .bg-white\/12                 { background-color: rgba(17,17,17,0.12) !important; }
+.light .bg-white\/15, .soft .bg-white\/15                 { background-color: rgba(17,17,17,0.15) !important; }
+.light .bg-white\/20, .soft .bg-white\/20                 { background-color: rgba(17,17,17,0.20) !important; }
 
 /* Borders */
-.light .border-white\/8      { border-color: #F3F4F0 !important; }
-.light .border-white\/10     { border-color: #F3F4F0 !important; }
-.light .border-white\/12     { border-color: rgba(17,17,17,0.12) !important; }
-.light .border-white\/15     { border-color: rgba(17,17,17,0.15) !important; }
-.light .border-white\/20     { border-color: rgba(17,17,17,0.20) !important; }
-.light .border-white\/25     { border-color: rgba(17,17,17,0.25) !important; }
+.light .border-white\/8, .soft .border-white\/8           { border-color: rgba(17,17,17,0.08) !important; }
+.light .border-white\/10, .soft .border-white\/10         { border-color: rgba(17,17,17,0.10) !important; }
+.light .border-white\/12, .soft .border-white\/12         { border-color: rgba(17,17,17,0.12) !important; }
+.light .border-white\/15, .soft .border-white\/15         { border-color: rgba(17,17,17,0.15) !important; }
+.light .border-white\/20, .soft .border-white\/20         { border-color: rgba(17,17,17,0.20) !important; }
+.light .border-white\/25, .soft .border-white\/25         { border-color: rgba(17,17,17,0.25) !important; }
 
 /* Divide */
-.light .divide-white\/8 > * + * { border-color: #F3F4F0 !important; }
+.light .divide-white\/8 > * + *, .soft .divide-white\/8 > * + * { border-color: rgba(17,17,17,0.08) !important; }
 
 /* Placeholders */
-.light .placeholder\:text-white\/25::placeholder { color: rgba(17,17,17,0.25) !important; }
-.light .placeholder\:text-white\/30::placeholder { color: rgba(17,17,17,0.30) !important; }
-.light .placeholder\:text-white\/35::placeholder { color: rgba(17,17,17,0.35) !important; }
+.light .placeholder\:text-white\/25::placeholder, .soft .placeholder\:text-white\/25::placeholder { color: rgba(17,17,17,0.25) !important; }
+.light .placeholder\:text-white\/30::placeholder, .soft .placeholder\:text-white\/30::placeholder { color: rgba(17,17,17,0.30) !important; }
+.light .placeholder\:text-white\/35::placeholder, .soft .placeholder\:text-white\/35::placeholder { color: rgba(17,17,17,0.35) !important; }
 
 /* Input fields */
-.light .bg-white\/7:not(:focus),
-.light input { background-color: rgba(17,17,17,0.04) !important; }
+.light .bg-white\/7:not(:focus), .soft .bg-white\/7:not(:focus),
+.light input, .soft input { background-color: rgba(17,17,17,0.04) !important; }
 
 /* Hover states */
-.light .hover\:bg-white\/5:hover { background-color: rgba(17,17,17,0.05) !important; }
+.light .hover\:bg-white\/5:hover, .soft .hover\:bg-white\/5:hover { background-color: rgba(17,17,17,0.05) !important; }
 
 /* ── Contrast improvements (B2-13) ──────────────────────────────────────── */
 /* Bump input label opacity for WCAG AA compliance */
 .text-white\/45 { color: rgba(255,255,255,0.60) !important; }
-.light .text-white\/45 { color: rgba(17,17,17,0.60) !important; }
+.light .text-white\/45, .soft .text-white\/45 { color: rgba(17,17,17,0.60) !important; }
 

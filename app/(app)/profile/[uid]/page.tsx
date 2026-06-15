@@ -260,7 +260,7 @@ export default function UserProfilePage() {
   // Badge based on assessment level
   const assessmentLevel = profile.basicStrength?.level
   const badge = profile.isCoach
-    ? { label: '⭐ Master Coach', color: '#1ED75F', bg: '#1ED75F22' }
+    ? { label: '⭐ Master Coach', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.13)' }
     : LEVEL_BADGE[assessmentLevel ?? 'beginner'] ?? LEVEL_BADGE.beginner
 
   return (
@@ -278,7 +278,7 @@ export default function UserProfilePage() {
         {/* Profile hero */}
         <div className="flex items-center gap-4 mb-4">
           <div className="relative w-20 h-20 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: '#1ED75F33', border: '2px solid #1ED75F44' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.20)', border: '2px solid rgba(var(--accent-rgb), 0.27)' }}>
             {photoUrl
               ? <Image src={photoUrl} alt={displayName} fill sizes="80px" className="object-cover" />
               : <span className="text-3xl font-black text-brand-green">{initial}</span>}
@@ -293,7 +293,7 @@ export default function UserProfilePage() {
             {(profile.currentStreak ?? 0) > 0 && (
               <div className="flex justify-end">
                 <span className="px-3 py-1 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
+                  style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', color: 'var(--accent)' }}>
                   {t('pub_profile.streak', { n: String(profile.currentStreak) })}
                 </span>
               </div>
@@ -452,7 +452,7 @@ export default function UserProfilePage() {
               {displaySkills.map(s => (
                 <span key={s.id}
                   className="flex items-center h-7 px-2.5 rounded-full text-xs font-semibold"
-                  style={{ backgroundColor: '#1ED75F22', color: '#1ED75F', border: '1px solid #1ED75F44' }}>
+                  style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.27)' }}>
                   {s.name}
                 </span>
               ))}

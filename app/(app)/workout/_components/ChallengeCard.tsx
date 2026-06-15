@@ -31,7 +31,7 @@ export function ChallengeCard({
       <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, backgroundColor: done ? '#1ED75F' : '#3B82F6' }}
+          style={{ width: `${pct}%`, backgroundColor: done ? 'var(--accent)' : 'rgba(var(--accent-rgb), 0.55)' }}
         />
       </div>
     </div>

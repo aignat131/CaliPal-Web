@@ -40,7 +40,7 @@ function MemberAvatar({ photoUrl, name, size = 32 }: { photoUrl?: string | null;
   return (
     <div
       className="rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-      style={{ width: size, height: size, backgroundColor: '#1ED75F22', border: '2px solid #1ED75F44' }}
+      style={{ width: size, height: size, backgroundColor: 'rgba(var(--accent-rgb), 0.13)', border: '2px solid rgba(var(--accent-rgb), 0.27)' }}
     >
       {photoUrl && !imgError
         // eslint-disable-next-line @next/next/no-img-element
@@ -340,7 +340,7 @@ export default function StandaloneParkTrainingPage() {
           <Link href="/map">
             <div className="flex items-center gap-2 mb-4 text-brand-green/80 hover:text-brand-green transition-colors">
               <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: '#1ED75F22' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>
                 <MapPin size={12} className="text-brand-green" />
               </div>
               <span className="text-sm font-semibold truncate">{parkName}</span>
@@ -491,7 +491,7 @@ export default function StandaloneParkTrainingPage() {
               {guestConfirmed ? (
                 <div>
                   <div className="flex items-center gap-3 p-3 rounded-xl mb-3"
-                    style={{ backgroundColor: '#1ED75F15', border: '1px solid #1ED75F30' }}>
+                    style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
                     <div className="w-8 h-8 rounded-full bg-brand-green/20 flex items-center justify-center flex-shrink-0">
                       <Check size={16} className="text-brand-green" />
                     </div>

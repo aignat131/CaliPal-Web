@@ -3,16 +3,14 @@
 import { useState, useEffect } from 'react'
 import { ThemeContext, type Theme } from '@/lib/hooks/useTheme'
 
+const VALID_THEMES: Theme[] = ['light', 'soft', 'green', 'dark', 'blue', 'purple']
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('green')
+  const [theme, setThemeState] = useState<Theme>('dark')
 
   useEffect(() => {
-    const saved = localStorage.getItem('calipal-theme')
-    // Migrate old 'dark' value → 'green' (the teal theme)
-    if (saved === 'dark') {
-      localStorage.setItem('calipal-theme', 'green')
-      setThemeState('green')
-    } else if (saved === 'light' || saved === 'green') {
+    const saved = localStorage.getItem('calipal-theme') as Theme | null
+    if (saved && VALID_THEMES.includes(saved)) {
       setThemeState(saved)
     }
   }, [])

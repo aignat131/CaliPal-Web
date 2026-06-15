@@ -162,7 +162,7 @@ export function ActiveWorkoutView({
             <p className="text-2xl font-black text-brand-green tabular-nums">{formatDuration(seconds)}</p>
             <p className="text-xs text-white/35">{totalReps} rep</p>
             {totalSets > 0 && (
-              <p className="text-[10px] font-bold mt-0.5" style={{ color: doneCount === totalSets ? '#1ED75F' : 'rgba(255,255,255,0.25)' }}>
+              <p className="text-[10px] font-bold mt-0.5" style={{ color: doneCount === totalSets ? 'var(--accent)' : 'rgba(255,255,255,0.25)' }}>
                 {doneCount}/{totalSets} serii
               </p>
             )}
@@ -200,11 +200,11 @@ export function ActiveWorkoutView({
                 style={{
                   backgroundColor: 'var(--app-surface)',
                   boxShadow: allDone
-                    ? 'inset 3px 0 0 #1ED75F'
+                    ? 'inset 3px 0 0 var(--accent)'
                     : accentColor
                     ? `inset 3px 0 0 ${accentColor}`
                     : undefined,
-                  borderColor: allDone ? '#1ED75F22' : 'transparent',
+                  borderColor: allDone ? 'rgba(var(--accent-rgb), 0.13)' : 'transparent',
                 }}
               >
                 {accentColor && !allDone && (
@@ -402,7 +402,7 @@ export function ActiveWorkoutView({
                   return (
                     <div key={si} className="flex items-center gap-2 py-2.5 border-b border-white/6">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: '#1ED75F22', border: '1.5px solid #1ED75F55' }}>
+                        style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', border: '1.5px solid rgba(var(--accent-rgb), 0.33)' }}>
                         <span className="text-xs font-black text-brand-green">{si + 1}</span>
                       </div>
 

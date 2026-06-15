@@ -130,7 +130,7 @@ function TrainingCard({
                   {training.equipment.map((eq, i) => (
                     <span key={i}
                       className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                      style={{ backgroundColor: '#1ED75F18', color: '#1ED75F', border: '1px solid #1ED75F30' }}>
+                      style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
                       {eq}
                     </span>
                   ))}

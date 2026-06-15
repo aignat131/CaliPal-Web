@@ -231,7 +231,7 @@ export default function EditProfilePage() {
           <div className="flex flex-col items-center mb-7">
             <div className="relative cursor-pointer" onClick={() => fileRef.current?.click()}>
               <div className="w-24 h-24 rounded-full overflow-hidden flex items-center justify-center"
-                style={{ backgroundColor: '#1ED75F33' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.20)' }}>
                 {displayUrl
                   /* eslint-disable-next-line @next/next/no-img-element */
                   ? <img src={displayUrl} alt="avatar" className="w-full h-full object-cover" />
@@ -276,7 +276,7 @@ export default function EditProfilePage() {
               onClick={handleSave}
               disabled={saving || !name.trim()}
               className="w-full h-13 rounded-full font-extrabold text-[15px] text-white disabled:opacity-40 flex items-center justify-center transition-opacity mt-2"
-              style={{ height: 52, backgroundColor: '#1ED75F' }}
+              style={{ height: 52, backgroundColor: 'var(--accent)' }}
             >
               {saving
                 ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -321,7 +321,7 @@ export default function EditProfilePage() {
                       onClick={handleEmailChange}
                       disabled={emailSaving || !newEmail.trim() || !emailPassword}
                       className="w-full h-10 rounded-xl text-sm font-bold text-black disabled:opacity-40 flex items-center justify-center"
-                      style={{ backgroundColor: '#1ED75F' }}
+                      style={{ backgroundColor: 'var(--accent)' }}
                     >
                       {emailSaving ? <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : 'Actualizează email'}
                     </button>
@@ -368,7 +368,7 @@ export default function EditProfilePage() {
                       onClick={handlePasswordChange}
                       disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
                       className="w-full h-10 rounded-xl text-sm font-bold text-black disabled:opacity-40 flex items-center justify-center"
-                      style={{ backgroundColor: '#1ED75F' }}
+                      style={{ backgroundColor: 'var(--accent)' }}
                     >
                       {passwordSaving ? <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : 'Schimbă parola'}
                     </button>

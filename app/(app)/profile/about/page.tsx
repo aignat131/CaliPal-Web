@@ -20,7 +20,7 @@ export default function AboutPage() {
 
         {/* Logo block */}
         <div className="flex flex-col items-center mb-8 py-6 rounded-2xl" style={{ backgroundColor: 'var(--app-surface)' }}>
-          <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-3" style={{ backgroundColor: '#1ED75F22', border: '2px solid #1ED75F44' }}>
+          <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-3" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', border: '2px solid rgba(var(--accent-rgb), 0.27)' }}>
             <span className="text-4xl font-black text-brand-green">C</span>
           </div>
           <p className="text-xl font-black text-white">CaliPal</p>

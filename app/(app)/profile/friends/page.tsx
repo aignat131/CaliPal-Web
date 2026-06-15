@@ -271,7 +271,7 @@ export default function FriendsPage() {
 function Avatar({ name, photoUrl, size }: { name: string; photoUrl: string; size: number }) {
   return (
     <div className="rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-      style={{ width: size, height: size, backgroundColor: '#1ED75F33' }}>
+      style={{ width: size, height: size, backgroundColor: 'rgba(var(--accent-rgb), 0.20)' }}>
       {photoUrl
         ? <Image src={photoUrl} alt={name} width={size} height={size} className="object-cover" />
         : <span className="font-black text-brand-green" style={{ fontSize: size * 0.4 }}>{name.charAt(0).toUpperCase()}</span>}

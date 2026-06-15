@@ -343,7 +343,7 @@ export default function ProfilePage() {
     elite:        { label: t('profile.badge_elite'),        color: '#FFB800',               bg: '#FFB80022' },
   }
   const badge = profile?.isCoach
-    ? { label: '⭐ Master Coach', color: '#1ED75F', bg: '#1ED75F22' }
+    ? { label: '⭐ Master Coach', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.13)' }
     : LEVEL_BADGE[assessmentLevel ?? 'beginner'] ?? LEVEL_BADGE.beginner
 
   const tabs = [t('profile.tab_progress'), t('profile.tab_tasks')]
@@ -362,7 +362,7 @@ export default function ProfilePage() {
           className="fixed top-4 left-1/2 z-[600] flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-lg"
           style={{
             transform: 'translateX(-50%)',
-            backgroundColor: '#1ED75F',
+            backgroundColor: 'var(--accent)',
             animation: 'slideDown 0.35s ease',
           }}
         >
@@ -396,7 +396,7 @@ export default function ProfilePage() {
                 const canAfford = (profile?.coins ?? 0) >= item.price
                 return (
                   <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl border"
-                    style={{ backgroundColor: owned ? '#1ED75F08' : 'var(--app-bg)', borderColor: owned ? '#1ED75F30' : 'rgba(255,255,255,0.08)' }}>
+                    style={{ backgroundColor: owned ? 'rgba(var(--accent-rgb), 0.03)' : 'var(--app-bg)', borderColor: owned ? 'rgba(var(--accent-rgb), 0.19)' : 'rgba(255,255,255,0.08)' }}>
                     <span className="text-2xl flex-shrink-0">{item.icon}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-white">{item.name}</p>
@@ -409,7 +409,7 @@ export default function ProfilePage() {
                           onClick={() => handlePurchase(item.id, item.price)}
                           disabled={!canAfford}
                           className="h-8 px-3 rounded-xl text-xs font-bold flex-shrink-0 transition-colors disabled:opacity-40"
-                          style={{ backgroundColor: canAfford ? '#1ED75F' : 'rgba(255,255,255,0.08)', color: canAfford ? '#000' : 'rgba(255,255,255,0.4)' }}
+                          style={{ backgroundColor: canAfford ? 'var(--accent)' : 'rgba(255,255,255,0.08)', color: canAfford ? '#000' : 'rgba(255,255,255,0.4)' }}
                         >
                           🪙 {item.price}
                         </button>
@@ -469,7 +469,7 @@ export default function ProfilePage() {
           <div className="relative">
             <Link href="/profile/edit">
               <div className="relative w-20 h-20 rounded-full overflow-hidden flex items-center justify-center cursor-pointer"
-                style={{ backgroundColor: '#1ED75F33' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.20)' }}>
                 {photoUrl
                   ? <Image src={photoUrl} alt={displayName} fill sizes="80px" className="object-cover" />
                   : <span className="text-3xl font-black text-brand-green">{initial}</span>}
@@ -491,7 +491,7 @@ export default function ProfilePage() {
             {(profile?.currentStreak ?? 0) > 0 && (
               <div className="flex justify-end">
                 <span className="px-3 py-1 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: '#1ED75F22', color: '#1ED75F' }}>
+                  style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', color: 'var(--accent)' }}>
                   🔥 {t('profile.days_streak', { n: profile?.currentStreak ?? 0 })}
                 </span>
               </div>
@@ -617,7 +617,7 @@ export default function ProfilePage() {
                   {displaySkills.map(s => (
                     <span key={s.id}
                       className="flex items-center h-7 px-2.5 rounded-full text-xs font-semibold"
-                      style={{ backgroundColor: '#1ED75F22', color: '#1ED75F', border: '1px solid #1ED75F44' }}>
+                      style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.27)' }}>
                       {s.name}
                     </span>
                   ))}
@@ -662,8 +662,8 @@ export default function ProfilePage() {
                       <div className="flex items-start gap-3 py-2.5 px-3 rounded-xl cursor-pointer hover:bg-white/5 transition-colors"
                         style={{ backgroundColor: 'var(--app-bg)' }}>
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                          style={{ backgroundColor: tr.role === 'created' ? '#F9731622' : '#1ED75F18' }}>
-                          <Dumbbell size={14} style={{ color: tr.role === 'created' ? '#F97316' : '#1ED75F' }} />
+                          style={{ backgroundColor: tr.role === 'created' ? '#F9731622' : 'rgba(var(--accent-rgb), 0.09)' }}>
+                          <Dumbbell size={14} style={{ color: tr.role === 'created' ? '#F97316' : 'var(--accent)' }} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-white truncate">{tr.name}</p>
@@ -683,8 +683,8 @@ export default function ProfilePage() {
                             <span className="text-[10px] text-white/30 truncate">{tr.communityName}</span>
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md"
                               style={{
-                                backgroundColor: tr.role === 'created' ? '#F9731618' : '#1ED75F18',
-                                color: tr.role === 'created' ? '#F97316' : '#1ED75F',
+                                backgroundColor: tr.role === 'created' ? '#F9731618' : 'rgba(var(--accent-rgb), 0.09)',
+                                color: tr.role === 'created' ? '#F97316' : 'var(--accent)',
                               }}>
                               {tr.role === 'created' ? t('profile.training_created') : t('profile.training_attended')}
                             </span>

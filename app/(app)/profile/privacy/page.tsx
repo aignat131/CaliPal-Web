@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           <h1 className="text-lg font-black text-white">{t('privacy.title')}</h1>
         </div>
 
-        <div className="flex items-center gap-3 p-4 rounded-2xl mb-4 border border-brand-green/20" style={{ backgroundColor: '#1ED75F0D' }}>
+        <div className="flex items-center gap-3 p-4 rounded-2xl mb-4 border border-brand-green/20" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.05)' }}>
           <Shield size={24} className="text-brand-green flex-shrink-0" />
           <p className="text-sm text-white/80 leading-relaxed">{t('privacy.data_safe')}</p>
         </div>

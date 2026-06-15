@@ -309,7 +309,7 @@ export default function CreateCommunityPage() {
             <button
               onClick={() => fileRef.current?.click()}
               className="w-24 h-24 rounded-2xl overflow-hidden flex items-center justify-center relative border-2 border-dashed border-white/20 hover:border-brand-green/50 transition-colors"
-              style={{ backgroundColor: '#1ED75F10' }}
+              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.06)' }}
             >
               {previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -347,7 +347,7 @@ export default function CreateCommunityPage() {
             {selectedPark ? (
               /* Selected park display */
               <div className="rounded-[14px] px-4 py-3 border border-brand-green/40 flex items-center gap-3"
-                style={{ backgroundColor: '#1ED75F08' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.03)' }}>
                 <MapPin size={16} className="text-brand-green flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white truncate">{selectedPark.name}</p>

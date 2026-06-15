@@ -88,7 +88,7 @@ export default function TrainingDayPage({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black"
-                    style={{ backgroundColor: '#1ED75F15', color: '#1ED75F' }}>
+                    style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)', color: 'var(--accent)' }}>
                     {i + 1}
                   </div>
                   <div className="min-w-0">
@@ -113,7 +113,7 @@ export default function TrainingDayPage({
         <button
           onClick={startTraining}
           className="w-full h-14 rounded-2xl font-black text-black flex items-center justify-center gap-3 text-base"
-          style={{ backgroundColor: '#1ED75F' }}
+          style={{ backgroundColor: 'var(--accent)' }}
         >
           <Play size={20} className="fill-black" />
           Începe antrenamentul

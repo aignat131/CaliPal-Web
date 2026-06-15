@@ -174,6 +174,15 @@ const T: Record<string, { RO: string; EN: string }> = {
   'settings.theme_bright':    { RO: 'Luminos',          EN: 'Bright' },
   'settings.theme_green':     { RO: 'Verde',            EN: 'Green' },
   'settings.theme_dark':      { RO: 'Întunecat',        EN: 'Dark' },
+  'settings.theme_soft':      { RO: 'Delicat',          EN: 'Soft' },
+  'settings.theme_blue':      { RO: 'Albastru',         EN: 'Blue' },
+  'settings.theme_purple':    { RO: 'Violet',           EN: 'Purple' },
+
+  'theme_picker.title':       { RO: 'Alege-ți tema',                     EN: 'Choose your theme' },
+  'theme_picker.subtitle':    { RO: 'O poți schimba oricând din setări.', EN: 'You can change it anytime in settings.' },
+  'theme_picker.confirm':     { RO: 'Confirmă',                          EN: 'Confirm' },
+  'theme_picker.skip':        { RO: 'Omite',                             EN: 'Skip' },
+
   'settings.section_lang':    { RO: 'LIMBĂ',            EN: 'LANGUAGE' },
   'settings.section_other':   { RO: 'ALTELE',           EN: 'OTHER' },
   'settings.install_app':     { RO: 'Instalează aplicația', EN: 'Install App' },

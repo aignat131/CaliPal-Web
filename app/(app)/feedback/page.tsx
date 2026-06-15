@@ -106,7 +106,7 @@ export default function FeedbackPage() {
         style={{ backgroundColor: 'var(--app-bg)' }}>
         <div className="flex flex-col items-center gap-4 text-center max-w-xs">
           <div className="w-20 h-20 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: '#1ED75F18', border: '1px solid #1ED75F40' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', border: '1px solid rgba(var(--accent-rgb), 0.25)' }}>
             <CheckCircle size={36} className="text-brand-green" />
           </div>
           <h2 className="text-xl font-black text-white">{t('feedback.success_title')}</h2>
@@ -114,7 +114,7 @@ export default function FeedbackPage() {
           <button
             onClick={() => router.back()}
             className="mt-2 h-11 px-6 rounded-2xl font-bold text-sm text-black"
-            style={{ backgroundColor: '#1ED75F' }}
+            style={{ backgroundColor: 'var(--accent)' }}
           >
             {t('feedback.success_back')}
           </button>
@@ -195,7 +195,7 @@ export default function FeedbackPage() {
                       : 'border border-white/10'
                   }`}
                   style={{
-                    backgroundColor: category === cat.id ? '#1ED75F12' : 'var(--app-surface)',
+                    backgroundColor: category === cat.id ? 'rgba(var(--accent-rgb), 0.07)' : 'var(--app-surface)',
                   }}
                 >
                   <p className="text-sm font-bold text-white leading-tight">{cat.label}</p>
@@ -276,7 +276,7 @@ export default function FeedbackPage() {
             type="submit"
             disabled={sending || !subject.trim() || !message.trim() || !canSendToday || weekCount >= 3}
             className="w-full h-12 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-40"
-            style={{ backgroundColor: '#1ED75F', color: '#000' }}
+            style={{ backgroundColor: 'var(--accent)', color: '#000' }}
           >
             {sending ? (
               <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />

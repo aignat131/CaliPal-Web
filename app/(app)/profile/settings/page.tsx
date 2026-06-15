@@ -12,7 +12,7 @@ import { db } from '@/lib/firebase/firestore'
 import type { LocationSharingMode } from '@/types'
 import {
   ArrowLeft, ChevronRight, User, LogOut, Lock, Info, Bell,
-  Shield, Sun, Moon, TreePine, MapPin, Globe, MessageSquarePlus, Mail,
+  Shield, Palette, MapPin, Globe, MessageSquarePlus, Mail,
   MessageSquare, Dumbbell, Newspaper, Send, CheckCircle, Users, UserPlus,
   Download,
 } from 'lucide-react'
@@ -42,7 +42,7 @@ function EmailToggleRow({
       <button
         onClick={onToggle}
         className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-        style={{ backgroundColor: value ? '#1ED75F' : 'rgba(255,255,255,0.2)' }}
+        style={{ backgroundColor: value ? 'var(--accent)' : 'rgba(255,255,255,0.2)' }}
       >
         <span
           className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
@@ -366,25 +366,29 @@ export default function SettingsPage() {
         <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
           <div className="flex items-center gap-3 px-4 py-3.5">
             <span className="text-brand-green">
-              {theme === 'light' ? <Sun size={17} /> : theme === 'green' ? <TreePine size={17} /> : <Moon size={17} />}
+              <Palette size={17} />
             </span>
             <span className="flex-1 text-sm font-medium text-white">
               {t('settings.theme')}
             </span>
-            <div className="flex gap-1.5">
+            <div className="flex gap-2">
               {([
-                { key: 'light' as const, Icon: Sun,      label: t('settings.theme_bright') },
-                { key: 'green' as const, Icon: TreePine,  label: t('settings.theme_green') },
-                { key: 'dark'  as const, Icon: Moon,      label: t('settings.theme_dark') },
-              ]).map(({ key, label }) => (
+                { key: 'light'  as const, color: '#F3F4F0' },
+                { key: 'soft'   as const, color: '#D4D5D0' },
+                { key: 'green'  as const, color: 'var(--accent)' },
+                { key: 'dark'   as const, color: '#0D2E2B' },
+                { key: 'blue'   as const, color: '#3B82F6' },
+                { key: 'purple' as const, color: '#A855F7' },
+              ]).map(({ key, color }) => (
                 <button key={key} onClick={() => setTheme(key)}
-                  className={`h-7 px-3 rounded-full text-xs font-bold transition-colors ${
-                    theme === key
-                      ? 'bg-brand-green text-black'
-                      : 'border border-white/20 text-white/50'
-                  }`}>
-                  {label}
-                </button>
+                  className="w-7 h-7 rounded-full transition-all duration-200"
+                  style={{
+                    backgroundColor: color,
+                    border: theme === key ? '2.5px solid var(--accent)' : '2px solid rgba(255,255,255,0.15)',
+                    transform: theme === key ? 'scale(1.15)' : 'scale(1)',
+                    boxShadow: theme === key ? '0 0 10px rgba(var(--accent-rgb), 0.3)' : 'none',
+                  }}
+                />
               ))}
             </div>
           </div>
@@ -461,7 +465,7 @@ export default function SettingsPage() {
               {/* Success */}
               {bResult && (
                 <div className="flex items-center gap-2 p-3 rounded-xl mb-3 border border-brand-green/30"
-                  style={{ backgroundColor: '#1ED75F10' }}>
+                  style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.06)' }}>
                   <CheckCircle size={15} className="text-brand-green flex-shrink-0" />
                   <p className="text-xs font-semibold text-brand-green">
                     {t('settings.broadcast_sent', { n: bResult.sent })}

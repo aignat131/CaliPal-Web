@@ -85,7 +85,7 @@ function DayCard({
       <div className="rounded-xl p-3.5 flex items-center gap-3 border border-white/8 hover:border-brand-green/25 transition-colors"
         style={{ backgroundColor: 'var(--app-surface)' }}>
         <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: '#1ED75F15', border: '1px solid #1ED75F25' }}>
+          style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.15)' }}>
           <Dumbbell size={16} className="text-brand-green" />
         </div>
         <div className="flex-1 min-w-0">

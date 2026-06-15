@@ -465,7 +465,7 @@ export default function ChatDetailPage() {
           className="flex items-center gap-3 flex-1 min-w-0 active:opacity-70 transition-opacity"
         >
           <div className="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: '#1ED75F33' }}>
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.20)' }}>
             {otherPhoto
               ? <Image src={otherPhoto} alt={otherName} fill sizes="36px" className="object-cover" />
               : <span className="font-black text-brand-green text-sm">{otherInitial}</span>}
@@ -536,7 +536,7 @@ export default function ChatDetailPage() {
                 <div className="w-7 flex-shrink-0">
                   {!isMe && showAvatar && (
                     <div className="relative w-7 h-7 rounded-full overflow-hidden flex items-center justify-center"
-                      style={{ backgroundColor: '#1ED75F33' }}>
+                      style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.20)' }}>
                       {otherPhoto
                         ? <Image src={otherPhoto} alt="" fill sizes="28px" className="object-cover" />
                         : <span className="text-xs font-black text-brand-green">{otherInitial}</span>}
@@ -549,7 +549,7 @@ export default function ChatDetailPage() {
                     <div
                       className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed select-none"
                       style={{
-                        backgroundColor: isMe ? '#1ED75F' : 'var(--app-surface)',
+                        backgroundColor: isMe ? 'var(--accent)' : 'var(--app-surface)',
                         color: isMe ? '#0D1B1A' : 'rgba(255,255,255,0.9)',
                         borderBottomRightRadius: isMe ? 4 : undefined,
                         borderBottomLeftRadius: !isMe ? 4 : undefined,
@@ -561,7 +561,7 @@ export default function ChatDetailPage() {
                     >
                       {msg.replyToText && (
                         <div className="mb-1.5 px-2 py-1.5 rounded-xl border-l-2 border-brand-green/60 bg-black/20">
-                          <p className="text-[10px] font-bold mb-0.5" style={{ color: '#1ED75F99' }}>{msg.replyToSenderName}</p>
+                          <p className="text-[10px] font-bold mb-0.5" style={{ color: 'rgba(var(--accent-rgb), 0.60)' }}>{msg.replyToSenderName}</p>
                           <p className="text-xs line-clamp-2" style={{ color: isMe ? 'rgba(13,27,26,0.6)' : 'rgba(255,255,255,0.5)' }}>{msg.replyToText}</p>
                         </div>
                       )}
@@ -629,7 +629,7 @@ export default function ChatDetailPage() {
           <div className="flex items-end gap-2 mb-1.5">
             <div className="w-7 flex-shrink-0">
               <div className="relative w-7 h-7 rounded-full overflow-hidden flex items-center justify-center"
-                style={{ backgroundColor: '#1ED75F33' }}>
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.20)' }}>
                 {otherPhoto
                   ? <Image src={otherPhoto} alt="" fill sizes="28px" className="object-cover" />
                   : <span className="text-xs font-black text-brand-green">{otherInitial}</span>}
