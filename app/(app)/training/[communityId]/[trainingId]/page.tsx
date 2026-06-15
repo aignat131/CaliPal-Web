@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  doc, getDoc, onSnapshot, updateDoc, deleteField, getDocs, collection, serverTimestamp, increment,
+  doc, getDoc, onSnapshot, updateDoc, deleteField, getDocs, collection, serverTimestamp, increment, arrayUnion,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -12,7 +12,7 @@ import { createNotification } from '@/lib/firebase/notifications'
 import { awardTrainingAttendancePoints } from '@/lib/gamification/coins'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
-  Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil, X,
+  Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil, X, Search, UserPlus,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -94,6 +94,7 @@ function isPast(training: PlannedTraining): boolean {
 export default function PublicTrainingPage() {
   const { user } = useAuth()
   const { displayName: myDisplayName, photoUrl: myPhotoUrl } = useMyProfile()
+  const isSuperAdmin = user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '')
   const router = useRouter()
   const params = useParams()
   const communityId = params.communityId as string
@@ -121,6 +122,13 @@ export default function PublicTrainingPage() {
   const [attendedUids, setAttendedUids] = useState<Set<string>>(new Set())
   const [closing, setClosing] = useState(false)
   const [closeResult, setCloseResult] = useState<{ awarded: number } | null>(null)
+
+  // Add Members state
+  const [showAddMembersPanel, setShowAddMembersPanel] = useState(false)
+  const [addMembersSearch, setAddMembersSearch] = useState('')
+  const [selectedMemberUids, setSelectedMemberUids] = useState<Set<string>>(new Set())
+  const [addingMembers, setAddingMembers] = useState(false)
+  const [addMembersResult, setAddMembersResult] = useState<{ added: number } | null>(null)
 
   // Guest state
   const [guestId, setGuestId] = useState<string>('')
@@ -360,6 +368,67 @@ export default function PublicTrainingPage() {
     }
   }
 
+  function openAddMembersPanel() {
+    if (!training) return
+    const goingSet = new Set(
+      Object.entries(training.rsvps ?? {})
+        .filter(([, s]) => s === 'GOING')
+        .map(([uid]) => uid)
+    )
+    setSelectedMemberUids(goingSet)
+    setAddMembersSearch('')
+    setShowAddMembersPanel(true)
+  }
+
+  async function addSelectedMembers() {
+    if (!user || !training || addingMembers) return
+    setAddingMembers(true)
+    try {
+      const existingGoingUids = new Set(
+        Object.entries(training.rsvps ?? {}).filter(([, s]) => s === 'GOING').map(([uid]) => uid)
+      )
+      const newUids = Array.from(selectedMemberUids).filter(uid => !existingGoingUids.has(uid))
+      if (newUids.length === 0) {
+        setShowAddMembersPanel(false)
+        return
+      }
+
+      const rsvpUpdate: Record<string, unknown> = {}
+      for (const uid of newUids) {
+        const m = members.find(mem => mem.userId === uid)
+        rsvpUpdate[`rsvps.${uid}`] = 'GOING'
+        if (m?.displayName) rsvpUpdate[`rsvpNames.${uid}`] = m.displayName
+        if (m?.photoUrl) rsvpUpdate[`rsvpPhotos.${uid}`] = m.photoUrl
+      }
+
+      const trainingRef = doc(db, 'communities', communityId, 'trainings', trainingId)
+
+      if (training.isClosed) {
+        if (isSuperAdmin) {
+          await updateDoc(trainingRef, { ...rsvpUpdate, attendedBy: arrayUnion(...newUids) })
+        } else {
+          await updateDoc(trainingRef, rsvpUpdate)
+          await updateDoc(trainingRef, { attendedBy: arrayUnion(...newUids) })
+        }
+        await Promise.allSettled(
+          newUids.map(uid => awardTrainingAttendancePoints(uid, communityId))
+        )
+        await Promise.allSettled(
+          newUids.map(uid => updateDoc(doc(db, 'users', uid), { totalTrainings: increment(1) }))
+        )
+      } else {
+        await updateDoc(trainingRef, rsvpUpdate)
+      }
+
+      setAddMembersResult({ added: newUids.length })
+      setShowAddMembersPanel(false)
+    } catch (e) {
+      console.error('Failed to add members:', e)
+    } finally {
+      setAddingMembers(false)
+    }
+  }
+
   async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
     if (!user || !training || training.isClosed) return
     const wasGoing = training.rsvps?.[user.uid] === 'GOING'
@@ -422,6 +491,8 @@ export default function PublicTrainingPage() {
   const myMember = members.find(m => m.userId === user?.uid)
   const isStaff = myMember && ['ADMIN', 'MODERATOR', 'TRAINER'].includes(myMember.role)
   const canManageTraining = isAuthor || !!isStaff
+  const trainingIsPast = isPast(training)
+  const canAddMembers = isSuperAdmin || (myMember?.role === 'ADMIN' && (trainingIsPast || !!training.isClosed))
 
   const officialStyle = training.official ? {
     background: 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.08) 0%, var(--app-surface) 100%)',
@@ -619,6 +690,17 @@ export default function PublicTrainingPage() {
               Antrenament finalizat! {closeResult.awarded > 0
                 ? `${closeResult.awarded} participanți înregistrați.`
                 : 'Participanții au fost înregistrați.'}
+            </p>
+          </div>
+        )}
+
+        {/* Add members result toast */}
+        {addMembersResult && (
+          <div className="rounded-2xl p-4 mb-4 flex items-center gap-3"
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
+            <UserPlus size={18} className="text-brand-green flex-shrink-0" />
+            <p className="text-sm font-semibold text-white">
+              {addMembersResult.added} {addMembersResult.added === 1 ? 'membru adăugat' : 'membri adăugați'} cu succes!
             </p>
           </div>
         )}
@@ -824,6 +906,18 @@ export default function PublicTrainingPage() {
           </button>
         )}
 
+        {/* Add Members button */}
+        {canAddMembers && (
+          <button
+            onClick={openAddMembersPanel}
+            className="mt-4 w-full flex items-center justify-center gap-2 h-11 rounded-2xl border text-sm font-bold transition-colors"
+            style={{ borderColor: 'rgba(var(--accent-rgb), 0.25)', color: 'var(--accent)', backgroundColor: 'rgba(var(--accent-rgb), 0.06)' }}
+          >
+            <UserPlus size={15} />
+            Adaugă membri
+          </button>
+        )}
+
         {/* Close Training panel */}
         {showClosePanel && (
           <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
@@ -879,6 +973,87 @@ export default function PublicTrainingPage() {
                 style={{ backgroundColor: 'var(--accent)', color: 'white' }}
               >
                 {closing ? 'Se procesează...' : `Confirmă și închide (${attendedUids.size} participanți)`}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Add Members panel */}
+        {showAddMembersPanel && (
+          <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+            <div className="w-full max-w-lg mx-auto rounded-t-3xl p-5 pb-8"
+              style={{ backgroundColor: 'var(--app-surface)', maxHeight: '80vh', overflowY: 'auto' }}>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-base font-black text-white">Adaugă membri</p>
+                <button onClick={() => setShowAddMembersPanel(false)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                  <X size={16} className="text-white/60" />
+                </button>
+              </div>
+              <p className="text-xs text-white/45 mb-4">
+                {training.isClosed
+                  ? 'Selectează membri care au participat — li se vor acorda puncte.'
+                  : 'Selectează membri care vor participa la antrenament.'}
+              </p>
+
+              {/* Search */}
+              <div className="relative mb-4">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                <input
+                  value={addMembersSearch}
+                  onChange={e => setAddMembersSearch(e.target.value)}
+                  placeholder="Caută membru..."
+                  className="w-full h-11 rounded-xl pl-9 pr-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
+                />
+              </div>
+
+              {/* Member list */}
+              <div className="flex flex-col gap-2 mb-5">
+                {members
+                  .filter(m => m.displayName.toLowerCase().includes(addMembersSearch.toLowerCase()))
+                  .map(m => {
+                    const checked = selectedMemberUids.has(m.userId)
+                    const alreadyGoing = training.rsvps?.[m.userId] === 'GOING'
+                    return (
+                      <button key={m.userId}
+                        onClick={() => setSelectedMemberUids(prev => {
+                          const next = new Set(prev)
+                          if (next.has(m.userId)) next.delete(m.userId)
+                          else next.add(m.userId)
+                          return next
+                        })}
+                        className="flex items-center gap-3 p-3 rounded-2xl transition-colors text-left"
+                        style={{
+                          backgroundColor: checked ? 'rgba(var(--accent-rgb), 0.08)' : 'rgba(255,255,255,0.05)',
+                          border: checked ? '1px solid rgba(var(--accent-rgb), 0.25)' : '1px solid rgba(255,255,255,0.08)',
+                        }}>
+                        <MemberAvatar photoUrl={m.photoUrl} name={m.displayName} size={36} />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-semibold text-white/80 block truncate">{m.displayName}</span>
+                          {alreadyGoing && <span className="text-[10px] text-brand-green">deja înscris</span>}
+                        </div>
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: checked ? 'var(--accent)' : 'rgba(255,255,255,0.12)' }}>
+                          {checked && <Check size={11} className="text-black" strokeWidth={3} />}
+                        </div>
+                      </button>
+                    )
+                  })}
+                {members.filter(m => m.displayName.toLowerCase().includes(addMembersSearch.toLowerCase())).length === 0 && (
+                  <p className="text-sm text-white/40 text-center py-4">Niciun membru găsit.</p>
+                )}
+              </div>
+
+              <button
+                onClick={addSelectedMembers}
+                disabled={addingMembers || selectedMemberUids.size === 0}
+                className="w-full h-12 rounded-2xl text-sm font-black disabled:opacity-40 transition-opacity"
+                style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+              >
+                {addingMembers
+                  ? 'Se procesează...'
+                  : `Adaugă (${Math.max(0, selectedMemberUids.size - goingUids.length)} noi)`}
               </button>
             </div>
           </div>
