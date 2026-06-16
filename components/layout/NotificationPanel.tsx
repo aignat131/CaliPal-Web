@@ -32,7 +32,7 @@ function notifIcon(type: AppNotification['type']) {
     case 'TRAINING_RSVP':
     case 'TRAINING_STARTED':
     case 'TRAINING_UPDATED':
-    case 'TRAINING_DELETED':
+    case 'TRAINING_DELETED': return <Dumbbell size={16} className="text-red-400" />
     case 'OFFICIAL_TRAINING_POSTED': return <Dumbbell size={16} className="text-brand-green" />
     default: return <Bell size={16} className="text-white/50" />
   }
@@ -48,6 +48,7 @@ function notifRoute(notif: AppNotification): string | null {
     case 'TRAINING_STARTED':
     case 'TRAINING_UPDATED':
     case 'OFFICIAL_TRAINING_POSTED': return notif.relatedId ? `/community/${notif.relatedId}` : '/community'
+    case 'TRAINING_DELETED': return '/admin'
     case 'PARK_CREATED': return '/map'
     case 'COMMUNITY_REQUEST_APPROVED': return notif.relatedId ? `/community/${notif.relatedId}` : '/map'
     case 'COMMUNITY_REQUEST_REJECTED': return '/map'

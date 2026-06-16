@@ -305,6 +305,12 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Admin alerts (written by Cloud Functions only) ────────────────────────
+    match /admin_alerts/{alertId} {
+      allow read: if isSuperAdmin();
+      allow create, update, delete: if false;
+    }
+
     // ── Live locations ────────────────────────────────────────────────────────
     match /live_locations/{uid} {
       allow read: if isAuth();
