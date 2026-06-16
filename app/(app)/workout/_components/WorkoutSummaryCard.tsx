@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase/firestore'
 import { Check, Share2, X } from 'lucide-react'
 import type { WorkoutDoc } from '@/types'
 import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
-import { formatDuration, exerciseOneLiner } from '../_helpers'
+import { formatDuration, exerciseOneLiner, circuitSummaryLine, formatCircuitRounds, circuitAverage, circuitTotal } from '../_helpers'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 
 export function WorkoutSummaryCard({
@@ -153,13 +153,62 @@ export function WorkoutSummaryCard({
         </div>
 
         {/* Exercise list */}
-        <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-          {workout.exercises.map((ex, ei) => (
-            <div key={ei} className={`px-4 py-2.5 ${ei > 0 ? 'border-t border-white/8' : ''}`}>
-              <p className="text-sm text-white/85">{exerciseOneLiner(ex)}</p>
-            </div>
-          ))}
-        </div>
+        {(() => {
+          const circuitIndices = new Set<number>()
+          workout.circuits?.forEach(c => c.exerciseIndices.forEach(i => circuitIndices.add(i)))
+          const regularExercises = workout.exercises.filter((_, i) => !circuitIndices.has(i))
+          const timedExercises = workout.exercises.filter(ex => ex.sets.some(s => s.timedDurationSeconds))
+
+          return (
+            <>
+              {/* Regular exercises */}
+              {regularExercises.length > 0 && (
+                <div className="rounded-2xl overflow-hidden mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+                  {regularExercises.map((ex, ei) => (
+                    <div key={ei} className={`px-4 py-2.5 ${ei > 0 ? 'border-t border-white/8' : ''}`}>
+                      <p className="text-sm text-white/85">{exerciseOneLiner(ex)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Circuits */}
+              {workout.circuits && workout.circuits.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-brand-green/60 tracking-widest mb-2 px-1">CIRCUITE</p>
+                  {workout.circuits.map((circuit, ci) => (
+                    <div key={ci} className="rounded-2xl p-4 mb-2 border border-brand-green/20 bg-brand-green/5">
+                      <p className="text-sm font-bold text-white/85 mb-1">
+                        {circuitSummaryLine(circuit, workout.exercises)}
+                      </p>
+                      <p className="text-xs text-white/50 mb-1">
+                        {circuit.rounds.length} runde: {formatCircuitRounds(circuit)}
+                      </p>
+                      <div className="flex gap-4 text-xs text-white/40">
+                        <span>Media: {formatDuration(circuitAverage(circuit))}</span>
+                        <span>Total: {formatDuration(circuitTotal(circuit))}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Timed exercises */}
+              {timedExercises.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-cyan-400/60 tracking-widest mb-2 px-1">PE TIMP</p>
+                  <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--app-surface)' }}>
+                    {timedExercises.map((ex, ei) => (
+                      <div key={ei} className={`px-4 py-2.5 ${ei > 0 ? 'border-t border-white/8' : ''}`}>
+                        <p className="text-sm text-cyan-400/80">{exerciseOneLiner(ex)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        })()}
 
         {description.trim() ? (
           <p className="text-sm text-white/60 italic px-1 mb-3">&ldquo;{description.trim()}&rdquo;</p>

@@ -1,4 +1,4 @@
-import type { WorkoutExercise, WorkoutSet } from '@/types'
+import type { WorkoutExercise, WorkoutSet, WorkoutCircuit } from '@/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 
 export function formatDuration(s: number): string {
@@ -24,7 +24,11 @@ export function exerciseOneLiner(ex: WorkoutExercise): string {
   const first = ex.sets[0]
 
   function setLabel(s: WorkoutSet): string {
-    const base = s.reps != null ? `${s.reps}` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
+    const base = s.reps != null
+      ? s.timedDurationSeconds
+        ? `${s.reps} rep în ${formatDuration(s.timedDurationSeconds)}`
+        : `${s.reps}`
+      : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
     const mod  = s.weightKg ? ` +${s.weightKg}kg` : s.bandKg ? ` ~${s.bandKg}kg` : ''
     return base + mod
   }
@@ -33,12 +37,17 @@ export function exerciseOneLiner(ex: WorkoutExercise): string {
     s.reps === first.reps &&
     s.durationSeconds === first.durationSeconds &&
     s.weightKg === first.weightKg &&
-    s.bandKg === first.bandKg
+    s.bandKg === first.bandKg &&
+    s.timedDurationSeconds === first.timedDurationSeconds
   )
 
   if (allSame) {
     const modSuffix = first.weightKg ? ` +${first.weightKg}kg` : first.bandKg ? ` ~${first.bandKg}kg` : ''
-    const valStr = first.reps != null ? `${first.reps} rep` : `${first.durationSeconds ?? 0}s`
+    const valStr = first.reps != null
+      ? first.timedDurationSeconds
+        ? `${first.reps} rep în ${formatDuration(first.timedDurationSeconds)}`
+        : `${first.reps} rep`
+      : `${first.durationSeconds ?? 0}s`
     return `${ex.name} · ${n}×${valStr}${modSuffix}`
   }
 
@@ -62,4 +71,25 @@ export function getExerciseType(name: string): ExerciseType | null {
   if (n.includes('flotari') || n.includes('flotare') || n.includes('push-up') || n.includes('pushup') || n.includes('diamond') || n.includes('pike')) return 'pushup'
   if (n.includes('squat')) return 'squat'
   return null
+}
+
+// ── Circuit helpers ──────────────────────────────────────────────────────────
+
+export function circuitSummaryLine(circuit: WorkoutCircuit, exercises: WorkoutExercise[]): string {
+  return circuit.exerciseIndices
+    .map(i => exercises[i]?.name ?? '?')
+    .join(' + ')
+}
+
+export function formatCircuitRounds(circuit: WorkoutCircuit): string {
+  return circuit.rounds.map(r => formatDuration(r.durationSeconds)).join(', ')
+}
+
+export function circuitAverage(circuit: WorkoutCircuit): number {
+  if (circuit.rounds.length === 0) return 0
+  return Math.round(circuit.rounds.reduce((sum, r) => sum + r.durationSeconds, 0) / circuit.rounds.length)
+}
+
+export function circuitTotal(circuit: WorkoutCircuit): number {
+  return circuit.rounds.reduce((sum, r) => sum + r.durationSeconds, 0)
 }

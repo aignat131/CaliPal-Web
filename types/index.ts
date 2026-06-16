@@ -188,6 +188,7 @@ export interface WorkoutSet {
   durationSeconds?: number
   weightKg?: number  // added weight for this set
   bandKg?: number    // band resistance for this set
+  timedDurationSeconds?: number  // AMRAP countdown (e.g. 180 = "3 min push-ups")
 }
 
 export interface WorkoutExercise {
@@ -201,11 +202,26 @@ export interface WorkoutDoc {
   id: string
   userId: string
   exercises: WorkoutExercise[]
+  circuits?: WorkoutCircuit[]
   durationSeconds: number
   totalReps: number
   coinsEarned: number
   note: string
   createdAt: Timestamp | null
+}
+
+// ── Circuit ──────────────────────────────────────────────────────────────────
+
+export interface CircuitRound {
+  roundNumber: number
+  durationSeconds: number
+}
+
+export interface WorkoutCircuit {
+  id: string
+  exerciseIndices: number[]
+  targetRounds: number
+  rounds: CircuitRound[]
 }
 
 // ── Challenge ─────────────────────────────────────────────────────────────────

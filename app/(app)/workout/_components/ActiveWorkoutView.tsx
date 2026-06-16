@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Plus, Trash2, ChevronRight, Check, X, Play, Square, Search, Camera } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { Plus, Trash2, ChevronRight, Check, X, Play, Square, Search, Camera, Timer, RotateCcw, Layers } from 'lucide-react'
 import type { WorkoutExercise, WorkoutSet } from '@/types'
+import type { ActiveCircuit, ActiveTimedSet } from '@/lib/context/WorkoutContext'
 import { DEFAULT_EXERCISE_CATALOGUE, getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 import RepCounterModal from '@/components/workout/RepCounterModal'
 import { useDebounce } from '@/lib/hooks/useDebounce'
@@ -12,6 +13,8 @@ export function ActiveWorkoutView({
   exercises, seconds, note, catalogue, onNoteChange,
   onReplaceExerciseSets, onAddExercise, onRemoveExercise, onFinish, onCancel,
   favorites, onToggleFavorite: _onToggleFavorite,
+  circuits, onAddCircuit, onRemoveCircuit, onStartCircuitRound, onCompleteCircuitRound,
+  activeTimedSet, onStartTimedSet, onClearTimedSet,
 }: {
   exercises: WorkoutExercise[]
   seconds: number
@@ -25,6 +28,14 @@ export function ActiveWorkoutView({
   onCancel: () => void
   favorites: string[]
   onToggleFavorite: (name: string) => void
+  circuits: ActiveCircuit[]
+  onAddCircuit: (exerciseIndices: number[], targetRounds: number) => void
+  onRemoveCircuit: (circuitId: string) => void
+  onStartCircuitRound: (circuitId: string) => void
+  onCompleteCircuitRound: (circuitId: string) => void
+  activeTimedSet: ActiveTimedSet | null
+  onStartTimedSet: (exerciseIndex: number, setIndex: number, targetDurationSeconds: number) => void
+  onClearTimedSet: () => void
 }) {
   const [showCancel, setShowCancel] = useState(false)
   const [showFinishConfirm, setShowFinishConfirm] = useState(false)
@@ -67,7 +78,53 @@ export function ActiveWorkoutView({
   const [logWeight, setLogWeight] = useState(10)
   const [logBandOn, setLogBandOn] = useState(false)
   const [logBandKg, setLogBandKg] = useState(5)
+  const [logTimedOn, setLogTimedOn] = useState(false)
+  const [logTimedMinutes, setLogTimedMinutes] = useState(3)
   const [showRepCounter, setShowRepCounter] = useState(false)
+
+  // Circuit creation
+  const [showCircuitSheet, setShowCircuitSheet] = useState(false)
+  const [circuitSelected, setCircuitSelected] = useState<Set<number>>(new Set())
+  const [circuitRounds, setCircuitRounds] = useState(4)
+
+  // Timed set countdown
+  const [timedCountdown, setTimedCountdown] = useState(0)
+  const timedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Timed set rep entry after countdown
+  const [timedRepEntry, setTimedRepEntry] = useState<{ exerciseIndex: number; setIndex: number; targetDuration: number; actualDuration: number } | null>(null)
+  const [timedRepCount, setTimedRepCount] = useState(10)
+
+  // Timed set countdown effect
+  useEffect(() => {
+    if (!activeTimedSet?.startedAt) {
+      if (timedIntervalRef.current) { clearInterval(timedIntervalRef.current); timedIntervalRef.current = null }
+      return
+    }
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - activeTimedSet.startedAt!) / 1000)
+      const remaining = Math.max(0, activeTimedSet.targetDurationSeconds - elapsed)
+      setTimedCountdown(remaining)
+      if (remaining === 0) {
+        // Timer finished — open rep entry
+        if (timedIntervalRef.current) { clearInterval(timedIntervalRef.current); timedIntervalRef.current = null }
+        setTimedRepEntry({
+          exerciseIndex: activeTimedSet.exerciseIndex,
+          setIndex: activeTimedSet.setIndex,
+          targetDuration: activeTimedSet.targetDurationSeconds,
+          actualDuration: activeTimedSet.targetDurationSeconds,
+        })
+        onClearTimedSet()
+      }
+    }
+    tick()
+    timedIntervalRef.current = setInterval(tick, 1000)
+    return () => { if (timedIntervalRef.current) clearInterval(timedIntervalRef.current) }
+  }, [activeTimedSet, onClearTimedSet])
+
+  // Build a set of exercise indices that belong to circuits
+  const circuitExerciseIndices = new Set<number>()
+  circuits.forEach(c => c.exerciseIndices.forEach(i => circuitExerciseIndices.add(i)))
 
   const totalReps = totalRepsInWorkout(exercises)
   const totalSets = exercises.reduce((a, e) => a + e.sets.length, 0)
@@ -133,16 +190,23 @@ export function ActiveWorkoutView({
     setLogWeight(10)
     setLogBandOn(category === 'Cu Bandă')
     setLogBandKg(5)
+    setLogTimedOn(false)
+    setLogTimedMinutes(3)
   }
 
   function confirmLog() {
     if (!logExercise) return
     const metric = getMetric(logExercise, catalogue)
-    const set: WorkoutSet = {
-      ...(metric === 'reps' ? { reps: logReps } : { durationSeconds: logSecs }),
-      ...(logWeightOn ? { weightKg: logWeight } : {}),
-      ...(logBandOn   ? { bandKg:   logBandKg } : {}),
-    }
+    const set: WorkoutSet = logTimedOn
+      ? { reps: 0, timedDurationSeconds: logTimedMinutes * 60,
+          ...(logWeightOn ? { weightKg: logWeight } : {}),
+          ...(logBandOn   ? { bandKg:   logBandKg } : {}),
+        }
+      : {
+          ...(metric === 'reps' ? { reps: logReps } : { durationSeconds: logSecs }),
+          ...(logWeightOn ? { weightKg: logWeight } : {}),
+          ...(logBandOn   ? { bandKg:   logBandKg } : {}),
+        }
     onAddExercise(logExercise, set)
     setLogExercise(null)
     setShowSearch(false)
@@ -248,21 +312,45 @@ export function ActiveWorkoutView({
                     {ex.sets.map((s, si) => {
                       const key = `${ei}-${si}`
                       const done = isManual || doneKeys.has(key)
-                      const val = s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
+                      const isTimed = s.timedDurationSeconds != null && s.timedDurationSeconds > 0
+                      const isTimedComplete = isTimed && (s.reps ?? 0) > 0
+                      const isTimedRunning = activeTimedSet?.exerciseIndex === ei && activeTimedSet?.setIndex === si && activeTimedSet.startedAt !== null
+                      const val = isTimed
+                        ? isTimedComplete
+                          ? `${s.reps} rep în ${formatDuration(s.timedDurationSeconds!)}`
+                          : `⏱ ${formatDuration(s.timedDurationSeconds!)} — apasă pentru start`
+                        : s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
                       const mod = s.weightKg ? ` · +${s.weightKg}kg` : s.bandKg ? ` · ~${s.bandKg}kg` : ''
+                      const handleTap = () => {
+                        if (isTimed && !isTimedComplete && !isTimedRunning) {
+                          onStartTimedSet(ei, si, s.timedDurationSeconds!)
+                        } else if (!isManual) {
+                          toggleSet(ei, si)
+                        }
+                      }
                       return (
                         <button
                           key={si}
-                          onPointerDown={isManual ? undefined : () => toggleSet(ei, si)}
-                          className={`flex items-center gap-2.5 w-full text-left rounded-xl px-2 py-1.5 transition-all select-none ${done ? 'bg-brand-green/8' : 'hover:bg-white/4'} ${!isManual ? 'active:scale-[0.97]' : 'cursor-default'}`}
+                          onPointerDown={handleTap}
+                          className={`flex items-center gap-2.5 w-full text-left rounded-xl px-2 py-1.5 transition-all select-none ${
+                            isTimedRunning ? 'bg-cyan-500/10 animate-pulse' : done || isTimedComplete ? 'bg-brand-green/8' : isTimed ? 'bg-cyan-500/5 hover:bg-cyan-500/10' : 'hover:bg-white/4'
+                          } active:scale-[0.97]`}
                         >
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${done ? 'bg-brand-green animate-pop-in' : 'border border-white/20'}`}>
-                            {done
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                            done || isTimedComplete ? 'bg-brand-green animate-pop-in'
+                            : isTimed ? 'border border-cyan-500/40 bg-cyan-500/10'
+                            : 'border border-white/20'
+                          }`}>
+                            {done || isTimedComplete
                               ? <Check size={12} strokeWidth={3} className="text-black" />
-                              : <span className="text-[10px] font-black text-white/30">{si + 1}</span>
+                              : isTimed
+                                ? <Timer size={10} className="text-cyan-400" />
+                                : <span className="text-[10px] font-black text-white/30">{si + 1}</span>
                             }
                           </div>
-                          <span className={`text-xs font-semibold transition-colors ${done ? 'text-white/30 line-through' : 'text-white/55'}`}>
+                          <span className={`text-xs font-semibold transition-colors ${
+                            done || isTimedComplete ? 'text-white/30 line-through' : isTimed ? 'text-cyan-400/80' : 'text-white/55'
+                          }`}>
                             {val}
                             {mod && <span style={{ color: done ? undefined : s.weightKg ? '#fb923c99' : '#c084fc99' }}>{mod}</span>}
                           </span>
@@ -274,6 +362,38 @@ export function ActiveWorkoutView({
               </div>
             )
           })}
+
+          {/* Circuit wrappers */}
+          {circuits.map(circuit => {
+            const circuitExercises = circuit.exerciseIndices.map(i => exercises[i]).filter(Boolean)
+            if (circuitExercises.length < 2) return null
+            const roundsDone = circuit.completedRounds.length
+            const isRunning = circuit.currentRoundStartedAt !== null
+            const allDoneCircuit = roundsDone >= circuit.targetRounds
+            return (
+              <CircuitCard
+                key={circuit.id}
+                circuit={circuit}
+                exercises={exercises}
+                isRunning={isRunning}
+                roundsDone={roundsDone}
+                allDone={allDoneCircuit}
+                onStart={() => onStartCircuitRound(circuit.id)}
+                onComplete={() => onCompleteCircuitRound(circuit.id)}
+                onRemove={() => onRemoveCircuit(circuit.id)}
+              />
+            )
+          })}
+
+          {/* Create circuit button */}
+          {exercises.length >= 2 && (
+            <button
+              onClick={() => { setShowCircuitSheet(true); setCircuitSelected(new Set()); setCircuitRounds(4) }}
+              className="w-full h-11 rounded-2xl border border-dashed border-brand-green/25 text-sm text-brand-green/60 flex items-center justify-center gap-2 mb-3 hover:border-brand-green/50 hover:text-brand-green transition-colors"
+            >
+              <Layers size={15} /> Crează circuit
+            </button>
+          )}
 
           {/* Search exercise button */}
           <button
@@ -644,7 +764,7 @@ export function ActiveWorkoutView({
               </div>
 
               <div className="px-5 pt-5 pb-2">
-                {metric === 'reps' && (
+                {metric === 'reps' && !logTimedOn && (
                   <div className="mb-5">
                     <p className="text-[10px] font-bold text-white/35 tracking-widest text-center mb-4">REPETĂRI</p>
                     <div className="flex items-center justify-center gap-4">
@@ -670,6 +790,50 @@ export function ActiveWorkoutView({
                       )}
                     </div>
                   </div>
+                )}
+
+                {metric === 'reps' && logTimedOn && (
+                  <div className="mb-5">
+                    <p className="text-[10px] font-bold text-cyan-400/70 tracking-widest text-center mb-4">DURATĂ (MINUTE)</p>
+                    <div className="flex items-center justify-center gap-6">
+                      <button onClick={() => setLogTimedMinutes(m => Math.max(1, m - 1))}
+                        className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform">−</button>
+                      <div className="flex items-baseline justify-center w-24">
+                        <input
+                          type="number" inputMode="numeric" value={logTimedMinutes}
+                          onChange={e => setLogTimedMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                          onFocus={e => e.target.select()}
+                          className="w-16 text-center text-6xl font-black text-cyan-400 tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          min={1}
+                        />
+                        <span className="text-2xl text-cyan-400/40">min</span>
+                      </div>
+                      <button onClick={() => setLogTimedMinutes(m => m + 1)}
+                        className="w-14 h-14 rounded-full bg-cyan-500 flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform">+</button>
+                    </div>
+                    <div className="flex gap-2 mt-3 justify-center">
+                      {[1, 2, 3, 5, 10].map(v => (
+                        <button key={v} onClick={() => setLogTimedMinutes(v)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${logTimedMinutes === v ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'bg-white/5 text-white/40 border border-white/10'}`}>
+                          {v} min
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pe timp toggle — only for reps exercises */}
+                {metric === 'reps' && (
+                  <button
+                    onClick={() => setLogTimedOn(v => !v)}
+                    className={`w-full h-10 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-95 mb-4 ${
+                      logTimedOn
+                        ? 'bg-cyan-500/15 border-cyan-500/50 text-cyan-400'
+                        : 'bg-white/5 border-white/12 text-white/40 hover:text-white/60'
+                    }`}
+                  >
+                    <Timer size={14} /> {logTimedOn ? `Pe timp — ${logTimedMinutes} min` : '⏱ Pe timp'}
+                  </button>
                 )}
 
                 {metric === 'seconds' && (
@@ -789,6 +953,249 @@ export function ActiveWorkoutView({
           onCancel={() => setShowRepCounter(false)}
         />
       )}
+
+      {/* Timed set countdown overlay */}
+      {activeTimedSet?.startedAt && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="text-center">
+            <p className="text-sm text-white/50 mb-2">
+              {exercises[activeTimedSet.exerciseIndex]?.name ?? 'Exercițiu'} — Pe timp
+            </p>
+            <p className="text-7xl font-black text-cyan-400 tabular-nums mb-2">
+              {formatDuration(timedCountdown)}
+            </p>
+            <p className="text-sm text-white/30 mb-8">
+              din {formatDuration(activeTimedSet.targetDurationSeconds)}
+            </p>
+            <button
+              onClick={() => {
+                const elapsed = Math.floor((Date.now() - activeTimedSet.startedAt!) / 1000)
+                setTimedRepEntry({
+                  exerciseIndex: activeTimedSet.exerciseIndex,
+                  setIndex: activeTimedSet.setIndex,
+                  targetDuration: activeTimedSet.targetDurationSeconds,
+                  actualDuration: Math.min(elapsed, activeTimedSet.targetDurationSeconds),
+                })
+                onClearTimedSet()
+              }}
+              className="h-12 px-8 rounded-full bg-red-500/80 text-white text-sm font-bold flex items-center justify-center gap-2 mx-auto"
+            >
+              <Square size={14} /> Oprește
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Timed set — rep entry after countdown */}
+      {timedRepEntry && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-6">
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <p className="font-bold text-white text-base mb-1 text-center">
+              Câte repetări ai făcut?
+            </p>
+            <p className="text-xs text-white/40 text-center mb-5">
+              {exercises[timedRepEntry.exerciseIndex]?.name} · {formatDuration(timedRepEntry.actualDuration)}
+            </p>
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <button onClick={() => setTimedRepCount(r => Math.max(0, r - 1))}
+                className="w-14 h-14 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-3xl font-bold active:scale-95 transition-transform">−</button>
+              <input
+                type="number" inputMode="numeric" value={timedRepCount}
+                onChange={e => setTimedRepCount(Math.max(0, parseInt(e.target.value) || 0))}
+                onFocus={e => e.target.select()}
+                className="w-20 text-center text-5xl font-black text-white tabular-nums bg-transparent outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                min={0}
+              />
+              <button onClick={() => setTimedRepCount(r => r + 1)}
+                className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform">+</button>
+            </div>
+            <button
+              onClick={() => {
+                const { exerciseIndex: eIdx, setIndex: sIdx, targetDuration } = timedRepEntry
+                const ex = exercises[eIdx]
+                if (ex) {
+                  const newSets = ex.sets.map((s, i) =>
+                    i === sIdx ? { ...s, reps: timedRepCount, timedDurationSeconds: targetDuration } : s
+                  )
+                  onReplaceExerciseSets(eIdx, newSets)
+                }
+                setTimedRepEntry(null)
+              }}
+              className="w-full h-12 rounded-xl bg-brand-green text-black text-sm font-black"
+            >
+              Salvează
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Circuit creation sheet */}
+      {showCircuitSheet && (
+        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-30">
+          <div className="w-full max-w-lg rounded-t-3xl pb-8 max-h-[80vh] flex flex-col" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+              <div className="w-10 h-1 rounded-full bg-white/20" />
+            </div>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/8 flex-shrink-0">
+              <p className="text-base font-black text-white">Crează circuit</p>
+              <button onClick={() => setShowCircuitSheet(false)}
+                className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
+                <X size={14} className="text-white/60" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 pt-3">
+              <p className="text-xs text-white/40 mb-3">Selectează exercițiile pentru circuit:</p>
+              {exercises.map((ex, ei) => {
+                if (circuitExerciseIndices.has(ei)) return null
+                const selected = circuitSelected.has(ei)
+                return (
+                  <button
+                    key={ei}
+                    onClick={() => setCircuitSelected(prev => {
+                      const next = new Set(prev)
+                      next.has(ei) ? next.delete(ei) : next.add(ei)
+                      return next
+                    })}
+                    className={`flex items-center gap-3 w-full text-left px-3 py-3 rounded-xl mb-1.5 border transition-all ${
+                      selected ? 'border-brand-green/50 bg-brand-green/10' : 'border-white/8 bg-white/4'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${
+                      selected ? 'bg-brand-green' : 'border border-white/20'
+                    }`}>
+                      {selected && <Check size={12} strokeWidth={3} className="text-black" />}
+                    </div>
+                    <span className="text-sm text-white/80 font-semibold">{ex.name}</span>
+                  </button>
+                )
+              })}
+
+              <div className="mt-4 mb-3">
+                <p className="text-xs text-white/40 mb-2">Număr de runde:</p>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setCircuitRounds(r => Math.max(1, r - 1))}
+                    className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center text-white/60 text-lg font-bold active:scale-95">−</button>
+                  <span className="text-2xl font-black text-white tabular-nums w-8 text-center">{circuitRounds}</span>
+                  <button onClick={() => setCircuitRounds(r => r + 1)}
+                    className="w-10 h-10 rounded-full bg-brand-green flex items-center justify-center text-black text-lg font-bold active:scale-95">+</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 pt-2 flex-shrink-0">
+              <button
+                onClick={() => {
+                  onAddCircuit(Array.from(circuitSelected).sort((a, b) => a - b), circuitRounds)
+                  setShowCircuitSheet(false)
+                }}
+                disabled={circuitSelected.size < 2}
+                className="w-full h-12 rounded-2xl bg-brand-green text-black text-sm font-black disabled:opacity-40"
+              >
+                Crează circuit ({circuitSelected.size} exerciții)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── CircuitCard ──────────────────────────────────────────────────────────────
+
+function CircuitCard({
+  circuit, exercises, isRunning, roundsDone, allDone,
+  onStart, onComplete, onRemove,
+}: {
+  circuit: ActiveCircuit
+  exercises: WorkoutExercise[]
+  isRunning: boolean
+  roundsDone: number
+  allDone: boolean
+  onStart: () => void
+  onComplete: () => void
+  onRemove: () => void
+}) {
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    if (!isRunning || circuit.currentRoundStartedAt === null) {
+      setElapsed(0)
+      return
+    }
+    const tick = () => setElapsed(Math.floor((Date.now() - circuit.currentRoundStartedAt!) / 1000))
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [isRunning, circuit.currentRoundStartedAt])
+
+  return (
+    <div className="rounded-2xl mb-3 overflow-hidden border border-brand-green/25 bg-brand-green/5"
+      style={{ boxShadow: 'inset 3px 0 0 var(--accent)' }}>
+      <div className="px-4 py-3">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Layers size={14} className="text-brand-green" />
+            <span className="text-sm font-black text-white">Circuit</span>
+            {isRunning && (
+              <span className="text-sm font-black text-brand-green tabular-nums">
+                Runda {roundsDone + 1}/{circuit.targetRounds} — {formatDuration(elapsed)}
+              </span>
+            )}
+            {!isRunning && roundsDone > 0 && (
+              <span className="text-xs text-white/40">
+                {allDone ? `✓ ${roundsDone} runde completate` : `${roundsDone}/${circuit.targetRounds} runde`}
+              </span>
+            )}
+          </div>
+          <button onClick={onRemove} className="w-7 h-7 rounded-full flex items-center justify-center text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-colors">
+            <X size={13} />
+          </button>
+        </div>
+
+        {/* Exercise names */}
+        <div className="flex flex-col gap-0.5 mb-3">
+          {circuit.exerciseIndices.map(i => {
+            const ex = exercises[i]
+            if (!ex) return null
+            return (
+              <p key={i} className="text-xs text-white/60 pl-1">
+                • {ex.name} · {ex.sets.length > 0
+                  ? ex.sets[0].reps != null ? `${ex.sets[0].reps} rep` : `${ex.sets[0].durationSeconds ?? 0}s`
+                  : '—'}
+              </p>
+            )
+          })}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          {isRunning ? (
+            <button onClick={onComplete}
+              className="flex-1 h-10 rounded-xl bg-brand-green text-black text-xs font-black flex items-center justify-center gap-1.5">
+              <Check size={14} strokeWidth={3} /> Gata runda
+            </button>
+          ) : !allDone ? (
+            <button onClick={onStart}
+              className="flex-1 h-10 rounded-xl bg-brand-green/15 border border-brand-green/30 text-brand-green text-xs font-bold flex items-center justify-center gap-1.5">
+              <RotateCcw size={14} /> {roundsDone === 0 ? 'Start circuit' : 'Reia circuitul'}
+            </button>
+          ) : null}
+        </div>
+
+        {/* Completed round times */}
+        {circuit.completedRounds.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {circuit.completedRounds.map((r, i) => (
+              <span key={i} className="text-[10px] font-bold px-2 py-1 rounded-full bg-brand-green/10 text-brand-green/70 border border-brand-green/20">
+                R{r.roundNumber}: {formatDuration(r.durationSeconds)}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

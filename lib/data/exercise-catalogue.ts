@@ -15,6 +15,11 @@ export const DEFAULT_EXERCISE_CATALOGUE: CatalogueEntry[] = [
   { name: 'Chest-to-Bar',       category: 'Trageri',   metric: 'reps'    },
   { name: 'Muscle-Up',          category: 'Trageri',   metric: 'reps'    },
   { name: 'One-Arm Pull-up',    category: 'Trageri',   metric: 'reps'    },
+  { name: 'Tracțiuni negative', category: 'Trageri',   metric: 'reps'    },
+  { name: 'Tracțiuni pronat',   category: 'Trageri',   metric: 'reps'    },
+  { name: 'Tracțiuni supinat',  category: 'Trageri',   metric: 'reps'    },
+  { name: 'Tracțiuni neutru',   category: 'Trageri',   metric: 'reps'    },
+  { name: 'Tracțiuni înalte',   category: 'Trageri',   metric: 'reps'    },
   // ── Împingeri ────────────────────────────────────────────────────────────────
   { name: 'Flotări',            category: 'Împingeri', metric: 'reps'    },
   { name: 'Diamond Push-up',    category: 'Împingeri', metric: 'reps'    },
@@ -43,6 +48,15 @@ export const DEFAULT_EXERCISE_CATALOGUE: CatalogueEntry[] = [
   { name: 'Tuck Planche',       category: 'Statice',   metric: 'seconds' },
   { name: 'Handstand Hold',     category: 'Statice',   metric: 'seconds' },
   { name: 'Dead Hang',          category: 'Statice',   metric: 'seconds' },
+  // ── Izometrice ───────────────────────────────────────────────────────────────
+  { name: 'Tracțiuni izometrice',       category: 'Izometrice', metric: 'seconds' },
+  { name: 'Flotare izometrică',         category: 'Izometrice', metric: 'seconds' },
+  { name: 'Dip izometric',              category: 'Izometrice', metric: 'seconds' },
+  { name: 'Squat izometric',            category: 'Izometrice', metric: 'seconds' },
+  { name: 'Atârnat cu brațele flexate', category: 'Izometrice', metric: 'seconds' },
+  { name: 'Împingere la perete',        category: 'Izometrice', metric: 'seconds' },
+  { name: 'Lunge izometric',            category: 'Izometrice', metric: 'seconds' },
+  { name: 'Ridicare gambă izometrică',  category: 'Izometrice', metric: 'seconds' },
   // ── Cardio ───────────────────────────────────────────────────────────────────
   { name: 'Burpees',                     category: 'Cardio',      metric: 'reps'    },
   { name: 'Mountain Climbers',           category: 'Cardio',      metric: 'reps'    },

@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
+import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
 import { awardCoins } from '@/lib/gamification/coins'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
@@ -30,6 +30,8 @@ export default function WorkoutPage() {
     isActive, seconds, startedAt, exercises, note,
     startWorkout: ctxStart, stopWorkout: ctxStop,
     setExercises, setNote,
+    circuits, addCircuit, removeCircuit, startCircuitRound, completeCircuitRound, updateCircuitIndicesOnRemove,
+    activeTimedSet, startTimedSet, clearTimedSet,
   } = useWorkout()
 
   const [screen, setScreen] = useState<Screen>(() => isActive ? 'active' : 'home')
@@ -42,6 +44,8 @@ export default function WorkoutPage() {
   const [capturedSeconds, setCapturedSeconds] = useState(0)
   const [summaryPhotoFile, setSummaryPhotoFile] = useState<File | null>(null)
   const [autoOpenShare, setAutoOpenShare] = useState(false)
+  const [capturedCircuits, setCapturedCircuits] = useState<WorkoutCircuit[]>([])
+
 
   const [history, setHistory] = useState<WorkoutDoc[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
@@ -128,6 +132,7 @@ export default function WorkoutPage() {
 
   function removeExercise(idx: number) {
     setExercises(exercises.filter((_, i) => i !== idx))
+    updateCircuitIndicesOnRemove(idx)
   }
 
   async function toggleFavorite(name: string) {
@@ -166,6 +171,12 @@ export default function WorkoutPage() {
     }
     setCapturedExercises(snap)
     setCapturedSeconds(seconds)
+    setCapturedCircuits(circuits.map(c => ({
+      id: c.id,
+      exerciseIndices: c.exerciseIndices,
+      targetRounds: c.targetRounds,
+      rounds: c.completedRounds,
+    })))
     setWorkoutStartedAt(startedAt ?? Date.now() - seconds * 1000)
     ctxStop()
     setScreen('postdetails')
@@ -192,15 +203,28 @@ export default function WorkoutPage() {
         const set: Record<string, number> = {}
         if (s.reps !== undefined) set.reps = s.reps
         if (s.durationSeconds !== undefined) set.durationSeconds = s.durationSeconds
+        if (s.weightKg !== undefined) set.weightKg = s.weightKg
+        if (s.bandKg !== undefined) set.bandKg = s.bandKg
+        if (s.timedDurationSeconds !== undefined) set.timedDurationSeconds = s.timedDurationSeconds
         if (Object.keys(set).length === 0) set.reps = 0
         return set
       }),
     }))
 
+    const serializedCircuits: WorkoutCircuit[] = capturedCircuits
+      .filter(c => c.rounds.length > 0)
+      .map(c => ({
+        id: c.id,
+        exerciseIndices: c.exerciseIndices,
+        targetRounds: c.targetRounds,
+        rounds: c.rounds,
+      }))
+
     try {
       await addDoc(collection(db, 'users', user.uid, 'workouts'), {
         userId: user.uid,
         exercises: serializedExercises,
+        ...(serializedCircuits.length > 0 && { circuits: serializedCircuits }),
         durationSeconds: finalSeconds,
         totalReps,
         coinsEarned: 0,
@@ -287,6 +311,7 @@ export default function WorkoutPage() {
     setCoinsEarned(earned)
     setLastWorkout({
       id: '', userId: user.uid, exercises: finalExercises,
+      ...(serializedCircuits.length > 0 && { circuits: serializedCircuits }),
       durationSeconds: finalSeconds, totalReps, coinsEarned: earned, note: finalNote, createdAt: null,
     })
   }
@@ -341,6 +366,14 @@ export default function WorkoutPage() {
           onCancel={() => { ctxStop(); setScreen('home') }}
           favorites={profile?.favoriteExercises ?? []}
           onToggleFavorite={toggleFavorite}
+          circuits={circuits}
+          onAddCircuit={addCircuit}
+          onRemoveCircuit={removeCircuit}
+          onStartCircuitRound={startCircuitRound}
+          onCompleteCircuitRound={completeCircuitRound}
+          activeTimedSet={activeTimedSet}
+          onStartTimedSet={startTimedSet}
+          onClearTimedSet={clearTimedSet}
         />
       )}
 
