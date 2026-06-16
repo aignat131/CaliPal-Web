@@ -4,8 +4,10 @@ import { useEffect, useRef, useState, useCallback, memo } from 'react'
 import Image from 'next/image'
 import {
   collection, onSnapshot, doc, setDoc, deleteDoc,
-  serverTimestamp, getDoc, getDocs, query, where, addDoc, updateDoc, arrayUnion, increment, deleteField,
+  serverTimestamp, getDoc, getDocs, query, where, addDoc, updateDoc, arrayUnion, increment, deleteField, writeBatch,
 } from 'firebase/firestore'
+
+import { auth } from '@/lib/firebase/auth'
 
 // ── Training date parser (for map upcoming-filter) ────────────────────────────
 
@@ -1350,11 +1352,14 @@ function ParkBottomSheet({
                     e.stopPropagation()
                     if (!window.confirm('Ești sigur că vrei să ștergi acest antrenament?')) return
                     try {
-                      await updateDoc(doc(db, 'parks', park.id, 'trainings', tr.id), {
-                        deletedAt: serverTimestamp(), deletedByUid: uid,
+                      const token = await auth.currentUser?.getIdToken()
+                      const res = await fetch('/api/admin/delete-training', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ parkId: park.id, trainingId: tr.id }),
                       })
-                      await updateDoc(doc(db, 'parks', park.id), { upcomingTrainingCount: increment(-1) })
-                      onStandaloneTrainingDeleted(tr.id)
+                      const data = await res.json()
+                      if (data.ok) onStandaloneTrainingDeleted(tr.id)
                     } catch { /* ignore */ }
                   }
 
@@ -2175,7 +2180,21 @@ function AddParkTrainingModal({
       const trainingsCol = park.communityId
         ? collection(db, 'communities', park.communityId, 'trainings')
         : collection(db, 'parks', park.id, 'trainings')
-      const ref = await addDoc(trainingsCol, payload)
+      // Atomic batch: create training + backup together
+      const sourceType = park.communityId ? 'community' : 'park'
+      const sourceId = park.communityId || park.id
+      const batch = writeBatch(db)
+      const ref = doc(trainingsCol)
+      const backupRef = doc(db, 'training_backups', `${sourceType}_${sourceId}_${ref.id}`)
+      batch.set(ref, payload)
+      batch.set(backupRef, {
+        ...payload,
+        sourceType,
+        sourceId,
+        originalTrainingId: ref.id,
+        backedUpAt: serverTimestamp(),
+      })
+      await batch.commit()
       // Increment the park's upcoming training counter so the pin turns green
       await updateDoc(doc(db, 'parks', park.id), { upcomingTrainingCount: increment(1) })
       onAdded({ id: ref.id, ...payload, createdAt: null } as unknown as PlannedTraining)

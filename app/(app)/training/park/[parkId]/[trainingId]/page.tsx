@@ -291,18 +291,23 @@ export default function StandaloneParkTrainingPage() {
   }
 
   async function deleteTraining() {
-    if (!training || deleting) return
+    if (!training || deleting || !user) return
     if (!window.confirm('Ești sigur că vrei să ștergi acest antrenament?')) return
     setDeleting(true)
     try {
-      await updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), {
-        deletedAt: serverTimestamp(), deletedByUid: user?.uid,
+      const token = await user.getIdToken()
+      const res = await fetch('/api/admin/delete-training', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ parkId, trainingId }),
       })
-      const d = parseDateTime(training.timeStart)
-      if (!d || d >= new Date()) {
-        await updateDoc(doc(db, 'parks', parkId), { upcomingTrainingCount: increment(-1) })
+      const data = await res.json()
+      if (data.ok) {
+        router.replace('/map')
+      } else {
+        console.error('Delete failed:', data.reason)
+        setDeleting(false)
       }
-      router.replace('/map')
     } catch (e) { console.error(e); setDeleting(false) }
   }
 

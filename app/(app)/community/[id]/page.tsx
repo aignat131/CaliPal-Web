@@ -957,7 +957,18 @@ export default function CommunityDetailPage() {
                     canEdit={t.authorId === user?.uid}
                     onRsvp={status => rsvp(t.id, status)}
                     onLoad={() => loadTraining(t)}
-                    onDelete={() => updateDoc(doc(db, 'communities', id, 'trainings', t.id), { deletedAt: serverTimestamp(), deletedByUid: user?.uid })}
+                    onDelete={async () => {
+                      try {
+                        const token = await auth.currentUser?.getIdToken()
+                        const res = await fetch('/api/admin/delete-training', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({ communityId: id, trainingId: t.id }),
+                        })
+                        const data = await res.json()
+                        if (!data.ok) console.error('Delete failed:', data.reason)
+                      } catch (e) { console.error('Delete error:', e) }
+                    }}
                     onEdit={fields => updateDoc(doc(db, 'communities', id, 'trainings', t.id), fields)}
                   />
                 ))}
@@ -1828,7 +1839,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, defa
         }))
       const trainingTimeStart = toAndroidDateTime(date, start)
       const trainingTimeEnd = toAndroidDateTime(date, end)
-      const docRef = await addDoc(collection(db, 'communities', communityId, 'trainings'), {
+      const trainingData = {
         name:            name.trim(),
         description:     desc.trim(),
         timeStart:       trainingTimeStart,
@@ -1849,7 +1860,21 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, defa
           : selectedEquipment
       } : {}),
         createdAt:       serverTimestamp(),
+      }
+      // Atomic batch: create training + backup together
+      const batch = writeBatch(db)
+      const trainingRef = doc(collection(db, 'communities', communityId, 'trainings'))
+      const backupRef = doc(db, 'training_backups', `community_${communityId}_${trainingRef.id}`)
+      batch.set(trainingRef, trainingData)
+      batch.set(backupRef, {
+        ...trainingData,
+        sourceType: 'community',
+        sourceId: communityId,
+        originalTrainingId: trainingRef.id,
+        backedUpAt: serverTimestamp(),
       })
+      await batch.commit()
+      const docRef = trainingRef
       if (sendEmail) {
         try {
           const idToken = await (firebaseUser ?? auth.currentUser)?.getIdToken(true)

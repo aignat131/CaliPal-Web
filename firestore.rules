@@ -166,12 +166,16 @@ service cloud.firestore {
           && request.resource.data.name.size() <= 120
           && request.resource.data.description is string
           && request.resource.data.description.size() <= 1000;
-        allow delete: if isSuperAdmin();
+        // Hard delete blocked — only Admin SDK (server-side) can delete
+        allow delete: if false;
         // Staff: close training and mark attendees
-        // Author: edit own training details (soft-delete restricted to superadmin)
+        // Author: edit own training details
         // Members: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt in same write)
-        // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200 entries
-        allow update: if isSuperAdmin()
+        // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200
+        // NOTE: deletedAt/deletedByUid blocked from ALL clients — soft-delete only via API
+        allow update: if (isSuperAdmin()
+              && !request.resource.data.diff(resource.data).affectedKeys()
+                  .hasAny(['deletedAt', 'deletedByUid']))
           || (isCommunityStaff(communityId)
               && request.resource.data.diff(resource.data).affectedKeys()
                   .hasOnly(['isClosed', 'attendedBy', 'closedAt', 'closedByUid']))
@@ -257,11 +261,12 @@ service cloud.firestore {
           && request.resource.data.name.size() <= 120
           && request.resource.data.description is string
           && request.resource.data.description.size() <= 1000;
-        allow delete: if isSuperAdmin();
-        // Authenticated users: update own rsvp + rsvpNames (+ optionally lastRsvpNotifAt)
-        // Anyone (incl. guests): update guestRsvps (+ optionally lastRsvpNotifAt), capped at 200
-        // Author: edit training details (soft-delete restricted to superadmin)
-        allow update: if isSuperAdmin()
+        // Hard delete blocked — only Admin SDK (server-side) can delete
+        allow delete: if false;
+        // NOTE: deletedAt/deletedByUid blocked from ALL clients — soft-delete only via API
+        allow update: if (isSuperAdmin()
+              && !request.resource.data.diff(resource.data).affectedKeys()
+                  .hasAny(['deletedAt', 'deletedByUid']))
           || (isAuth() && request.auth.uid == resource.data.authorId
               && request.resource.data.diff(resource.data).affectedKeys()
                   .hasOnly(['name', 'description', 'timeStart', 'timeEnd',
@@ -273,6 +278,13 @@ service cloud.firestore {
                 .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
               && request.resource.data.guestRsvps.size() <= 200);
       }
+    }
+
+    // ── Training backups (safety net — Admin SDK handles updates/deletes) ────
+    match /training_backups/{backupId} {
+      allow read: if isSuperAdmin();
+      allow create: if isAuth();
+      allow update, delete: if false;
     }
 
     // ── Live locations ────────────────────────────────────────────────────────
