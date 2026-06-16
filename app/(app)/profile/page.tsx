@@ -14,8 +14,8 @@ import {
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
-import type { UserDoc, WorkoutDoc, PlannedTraining, CommunityDoc } from '@/types'
-import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag, Calendar, Clock, MapPin } from 'lucide-react'
+import type { UserDoc, WorkoutDoc, PlannedTraining } from '@/types'
+import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag, Calendar, MapPin } from 'lucide-react'
 import { useToast } from '@/lib/context/ToastContext'
 import { useT } from '@/lib/context/LanguageContext'
 
@@ -70,7 +70,7 @@ function formatTrainingHistoryDate(timeStart: string, fallbackDate?: string): st
   return d.toLocaleDateString('ro', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-function formatTrainingTime(str: string): string {
+function _formatTrainingTime(str: string): string {
   return str?.slice(-5) ?? ''
 }
 
@@ -240,7 +240,7 @@ export default function ProfilePage() {
       setTrainingHistoryLoading(false)
     }
     loadHistory()
-  }, [user, profile]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, profile])
 
   async function handlePurchase(itemId: string, price: number) {
     if (!user) return

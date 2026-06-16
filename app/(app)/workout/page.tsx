@@ -8,7 +8,7 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
-import { awardCoins } from '@/lib/gamification/coins'
+// import { awardCoins } from '@/lib/gamification/coins'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
 import { DEFAULT_EXERCISE_CATALOGUE, getCategory, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
@@ -235,13 +235,13 @@ export default function WorkoutPage() {
       const userRef = doc(db, 'users', user.uid)
       const today = localDate(new Date())
       const yesterday = localDate(new Date(Date.now() - 86400000))
-      let newTotal = 0
+      let _newTotal = 0
       let newStreak = 0
       let joinedCommunityIds: string[] = []
       await runTransaction(db, async tx => {
         const userSnap = await tx.get(userRef)
         const userData = userSnap.data()
-        newTotal = (userData?.totalWorkouts ?? 0) + 1
+        _newTotal = (userData?.totalWorkouts ?? 0) + 1
         joinedCommunityIds = userData?.joinedCommunityIds ?? []
         const lastWorkoutDate: string | undefined = userData?.lastWorkoutDate
         const currentStreak = userData?.currentStreak ?? 0

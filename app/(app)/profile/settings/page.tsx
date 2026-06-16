@@ -12,7 +12,7 @@ import { db } from '@/lib/firebase/firestore'
 import type { LocationSharingMode } from '@/types'
 import {
   ArrowLeft, ChevronRight, User, LogOut, Lock, Info, Bell,
-  Shield, Palette, MapPin, Globe, MessageSquarePlus, Mail,
+  Shield, Palette, MapPin, Globe, MessageSquarePlus,
   MessageSquare, Dumbbell, Newspaper, Send, CheckCircle, Users, UserPlus,
   Download,
 } from 'lucide-react'

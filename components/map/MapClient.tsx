@@ -478,7 +478,7 @@ export default function MapClient() {
       () => setSharing(false),
       { enableHighAccuracy: true, maximumAge: 5000 }
     )
-  }, [user, locationSharingMode])
+  }, [user, locationSharingMode, myDisplayName, myPhoto])
 
   const stopSharing = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -1345,7 +1345,7 @@ function ParkBottomSheet({
                   const memberGoing = Object.values(tr.rsvps ?? {}).filter(s => s === 'GOING').length
                   const guestGoing = Object.values(tr.guestRsvps ?? {}).filter(g => g.status === 'GOING').length
                   const totalGoing = memberGoing + guestGoing
-                  const isAuthor = uid === tr.authorId
+                  const _isAuthor = uid === tr.authorId
 
                   async function handleDelete(e: React.MouseEvent) {
                     e.preventDefault()
@@ -1882,7 +1882,7 @@ function TrainingDetailPanel({
 // ── Park Community Modal ──────────────────────────────────────────────────────
 
 function ParkCommunityModal({
-  park, uid, userAdminCommunities, onClose, onSubmitted, onDirectAssociated,
+  park, uid: _uid, userAdminCommunities, onClose, onSubmitted: _onSubmitted, onDirectAssociated,
 }: {
   park: ParkDoc
   uid: string

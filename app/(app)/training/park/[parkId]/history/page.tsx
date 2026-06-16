@@ -151,7 +151,7 @@ export default function ParkTrainingHistoryPage() {
 
   const [park, setPark] = useState<ParkDoc | null>(null)
   const [trainings, setTrainings] = useState<TrainingWithId[]>([])
-  const [totalCount, setTotalCount] = useState(0)
+  const [_totalCount, setTotalCount] = useState(0)
   const [communityId, setCommunityId] = useState<string | null>(null)
   // Maps training id → which collection it lives in, so we can build the correct detail URL
   const [trainingSource, setTrainingSource] = useState<Record<string, 'park' | 'community'>>({})

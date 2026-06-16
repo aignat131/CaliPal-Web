@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, doc,
-  updateDoc, setDoc, arrayUnion, increment, serverTimestamp,
+  updateDoc, arrayUnion, increment, serverTimestamp,
   getDocs, getDoc, limit, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'

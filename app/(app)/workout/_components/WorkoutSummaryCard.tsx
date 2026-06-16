@@ -80,7 +80,7 @@ export function WorkoutSummaryCard({
 
       const memberSnap = await getDoc(doc(db, 'communities', selectedCommId, 'members', userId))
       const role = memberSnap.exists() ? memberSnap.data().role : 'MEMBER'
-      const workoutDate = new Date(startedAt ?? Date.now())
+      const _workoutDate = new Date(startedAt ?? Date.now())
       const workoutExercises = workout.exercises.map(ex => ({
         name: ex.name,
         summary: exerciseOneLiner(ex),

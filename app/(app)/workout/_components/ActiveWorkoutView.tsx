@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Trash2, ChevronRight, Check, X, Play, Square, Search, Camera, Timer, RotateCcw, Layers } from 'lucide-react'
+import { Plus, Trash2, ChevronRight, Check, X, Square, Search, Camera, Timer, RotateCcw, Layers } from 'lucide-react'
 import type { WorkoutExercise, WorkoutSet } from '@/types'
 import type { ActiveCircuit, ActiveTimedSet } from '@/lib/context/WorkoutContext'
-import { DEFAULT_EXERCISE_CATALOGUE, getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
+import { getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 import RepCounterModal from '@/components/workout/RepCounterModal'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import { formatDuration, totalRepsInWorkout, norm, getExerciseType } from '../_helpers'
@@ -47,7 +47,7 @@ export function ActiveWorkoutView({
     const key = `${ei}-${si}`
     setDoneKeys(prev => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) next.delete(key); else next.add(key)
       return next
     })
   }
@@ -1054,7 +1054,7 @@ export function ActiveWorkoutView({
                     key={ei}
                     onClick={() => setCircuitSelected(prev => {
                       const next = new Set(prev)
-                      next.has(ei) ? next.delete(ei) : next.add(ei)
+                      if (next.has(ei)) next.delete(ei); else next.add(ei)
                       return next
                     })}
                     className={`flex items-center gap-3 w-full text-left px-3 py-3 rounded-xl mb-1.5 border transition-all ${

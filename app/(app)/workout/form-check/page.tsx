@@ -108,6 +108,24 @@ export default function FormCheckPage() {
     setStatus('idle')
   }, [])
 
+  const runClassification = useCallback(async () => {
+    const ready = exerciseType === 'pullup' ? modelReady : pushupModelReady
+    if (!ready || classifying || frameBufferRef.current.length < 10) return
+    setClassifying(true)
+    try {
+      const flat = exerciseType === 'pullup'
+        ? preprocessFrameBuffer(frameBufferRef.current, PULLUP_NORM_PARAMS)
+        : preprocessPushupFrameBuffer(frameBufferRef.current, PUSHUP_NORM_PARAMS)
+      const result = exerciseType === 'pullup'
+        ? await classifyForm(flat)
+        : await classifyPushupForm(flat)
+      setFormLabel(result.label)
+      setFormConfidence(Math.round(result.confidence * 100))
+    } finally {
+      setClassifying(false)
+    }
+  }, [exerciseType, modelReady, pushupModelReady, classifying])
+
   const startCamera = useCallback(async () => {
     setStatus('loading')
     setError('')
@@ -250,29 +268,11 @@ export default function FormCheckPage() {
       setError(msg)
       setStatus('error')
     }
-  }, [facingMode, repState, exerciseType])
+  }, [facingMode, repState, exerciseType, runClassification])
 
   useEffect(() => {
     return stopCamera
   }, [stopCamera])
-
-  async function runClassification() {
-    const ready = exerciseType === 'pullup' ? modelReady : pushupModelReady
-    if (!ready || classifying || frameBufferRef.current.length < 10) return
-    setClassifying(true)
-    try {
-      const flat = exerciseType === 'pullup'
-        ? preprocessFrameBuffer(frameBufferRef.current, PULLUP_NORM_PARAMS)
-        : preprocessPushupFrameBuffer(frameBufferRef.current, PUSHUP_NORM_PARAMS)
-      const result = exerciseType === 'pullup'
-        ? await classifyForm(flat)
-        : await classifyPushupForm(flat)
-      setFormLabel(result.label)
-      setFormConfidence(Math.round(result.confidence * 100))
-    } finally {
-      setClassifying(false)
-    }
-  }
 
   function flipCamera() {
     stopCamera()

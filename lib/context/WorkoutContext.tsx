@@ -86,7 +86,6 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     if (storedTimed) {
       try { setActiveTimedSet(JSON.parse(storedTimed)) } catch { /* ignore */ }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Persist circuits to localStorage whenever they change

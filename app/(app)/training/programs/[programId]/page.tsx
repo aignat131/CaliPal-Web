@@ -3,7 +3,7 @@
 import { use } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Clock, ChevronRight, Dumbbell } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Dumbbell } from 'lucide-react'
 import { getProgramById, LEVEL_LABELS, type ProgramDay } from '@/lib/data/training-programs'
 
 export default function ProgramDetailPage({ params }: { params: Promise<{ programId: string }> }) {

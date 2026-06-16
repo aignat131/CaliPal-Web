@@ -6,7 +6,7 @@ import {
   updateProfile, updateEmail, updatePassword,
   reauthenticateWithCredential, EmailAuthProvider,
 } from 'firebase/auth'
-import { doc, updateDoc, collection, getDocs } from 'firebase/firestore'
+import { doc, updateDoc } from 'firebase/firestore'
 import { db, getUserDoc, updateUserDoc } from '@/lib/firebase/firestore'
 import { uploadProfilePhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'

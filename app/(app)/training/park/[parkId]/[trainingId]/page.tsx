@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  doc, onSnapshot, updateDoc, deleteField, getDoc, serverTimestamp, increment,
+  doc, onSnapshot, updateDoc, deleteField, getDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'

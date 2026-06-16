@@ -25,7 +25,7 @@ import type {
 import { ROLE_LABELS, conversationId } from '@/types'
 import {
   ArrowLeft, MessageSquare, Send, Trash2, Plus,
-  UserPlus, Check, Clock, MapPin, Calendar, Dumbbell, Users,
+  UserPlus, Check, Clock, MapPin, Dumbbell, Users,
   MessageCircle, User, Bell, X, LogOut, UserX, Share2,
   Pencil, Camera, Info, Mail, MailX, History, ImagePlus,
   ChevronDown, ChevronUp, ShieldCheck,
@@ -104,7 +104,7 @@ export default function CommunityDetailPage() {
   const { theme } = useTheme()
   const { displayName: myName, photoUrl: myPhoto, profile: myProfile } = useMyProfile()
   const { requestPermission } = usePushNotifications(user?.uid)
-  const t = useT()
+  const _t = useT()
   const { showToast } = useToast()
   const router = useRouter()
   const params = useParams()
@@ -133,7 +133,7 @@ export default function CommunityDetailPage() {
   const [showAddTraining, setShowAddTraining] = useState(false)
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set())
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [_openMenuId, setOpenMenuId] = useState<string | null>(null)
   // Three-dots community menu (leave)
   const [showCommunityMenu, setShowCommunityMenu] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
@@ -337,7 +337,6 @@ export default function CommunityDetailPage() {
         autoClosedRef.current.delete(t.id)
       }
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trainings, user, isMember, myRole, id])
 
   // Load friend/pending status for member tab
@@ -560,7 +559,7 @@ export default function CommunityDetailPage() {
     </div>
   )
 
-  const sortedMembers = [...members].sort((a, b) => {
+  const _sortedMembers = [...members].sort((a, b) => {
     const order = ['ADMIN', 'MODERATOR', 'TRAINER', 'MEMBER']
     return order.indexOf(a.role) - order.indexOf(b.role)
   })
@@ -1726,7 +1725,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
                   </div>
                 ))}
                 {/* Guests */}
-                {guestGoing.map((g, i) => (
+                {guestGoing.map((g, _i) => (
                   <div key={g.uid} className={`flex items-center gap-2.5 px-3 py-2 border-t border-white/5`}>
                     <GuestAvatar name={g.name} size={24} />
                     <span className="text-xs font-semibold text-white/75">{g.name}</span>
@@ -2105,7 +2104,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
   const [myReaction, setMyReaction] = useState<string | null>(null)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
 
-  const POST_REACTIONS = ['💪', '❤️', '🔥', '👏', '😮']
+  const _POST_REACTIONS = ['💪', '❤️', '🔥', '👏', '😮']
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -2139,7 +2138,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
     )
   }, [showComments, post.id, communityId])
 
-  const isOwnPost = post.authorId === myUid
+  const _isOwnPost = post.authorId === myUid
   const isWorkoutPost = post.workoutExercises !== undefined
 
   async function setReaction(emoji: string) {
@@ -2331,7 +2330,7 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
 
 // ── Post Detail Sheet ─────────────────────────────────────────────────────────
 
-function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmin, myProTitle, onDelete, onClose }: {
+function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmin, myProTitle: _myProTitle, onDelete, onClose }: {
   post: CommunityPost
   communityId: string
   myUid: string
@@ -2352,7 +2351,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmi
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  const POST_REACTIONS = ['💪', '❤️', '🔥', '👏', '😮']
+  const _POST_REACTIONS = ['💪', '❤️', '🔥', '👏', '😮']
   const roleColor = ROLE_COLORS[post.authorRole as MemberRole] ?? 'var(--accent)'
   const isOwnPost = post.authorId === myUid
   const isWorkoutPost = post.workoutExercises !== undefined

@@ -3,7 +3,7 @@
  * Runs entirely client-side — no API calls, works offline.
  */
 
-import { CATEGORY_MUSCLE_MAP } from '@/lib/data/musclemap'
+import { CATEGORY_MUSCLE_MAP as _CATEGORY_MUSCLE_MAP } from '@/lib/data/musclemap'
 import { DEFAULT_EXERCISE_CATALOGUE, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 
 export interface RecommendedExercise {
