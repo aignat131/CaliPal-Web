@@ -2180,13 +2180,18 @@ function AddParkTrainingModal({
       const trainingsCol = park.communityId
         ? collection(db, 'communities', park.communityId, 'trainings')
         : collection(db, 'parks', park.id, 'trainings')
-      // Atomic batch: create training + backup together
+      // Atomic batch: create training + mirror + backup together
       const sourceType = park.communityId ? 'community' : 'park'
       const sourceId = park.communityId || park.id
+      const mirrorCol = park.communityId
+        ? collection(db, 'communities', park.communityId, 'trainings_safe')
+        : collection(db, 'parks', park.id, 'trainings_safe')
       const batch = writeBatch(db)
       const ref = doc(trainingsCol)
+      const mirrorRef = doc(mirrorCol, ref.id)
       const backupRef = doc(db, 'training_backups', `${sourceType}_${sourceId}_${ref.id}`)
       batch.set(ref, payload)
+      batch.set(mirrorRef, payload)
       batch.set(backupRef, {
         ...payload,
         sourceType,

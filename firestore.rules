@@ -191,6 +191,15 @@ service cloud.firestore {
               && request.resource.data.guestRsvps.size() <= 200);
       }
 
+      // Immutable mirror of trainings — no updates, no deletes from any client
+      match /trainings_safe/{trainingId} {
+        allow read: if true;
+        allow create: if (isCommunityMember(communityId) || isSuperAdmin())
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 120;
+        allow update, delete: if false;
+      }
+
       match /challenges/{challengeId} {
         allow read: if isAuth();
         allow create: if isSuperAdmin() || isCommunityStaff(communityId);
@@ -277,6 +286,15 @@ service cloud.firestore {
           || (request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
               && request.resource.data.guestRsvps.size() <= 200);
+      }
+
+      // Immutable mirror of trainings — no updates, no deletes from any client
+      match /trainings_safe/{trainingId} {
+        allow read: if true;
+        allow create: if isAuth()
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 120;
+        allow update, delete: if false;
       }
     }
 

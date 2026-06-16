@@ -201,7 +201,35 @@ export default function ParkTrainingHistoryPage() {
           }
         }
 
-        const visible = merged.filter(t => !t.deletedAt)
+        let visible = merged.filter(t => !t.deletedAt)
+        // Fallback: if main collections are empty, try trainings_safe mirrors
+        if (visible.length === 0) {
+          try {
+            const [parkSafe, commSafe] = await Promise.allSettled([
+              getDocs(collection(db, 'parks', parkId, 'trainings_safe')),
+              cid ? getDocs(collection(db, 'communities', cid, 'trainings_safe')) : Promise.resolve(null),
+            ])
+            const safeMerged: TrainingWithId[] = []
+            const safeSeen = new Set<string>()
+            if (parkSafe.status === 'fulfilled') {
+              for (const d of parkSafe.value.docs) {
+                if (safeSeen.has(d.id)) continue
+                safeSeen.add(d.id)
+                sourceMap[d.id] = 'park'
+                safeMerged.push({ id: d.id, ...(d.data() as object) } as TrainingWithId)
+              }
+            }
+            if (commSafe.status === 'fulfilled' && commSafe.value) {
+              for (const d of commSafe.value.docs) {
+                if (safeSeen.has(d.id)) continue
+                safeSeen.add(d.id)
+                sourceMap[d.id] = 'community'
+                safeMerged.push({ id: d.id, ...(d.data() as object) } as TrainingWithId)
+              }
+            }
+            visible = safeMerged.filter(t => !t.deletedAt)
+          } catch { /* mirrors may not exist yet */ }
+        }
         setTrainingSource(sourceMap)
         setTotalCount(visible.length)
 

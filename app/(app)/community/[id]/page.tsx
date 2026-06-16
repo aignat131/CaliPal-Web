@@ -274,10 +274,19 @@ export default function CommunityDetailPage() {
     if (!user) return
     // No orderBy — sort client-side to avoid any composite-index dependency
     return onSnapshot(collection(db, 'communities', id, 'trainings'),
-      snap => {
-        const list = snap.docs
+      async snap => {
+        let list = snap.docs
           .map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
           .filter(t => !t.deletedAt)
+        // Fallback: if main collection is empty, try trainings_safe mirror
+        if (list.length === 0) {
+          try {
+            const safeSnap = await getDocs(collection(db, 'communities', id, 'trainings_safe'))
+            list = safeSnap.docs
+              .map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
+              .filter(t => !t.deletedAt)
+          } catch { /* mirror may not exist yet */ }
+        }
         list.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
         setTrainings(list)
         setTrainingsLoaded(true)
@@ -1861,11 +1870,13 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, defa
       } : {}),
         createdAt:       serverTimestamp(),
       }
-      // Atomic batch: create training + backup together
+      // Atomic batch: create training + mirror + backup together
       const batch = writeBatch(db)
       const trainingRef = doc(collection(db, 'communities', communityId, 'trainings'))
+      const mirrorRef = doc(db, 'communities', communityId, 'trainings_safe', trainingRef.id)
       const backupRef = doc(db, 'training_backups', `community_${communityId}_${trainingRef.id}`)
       batch.set(trainingRef, trainingData)
+      batch.set(mirrorRef, trainingData)
       batch.set(backupRef, {
         ...trainingData,
         sourceType: 'community',

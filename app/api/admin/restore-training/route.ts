@@ -70,15 +70,42 @@ export async function POST(req: NextRequest) {
         deletedByUid: FieldValue.delete(),
       })
     } else {
-      // Doc was hard-deleted → recreate from backup
-      // Strip backup-specific fields
-      const { sourceType: _st, sourceId: _si, originalTrainingId: _ot,
-              backedUpAt: _ba, deletedAt: _da, deletedByUid: _du,
-              restoredAt: _ra, restoredByUid: _ru, ...trainingData } = backup
-      await trainingRef.set(trainingData)
+      // Doc was hard-deleted → recreate from backup (or mirror)
+      // Try mirror first as it's co-located
+      const mirrorPath = sourceType === 'community'
+        ? `communities/${sourceId}/trainings_safe/${originalTrainingId}`
+        : `parks/${sourceId}/trainings_safe/${originalTrainingId}`
+      const mirrorSnap = await db.doc(mirrorPath).get()
+      let restoreData: Record<string, unknown>
+
+      if (mirrorSnap.exists) {
+        const mirrorData = mirrorSnap.data()!
+        const { deletedAt: _mda, deletedByUid: _mdu, ...cleanMirror } = mirrorData
+        restoreData = cleanMirror
+      } else {
+        // Fall back to backup — strip backup-specific fields
+        const { sourceType: _st, sourceId: _si, originalTrainingId: _ot,
+                backedUpAt: _ba, deletedAt: _da, deletedByUid: _du,
+                restoredAt: _ra, restoredByUid: _ru, ...trainingData } = backup
+        restoreData = trainingData
+      }
+      await trainingRef.set(restoreData)
     }
 
-    // ── 6. Mark backup as restored ────────────────────────────────────────────
+    // ── 6. Clear deletedAt on mirror if it was set ───────────────────────────
+    const mirrorPath = sourceType === 'community'
+      ? `communities/${sourceId}/trainings_safe/${originalTrainingId}`
+      : `parks/${sourceId}/trainings_safe/${originalTrainingId}`
+    const mirrorRef = db.doc(mirrorPath)
+    const mirrorSnap = await mirrorRef.get()
+    if (mirrorSnap.exists && mirrorSnap.data()?.deletedAt) {
+      await mirrorRef.update({
+        deletedAt: FieldValue.delete(),
+        deletedByUid: FieldValue.delete(),
+      })
+    }
+
+    // ── 7. Mark backup as restored ────────────────────────────────────────────
     await backupRef.update({
       restoredAt: FieldValue.serverTimestamp(),
       restoredByUid: callerUid,

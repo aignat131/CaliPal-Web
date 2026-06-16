@@ -184,7 +184,15 @@ export default function CommunityTrainingHistoryPage() {
 
         if (commSnap.exists()) setCommunity({ id: commSnap.id, ...(commSnap.data() as object) } as CommunityDoc)
 
-        const all = trainSnap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId)).filter(t => !t.deletedAt)
+        let all = trainSnap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId)).filter(t => !t.deletedAt)
+        // Fallback: if main collection is empty, try trainings_safe mirror
+        if (all.length === 0) {
+          try {
+            const safeSnap = await getDocs(collection(db, 'communities', communityId, 'trainings_safe'))
+            all = safeSnap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as TrainingWithId)).filter(t => !t.deletedAt)
+            if (all.length > 0) console.log('[TrainingHistory] recovered', all.length, 'trainings from trainings_safe mirror')
+          } catch { /* mirror may not exist yet */ }
+        }
         const sorted = all
           .sort((a, b) => {
             const da = parseDateTime(a.timeStart, a.date)

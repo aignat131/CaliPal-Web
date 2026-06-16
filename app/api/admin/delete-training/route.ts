@@ -79,6 +79,19 @@ export async function POST(req: NextRequest) {
       deletedByUid: callerUid,
     })
 
+    // ── 5b. Mark mirror as deleted (Admin SDK bypasses rules) ────────────────
+    const mirrorPath = communityId
+      ? `communities/${communityId}/trainings_safe/${trainingId}`
+      : `parks/${parkId}/trainings_safe/${trainingId}`
+    const mirrorRef = db.doc(mirrorPath)
+    const mirrorSnap = await mirrorRef.get()
+    if (mirrorSnap.exists) {
+      await mirrorRef.update({
+        deletedAt: FieldValue.serverTimestamp(),
+        deletedByUid: callerUid,
+      })
+    }
+
     // ── 6. Decrement park counter if upcoming park training ───────────────────
     if (parkId && data.timeStart) {
       const m = (data.timeStart as string).match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
