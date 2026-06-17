@@ -90,10 +90,35 @@ export function ActiveWorkoutView({
   // Timed set countdown
   const [timedCountdown, setTimedCountdown] = useState(0)
   const timedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const audioCtxRef = useRef<AudioContext | null>(null)
 
   // Timed set rep entry after countdown
   const [timedRepEntry, setTimedRepEntry] = useState<{ exerciseIndex: number; setIndex: number; targetDuration: number; actualDuration: number } | null>(null)
   const [timedRepCount, setTimedRepCount] = useState(10)
+
+  // Pre-create AudioContext on timer start (needs user gesture for iOS)
+  function ensureAudioCtx() {
+    if (!audioCtxRef.current) {
+      try { audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)() } catch { /* no audio */ }
+    }
+  }
+
+  function playTimerBeep() {
+    const ctx = audioCtxRef.current
+    if (!ctx) return
+    try {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.frequency.value = 880; osc.type = 'sine'; gain.gain.value = 0.3
+      osc.start(); osc.stop(ctx.currentTime + 0.25)
+      const osc2 = ctx.createOscillator()
+      const gain2 = ctx.createGain()
+      osc2.connect(gain2); gain2.connect(ctx.destination)
+      osc2.frequency.value = 1100; osc2.type = 'sine'; gain2.gain.value = 0.3
+      osc2.start(ctx.currentTime + 0.35); osc2.stop(ctx.currentTime + 0.6)
+    } catch { /* audio not available */ }
+  }
 
   // Timed set countdown effect
   useEffect(() => {
@@ -106,8 +131,10 @@ export function ActiveWorkoutView({
       const remaining = Math.max(0, activeTimedSet.targetDurationSeconds - elapsed)
       setTimedCountdown(remaining)
       if (remaining === 0) {
-        // Timer finished — open rep entry
+        // Timer finished — notify and open rep entry
         if (timedIntervalRef.current) { clearInterval(timedIntervalRef.current); timedIntervalRef.current = null }
+        navigator.vibrate?.([200, 100, 200, 100, 200])
+        playTimerBeep()
         setTimedRepEntry({
           exerciseIndex: activeTimedSet.exerciseIndex,
           setIndex: activeTimedSet.setIndex,
@@ -120,7 +147,7 @@ export function ActiveWorkoutView({
     tick()
     timedIntervalRef.current = setInterval(tick, 1000)
     return () => { if (timedIntervalRef.current) clearInterval(timedIntervalRef.current) }
-  }, [activeTimedSet, onClearTimedSet])
+  }, [activeTimedSet, onClearTimedSet]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build a set of exercise indices that belong to circuits
   const circuitExerciseIndices = new Set<number>()
@@ -129,11 +156,15 @@ export function ActiveWorkoutView({
   const totalReps = totalRepsInWorkout(exercises)
   const totalSets = exercises.reduce((a, e) => a + e.sets.length, 0)
 
-  // Effective done keys: manual (non-program) sets are always considered done
+  // Effective done keys: manual (non-program) sets are considered done,
+  // EXCEPT timed sets that haven't been completed yet (reps === 0)
   const effectiveDoneKeys = new Set(doneKeys)
   exercises.forEach((ex, ei) => {
     if (!ex.fromProgram) {
-      ex.sets.forEach((_, si) => effectiveDoneKeys.add(`${ei}-${si}`))
+      ex.sets.forEach((s, si) => {
+        const isTimedIncomplete = (s.timedDurationSeconds ?? 0) > 0 && (s.reps ?? 0) === 0
+        if (!isTimedIncomplete) effectiveDoneKeys.add(`${ei}-${si}`)
+      })
     }
   })
   const doneCount = effectiveDoneKeys.size
@@ -311,9 +342,9 @@ export function ActiveWorkoutView({
                   <div className="flex flex-col gap-0.5">
                     {ex.sets.map((s, si) => {
                       const key = `${ei}-${si}`
-                      const done = isManual || doneKeys.has(key)
                       const isTimed = s.timedDurationSeconds != null && s.timedDurationSeconds > 0
                       const isTimedComplete = isTimed && (s.reps ?? 0) > 0
+                      const done = isTimed ? isTimedComplete : (isManual || doneKeys.has(key))
                       const isTimedRunning = activeTimedSet?.exerciseIndex === ei && activeTimedSet?.setIndex === si && activeTimedSet.startedAt !== null
                       const val = isTimed
                         ? isTimedComplete
@@ -323,6 +354,7 @@ export function ActiveWorkoutView({
                       const mod = s.weightKg ? ` · +${s.weightKg}kg` : s.bandKg ? ` · ~${s.bandKg}kg` : ''
                       const handleTap = () => {
                         if (isTimed && !isTimedComplete && !isTimedRunning) {
+                          ensureAudioCtx()
                           onStartTimedSet(ei, si, s.timedDurationSeconds!)
                         } else if (!isManual) {
                           toggleSet(ei, si)
@@ -954,19 +986,24 @@ export function ActiveWorkoutView({
         />
       )}
 
-      {/* Timed set countdown overlay */}
+      {/* Timed set floating timer bar */}
       {activeTimedSet?.startedAt && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="text-center">
-            <p className="text-sm text-white/50 mb-2">
-              {exercises[activeTimedSet.exerciseIndex]?.name ?? 'Exercițiu'} — Pe timp
-            </p>
-            <p className="text-7xl font-black text-cyan-400 tabular-nums mb-2">
-              {formatDuration(timedCountdown)}
-            </p>
-            <p className="text-sm text-white/30 mb-8">
-              din {formatDuration(activeTimedSet.targetDurationSeconds)}
-            </p>
+        <div className="fixed bottom-20 left-4 right-4 z-30 max-w-2xl mx-auto animate-fade-in-up">
+          <div className="rounded-2xl px-4 py-3 flex items-center gap-3 shadow-lg border border-cyan-500/30"
+            style={{ backgroundColor: '#0c1a2a' }}>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-white/50 truncate">
+                {exercises[activeTimedSet.exerciseIndex]?.name ?? 'Exercițiu'}
+              </p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-2xl font-black text-cyan-400 tabular-nums">
+                  {formatDuration(timedCountdown)}
+                </p>
+                <p className="text-xs text-white/25">
+                  / {formatDuration(activeTimedSet.targetDurationSeconds)}
+                </p>
+              </div>
+            </div>
             <button
               onClick={() => {
                 const elapsed = Math.floor((Date.now() - activeTimedSet.startedAt!) / 1000)
@@ -978,9 +1015,9 @@ export function ActiveWorkoutView({
                 })
                 onClearTimedSet()
               }}
-              className="h-12 px-8 rounded-full bg-red-500/80 text-white text-sm font-bold flex items-center justify-center gap-2 mx-auto"
+              className="h-10 px-5 rounded-full bg-red-500/80 text-white text-xs font-bold flex items-center gap-1.5 flex-shrink-0 active:scale-95 transition-transform"
             >
-              <Square size={14} /> Oprește
+              <Square size={12} /> Oprește
             </button>
           </div>
         </div>

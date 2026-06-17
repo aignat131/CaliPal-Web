@@ -2,8 +2,14 @@
 
 import { useState } from 'react'
 import { Flame, Trash2, X } from 'lucide-react'
-import type { WorkoutDoc } from '@/types'
-import { formatDate, formatDuration, exerciseOneLiner } from '../_helpers'
+import type { WorkoutDoc, WorkoutExercise } from '@/types'
+import { formatDate, formatDuration, exerciseOneLiner, circuitSummaryLine, formatCircuitRounds, circuitAverage, circuitTotal } from '../_helpers'
+
+function workoutTitle(exercises: WorkoutExercise[]): string {
+  if (exercises.length === 0) return 'Antrenament'
+  if (exercises.length <= 3) return exercises.map(e => e.name).join(', ')
+  return exercises.slice(0, 2).map(e => e.name).join(', ') + ` și încă ${exercises.length - 2}`
+}
 
 function computePRs(history: WorkoutDoc[]): Record<string, number> {
   const prs: Record<string, number> = {}
@@ -104,7 +110,7 @@ export function WorkoutHistory({ history, loading, onDelete }: {
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1 min-w-0 pr-2">
-                  <p className="text-sm font-bold text-white truncate">{w.exercises.map(e => e.name).join(', ')}</p>
+                  <p className="text-sm font-bold text-white truncate">{workoutTitle(w.exercises)}</p>
                   <span className="text-xs text-white/35">{formatDate(w.createdAt)}</span>
                 </div>
                 <button
@@ -152,7 +158,7 @@ export function WorkoutHistory({ history, loading, onDelete }: {
           >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-base font-bold text-white">{selectedWorkout.exercises.map(e => e.name).join(', ')}</p>
+                <p className="text-base font-bold text-white">{workoutTitle(selectedWorkout.exercises)}</p>
                 <span className="text-xs text-white/35">{formatDate(selectedWorkout.createdAt)}</span>
               </div>
               <button
@@ -186,6 +192,27 @@ export function WorkoutHistory({ history, loading, onDelete }: {
                 ))}
               </div>
             </div>
+
+            {/* Circuits */}
+            {selectedWorkout.circuits && selectedWorkout.circuits.length > 0 && (
+              <div className="rounded-xl border border-brand-green/20 bg-brand-green/5 p-3 mt-3">
+                <p className="text-[10px] font-bold text-brand-green/60 tracking-widest mb-2">CIRCUITE</p>
+                {selectedWorkout.circuits.map((circuit, ci) => (
+                  <div key={ci} className={ci > 0 ? 'mt-2 pt-2 border-t border-brand-green/10' : ''}>
+                    <p className="text-xs font-bold text-white/80 mb-0.5">
+                      {circuitSummaryLine(circuit, selectedWorkout.exercises)}
+                    </p>
+                    <p className="text-[11px] text-white/50">
+                      {circuit.rounds.length} runde: {formatCircuitRounds(circuit)}
+                    </p>
+                    <div className="flex gap-3 text-[11px] text-white/35 mt-0.5">
+                      <span>Media: {formatDuration(circuitAverage(circuit))}</span>
+                      <span>Total: {formatDuration(circuitTotal(circuit))}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
