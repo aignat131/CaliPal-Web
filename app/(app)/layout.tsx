@@ -43,7 +43,7 @@ function WorkoutUnloadGuard() {
 
 /** Floating pill shown when a workout is active and the user is on another page */
 function WorkoutMiniBar() {
-  const { isActive, seconds } = useWorkout()
+  const { isActive, isPaused, seconds } = useWorkout()
   const pathname = usePathname()
   const router = useRouter()
   const t = useT()
@@ -54,12 +54,15 @@ function WorkoutMiniBar() {
     <button
       onClick={() => router.push('/workout')}
       className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2.5 px-5 h-11 rounded-full shadow-xl cursor-pointer active:scale-95 transition-transform"
-      style={{ backgroundColor: 'var(--accent)' }}
+      style={{ backgroundColor: isPaused ? '#facc15' : 'var(--accent)' }}
     >
-      <span className="w-2 h-2 rounded-full bg-black animate-pulse flex-shrink-0" />
+      {isPaused
+        ? <span className="w-2 h-2 rounded-sm bg-black flex-shrink-0" />
+        : <span className="w-2 h-2 rounded-full bg-black animate-pulse flex-shrink-0" />
+      }
       <Dumbbell size={14} className="text-black flex-shrink-0" />
       <span className="text-sm font-black text-black whitespace-nowrap">
-        {t('layout.active_workout')} · {formatDuration(seconds)}
+        {isPaused ? 'Pauză' : t('layout.active_workout')} · {formatDuration(seconds)}
       </span>
       <ChevronRight size={15} className="text-black flex-shrink-0" />
     </button>

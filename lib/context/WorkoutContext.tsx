@@ -6,6 +6,13 @@ import type { WorkoutExercise, CircuitRound } from '@/types'
 const STORAGE_KEY = 'calipal_workout_started_at'
 const CIRCUITS_STORAGE_KEY = 'calipal_workout_circuits'
 const TIMED_SET_STORAGE_KEY = 'calipal_workout_timed_set'
+const EXERCISES_STORAGE_KEY = 'calipal_workout_exercises'
+const NOTE_STORAGE_KEY = 'calipal_workout_note'
+const DONE_KEYS_STORAGE_KEY = 'calipal_workout_done_keys'
+const PAUSED_ELAPSED_KEY = 'calipal_workout_paused_elapsed'
+const LAST_ACTIVE_KEY = 'calipal_workout_last_active'
+
+const AUTO_PAUSE_THRESHOLD_MS = 10 * 60 * 1000 // 10 minutes
 
 // ── Active circuit state (live during workout) ──────────────────────────────
 
@@ -28,14 +35,19 @@ export interface ActiveTimedSet {
 
 interface WorkoutContextValue {
   isActive: boolean
+  isPaused: boolean
   seconds: number
   startedAt: number | null
   exercises: WorkoutExercise[]
   note: string
+  doneKeys: Set<string>
   startWorkout: (exs?: WorkoutExercise[]) => void
   stopWorkout: () => void
+  pauseWorkout: () => void
+  resumeWorkout: () => void
   setExercises: (exs: WorkoutExercise[]) => void
   setNote: (note: string) => void
+  toggleDoneKey: (ei: number, si: number) => void
   // Circuits
   circuits: ActiveCircuit[]
   addCircuit: (exerciseIndices: number[], targetRounds: number) => void
@@ -55,26 +67,70 @@ let circuitIdCounter = 0
 
 export function WorkoutProvider({ children }: { children: ReactNode }) {
   const [isActive, setIsActive] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [exercises, setExercisesState] = useState<WorkoutExercise[]>([])
   const [note, setNoteState] = useState('')
+  const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const mountedRef = useRef(false)
 
   // Circuit & timed set state
   const [circuits, setCircuits] = useState<ActiveCircuit[]>([])
   const [activeTimedSet, setActiveTimedSet] = useState<ActiveTimedSet | null>(null)
 
-  // Restore timer from localStorage on mount — handles page reload while workout is active
+  // ── Wrapped setters that also persist to localStorage ─────────────────────
+
+  const setExercises = useCallback((exs: WorkoutExercise[]) => {
+    setExercisesState(exs)
+    if (exs.length > 0) {
+      localStorage.setItem(EXERCISES_STORAGE_KEY, JSON.stringify(exs))
+    } else {
+      localStorage.removeItem(EXERCISES_STORAGE_KEY)
+    }
+  }, [])
+
+  const setNote = useCallback((n: string) => {
+    setNoteState(n)
+    if (n) {
+      localStorage.setItem(NOTE_STORAGE_KEY, n)
+    } else {
+      localStorage.removeItem(NOTE_STORAGE_KEY)
+    }
+  }, [])
+
+  const toggleDoneKey = useCallback((ei: number, si: number) => {
+    setDoneKeys(prev => {
+      const next = new Set(prev)
+      const key = `${ei}-${si}`
+      if (next.has(key)) next.delete(key); else next.add(key)
+      localStorage.setItem(DONE_KEYS_STORAGE_KEY, JSON.stringify([...next]))
+      return next
+    })
+  }, [])
+
+  // ── Restore everything from localStorage on mount ─────────────────────────
+
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const ts = parseInt(stored, 10)
-      if (!isNaN(ts)) {
-        setStartedAt(ts)
-        setIsActive(true)
-        setSeconds(Math.floor((Date.now() - ts) / 1000))
-      }
+    if (!stored) { mountedRef.current = true; return }
+
+    const ts = parseInt(stored, 10)
+    if (isNaN(ts)) { mountedRef.current = true; return }
+
+    // Restore exercises
+    const storedExercises = localStorage.getItem(EXERCISES_STORAGE_KEY)
+    if (storedExercises) {
+      try { setExercisesState(JSON.parse(storedExercises)) } catch { /* ignore */ }
+    }
+    // Restore note
+    const storedNote = localStorage.getItem(NOTE_STORAGE_KEY)
+    if (storedNote) setNoteState(storedNote)
+    // Restore done keys
+    const storedDoneKeys = localStorage.getItem(DONE_KEYS_STORAGE_KEY)
+    if (storedDoneKeys) {
+      try { setDoneKeys(new Set(JSON.parse(storedDoneKeys))) } catch { /* ignore */ }
     }
     // Restore circuits
     const storedCircuits = localStorage.getItem(CIRCUITS_STORAGE_KEY)
@@ -86,10 +142,41 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     if (storedTimed) {
       try { setActiveTimedSet(JSON.parse(storedTimed)) } catch { /* ignore */ }
     }
+
+    // Check if we should auto-pause (user was away >10 minutes)
+    const storedPaused = localStorage.getItem(PAUSED_ELAPSED_KEY)
+    const lastActive = localStorage.getItem(LAST_ACTIVE_KEY)
+    const awayTooLong = lastActive && (Date.now() - parseInt(lastActive, 10)) > AUTO_PAUSE_THRESHOLD_MS
+
+    if (storedPaused) {
+      // Was already paused — restore paused state
+      const elapsed = parseInt(storedPaused, 10)
+      setStartedAt(ts)
+      setIsActive(true)
+      setIsPaused(true)
+      setSeconds(isNaN(elapsed) ? 0 : elapsed)
+    } else if (awayTooLong) {
+      // Was running but user was away >10 min — auto-pause at the moment they left
+      const leftAt = parseInt(lastActive!, 10)
+      const elapsed = Math.floor((leftAt - ts) / 1000)
+      setStartedAt(ts)
+      setIsActive(true)
+      setIsPaused(true)
+      setSeconds(elapsed > 0 ? elapsed : 0)
+      localStorage.setItem(PAUSED_ELAPSED_KEY, String(elapsed > 0 ? elapsed : 0))
+    } else {
+      // Normal restore — timer keeps running
+      setStartedAt(ts)
+      setIsActive(true)
+      setSeconds(Math.floor((Date.now() - ts) / 1000))
+    }
+
+    mountedRef.current = true
   }, [])
 
   // Persist circuits to localStorage whenever they change
   useEffect(() => {
+    if (!mountedRef.current) return
     if (circuits.length > 0) {
       localStorage.setItem(CIRCUITS_STORAGE_KEY, JSON.stringify(circuits))
     } else {
@@ -99,6 +186,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
 
   // Persist active timed set
   useEffect(() => {
+    if (!mountedRef.current) return
     if (activeTimedSet) {
       localStorage.setItem(TIMED_SET_STORAGE_KEY, JSON.stringify(activeTimedSet))
     } else {
@@ -108,8 +196,9 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
 
   // Timer: compute elapsed from startedAt on every tick instead of incrementing a counter.
   // This prevents drift when the phone screen turns off (JS timers freeze/throttle in background).
+  // Timer does NOT run when paused.
   useEffect(() => {
-    if (isActive && startedAt !== null) {
+    if (isActive && !isPaused && startedAt !== null) {
       const tick = () => setSeconds(Math.floor((Date.now() - startedAt) / 1000))
       tick() // sync immediately when starting or resuming
       timerRef.current = setInterval(tick, 1000)
@@ -117,45 +206,107 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [isActive, startedAt])
+  }, [isActive, isPaused, startedAt])
 
-  // Re-sync the second count whenever the screen wakes up or the tab becomes visible again
+  // Re-sync timer on visibility restore; auto-pause if away >10 min
   useEffect(() => {
     const handleVisibility = () => {
-      if (!document.hidden && isActive && startedAt !== null) {
-        setSeconds(Math.floor((Date.now() - startedAt) / 1000))
+      if (!isActive || startedAt === null) return
+
+      if (document.hidden) {
+        // User is leaving — record the moment
+        localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()))
+      } else if (!isPaused) {
+        // User came back — check if they were away too long
+        const lastActive = localStorage.getItem(LAST_ACTIVE_KEY)
+        if (lastActive && (Date.now() - parseInt(lastActive, 10)) > AUTO_PAUSE_THRESHOLD_MS) {
+          const leftAt = parseInt(lastActive, 10)
+          const elapsed = Math.floor((leftAt - startedAt) / 1000)
+          setIsPaused(true)
+          setSeconds(elapsed > 0 ? elapsed : 0)
+          localStorage.setItem(PAUSED_ELAPSED_KEY, String(elapsed > 0 ? elapsed : 0))
+        } else {
+          setSeconds(Math.floor((Date.now() - startedAt) / 1000))
+        }
       }
     }
+
+    // Also record lastActive on beforeunload (browser/tab close)
+    const handleUnload = () => {
+      if (isActive) {
+        localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()))
+      }
+    }
+
     document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [isActive, startedAt])
+    window.addEventListener('beforeunload', handleUnload)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('beforeunload', handleUnload)
+    }
+  }, [isActive, isPaused, startedAt])
+
+  const clearAllStorage = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(CIRCUITS_STORAGE_KEY)
+    localStorage.removeItem(TIMED_SET_STORAGE_KEY)
+    localStorage.removeItem(EXERCISES_STORAGE_KEY)
+    localStorage.removeItem(NOTE_STORAGE_KEY)
+    localStorage.removeItem(DONE_KEYS_STORAGE_KEY)
+    localStorage.removeItem(PAUSED_ELAPSED_KEY)
+    localStorage.removeItem(LAST_ACTIVE_KEY)
+  }, [])
 
   const startWorkout = useCallback((exs: WorkoutExercise[] = []) => {
     const now = Date.now()
     setExercisesState(exs)
     setNoteState('')
+    setDoneKeys(new Set())
     setStartedAt(now)
     setIsActive(true)
+    setIsPaused(false)
     setSeconds(0)
     setCircuits([])
     setActiveTimedSet(null)
+    clearAllStorage()
     localStorage.setItem(STORAGE_KEY, String(now))
-    localStorage.removeItem(CIRCUITS_STORAGE_KEY)
-    localStorage.removeItem(TIMED_SET_STORAGE_KEY)
-  }, [])
+    if (exs.length > 0) {
+      localStorage.setItem(EXERCISES_STORAGE_KEY, JSON.stringify(exs))
+    }
+  }, [clearAllStorage])
 
   const stopWorkout = useCallback(() => {
     setIsActive(false)
+    setIsPaused(false)
     setSeconds(0)
     setStartedAt(null)
     setExercisesState([])
     setNoteState('')
+    setDoneKeys(new Set())
     setCircuits([])
     setActiveTimedSet(null)
-    localStorage.removeItem(STORAGE_KEY)
-    localStorage.removeItem(CIRCUITS_STORAGE_KEY)
-    localStorage.removeItem(TIMED_SET_STORAGE_KEY)
-  }, [])
+    clearAllStorage()
+  }, [clearAllStorage])
+
+  const pauseWorkout = useCallback(() => {
+    if (!isActive || isPaused) return
+    setIsPaused(true)
+    // Freeze seconds at current value
+    const elapsed = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : seconds
+    setSeconds(elapsed)
+    localStorage.setItem(PAUSED_ELAPSED_KEY, String(elapsed))
+  }, [isActive, isPaused, startedAt, seconds])
+
+  const resumeWorkout = useCallback(() => {
+    if (!isActive || !isPaused) return
+    // Adjust startedAt so the timer continues from the paused elapsed time
+    const newStart = Date.now() - seconds * 1000
+    setStartedAt(newStart)
+    setIsPaused(false)
+    localStorage.setItem(STORAGE_KEY, String(newStart))
+    localStorage.removeItem(PAUSED_ELAPSED_KEY)
+    localStorage.removeItem(LAST_ACTIVE_KEY)
+  }, [isActive, isPaused, seconds])
 
   // ── Circuit methods ───────────────────────────────────────────────────────
 
@@ -224,10 +375,9 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
 
   return (
     <WorkoutContext.Provider value={{
-      isActive, seconds, startedAt, exercises, note,
-      startWorkout, stopWorkout,
-      setExercises: setExercisesState,
-      setNote: setNoteState,
+      isActive, isPaused, seconds, startedAt, exercises, note, doneKeys,
+      startWorkout, stopWorkout, pauseWorkout, resumeWorkout,
+      setExercises, setNote, toggleDoneKey,
       circuits, addCircuit, removeCircuit, startCircuitRound, completeCircuitRound, updateCircuitIndicesOnRemove,
       activeTimedSet, startTimedSet, clearTimedSet,
     }}>

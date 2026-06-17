@@ -27,9 +27,9 @@ export default function WorkoutPage() {
   const [tab, setTab] = useState(0)
 
   const {
-    isActive, seconds, startedAt, exercises, note,
-    startWorkout: ctxStart, stopWorkout: ctxStop,
-    setExercises, setNote,
+    isActive, isPaused, seconds, startedAt, exercises, note, doneKeys,
+    startWorkout: ctxStart, stopWorkout: ctxStop, pauseWorkout, resumeWorkout,
+    setExercises, setNote, toggleDoneKey,
     circuits, addCircuit, removeCircuit, startCircuitRound, completeCircuitRound, updateCircuitIndicesOnRemove,
     activeTimedSet, startTimedSet, clearTimedSet,
   } = useWorkout()
@@ -158,14 +158,25 @@ export default function WorkoutPage() {
     setScreen('postdetails')
   }
 
-  function captureWorkout(doneKeys: Set<string>) {
+  function captureWorkout() {
     if (exercises.length === 0) return
+    // Build effective done keys: manual (non-program) sets count as done
+    // except timed sets that haven't been completed yet
+    const effectiveDoneKeys = new Set(doneKeys)
+    exercises.forEach((ex, ei) => {
+      if (!ex.fromProgram) {
+        ex.sets.forEach((s, si) => {
+          const isTimedIncomplete = (s.timedDurationSeconds ?? 0) > 0 && (s.reps ?? 0) === 0
+          if (!isTimedIncomplete) effectiveDoneKeys.add(`${ei}-${si}`)
+        })
+      }
+    })
     let snap: typeof exercises
-    if (doneKeys.size === 0) {
+    if (effectiveDoneKeys.size === 0) {
       snap = [...exercises]
     } else {
       snap = exercises
-        .map((ex, ei) => ({ ...ex, sets: ex.sets.filter((_, si) => doneKeys.has(`${ei}-${si}`)) }))
+        .map((ex, ei) => ({ ...ex, sets: ex.sets.filter((_, si) => effectiveDoneKeys.has(`${ei}-${si}`)) }))
         .filter(ex => ex.sets.length > 0)
       if (snap.length === 0) snap = [...exercises]
     }
@@ -358,12 +369,17 @@ export default function WorkoutPage() {
           seconds={seconds}
           note={note}
           catalogue={catalogue}
+          isPaused={isPaused}
+          doneKeys={doneKeys}
           onNoteChange={setNote}
           onReplaceExerciseSets={replaceExerciseSets}
           onAddExercise={(name, set) => addExercise(name, set)}
           onRemoveExercise={removeExercise}
-          onFinish={(dk) => captureWorkout(dk)}
+          onFinish={() => captureWorkout()}
           onCancel={() => { ctxStop(); setScreen('home') }}
+          onPause={pauseWorkout}
+          onResume={resumeWorkout}
+          onToggleSet={toggleDoneKey}
           favorites={profile?.favoriteExercises ?? []}
           onToggleFavorite={toggleFavorite}
           circuits={circuits}

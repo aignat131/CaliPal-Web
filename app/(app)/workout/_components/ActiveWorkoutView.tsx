@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Trash2, ChevronRight, Check, X, Square, Search, Camera, Timer, RotateCcw, Layers } from 'lucide-react'
+import { Plus, Trash2, ChevronRight, Check, X, Square, Search, Camera, Timer, RotateCcw, Layers, Pause, Play } from 'lucide-react'
 import type { WorkoutExercise, WorkoutSet } from '@/types'
 import type { ActiveCircuit, ActiveTimedSet } from '@/lib/context/WorkoutContext'
 import { getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
@@ -10,8 +10,9 @@ import { useDebounce } from '@/lib/hooks/useDebounce'
 import { formatDuration, totalRepsInWorkout, norm, getExerciseType } from '../_helpers'
 
 export function ActiveWorkoutView({
-  exercises, seconds, note, catalogue, onNoteChange,
+  exercises, seconds, note, catalogue, isPaused, doneKeys, onNoteChange,
   onReplaceExerciseSets, onAddExercise, onRemoveExercise, onFinish, onCancel,
+  onPause, onResume, onToggleSet,
   favorites, onToggleFavorite: _onToggleFavorite,
   circuits, onAddCircuit, onRemoveCircuit, onStartCircuitRound, onCompleteCircuitRound,
   activeTimedSet, onStartTimedSet, onClearTimedSet,
@@ -20,12 +21,17 @@ export function ActiveWorkoutView({
   seconds: number
   note: string
   catalogue: CatalogueEntry[]
+  isPaused: boolean
+  doneKeys: Set<string>
   onNoteChange: (v: string) => void
   onReplaceExerciseSets: (ei: number, sets: WorkoutSet[]) => void
   onAddExercise: (name: string, set: WorkoutSet) => void
   onRemoveExercise: (idx: number) => void
-  onFinish: (doneKeys: Set<string>) => void
+  onFinish: () => void
   onCancel: () => void
+  onPause: () => void
+  onResume: () => void
+  onToggleSet: (ei: number, si: number) => void
   favorites: string[]
   onToggleFavorite: (name: string) => void
   circuits: ActiveCircuit[]
@@ -39,18 +45,6 @@ export function ActiveWorkoutView({
 }) {
   const [showCancel, setShowCancel] = useState(false)
   const [showFinishConfirm, setShowFinishConfirm] = useState(false)
-
-  // Per-set completion tracking (local only, resets when workout ends)
-  const [doneKeys, setDoneKeys] = useState<Set<string>>(new Set())
-
-  function toggleSet(ei: number, si: number) {
-    const key = `${ei}-${si}`
-    setDoneKeys(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key); else next.add(key)
-      return next
-    })
-  }
 
   // Edit existing exercise sets popup
   const [popupExIdx, setPopupExIdx] = useState<number | null>(null)
@@ -253,14 +247,25 @@ export function ActiveWorkoutView({
           <button onClick={() => setShowCancel(true)} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
             <Square size={14} className="text-white/60" />
           </button>
-          <div className="text-center">
-            <p className="text-2xl font-black text-brand-green tabular-nums">{formatDuration(seconds)}</p>
-            <p className="text-xs text-white/35">{totalReps} rep</p>
+          <div className="text-center flex items-center gap-3 justify-center">
+            <button
+              onClick={isPaused ? onResume : onPause}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                isPaused ? 'bg-brand-green animate-pulse' : 'bg-white/8 hover:bg-white/12'
+              }`}
+              title={isPaused ? 'Continuă' : 'Pauză'}
+            >
+              {isPaused ? <Play size={14} className="text-black" /> : <Pause size={14} className="text-white/60" />}
+            </button>
+            <div>
+              <p className={`text-2xl font-black tabular-nums ${isPaused ? 'text-yellow-400' : 'text-brand-green'}`}>{formatDuration(seconds)}</p>
+              <p className="text-xs text-white/35">{totalReps} rep</p>
             {totalSets > 0 && (
               <p className="text-[10px] font-bold mt-0.5" style={{ color: doneCount === totalSets ? 'var(--accent)' : 'rgba(255,255,255,0.25)' }}>
                 {doneCount}/{totalSets} serii
               </p>
             )}
+            </div>
           </div>
           <button
             onClick={() => setShowFinishConfirm(true)}
@@ -271,6 +276,19 @@ export function ActiveWorkoutView({
           </button>
         </div>
       </div>
+
+      {/* Paused banner */}
+      {isPaused && (
+        <div className="max-w-2xl mx-auto px-4 pt-2">
+          <button
+            onClick={onResume}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-sm font-bold active:scale-[0.98] transition-transform"
+          >
+            <Pause size={14} />
+            Antrenament în pauză — apasă pentru a continua
+          </button>
+        </div>
+      )}
 
       {/* Exercises */}
       <div className="flex-1 overflow-y-auto">
@@ -357,7 +375,7 @@ export function ActiveWorkoutView({
                           ensureAudioCtx()
                           onStartTimedSet(ei, si, s.timedDurationSeconds!)
                         } else if (!isManual) {
-                          toggleSet(ei, si)
+                          onToggleSet(ei, si)
                         }
                       }
                       return (
@@ -457,7 +475,7 @@ export function ActiveWorkoutView({
             <div className="flex gap-3">
               <button onClick={() => setShowFinishConfirm(false)}
                 className="flex-1 h-11 rounded-xl border border-white/20 text-sm text-white/80">Continuă</button>
-              <button onClick={() => { setShowFinishConfirm(false); onFinish(effectiveDoneKeys) }}
+              <button onClick={() => { setShowFinishConfirm(false); onFinish() }}
                 className="flex-1 h-11 rounded-xl bg-brand-green text-black text-sm font-bold">
                 Da, finalizează
               </button>
