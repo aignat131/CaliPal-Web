@@ -38,6 +38,30 @@ service firebase.storage {
         && request.resource.size <= 8 * 1024 * 1024;
     }
 
+    // Training photos — any community member can upload their own
+    match /training_photos/{communityId}/{trainingId}/{fileName} {
+      allow read: if isAuth();
+      allow write: if isAuth()
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size <= 8 * 1024 * 1024;
+    }
+
+    // Community post photos — any community member can upload
+    match /community_posts/{communityId}/{fileName} {
+      allow read: if isAuth();
+      allow write: if isAuth()
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size <= 8 * 1024 * 1024;
+    }
+
+    // Chat images — conversation participants can upload
+    match /chatImages/{conversationId}/{fileName} {
+      allow read: if isAuth();
+      allow write: if isAuth()
+        && request.resource.contentType.matches('image/.*')
+        && request.resource.size <= 8 * 1024 * 1024;
+    }
+
     // Form check videos — owner writes, superadmin reads
     match /form_check_videos/{uid}/{fileName} {
       allow read: if isOwner(uid) || isAuth();

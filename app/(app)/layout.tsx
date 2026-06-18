@@ -15,6 +15,7 @@ import { ChevronRight, Dumbbell, Bell, Users, MessageSquare, UserPlus, Palette }
 import type { Theme } from '@/lib/hooks/useTheme'
 import { useT } from '@/lib/context/LanguageContext'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
+import TrainingPhotoBanner from '@/components/training/TrainingPhotoBanner'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
@@ -345,6 +346,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         <NotifPermissionModal onAllow={allowNotifications} onDismiss={dismissNotifModal} />
       )}
       <WorkoutUnloadGuard />
+      <TrainingPhotoBanner />
       <OfflineBanner />
       <AppNav />
       <WorkoutMiniBar />

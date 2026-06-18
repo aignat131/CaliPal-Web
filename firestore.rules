@@ -186,9 +186,26 @@ service cloud.firestore {
           || (isCommunityMember(communityId)
               && request.resource.data.diff(resource.data).affectedKeys()
                   .hasOnly(['rsvps', 'rsvpNames', 'rsvpPhotos', 'lastRsvpNotifAt']))
+          || (isCommunityMember(communityId)
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['photoCount']))
           || (request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
               && request.resource.data.guestRsvps.size() <= 200);
+      }
+
+      // Training photos — one per attendee
+      match /trainings/{trainingId}/photos/{photoId} {
+        allow read: if isAuth();
+        allow create: if isCommunityMember(communityId)
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.photoUrl is string;
+        allow delete: if isAuth() && (
+          request.auth.uid == resource.data.authorId
+          || isCommunityStaff(communityId)
+          || isSuperAdmin()
+        );
+        allow update: if false;
       }
 
       // Immutable mirror of trainings — no updates, no deletes from any client

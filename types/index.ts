@@ -131,6 +131,19 @@ export interface PlannedTraining {
   // Soft-delete
   deletedAt?: Timestamp | null
   deletedByUid?: string
+  // Training photos
+  photoCount?: number
+  // Visibility
+  visibility?: 'public' | 'private'
+}
+
+export interface TrainingPhoto {
+  id: string
+  authorId: string
+  authorName: string
+  authorPhotoUrl?: string | null
+  photoUrl: string
+  createdAt: Timestamp | null
 }
 
 export interface ConversationDoc {
