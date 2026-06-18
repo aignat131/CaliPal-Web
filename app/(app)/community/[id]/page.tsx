@@ -581,12 +581,6 @@ export default function CommunityDetailPage() {
   // For non-members, always show tab index 0 (Membri → effectiveTab 2)
   const effectiveTab = isMember ? tab : 2
 
-  // Filter out private trainings for non-superadmin users
-  const visibleTrainings = trainings.filter(t => {
-    if (t.visibility === 'private' && !isSuperAdmin) return false
-    return true
-  })
-
   // Split trainings into upcoming and recent past (last 7 days)
   const RECENT_PAST_DAYS = 7
   const recentCutoff = new Date(Date.now() - RECENT_PAST_DAYS * 24 * 60 * 60 * 1000)
@@ -595,8 +589,8 @@ export default function CommunityDetailPage() {
     if (!a.official && b.official) return 1
     return (a.timeStart ?? a.date ?? '').localeCompare(b.timeStart ?? b.date ?? '')
   }
-  const upcoming = [...visibleTrainings].filter(t => !isTrainingPast(t)).sort(trainingSorter)
-  const recentPast = [...visibleTrainings].filter(t => {
+  const upcoming = [...trainings].filter(t => !isTrainingPast(t)).sort(trainingSorter)
+  const recentPast = [...trainings].filter(t => {
     if (!isTrainingPast(t)) return false
     const end = parseTrainingDateTime(t.timeEnd, t.date)
     return !!end && end >= recentCutoff
@@ -908,7 +902,7 @@ export default function CommunityDetailPage() {
                 )}
               </div>
             )}
-            {/* Training photo cards (superadmin only) */}
+            {/* Training photo cards (superadmin only) — only after training has started */}
             {isSuperAdmin && trainingsLoaded && (() => {
               const now = new Date()
               const fourHoursMs = 4 * 60 * 60 * 1000
@@ -916,7 +910,9 @@ export default function CommunityDetailPage() {
                 const start = t.timeStart ? parseTrainingDateTime(t.timeStart, t.date) : null
                 const end = t.timeEnd ? parseTrainingDateTime(t.timeEnd, t.date) : null
                 if (!start) return false
-                const isOngoing = end ? start <= now && now < end : false
+                // Only show after training has started
+                if (start > now) return false
+                const isOngoing = end ? now < end : false
                 const isRecent = end ? now < new Date(end.getTime() + fourHoursMs) : false
                 return isOngoing || isRecent || (t.photoCount && t.photoCount > 0)
               })
@@ -969,7 +965,6 @@ export default function CommunityDetailPage() {
                 userName={myName}
                 isStaff={myRole === 'ADMIN' || myRole === 'TRAINER' || myRole === 'MODERATOR' || isSuperAdmin}
                 isAdmin={myRole === 'ADMIN' || myRole === 'MODERATOR' || isSuperAdmin}
-                isSuperAdmin={isSuperAdmin}
                 defaultLocation={community?.location ?? ''}
                 firebaseUser={user ?? null}
                 onClose={() => setShowAddTraining(false)}
@@ -1817,8 +1812,8 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
 
 // ── Add Training Form ─────────────────────────────────────────────────────────
 
-function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, isSuperAdmin: isSA, defaultLocation, firebaseUser, onClose }: {
-  communityId: string; userId: string; userName: string; isStaff: boolean; isAdmin: boolean; isSuperAdmin?: boolean; defaultLocation?: string; firebaseUser: import('firebase/auth').User | null; onClose: () => void
+function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, defaultLocation, firebaseUser, onClose }: {
+  communityId: string; userId: string; userName: string; isStaff: boolean; isAdmin: boolean; defaultLocation?: string; firebaseUser: import('firebase/auth').User | null; onClose: () => void
 }) {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
@@ -1836,7 +1831,7 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, isSu
   const [showEquipment, setShowEquipment] = useState(false)
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
   const [exercises, setExercises] = useState<{ name: string; sets: string; repsPerSet: string }[]>([])
-  const [isPrivate, setIsPrivate] = useState(false)
+
 
   const EQUIPMENT_OPTIONS = [
     { id: 'rings', label: '🪢 Inele' },
@@ -1901,7 +1896,6 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, isSu
           ? [...selectedEquipment, customEquipment.trim()]
           : selectedEquipment
       } : {}),
-        ...(isPrivate ? { visibility: 'private' } : {}),
         createdAt:       serverTimestamp(),
       }
       // Atomic batch: create training + mirror + backup together
@@ -1996,19 +1990,6 @@ function AddTrainingForm({ communityId, userId, userName, isStaff, isAdmin, isSu
             <span className="text-xs text-white/35">(trimite email membrilor)</span>
           </label>
         )}
-        {isSA && (
-          <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isPrivate}
-              onChange={e => setIsPrivate(e.target.checked)}
-              className="accent-brand-green w-4 h-4"
-            />
-            <span>Privat (doar tu)</span>
-            <span className="text-xs text-white/35">(invizibil pentru ceilalți)</span>
-          </label>
-        )}
-
         {/* Exercises */}
         <div className="mt-1">
           <div className="flex items-center justify-between mb-1.5">

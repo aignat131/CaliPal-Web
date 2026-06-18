@@ -70,7 +70,7 @@ export async function uploadChatImage(conversationId: string, uid: string, times
 export async function uploadTrainingPhoto(communityId: string, trainingId: string, uid: string, file: File): Promise<string> {
   validateImage(file)
   const compressed = await compressImage(file, { maxDimension: 1080, quality: 0.82 })
-  const storageRef = ref(storage, `training_photos/${communityId}/${trainingId}/${uid}.jpg`)
+  const storageRef = ref(storage, `training_photos/${communityId}/${trainingId}/${uid}_${Date.now()}.jpg`)
   await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)
 }

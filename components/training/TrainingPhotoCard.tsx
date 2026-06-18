@@ -53,14 +53,15 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
 
   // Can user add a photo?
   const isAttendee = training.attendedBy?.includes(myUid) || training.rsvps?.[myUid] === 'GOING'
-  const hasUploaded = photos.some(p => p.authorId === myUid)
+  const myPhotoCount = photos.filter(p => p.authorId === myUid).length
   const now = new Date()
   const end = parseTrainingDateTime(training.timeEnd, training.date)
   const start = parseTrainingDateTime(training.timeStart, training.date)
+  const hasStarted = start ? start <= now : false
   const isOngoing = start && end ? start <= now && now < end : false
   const fourHoursAfterEnd = end ? new Date(end.getTime() + 4 * 60 * 60 * 1000) : null
   const withinUploadWindow = isOngoing || (fourHoursAfterEnd && now < fourHoursAfterEnd)
-  const canAddPhoto = isAttendee && !hasUploaded && !!withinUploadWindow && !uploading
+  const canAddPhoto = isAttendee && myPhotoCount < 3 && !!withinUploadWindow && !uploading && hasStarted
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -99,7 +100,8 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
   const avatarUids = attendees.slice(0, 6)
   const extraCount = Math.max(0, attendees.length - 6)
 
-  // Don't render if no photos and can't add (unless within upload window)
+  // Don't render before training starts, or if no photos and can't add
+  if (!hasStarted) return null
   if (photos.length === 0 && !canAddPhoto) return null
 
   return (
