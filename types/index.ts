@@ -411,6 +411,7 @@ export interface PostComment {
   id: string
   authorId: string
   authorName: string
+  authorPhotoUrl?: string | null
   text: string
   createdAt: Timestamp | null
 }

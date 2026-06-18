@@ -912,6 +912,7 @@ export default function CommunityDetailPage() {
                   communityId={id}
                   myUid={user?.uid ?? ''}
                   myName={myName}
+                  myPhoto={myPhoto}
                   myRole={myRole}
                   isSuperAdmin={isSuperAdmin}
                   myProTitle={myProfile?.proTitle}
@@ -1147,6 +1148,7 @@ export default function CommunityDetailPage() {
           communityId={id}
           myUid={user.uid}
           myName={myName}
+          myPhoto={myPhoto}
           myRole={myRole}
           isSuperAdmin={isSuperAdmin}
           myProTitle={myProfile?.proTitle}
@@ -2084,11 +2086,12 @@ function formatPostDuration(s: number): string {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myProTitle, onDelete, onOpen }: {
+function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, myProTitle, onDelete, onOpen }: {
   post: CommunityPost
   communityId: string
   myUid: string
   myName: string
+  myPhoto?: string | null
   myRole: MemberRole
   isSuperAdmin: boolean
   myProTitle?: boolean
@@ -2158,11 +2161,16 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
     try {
       await addDoc(
         collection(db, 'communities', communityId, 'posts', post.id, 'comments'),
-        { authorId: myUid, authorName: myName, text: commentText.trim(), createdAt: serverTimestamp() }
+        { authorId: myUid, authorName: myName, authorPhotoUrl: myPhoto || null, text: commentText.trim(), createdAt: serverTimestamp() }
       )
       await updateDoc(doc(db, 'communities', communityId, 'posts', post.id), { commentsCount: increment(1) })
       setCommentText('')
     } finally { setCommenting(false) }
+  }
+
+  async function deleteComment(commentId: string) {
+    await deleteDoc(doc(db, 'communities', communityId, 'posts', post.id, 'comments', commentId))
+    await updateDoc(doc(db, 'communities', communityId, 'posts', post.id), { commentsCount: increment(-1) })
   }
 
   const roleColor = ROLE_COLORS[post.authorRole as MemberRole] ?? 'var(--accent)'
@@ -2300,13 +2308,19 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
         <div className="mt-3 border-t border-white/8 pt-3">
           {comments.map(c => (
             <div key={c.id} className="flex gap-2 mb-2">
-              <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-[10px] font-bold text-white/50">{c.authorName.charAt(0).toUpperCase()}</span>
+              <div className="mt-0.5">
+                <MemberAvatar photoUrl={c.authorPhotoUrl} name={c.authorName} size={24} />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <span className="text-xs font-bold text-white">{c.authorName} </span>
                 <span className="text-xs text-white/70">{c.text}</span>
               </div>
+              {isSuperAdmin && (
+                <button onClick={() => deleteComment(c.id)} aria-label="Șterge comentariu"
+                  className="text-red-400/60 hover:text-red-400 transition-colors p-0.5 flex-shrink-0 mt-0.5">
+                  <Trash2 size={11} />
+                </button>
+              )}
             </div>
           ))}
           <div className="flex gap-2 mt-2">
@@ -2330,11 +2344,12 @@ function PostCard({ post, communityId, myUid, myName, myRole, isSuperAdmin, myPr
 
 // ── Post Detail Sheet ─────────────────────────────────────────────────────────
 
-function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmin, myProTitle: _myProTitle, onDelete, onClose }: {
+function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, myProTitle: _myProTitle, onDelete, onClose }: {
   post: CommunityPost
   communityId: string
   myUid: string
   myName: string
+  myPhoto?: string | null
   myRole: MemberRole
   isSuperAdmin: boolean
   myProTitle?: boolean
@@ -2393,10 +2408,15 @@ function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmi
     setCommenting(true)
     try {
       await addDoc(collection(db, 'communities', communityId, 'posts', post.id, 'comments'),
-        { authorId: myUid, authorName: myName, text: commentText.trim(), createdAt: serverTimestamp() })
+        { authorId: myUid, authorName: myName, authorPhotoUrl: myPhoto || null, text: commentText.trim(), createdAt: serverTimestamp() })
       await updateDoc(doc(db, 'communities', communityId, 'posts', post.id), { commentsCount: increment(1) })
       setCommentText('')
     } finally { setCommenting(false) }
+  }
+
+  async function deleteComment(commentId: string) {
+    await deleteDoc(doc(db, 'communities', communityId, 'posts', post.id, 'comments', commentId))
+    await updateDoc(doc(db, 'communities', communityId, 'posts', post.id), { commentsCount: increment(-1) })
   }
 
   function formatPostDurationLocal(s: number): string {
@@ -2511,8 +2531,8 @@ function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmi
           )}
           {comments.map(c => (
             <div key={c.id} className="flex gap-2.5 mb-3">
-              <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-[10px] font-bold text-white/50">{c.authorName.charAt(0).toUpperCase()}</span>
+              <div className="mt-0.5">
+                <MemberAvatar photoUrl={c.authorPhotoUrl} name={c.authorName} size={28} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="rounded-2xl px-3 py-2" style={{ backgroundColor: 'var(--app-surface)' }}>
@@ -2520,6 +2540,12 @@ function PostDetailSheet({ post, communityId, myUid, myName, myRole, isSuperAdmi
                   <span className="text-xs text-white/70">{c.text}</span>
                 </div>
               </div>
+              {isSuperAdmin && (
+                <button onClick={() => deleteComment(c.id)} aria-label="Șterge comentariu"
+                  className="text-red-400/60 hover:text-red-400 transition-colors p-0.5 flex-shrink-0 mt-2">
+                  <Trash2 size={12} />
+                </button>
+              )}
             </div>
           ))}
           <div ref={bottomRef} />
