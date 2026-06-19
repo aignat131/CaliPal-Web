@@ -15,6 +15,7 @@ import {
   Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil, X, Search, UserPlus,
 } from 'lucide-react'
 import Link from 'next/link'
+import TrainingPhotoCard from '@/components/training/TrainingPhotoCard'
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -92,9 +93,8 @@ function isPast(training: PlannedTraining): boolean {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PublicTrainingPage() {
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const { displayName: myDisplayName, photoUrl: myPhotoUrl } = useMyProfile()
-  const isSuperAdmin = user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '')
   const router = useRouter()
   const params = useParams()
   const communityId = params.communityId as string
@@ -129,6 +129,7 @@ export default function PublicTrainingPage() {
   const [selectedMemberUids, setSelectedMemberUids] = useState<Set<string>>(new Set())
   const [addingMembers, setAddingMembers] = useState(false)
   const [addMembersResult, setAddMembersResult] = useState<{ added: number } | null>(null)
+  const [addMembersError, setAddMembersError] = useState<string | null>(null)
 
   // Guest state
   const [guestId, setGuestId] = useState<string>('')
@@ -377,6 +378,7 @@ export default function PublicTrainingPage() {
     )
     setSelectedMemberUids(goingSet)
     setAddMembersSearch('')
+    setAddMembersError(null)
     setShowAddMembersPanel(true)
   }
 
@@ -424,6 +426,7 @@ export default function PublicTrainingPage() {
       setShowAddMembersPanel(false)
     } catch (e) {
       console.error('Failed to add members:', e)
+      setAddMembersError('Nu s-au putut adăuga membrii. Verifică permisiunile.')
     } finally {
       setAddingMembers(false)
     }
@@ -618,6 +621,18 @@ export default function PublicTrainingPage() {
           </div>
         </div>
 
+        {/* Training photos */}
+        {user && training && (
+          <TrainingPhotoCard
+            training={training}
+            communityId={communityId}
+            myUid={user.uid}
+            myName={myDisplayName ?? user.displayName ?? 'Utilizator'}
+            myPhoto={myPhotoUrl ?? null}
+            isSuperAdmin={isSuperAdmin}
+          />
+        )}
+
         {/* Attendees list */}
         {(goingUids.length > 0 || guestGoing.length > 0) && (
           <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
@@ -702,6 +717,15 @@ export default function PublicTrainingPage() {
             <p className="text-sm font-semibold text-white">
               {addMembersResult.added} {addMembersResult.added === 1 ? 'membru adăugat' : 'membri adăugați'} cu succes!
             </p>
+          </div>
+        )}
+
+        {/* Add members error toast */}
+        {addMembersError && (
+          <div className="rounded-2xl p-4 mb-4 flex items-center gap-3"
+            style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.19)' }}>
+            <X size={18} className="text-red-400 flex-shrink-0" />
+            <p className="text-sm font-semibold text-white">{addMembersError}</p>
           </div>
         )}
 
