@@ -9,14 +9,8 @@ service cloud.firestore {
     function isOwner(uid) {
       return isAuth() && request.auth.uid == uid;
     }
-    // NOTE: Hardcoded email will be replaced with a custom claim once the
-    // Firebase Admin SDK is configured to set `superAdmin: true` on the token.
-    // Future: `return isAuth() && request.auth.token.superAdmin == true;`
     function isSuperAdmin() {
-      return isAuth() && (
-        request.auth.token.email == 'aignat131@gmail.com'
-        || request.auth.token.superAdmin == true
-      );
+      return isAuth() && request.auth.token.superAdmin == true;
     }
     function getCommunityMember(communityId) {
       return get(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid));
@@ -38,8 +32,14 @@ service cloud.firestore {
     // ── Users ─────────────────────────────────────────────────────────────────
     match /users/{uid} {
       allow read: if isAuth();
-      allow create: if isOwner(uid);
-      allow update: if isOwner(uid) || isSuperAdmin()
+      allow create: if isOwner(uid)
+        && request.resource.data.createdAt == request.time;
+      allow update: if (isOwner(uid)
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['bio'])
+              || (request.resource.data.bio is string && request.resource.data.bio.size() <= 500))
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['displayName'])
+              || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 60))
+        ) || isSuperAdmin()
         // Allow any authenticated user to increment totalTrainings (used when closing a training)
         || (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalTrainings']));
 
@@ -75,14 +75,18 @@ service cloud.firestore {
     // ── Coin tasks (one-time award guards) ────────────────────────────────────
     match /coin_tasks/{taskId} {
       allow read: if isAuth() && (resource == null || resource.data.uid == request.auth.uid);
-      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow create: if isAuth()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.awardedAt == request.time;
       allow update, delete: if false;
     }
 
     // ── Training streak milestone guards ──────────────────────────────────────
     match /training_streak_tasks/{taskId} {
       allow read: if isAuth() && (resource == null || resource.data.uid == request.auth.uid);
-      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow create: if isAuth()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.awardedAt == request.time;
       allow update, delete: if false;
     }
 
@@ -106,14 +110,17 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 80
         && request.resource.data.description is string
-        && request.resource.data.description.size() <= 1000;
+        && request.resource.data.description.size() <= 1000
+        && request.resource.data.createdAt == request.time
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.joinedCommunityIds.size() < 10;
       allow update: if isCommunityAdmin(communityId) || isSuperAdmin() ||
         (isAuth() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount']));
       allow delete: if isSuperAdmin();
 
       match /members/{uid} {
         allow read: if true;
-        allow create: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && request.resource.data.joinedAt == request.time;
         allow update: if isOwner(uid) || isCommunityStaff(communityId) || isSuperAdmin();
         allow delete: if isOwner(uid) || isCommunityAdmin(communityId) || isSuperAdmin();
       }
@@ -122,7 +129,8 @@ service cloud.firestore {
         allow read: if isAuth();
         allow create: if isCommunityMember(communityId)
           && request.resource.data.content is string
-          && request.resource.data.content.size() <= 2000;
+          && request.resource.data.content.size() <= 2000
+          && request.resource.data.createdAt == request.time;
         allow update: if isAuth() && (
           request.auth.uid == resource.data.authorId ||
           isCommunityStaff(communityId) ||
@@ -140,7 +148,8 @@ service cloud.firestore {
           allow read: if isAuth();
           allow create: if isCommunityMember(communityId)
             && request.resource.data.text is string
-            && request.resource.data.text.size() <= 1000;
+            && request.resource.data.text.size() <= 1000
+            && request.resource.data.createdAt == request.time;
           allow update, delete: if isAuth() && (
             request.auth.uid == resource.data.authorId ||
             isCommunityStaff(communityId) ||
@@ -165,7 +174,8 @@ service cloud.firestore {
           && request.resource.data.name is string
           && request.resource.data.name.size() <= 120
           && request.resource.data.description is string
-          && request.resource.data.description.size() <= 1000;
+          && request.resource.data.description.size() <= 1000
+          && request.resource.data.createdAt == request.time;
         // Hard delete blocked — only Admin SDK (server-side) can delete
         allow delete: if false;
         // Staff: close training and mark attendees
@@ -199,7 +209,8 @@ service cloud.firestore {
         allow read: if isAuth();
         allow create: if isCommunityMember(communityId)
           && request.resource.data.authorId == request.auth.uid
-          && request.resource.data.photoUrl is string;
+          && request.resource.data.photoUrl is string
+          && request.resource.data.createdAt == request.time;
         allow delete: if isAuth() && (
           request.auth.uid == resource.data.authorId
           || isCommunityStaff(communityId)
@@ -213,7 +224,8 @@ service cloud.firestore {
         allow read: if true;
         allow create: if (isCommunityMember(communityId) || isSuperAdmin())
           && request.resource.data.name is string
-          && request.resource.data.name.size() <= 120;
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.createdAt == request.time;
         allow update, delete: if false;
       }
 
@@ -230,7 +242,9 @@ service cloud.firestore {
         return isAuth() && resource != null && request.auth.uid in resource.data.participantIds;
       }
       allow read: if resource == null || isParticipant();
-      allow create: if isAuth() && request.auth.uid in request.resource.data.participantIds;
+      allow create: if isAuth()
+        && request.auth.uid in request.resource.data.participantIds
+        && request.resource.data.lastMessageTimestamp == request.time;
       allow update: if isParticipant();
 
       match /messages/{messageId} {
@@ -243,7 +257,8 @@ service cloud.firestore {
           request.auth.uid in convParticipants() &&
           request.auth.uid == request.resource.data.senderId &&
           request.resource.data.text is string &&
-          request.resource.data.text.size() <= 4000;
+          request.resource.data.text.size() <= 4000 &&
+          request.resource.data.timestamp == request.time;
         allow delete: if isAuth() && resource.data.senderId == request.auth.uid;
       }
     }
@@ -255,7 +270,9 @@ service cloud.firestore {
         request.auth.uid == resource.data.fromUid ||
         request.auth.uid == resource.data.toUid
       );
-      allow create: if isAuth() && request.auth.uid == request.resource.data.fromUid;
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.fromUid
+        && request.resource.data.sentAt == request.time;
       allow update: if isAuth() && (
         request.auth.uid == resource.data.toUid ||
         request.auth.uid == resource.data.fromUid
@@ -286,7 +303,8 @@ service cloud.firestore {
           && request.resource.data.name is string
           && request.resource.data.name.size() <= 120
           && request.resource.data.description is string
-          && request.resource.data.description.size() <= 1000;
+          && request.resource.data.description.size() <= 1000
+          && request.resource.data.createdAt == request.time;
         // Hard delete blocked — only Admin SDK (server-side) can delete
         allow delete: if false;
         // NOTE: deletedAt/deletedByUid blocked from ALL clients — soft-delete only via API
@@ -310,7 +328,8 @@ service cloud.firestore {
         allow read: if true;
         allow create: if isAuth()
           && request.resource.data.name is string
-          && request.resource.data.name.size() <= 120;
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.createdAt == request.time;
         allow update, delete: if false;
       }
     }
@@ -318,7 +337,8 @@ service cloud.firestore {
     // ── Training backups (safety net — Admin SDK handles updates/deletes) ────
     match /training_backups/{backupId} {
       allow read: if isSuperAdmin();
-      allow create: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.createdAt == request.time;
       allow update, delete: if false;
     }
 
@@ -344,7 +364,13 @@ service cloud.firestore {
     match /notifications/{uid} {
       match /items/{itemId} {
         allow read, delete: if isOwner(uid);
-        allow create: if isAuth();
+        allow create: if isAuth()
+          && request.resource.data.title is string
+          && request.resource.data.title.size() <= 200
+          && request.resource.data.body is string
+          && request.resource.data.body.size() <= 500
+          && request.resource.data.isRead == false
+          && request.resource.data.createdAt == request.time;
         allow update: if isOwner(uid);
       }
     }
@@ -364,7 +390,13 @@ service cloud.firestore {
     // ── Park requests (user-submitted park addition requests) ─────────────────
     match /park_requests/{reqId} {
       allow read: if isSuperAdmin();
-      allow create: if isAuth() && request.resource.data.requestedByUid == request.auth.uid;
+      allow create: if isAuth()
+        && request.resource.data.requestedByUid == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.createdAt == request.time
+        && (!('description' in request.resource.data)
+            || (request.resource.data.description is string && request.resource.data.description.size() <= 500));
       allow update, delete: if isSuperAdmin();
     }
 
@@ -373,7 +405,11 @@ service cloud.firestore {
       allow read: if isAuth() && (
         request.auth.uid == resource.data.userId || isSuperAdmin()
       );
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && (!('notes' in request.resource.data)
+            || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000));
       allow update: if isSuperAdmin();
       allow delete: if isSuperAdmin() || request.auth.uid == resource.data.userId;
     }
@@ -381,21 +417,33 @@ service cloud.firestore {
     // ── Park-community association requests ───────────────────────────────────
     match /park_community_requests/{reqId} {
       allow read: if isAuth();
-      allow create: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.communityName is string
+        && request.resource.data.communityName.size() <= 80
+        && request.resource.data.createdAt == request.time;
       allow update, delete: if isSuperAdmin();
     }
 
     // ── Community verification requests ───────────────────────────────────────
     match /verification_requests/{reqId} {
       allow read: if isAuth();
-      allow create: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.createdAt == request.time
+        && (!('reason' in request.resource.data)
+            || (request.resource.data.reason is string && request.resource.data.reason.size() <= 500));
       allow update, delete: if isSuperAdmin();
     }
 
     // ── Feedback (user submissions + superadmin replies) ──────────────────────
     match /feedback/{feedbackId} {
       allow read, update, delete: if isSuperAdmin();
-      allow create: if isSuperAdmin() || (isAuth() && request.resource.data.uid == request.auth.uid);
+      allow create: if isSuperAdmin() || (isAuth()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.subject is string
+        && request.resource.data.subject.size() <= 150
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 2500
+        && request.resource.data.createdAt == request.time);
     }
   }
 }
