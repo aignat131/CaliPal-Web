@@ -5,7 +5,7 @@ import { collection, onSnapshot, addDoc, updateDoc, doc, increment, serverTimest
 import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'
 import { uploadTrainingPhoto } from '@/lib/firebase/storage'
-import { MapPin, Clock, Camera } from 'lucide-react'
+import { MapPin, Clock, Camera, Trash2 } from 'lucide-react'
 import type { PlannedTraining, TrainingPhoto } from '@/types'
 import TrainingPhotoCarousel from './TrainingPhotoCarousel'
 import PhotoDeleteModal from './PhotoDeleteModal'
@@ -143,7 +143,16 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
       <div className="p-3 pb-2">
         <div className="flex items-center gap-2 mb-1">
           <Camera size={14} className="text-brand-green" />
-          <span className="text-sm font-bold text-white">{training.name}</span>
+          <span className="text-sm font-bold text-white flex-1">{training.name}</span>
+          {isSuperAdmin && photos.length > 0 && (
+            <button
+              onClick={() => setDeleteTarget({ mode: 'all' })}
+              className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-red-500/20 transition-colors"
+              aria-label="Șterge toate pozele"
+            >
+              <Trash2 size={13} className="text-red-400/70" />
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-3 text-[11px] text-white/45">
           {displayDate && (

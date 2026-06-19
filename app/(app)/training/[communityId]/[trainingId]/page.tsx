@@ -12,7 +12,7 @@ import { createNotification } from '@/lib/firebase/notifications'
 import { awardTrainingAttendancePoints } from '@/lib/gamification/coins'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
-  Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil, X, Search, UserPlus,
+  Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil, X, Search, UserPlus, Trash2,
 } from 'lucide-react'
 import Link from 'next/link'
 import TrainingPhotoCard from '@/components/training/TrainingPhotoCard'
@@ -466,6 +466,20 @@ export default function PublicTrainingPage() {
     }
   }
 
+  async function removeUserFromTraining(uid: string) {
+    if (!isSuperAdmin || !training) return
+    try {
+      const update: Record<string, unknown> = {
+        [`rsvps.${uid}`]: deleteField(),
+        [`rsvpNames.${uid}`]: deleteField(),
+        [`rsvpPhotos.${uid}`]: deleteField(),
+      }
+      await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), update)
+    } catch (e) {
+      console.error('Failed to remove user:', e)
+    }
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
@@ -653,6 +667,15 @@ export default function PublicTrainingPage() {
                     <MemberAvatar photoUrl={photo} name={name} size={32} />
                     <span className="text-sm font-semibold text-white/80 flex-1">{name}</span>
                     {isMe && <span className="text-[10px] text-brand-green">Tu</span>}
+                    {isSuperAdmin && !isMe && (
+                      <button
+                        onClick={() => removeUserFromTraining(uid)}
+                        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                        aria-label="Elimină participantul"
+                      >
+                        <Trash2 size={13} className="text-red-400/60" />
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -665,6 +688,21 @@ export default function PublicTrainingPage() {
                     <span className="text-[10px] text-white/30 flex items-center gap-1">
                       <User size={9} /> invitat
                     </span>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
+                              [`guestRsvps.${gid}`]: deleteField(),
+                            })
+                          } catch (e) { console.error(e) }
+                        }}
+                        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                        aria-label="Elimină invitatul"
+                      >
+                        <Trash2 size={13} className="text-red-400/60" />
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -689,6 +727,24 @@ export default function PublicTrainingPage() {
                     <MemberAvatar photoUrl={photo} name={name} size={32} />
                     <span className="text-sm font-semibold text-white/80 flex-1">{name}</span>
                     {isMe && <span className="text-[10px] text-brand-green">Tu</span>}
+                    {isSuperAdmin && !isMe && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
+                              attendedBy: training.attendedBy!.filter(id => id !== uid),
+                              [`rsvps.${uid}`]: deleteField(),
+                              [`rsvpNames.${uid}`]: deleteField(),
+                              [`rsvpPhotos.${uid}`]: deleteField(),
+                            })
+                          } catch (e) { console.error(e) }
+                        }}
+                        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                        aria-label="Elimină participantul"
+                      >
+                        <Trash2 size={13} className="text-red-400/60" />
+                      </button>
+                    )}
                   </div>
                 )
               })}
