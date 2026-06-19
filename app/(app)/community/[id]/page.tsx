@@ -36,7 +36,6 @@ import { useToast } from '@/lib/context/ToastContext'
 import { SkeletonCard, SkeletonTrainingRow } from '@/components/ui/SkeletonLoaders'
 import TrainingPhotoCard from '@/components/training/TrainingPhotoCard'
 
-const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 const ROLE_COLORS: Record<MemberRole, string> = {
   ADMIN: '#FFB800',
@@ -101,7 +100,7 @@ function toAndroidDateTime(date: string, time: string): string {
 }
 
 export default function CommunityDetailPage() {
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const { theme } = useTheme()
   const { displayName: myName, photoUrl: myPhoto, profile: myProfile } = useMyProfile()
   const { requestPermission } = usePushNotifications(user?.uid)
@@ -164,8 +163,6 @@ export default function CommunityDetailPage() {
   const [memberSheetTarget, setMemberSheetTarget] = useState<CommunityMember | null>(null)
   // Post detail sheet
   const [postDetailTarget, setPostDetailTarget] = useState<CommunityPost | null>(null)
-
-  const isSuperAdmin = user?.email === SUPERADMIN
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -300,7 +297,7 @@ export default function CommunityDetailPage() {
   useEffect(() => {
     if (!user || !isMember) return
     const isStaff = myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER'
-    if (!isStaff && user.email !== SUPERADMIN) return
+    if (!isStaff && !isSuperAdmin) return
 
     const pastUnclosed = trainings.filter(t => isTrainingPast(t) && !t.isClosed)
     if (!pastUnclosed.length) return
@@ -594,7 +591,7 @@ export default function CommunityDetailPage() {
     if (!isTrainingPast(t)) return false
     const end = parseTrainingDateTime(t.timeEnd, t.date)
     return !!end && end >= recentCutoff
-  }).sort(trainingSorter)
+  }).sort((a, b) => (b.timeStart ?? b.date ?? '').localeCompare(a.timeStart ?? a.date ?? '')).slice(0, 2)
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -902,8 +899,8 @@ export default function CommunityDetailPage() {
                 )}
               </div>
             )}
-            {/* Training photo cards (superadmin only) — only after training has started */}
-            {isSuperAdmin && trainingsLoaded && (() => {
+            {/* Training photo cards — only after training has started */}
+            {trainingsLoaded && (() => {
               const now = new Date()
               const fourHoursMs = 4 * 60 * 60 * 1000
               const photoEligible = trainings.filter(t => {
@@ -924,6 +921,7 @@ export default function CommunityDetailPage() {
                   myUid={user?.uid ?? ''}
                   myName={myName}
                   myPhoto={myPhoto}
+                  isSuperAdmin={isSuperAdmin}
                 />
               ))
             })()}

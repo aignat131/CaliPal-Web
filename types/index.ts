@@ -143,6 +143,7 @@ export interface TrainingPhoto {
   authorName: string
   authorPhotoUrl?: string | null
   photoUrl: string
+  visibility?: 'public' | 'private'
   createdAt: Timestamp | null
 }
 
@@ -377,6 +378,7 @@ export type NotificationType =
   | 'OFFICIAL_TRAINING_POSTED'
   | 'COMMUNITY_REMOVED'
   | 'TRAINING_RSVP'
+  | 'PHOTO_DELETED'
 
 export interface AppNotification {
   id: string

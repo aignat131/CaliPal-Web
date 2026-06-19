@@ -206,7 +206,12 @@ service cloud.firestore {
 
       // Training photos — one per attendee
       match /trainings/{trainingId}/photos/{photoId} {
-        allow read: if isAuth();
+        allow read: if isAuth() && (
+          !('visibility' in resource.data)
+          || resource.data.visibility == 'public'
+          || request.auth.uid == resource.data.authorId
+          || isSuperAdmin()
+        );
         allow create: if isCommunityMember(communityId)
           && request.resource.data.authorId == request.auth.uid
           && request.resource.data.photoUrl is string

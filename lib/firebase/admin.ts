@@ -2,6 +2,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app'
 import { getMessaging } from 'firebase-admin/messaging'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
+import { getStorage } from 'firebase-admin/storage'
 
 function getAdminApp() {
   return (
@@ -22,3 +23,4 @@ function getAdminApp() {
 export const adminMessaging = () => getMessaging(getAdminApp())
 export const adminDb = () => getFirestore(getAdminApp())
 export const adminAuth = () => getAuth(getAdminApp())
+export const adminStorage = () => getStorage(getAdminApp())

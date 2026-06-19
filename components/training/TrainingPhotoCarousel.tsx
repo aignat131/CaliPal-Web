@@ -1,16 +1,19 @@
 'use client'
 
 import { useRef, useState, useCallback } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import type { TrainingPhoto } from '@/types'
 
 interface Props {
   photos: TrainingPhoto[]
   canAddPhoto: boolean
   onAddPhoto: () => void
+  isSuperAdmin?: boolean
+  onDeletePhoto?: (photo: TrainingPhoto) => void
+  onDeleteAll?: () => void
 }
 
-export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto }: Props) {
+export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto, isSuperAdmin, onDeletePhoto, onDeleteAll }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeIndex, setActiveIndex] = useState(0)
 
@@ -37,7 +40,7 @@ export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto 
         {photos.map(photo => (
           <div
             key={photo.id}
-            className="snap-center flex-shrink-0 rounded-xl overflow-hidden"
+            className="relative snap-center flex-shrink-0 rounded-xl overflow-hidden"
             style={{ width: 'calc(100% - 16px)' }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -57,6 +60,16 @@ export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto 
               )}
               <span className="text-[11px] text-white/80 font-medium">{photo.authorName}</span>
             </div>
+            {/* Superadmin delete button */}
+            {isSuperAdmin && onDeletePhoto && (
+              <button
+                onClick={e => { e.stopPropagation(); onDeletePhoto(photo) }}
+                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-colors"
+                aria-label="Șterge poza"
+              >
+                <Trash2 size={14} className="text-white" />
+              </button>
+            )}
           </div>
         ))}
         {canAddPhoto && (
@@ -85,6 +98,17 @@ export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto 
             />
           ))}
         </div>
+      )}
+
+      {/* Superadmin delete all button */}
+      {isSuperAdmin && onDeleteAll && photos.length > 0 && (
+        <button
+          onClick={onDeleteAll}
+          className="flex items-center justify-center gap-1.5 mt-2 w-full py-1.5 rounded-lg text-[11px] text-red-400/70 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+        >
+          <Trash2 size={11} />
+          Șterge toate pozele
+        </button>
       )}
     </div>
   )

@@ -3,10 +3,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { collection, onSnapshot, addDoc, updateDoc, doc, increment, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
+import { auth } from '@/lib/firebase/auth'
 import { uploadTrainingPhoto } from '@/lib/firebase/storage'
 import { MapPin, Clock, Camera } from 'lucide-react'
 import type { PlannedTraining, TrainingPhoto } from '@/types'
 import TrainingPhotoCarousel from './TrainingPhotoCarousel'
+import PhotoDeleteModal from './PhotoDeleteModal'
 
 interface Props {
   training: PlannedTraining
@@ -14,6 +16,7 @@ interface Props {
   myUid: string
   myName: string
   myPhoto: string | null
+  isSuperAdmin?: boolean
 }
 
 function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null {
@@ -29,9 +32,11 @@ function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null 
   try { return new Date(str) } catch { return null }
 }
 
-export default function TrainingPhotoCard({ training, communityId, myUid, myName, myPhoto }: Props) {
+export default function TrainingPhotoCard({ training, communityId, myUid, myName, myPhoto, isSuperAdmin }: Props) {
   const [photos, setPhotos] = useState<TrainingPhoto[]>([])
   const [uploading, setUploading] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ mode: 'single' | 'all'; photo?: TrainingPhoto } | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Subscribe to photos subcollection
@@ -40,6 +45,7 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
       collection(db, 'communities', communityId, 'trainings', training.id, 'photos'),
       snap => {
         const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as TrainingPhoto))
+          .filter(p => p.visibility !== 'private' || p.authorId === myUid || isSuperAdmin)
         items.sort((a, b) => {
           const ta = a.createdAt?.toMillis?.() ?? 0
           const tb = b.createdAt?.toMillis?.() ?? 0
@@ -49,7 +55,7 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
       }
     )
     return unsub
-  }, [communityId, training.id])
+  }, [communityId, training.id, myUid, isSuperAdmin])
 
   // Can user add a photo?
   const isAttendee = training.attendedBy?.includes(myUid) || training.rsvps?.[myUid] === 'GOING'
@@ -74,6 +80,7 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
         authorName: myName,
         authorPhotoUrl: myPhoto || null,
         photoUrl,
+        visibility: 'public',
         createdAt: serverTimestamp(),
       })
       await updateDoc(doc(db, 'communities', communityId, 'trainings', training.id), {
@@ -84,6 +91,32 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  async function handleConfirmDelete(reason: string) {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      const token = await auth.currentUser?.getIdToken()
+      const body: Record<string, unknown> = { communityId, trainingId: training.id, reason }
+      if (deleteTarget?.mode === 'all') {
+        body.deleteAll = true
+      } else if (deleteTarget?.photo) {
+        body.photoIds = [deleteTarget.photo.id]
+      }
+      const res = await fetch('/api/admin/delete-training-photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!data.ok) console.error('Delete photos failed:', data.reason)
+    } catch (err) {
+      console.error('Delete photos error:', err)
+    } finally {
+      setDeleting(false)
+      setDeleteTarget(null)
     }
   }
 
@@ -155,6 +188,9 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
           photos={photos}
           canAddPhoto={canAddPhoto}
           onAddPhoto={() => fileRef.current?.click()}
+          isSuperAdmin={isSuperAdmin}
+          onDeletePhoto={photo => setDeleteTarget({ mode: 'single', photo })}
+          onDeleteAll={() => setDeleteTarget({ mode: 'all' })}
         />
       </div>
 
@@ -174,6 +210,17 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
             <div className="h-full bg-brand-green animate-pulse w-2/3 rounded-full" />
           </div>
         </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <PhotoDeleteModal
+          mode={deleteTarget.mode}
+          photo={deleteTarget.photo}
+          photoCount={photos.length}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   )

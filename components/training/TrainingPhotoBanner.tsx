@@ -1,16 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { collection, onSnapshot } from 'firebase/firestore'
+import { useEffect, useState, useRef } from 'react'
+import { collection, onSnapshot, addDoc, updateDoc, doc, increment, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
-import { useRouter } from 'next/navigation'
-import { Camera, X } from 'lucide-react'
+import { uploadTrainingPhoto } from '@/lib/firebase/storage'
+import { Camera, X, Upload, Eye, EyeOff } from 'lucide-react'
 import type { PlannedTraining } from '@/types'
-
-const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
-const DISMISS_KEY = 'calipal_training_photo_banner_dismissed'
 
 function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null {
   if (!str) return null
@@ -25,18 +22,23 @@ function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null 
   try { return new Date(str) } catch { return null }
 }
 
+function getDismissKey(trainingId: string) {
+  return `calipal_photo_popup_dismissed_${trainingId}`
+}
+
 export default function TrainingPhotoBanner() {
   const { user } = useAuth()
   const { profile } = useMyProfile()
-  const router = useRouter()
   const [dismissed, setDismissed] = useState(false)
   const [activeTraining, setActiveTraining] = useState<{ communityId: string; training: PlannedTraining } | null>(null)
-
-  const isSuperAdmin = user?.email === SUPERADMIN
+  const [privateOnly, setPrivateOnly] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploaded, setUploaded] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   // Find ongoing/recently-ended training in favorite community
   useEffect(() => {
-    if (!user || !isSuperAdmin) return
+    if (!user) return
     const favCommunityId = profile?.favoriteCommunityId
     if (!favCommunityId) return
 
@@ -61,6 +63,9 @@ export default function TrainingPhotoBanner() {
           const isAttendee = t.attendedBy?.includes(user.uid) || t.rsvps?.[user.uid] === 'GOING'
           if (!isAttendee) continue
 
+          // Check if already dismissed for this training
+          if (typeof window !== 'undefined' && sessionStorage.getItem(getDismissKey(t.id))) continue
+
           setActiveTraining({ communityId: favCommunityId, training: t })
           return
         }
@@ -68,34 +73,133 @@ export default function TrainingPhotoBanner() {
       }
     )
     return unsub
-  }, [user, isSuperAdmin, profile?.favoriteCommunityId])
+  }, [user, profile?.favoriteCommunityId])
 
-  if (!isSuperAdmin || !activeTraining || dismissed) return null
+  if (!activeTraining || dismissed) return null
 
-  // Check sessionStorage for dismissal
-  if (typeof window !== 'undefined' && sessionStorage.getItem(DISMISS_KEY)) return null
-
-  function handleDismiss(e: React.MouseEvent) {
-    e.stopPropagation()
-    sessionStorage.setItem(DISMISS_KEY, '1')
+  function handleDismiss() {
+    if (activeTraining) {
+      sessionStorage.setItem(getDismissKey(activeTraining.training.id), '1')
+    }
     setDismissed(true)
   }
 
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !user || !activeTraining) return
+    setUploading(true)
+    try {
+      const { communityId, training } = activeTraining
+      const photoUrl = await uploadTrainingPhoto(communityId, training.id, user.uid, file)
+      await addDoc(collection(db, 'communities', communityId, 'trainings', training.id, 'photos'), {
+        authorId: user.uid,
+        authorName: profile?.displayName ?? 'Anonim',
+        authorPhotoUrl: profile?.photoUrl ?? null,
+        photoUrl,
+        visibility: privateOnly ? 'private' : 'public',
+        createdAt: serverTimestamp(),
+      })
+      await updateDoc(doc(db, 'communities', communityId, 'trainings', training.id), {
+        photoCount: increment(1),
+      })
+      setUploaded(true)
+      // Auto-dismiss after short delay
+      setTimeout(handleDismiss, 1500)
+    } catch (err) {
+      console.error('Failed to upload training photo:', err)
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   return (
-    <button
-      onClick={() => router.push(`/community/${activeTraining.communityId}`)}
-      className="fixed top-0 left-0 right-0 z-[300] flex items-center justify-center gap-2 px-4 py-2.5 text-black text-sm font-bold"
-      style={{ backgroundColor: 'var(--accent)' }}
-    >
-      <Camera size={16} />
-      <span>Adaugă o poză la antrenamentul de azi!</span>
-      <button
-        onClick={handleDismiss}
-        className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-black/15 flex items-center justify-center"
-        aria-label="Închide"
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 px-6"
+      onClick={handleDismiss}>
+      <div
+        className="relative w-full max-w-sm rounded-3xl p-6"
+        style={{ backgroundColor: 'var(--app-surface)' }}
+        onClick={e => e.stopPropagation()}
       >
-        <X size={12} className="text-black" />
-      </button>
-    </button>
+        {/* Close button */}
+        <button
+          onClick={handleDismiss}
+          className="absolute top-4 right-4 w-7 h-7 rounded-full bg-white/10 flex items-center justify-center"
+          aria-label="Închide"
+        >
+          <X size={14} className="text-white/60" />
+        </button>
+
+        {/* Icon */}
+        <div className="flex justify-center mb-4">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(76,175,80,0.15)' }}>
+            <Camera size={28} className="text-brand-green" />
+          </div>
+        </div>
+
+        {/* Title */}
+        <h3 className="text-base font-black text-white text-center mb-1">
+          Adaugă o poză la antrenament!
+        </h3>
+        <p className="text-sm text-white/45 text-center mb-5">
+          {activeTraining.training.name}
+        </p>
+
+        {uploaded ? (
+          <div className="text-center py-4">
+            <p className="text-brand-green font-bold text-sm">Poza a fost încărcată! ✓</p>
+          </div>
+        ) : (
+          <>
+            {/* Private toggle */}
+            <button
+              onClick={() => setPrivateOnly(v => !v)}
+              className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl mb-4 transition-colors"
+              style={{ backgroundColor: privateOnly ? 'var(--accent-muted, rgba(76,175,80,0.1))' : 'rgba(255,255,255,0.05)' }}
+            >
+              {privateOnly ? <EyeOff size={14} className="text-brand-green" /> : <Eye size={14} className="text-white/40" />}
+              <span className={`text-sm ${privateOnly ? 'text-brand-green font-semibold' : 'text-white/50'}`}>
+                Doar pentru mine
+              </span>
+            </button>
+
+            {/* Upload button */}
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="w-full h-12 rounded-2xl text-sm font-bold text-black flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: 'var(--accent)' }}
+            >
+              {uploading ? (
+                <span>Se încarcă...</span>
+              ) : (
+                <>
+                  <Upload size={16} />
+                  Încarcă o poză
+                </>
+              )}
+            </button>
+
+            {/* Skip button */}
+            <button
+              onClick={handleDismiss}
+              className="w-full h-10 mt-2 rounded-2xl text-sm text-white/40 font-medium hover:text-white/60 transition-colors"
+            >
+              Sari peste
+            </button>
+          </>
+        )}
+
+        {/* Hidden file input */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+      </div>
+    </div>
   )
 }
