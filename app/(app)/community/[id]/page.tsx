@@ -1116,12 +1116,6 @@ export default function CommunityDetailPage() {
                         <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
                           style={{ color: 'var(--accent)', backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>Tu</span>
                       )}
-                      {(m.totalTrainingsAttended ?? 0) >= 5 && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
-                          style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', color: 'var(--accent)' }}>
-                          Dedicat
-                        </span>
-                      )}
                     </div>
                     <span className="text-[12.5px] mt-0.5 block" style={{ color: roleTextColor }}>
                       {isMe && myProfile?.proTitle ? 'Pro' : ROLE_LABELS[m.role as MemberRole]}
@@ -1324,12 +1318,6 @@ function MemberSheet({
               style={{ backgroundColor: `${roleColor}20`, color: roleColor }}>
               {ROLE_LABELS[member.role as MemberRole]}
             </span>
-            {(member.totalTrainingsAttended ?? 0) >= 5 && (
-              <span className="text-xs font-bold px-2 py-0.5 rounded-md"
-                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', color: 'var(--accent)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
-                💪 Dedicat
-              </span>
-            )}
             <span className="text-xs text-white/35">•</span>
             <span className="text-xs text-white/50">{member.trainingPoints ?? 0} pts</span>
             {daysSinceJoin !== null && (
