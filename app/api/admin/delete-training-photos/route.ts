@@ -9,21 +9,21 @@ const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL ?? ''
 
 export async function POST(req: NextRequest) {
   try {
-    // ── 1. Auth — superadmin only ─────────────────────────────────────────────
+    // ── 1. Auth ───────────────────────────────────────────────────────────────
     const authHeader = req.headers.get('authorization') ?? ''
     const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
     if (!idToken) return NextResponse.json({ ok: false, reason: 'no-token' }, { status: 401 })
 
+    let callerUid: string
     let callerEmail: string | undefined
+    let callerIsSuperAdmin = false
     try {
       const decoded = await adminAuth().verifyIdToken(idToken)
+      callerUid = decoded.uid
       callerEmail = decoded.email
+      callerIsSuperAdmin = decoded.superAdmin === true || (!!SUPERADMIN_EMAIL && callerEmail === SUPERADMIN_EMAIL)
     } catch {
       return NextResponse.json({ ok: false, reason: 'invalid-token' }, { status: 401 })
-    }
-
-    if (!SUPERADMIN_EMAIL || callerEmail !== SUPERADMIN_EMAIL) {
-      return NextResponse.json({ ok: false, reason: 'not-superadmin' }, { status: 403 })
     }
 
     // ── 2. Parse body ─────────────────────────────────────────────────────────
@@ -34,14 +34,16 @@ export async function POST(req: NextRequest) {
       trainingId: string
       photoIds?: string[]
       deleteAll?: boolean
-      reason: string
+      reason?: string
     }
 
     if (!communityId || !trainingId) {
       return NextResponse.json({ ok: false, reason: 'missing-fields' }, { status: 400 })
     }
-    if (!reason?.trim()) {
-      return NextResponse.json({ ok: false, reason: 'missing-reason' }, { status: 400 })
+
+    // deleteAll is superadmin-only
+    if (deleteAll && !callerIsSuperAdmin) {
+      return NextResponse.json({ ok: false, reason: 'not-superadmin' }, { status: 403 })
     }
 
     const db = adminDb()
@@ -63,13 +65,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, deleted: 0 })
     }
 
+    // ── 3b. Authorisation per photo ──────────────────────────────────────────
+    // Superadmin can delete any photo; regular users can only delete their own
+    for (const photoDoc of photoDocs) {
+      const data = photoDoc.data()
+      if (!callerIsSuperAdmin && data.authorId !== callerUid) {
+        return NextResponse.json({ ok: false, reason: 'not-owner' }, { status: 403 })
+      }
+    }
+
+    // Superadmin deleting others' photos must provide a reason
+    const deletingOthers = photoDocs.some(d => d.data().authorId !== callerUid)
+    if (deletingOthers && !reason?.trim()) {
+      return NextResponse.json({ ok: false, reason: 'missing-reason' }, { status: 400 })
+    }
+
     // ── 4. Delete storage files and Firestore docs ────────────────────────────
     const bucket = adminStorage().bucket()
-    const authorIds = new Set<string>()
+    const otherAuthorIds = new Set<string>()
 
     for (const photoDoc of photoDocs) {
       const data = photoDoc.data()
-      authorIds.add(data.authorId)
+      if (data.authorId !== callerUid) otherAuthorIds.add(data.authorId)
 
       // Extract storage path from download URL
       try {
@@ -94,12 +111,12 @@ export async function POST(req: NextRequest) {
       photoCount: FieldValue.increment(-photoDocs.length),
     })
 
-    // ── 6. Notify affected authors ────────────────────────────────────────────
-    for (const authorId of authorIds) {
+    // ── 6. Notify affected authors (only others, not self-delete) ────────────
+    for (const authorId of otherAuthorIds) {
       await db.collection(`notifications/${authorId}/items`).add({
         type: 'PHOTO_DELETED',
         title: 'Poza ta a fost ștearsă',
-        body: reason.trim(),
+        body: (reason ?? '').trim(),
         isRead: false,
         relatedId: null,
         createdAt: FieldValue.serverTimestamp(),

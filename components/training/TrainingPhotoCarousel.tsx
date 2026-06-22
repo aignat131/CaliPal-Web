@@ -8,12 +8,13 @@ interface Props {
   photos: TrainingPhoto[]
   canAddPhoto: boolean
   onAddPhoto: () => void
+  myUid: string
   isSuperAdmin?: boolean
   onDeletePhoto?: (photo: TrainingPhoto) => void
   onDeleteAll?: () => void
 }
 
-export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto, isSuperAdmin, onDeletePhoto, onDeleteAll }: Props) {
+export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto, myUid, isSuperAdmin, onDeletePhoto, onDeleteAll }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeIndex, setActiveIndex] = useState(0)
 
@@ -60,8 +61,8 @@ export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto,
               )}
               <span className="text-[11px] text-white/80 font-medium">{photo.authorName}</span>
             </div>
-            {/* Superadmin delete button */}
-            {isSuperAdmin && onDeletePhoto && (
+            {/* Delete button — own photo or superadmin */}
+            {(isSuperAdmin || photo.authorId === myUid) && onDeletePhoto && (
               <button
                 onClick={e => { e.stopPropagation(); onDeletePhoto(photo) }}
                 className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 flex items-center justify-center hover:bg-red-500 transition-colors"

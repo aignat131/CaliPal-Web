@@ -64,7 +64,7 @@ export default function TrainingPhotoBanner() {
           if (!isAttendee) continue
 
           // Check if already dismissed for this training
-          if (typeof window !== 'undefined' && sessionStorage.getItem(getDismissKey(t.id))) continue
+          if (typeof window !== 'undefined' && localStorage.getItem(getDismissKey(t.id))) continue
 
           setActiveTraining({ communityId: favCommunityId, training: t })
           return
@@ -79,7 +79,7 @@ export default function TrainingPhotoBanner() {
 
   function handleDismiss() {
     if (activeTraining) {
-      sessionStorage.setItem(getDismissKey(activeTraining.training.id), '1')
+      localStorage.setItem(getDismissKey(activeTraining.training.id), '1')
     }
     setDismissed(true)
   }

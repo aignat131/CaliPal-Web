@@ -94,17 +94,23 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
     }
   }
 
-  async function handleConfirmDelete(reason: string) {
+  function handleDeletePhoto(photo: TrainingPhoto) {
+    if (photo.authorId === myUid) {
+      // Own photo — delete directly without reason modal
+      deletePhotos([photo.id])
+    } else {
+      // Superadmin deleting someone else's photo — show reason modal
+      setDeleteTarget({ mode: 'single', photo })
+    }
+  }
+
+  async function deletePhotos(photoIds: string[], reason?: string) {
     if (deleting) return
     setDeleting(true)
     try {
       const token = await auth.currentUser?.getIdToken()
-      const body: Record<string, unknown> = { communityId, trainingId: training.id, reason }
-      if (deleteTarget?.mode === 'all') {
-        body.deleteAll = true
-      } else if (deleteTarget?.photo) {
-        body.photoIds = [deleteTarget.photo.id]
-      }
+      const body: Record<string, unknown> = { communityId, trainingId: training.id, photoIds }
+      if (reason) body.reason = reason
       const res = await fetch('/api/admin/delete-training-photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -116,6 +122,30 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
       console.error('Delete photos error:', err)
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function handleConfirmDelete(reason: string) {
+    if (deleting) return
+    if (deleteTarget?.mode === 'all') {
+      setDeleting(true)
+      try {
+        const token = await auth.currentUser?.getIdToken()
+        const res = await fetch('/api/admin/delete-training-photos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ communityId, trainingId: training.id, deleteAll: true, reason }),
+        })
+        const data = await res.json()
+        if (!data.ok) console.error('Delete photos failed:', data.reason)
+      } catch (err) {
+        console.error('Delete photos error:', err)
+      } finally {
+        setDeleting(false)
+        setDeleteTarget(null)
+      }
+    } else if (deleteTarget?.photo) {
+      await deletePhotos([deleteTarget.photo.id], reason)
       setDeleteTarget(null)
     }
   }
@@ -197,8 +227,9 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
           photos={photos}
           canAddPhoto={canAddPhoto}
           onAddPhoto={() => fileRef.current?.click()}
+          myUid={myUid}
           isSuperAdmin={isSuperAdmin}
-          onDeletePhoto={photo => setDeleteTarget({ mode: 'single', photo })}
+          onDeletePhoto={photo => handleDeletePhoto(photo)}
           onDeleteAll={() => setDeleteTarget({ mode: 'all' })}
         />
       </div>
