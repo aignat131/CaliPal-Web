@@ -29,8 +29,9 @@ function getDismissKey(trainingId: string) {
 export default function TrainingPhotoBanner() {
   const { user } = useAuth()
   const { profile } = useMyProfile()
-  const [dismissed, setDismissed] = useState(false)
   const [activeTraining, setActiveTraining] = useState<{ communityId: string; training: PlannedTraining } | null>(null)
+  // Track dismissed training IDs in a ref so onSnapshot re-fires never re-show the popup
+  const dismissedIds = useRef<Set<string>>(new Set())
   const [privateOnly, setPrivateOnly] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploaded, setUploaded] = useState(false)
@@ -63,8 +64,13 @@ export default function TrainingPhotoBanner() {
           const isAttendee = t.attendedBy?.includes(user.uid) || t.rsvps?.[user.uid] === 'GOING'
           if (!isAttendee) continue
 
-          // Check if already dismissed for this training
-          if (typeof window !== 'undefined' && localStorage.getItem(getDismissKey(t.id))) continue
+          // Check if already dismissed for this training (localStorage persists across sessions,
+          // dismissedIds ref persists across onSnapshot re-fires within the same mount)
+          if (dismissedIds.current.has(t.id)) continue
+          if (typeof window !== 'undefined' && localStorage.getItem(getDismissKey(t.id))) {
+            dismissedIds.current.add(t.id)
+            continue
+          }
 
           setActiveTraining({ communityId: favCommunityId, training: t })
           return
@@ -75,13 +81,14 @@ export default function TrainingPhotoBanner() {
     return unsub
   }, [user, profile?.favoriteCommunityId])
 
-  if (!activeTraining || dismissed) return null
+  if (!activeTraining) return null
 
   function handleDismiss() {
     if (activeTraining) {
       localStorage.setItem(getDismissKey(activeTraining.training.id), '1')
+      dismissedIds.current.add(activeTraining.training.id)
     }
-    setDismissed(true)
+    setActiveTraining(null)
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
