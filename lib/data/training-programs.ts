@@ -502,7 +502,181 @@ const CORE_STATICS: TrainingProgram = {
   ],
 }
 
-export const ALL_PROGRAMS: TrainingProgram[] = [FUNDAMENT, MUSCLE_UP_PROG, CORE_STATICS]
+// ── Program 4: Push / Pull / Legs Split (Intermediate, 4 weeks) ─────────────
+
+const PPL_SPLIT: TrainingProgram = {
+  id: 'ppl-split',
+  name: 'Push / Pull / Legs',
+  description: 'Split clasic de calistenie cu 3 zile pe săptămână. Fiecare exercițiu are progresii — alege varianta potrivită nivelului tău.',
+  level: 'intermediate',
+  durationWeeks: 4,
+  focusEmoji: '💪',
+  focusLabel: 'Push / Pull / Legs',
+  weeks: [
+    {
+      weekNumber: 1,
+      weekLabel: 'Săptămâna 1 — Adaptare',
+      days: [
+        {
+          dayLabel: 'Zi 1 — Push',
+          restDay: false,
+          exercises: [
+            { name: 'Wall Walks',       sets: 3, repsPerSet: 3,  metric: 'reps',    notes: 'Urcă pe perete controlat, coboară la fel' },
+            { name: 'Handstand Hold',   sets: 4, repsPerSet: 20, metric: 'seconds', notes: 'Sau Pikestand dacă nu poți Handstand' },
+            { name: 'Pike Push-Ups',    sets: 3, repsPerSet: 6,  metric: 'reps',    notes: 'Sau Assisted HSPU dacă ai nivel avansat' },
+            { name: 'Dips',             sets: 3, repsPerSet: 8,  metric: 'reps',    notes: 'Ring Dips dacă ai inele, altfel Bar Dips' },
+            { name: 'Push-Ups',         sets: 3, repsPerSet: 10, metric: 'reps',    notes: 'Pseudo Push-Ups (avansat) / Knee Push-Ups (începător)' },
+            { name: 'Skull Crushers',   sets: 3, repsPerSet: 10, metric: 'reps',    notes: 'Pe inele sau cu bandă elastică' },
+          ],
+        },
+        {
+          dayLabel: 'Zi 2 — Legs & Abs',
+          restDay: false,
+          exercises: [
+            { name: 'Squaturi',         sets: 3, repsPerSet: 10, metric: 'reps',    notes: 'Pistol Squats (avansat) / Assisted Pistols (intermediar)' },
+            { name: 'Walking Lunges',   sets: 3, repsPerSet: 12, metric: 'reps',    notes: 'Cu sau fără greutate adăugată' },
+            { name: 'Nordic Curls',     sets: 3, repsPerSet: 5,  metric: 'reps',    notes: 'Doar faza negativă. Alternativă: Bulgarian Split Squats' },
+            { name: 'Calf Raises',      sets: 3, repsPerSet: 15, metric: 'reps',    notes: 'Controlat sus, exploziv la ridicare' },
+            { name: 'Leg Raises',       sets: 3, repsPerSet: 10, metric: 'reps',    notes: 'Toes-to-Bar (avansat) / Hanging Leg Raises / Knee Raises' },
+            { name: 'Hollow Body Hold', sets: 3, repsPerSet: 30, metric: 'seconds', notes: 'Sau Plank Hold dacă Hollow Body e prea greu' },
+          ],
+        },
+        {
+          dayLabel: 'Zi 3 — Pull',
+          restDay: false,
+          exercises: [
+            { name: 'High Pull-Ups',    sets: 3, repsPerSet: 3,  metric: 'reps',    notes: 'Muscle-Ups (avansat) / Band Assisted High Pull-Ups (începător)' },
+            { name: 'Tracțiuni',        sets: 3, repsPerSet: 6,  metric: 'reps',    notes: 'Cu greutate (avansat) / Clasice / Australiene (începător)' },
+            { name: 'Izometrice',       sets: 3, repsPerSet: 15, metric: 'seconds', notes: 'Hold la bară sus. Alternativă: Negative (coborâre lentă 5s)' },
+            { name: 'Australian Pull-Ups', sets: 3, repsPerSet: 10, metric: 'reps', notes: 'Sau Retracții scapulare dacă ești la început' },
+          ],
+        },
+      ],
+    },
+    {
+      weekNumber: 2,
+      weekLabel: 'Săptămâna 2 — Volum',
+      days: [
+        {
+          dayLabel: 'Zi 1 — Push',
+          restDay: false,
+          exercises: [
+            { name: 'Wall Walks',       sets: 3, repsPerSet: 4,  metric: 'reps',    notes: 'Controlat, menține poziția sus 3s' },
+            { name: 'Handstand Hold',   sets: 4, repsPerSet: 25, metric: 'seconds', notes: 'Sau Pikestand dacă nu poți Handstand' },
+            { name: 'Pike Push-Ups',    sets: 4, repsPerSet: 7,  metric: 'reps',    notes: 'Sau Assisted HSPU dacă ai nivel avansat' },
+            { name: 'Dips',             sets: 4, repsPerSet: 10, metric: 'reps',    notes: 'Ring Dips dacă ai inele, altfel Bar Dips' },
+            { name: 'Push-Ups',         sets: 4, repsPerSet: 12, metric: 'reps',    notes: 'Pseudo Push-Ups (avansat) / Knee Push-Ups (începător)' },
+            { name: 'Skull Crushers',   sets: 3, repsPerSet: 12, metric: 'reps',    notes: 'Pe inele sau cu bandă elastică' },
+          ],
+        },
+        {
+          dayLabel: 'Zi 2 — Legs & Abs',
+          restDay: false,
+          exercises: [
+            { name: 'Squaturi',         sets: 4, repsPerSet: 10, metric: 'reps',    notes: 'Pistol Squats (avansat) / Assisted Pistols (intermediar)' },
+            { name: 'Walking Lunges',   sets: 3, repsPerSet: 14, metric: 'reps',    notes: 'Cu sau fără greutate adăugată' },
+            { name: 'Nordic Curls',     sets: 3, repsPerSet: 6,  metric: 'reps',    notes: 'Doar faza negativă. Alternativă: Bulgarian Split Squats' },
+            { name: 'Calf Raises',      sets: 4, repsPerSet: 15, metric: 'reps',    notes: 'Controlat sus, exploziv la ridicare' },
+            { name: 'Leg Raises',       sets: 4, repsPerSet: 12, metric: 'reps',    notes: 'Toes-to-Bar (avansat) / Hanging Leg Raises / Knee Raises' },
+            { name: 'Hollow Body Hold', sets: 3, repsPerSet: 35, metric: 'seconds', notes: 'Sau Plank Hold dacă Hollow Body e prea greu' },
+          ],
+        },
+        {
+          dayLabel: 'Zi 3 — Pull',
+          restDay: false,
+          exercises: [
+            { name: 'High Pull-Ups',    sets: 4, repsPerSet: 3,  metric: 'reps',    notes: 'Muscle-Ups (avansat) / Band Assisted High Pull-Ups (începător)' },
+            { name: 'Tracțiuni',        sets: 4, repsPerSet: 7,  metric: 'reps',    notes: 'Cu greutate (avansat) / Clasice / Australiene (începător)' },
+            { name: 'Izometrice',       sets: 3, repsPerSet: 20, metric: 'seconds', notes: 'Hold la bară sus. Alternativă: Negative (coborâre lentă 5s)' },
+            { name: 'Australian Pull-Ups', sets: 3, repsPerSet: 12, metric: 'reps', notes: 'Sau Retracții scapulare dacă ești la început' },
+          ],
+        },
+      ],
+    },
+    {
+      weekNumber: 3,
+      weekLabel: 'Săptămâna 3 — Intensitate',
+      days: [
+        {
+          dayLabel: 'Zi 1 — Push',
+          restDay: false,
+          exercises: [
+            { name: 'Wall Walks',       sets: 4, repsPerSet: 4,  metric: 'reps',    notes: 'Menține poziția sus 5s la fiecare rep' },
+            { name: 'Handstand Hold',   sets: 5, repsPerSet: 25, metric: 'seconds', notes: 'Sau Pikestand dacă nu poți Handstand' },
+            { name: 'Pike Push-Ups',    sets: 4, repsPerSet: 8,  metric: 'reps',    notes: 'Sau Assisted HSPU dacă ai nivel avansat' },
+            { name: 'Dips',             sets: 4, repsPerSet: 12, metric: 'reps',    notes: 'Ring Dips dacă ai inele, altfel Bar Dips' },
+            { name: 'Push-Ups',         sets: 4, repsPerSet: 14, metric: 'reps',    notes: 'Pseudo Push-Ups (avansat) / Knee Push-Ups (începător)' },
+            { name: 'Skull Crushers',   sets: 4, repsPerSet: 12, metric: 'reps',    notes: 'Pe inele sau cu bandă elastică' },
+          ],
+        },
+        {
+          dayLabel: 'Zi 2 — Legs & Abs',
+          restDay: false,
+          exercises: [
+            { name: 'Squaturi',         sets: 4, repsPerSet: 12, metric: 'reps',    notes: 'Pistol Squats (avansat) / Assisted Pistols (intermediar)' },
+            { name: 'Walking Lunges',   sets: 4, repsPerSet: 14, metric: 'reps',    notes: 'Cu sau fără greutate adăugată' },
+            { name: 'Nordic Curls',     sets: 4, repsPerSet: 6,  metric: 'reps',    notes: 'Doar faza negativă. Alternativă: Bulgarian Split Squats' },
+            { name: 'Calf Raises',      sets: 4, repsPerSet: 18, metric: 'reps',    notes: 'Controlat sus, exploziv la ridicare' },
+            { name: 'Leg Raises',       sets: 4, repsPerSet: 14, metric: 'reps',    notes: 'Toes-to-Bar (avansat) / Hanging Leg Raises / Knee Raises' },
+            { name: 'Hollow Body Hold', sets: 4, repsPerSet: 40, metric: 'seconds', notes: 'Sau Plank Hold dacă Hollow Body e prea greu' },
+          ],
+        },
+        {
+          dayLabel: 'Zi 3 — Pull',
+          restDay: false,
+          exercises: [
+            { name: 'High Pull-Ups',    sets: 4, repsPerSet: 4,  metric: 'reps',    notes: 'Muscle-Ups (avansat) / Band Assisted High Pull-Ups (începător)' },
+            { name: 'Tracțiuni',        sets: 5, repsPerSet: 7,  metric: 'reps',    notes: 'Cu greutate (avansat) / Clasice / Australiene (începător)' },
+            { name: 'Izometrice',       sets: 4, repsPerSet: 20, metric: 'seconds', notes: 'Hold la bară sus. Alternativă: Negative (coborâre lentă 5s)' },
+            { name: 'Australian Pull-Ups', sets: 4, repsPerSet: 12, metric: 'reps', notes: 'Sau Retracții scapulare dacă ești la început' },
+          ],
+        },
+      ],
+    },
+    {
+      weekNumber: 4,
+      weekLabel: 'Săptămâna 4 — Consolidare & Test',
+      days: [
+        {
+          dayLabel: 'Zi 1 — Push (Test)',
+          restDay: false,
+          exercises: [
+            { name: 'Wall Walks',       sets: 3, repsPerSet: 5,  metric: 'reps',    notes: 'Menține poziția sus cât poți!' },
+            { name: 'Handstand Hold',   sets: 4, repsPerSet: 30, metric: 'seconds', notes: 'Sau Pikestand — test max time' },
+            { name: 'Pike Push-Ups',    sets: 4, repsPerSet: 10, metric: 'reps',    notes: 'Sau Assisted HSPU — test max reps' },
+            { name: 'Dips',             sets: 4, repsPerSet: 12, metric: 'reps',    notes: 'Ring Dips dacă ai inele, altfel Bar Dips' },
+            { name: 'Push-Ups',         sets: 3, repsPerSet: 15, metric: 'reps',    notes: 'Test max reps pe varianta ta!' },
+            { name: 'Skull Crushers',   sets: 3, repsPerSet: 14, metric: 'reps',    notes: 'Pe inele sau cu bandă elastică' },
+          ],
+        },
+        {
+          dayLabel: 'Zi 2 — Legs & Abs (Test)',
+          restDay: false,
+          exercises: [
+            { name: 'Squaturi',         sets: 4, repsPerSet: 12, metric: 'reps',    notes: 'Pistol Squats (avansat) / Assisted Pistols — test max!' },
+            { name: 'Walking Lunges',   sets: 4, repsPerSet: 16, metric: 'reps',    notes: 'Cu greutate dacă poți' },
+            { name: 'Nordic Curls',     sets: 4, repsPerSet: 8,  metric: 'reps',    notes: 'Încearcă negativele mai lente (5s). Alt: Bulgarian Split Squats' },
+            { name: 'Calf Raises',      sets: 4, repsPerSet: 20, metric: 'reps',    notes: 'Controlat + exploziv — test max' },
+            { name: 'Leg Raises',       sets: 4, repsPerSet: 15, metric: 'reps',    notes: 'Toes-to-Bar (avansat) / Hanging Leg Raises / Knee Raises' },
+            { name: 'Hollow Body Hold', sets: 3, repsPerSet: 45, metric: 'seconds', notes: 'Test max time!' },
+          ],
+        },
+        {
+          dayLabel: 'Zi 3 — Pull (Test)',
+          restDay: false,
+          exercises: [
+            { name: 'High Pull-Ups',    sets: 5, repsPerSet: 4,  metric: 'reps',    notes: 'Muscle-Ups dacă poți — test max reps!' },
+            { name: 'Tracțiuni',        sets: 5, repsPerSet: 8,  metric: 'reps',    notes: 'Cu greutate (avansat) / Clasice — test max!' },
+            { name: 'Izometrice',       sets: 3, repsPerSet: 25, metric: 'seconds', notes: 'Hold la bară sus — test max time!' },
+            { name: 'Australian Pull-Ups', sets: 3, repsPerSet: 15, metric: 'reps', notes: 'Sau Retracții scapulare — test max' },
+          ],
+        },
+      ],
+    },
+  ],
+}
+
+export const ALL_PROGRAMS: TrainingProgram[] = [FUNDAMENT, MUSCLE_UP_PROG, CORE_STATICS, PPL_SPLIT]
 
 export function getProgramById(id: string): TrainingProgram | undefined {
   return ALL_PROGRAMS.find(p => p.id === id)
