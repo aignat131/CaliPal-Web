@@ -899,51 +899,71 @@ export default function CommunityDetailPage() {
                 )}
               </div>
             )}
-            {/* Training photo cards — only after training has started */}
-            {trainingsLoaded && (() => {
-              const now = new Date()
-              const fourHoursMs = 4 * 60 * 60 * 1000
-              const photoEligible = trainings.filter(t => {
-                const start = t.timeStart ? parseTrainingDateTime(t.timeStart, t.date) : null
-                const end = t.timeEnd ? parseTrainingDateTime(t.timeEnd, t.date) : null
-                if (!start) return false
-                // Only show after training has started
-                if (start > now) return false
-                const isOngoing = end ? now < end : false
-                const isRecent = end ? now < new Date(end.getTime() + fourHoursMs) : false
-                return isOngoing || isRecent || (t.photoCount && t.photoCount > 0)
-              })
-              return photoEligible.map(t => (
-                <TrainingPhotoCard
-                  key={`photo-${t.id}`}
-                  training={t}
-                  communityId={id}
-                  myUid={user?.uid ?? ''}
-                  myName={myName}
-                  myPhoto={myPhoto}
-                  isSuperAdmin={isSuperAdmin}
-                />
-              ))
-            })()}
+            {/* Interleaved feed: training photo cards + posts sorted chronologically */}
             {!postsLoaded
               ? <div className="flex flex-col gap-3">{[0,1,2].map(i => <SkeletonCard key={i} />)}</div>
-              : posts.length === 0 && !isSuperAdmin
-              ? <p className="text-sm text-white/35 text-center py-8">Niciun post încă. Fii primul!</p>
-              : posts.map(p => (
-                <PostCard
-                  key={p.id}
-                  post={p}
-                  communityId={id}
-                  myUid={user?.uid ?? ''}
-                  myName={myName}
-                  myPhoto={myPhoto}
-                  myRole={myRole}
-                  isSuperAdmin={isSuperAdmin}
-                  myProTitle={myProfile?.proTitle}
-                  onDelete={() => deletePost(p.id)}
-                  onOpen={() => setPostDetailTarget(p)}
-                />
-              ))}
+              : (() => {
+                const now = new Date()
+                const fourHoursMs = 4 * 60 * 60 * 1000
+
+                const photoEligible = trainingsLoaded ? trainings.filter(t => {
+                  const start = t.timeStart ? parseTrainingDateTime(t.timeStart, t.date) : null
+                  const end = t.timeEnd ? parseTrainingDateTime(t.timeEnd, t.date) : null
+                  if (!start) return false
+                  if (start > now) return false
+                  const isOngoing = end ? now < end : false
+                  const isRecent = end ? now < new Date(end.getTime() + fourHoursMs) : false
+                  return isOngoing || isRecent || (t.photoCount && t.photoCount > 0)
+                }) : []
+
+                type FeedItem =
+                  | { type: 'training'; training: PlannedTraining; sortMs: number }
+                  | { type: 'post'; post: CommunityPost; sortMs: number }
+
+                const trainingItems: FeedItem[] = photoEligible.map(t => {
+                  const end = t.timeEnd ? parseTrainingDateTime(t.timeEnd, t.date) : null
+                  const start = t.timeStart ? parseTrainingDateTime(t.timeStart, t.date) : null
+                  return { type: 'training' as const, training: t, sortMs: end?.getTime() ?? start?.getTime() ?? 0 }
+                })
+
+                const postItems: FeedItem[] = posts.map(p => ({
+                  type: 'post' as const, post: p, sortMs: p.createdAt?.toMillis?.() ?? 0,
+                }))
+
+                const feed = [...trainingItems, ...postItems].sort((a, b) => b.sortMs - a.sortMs)
+
+                if (feed.length === 0 && !isSuperAdmin) {
+                  return <p className="text-sm text-white/35 text-center py-8">Niciun post încă. Fii primul!</p>
+                }
+
+                return feed.map(item =>
+                  item.type === 'training' ? (
+                    <TrainingPhotoCard
+                      key={`photo-${item.training.id}`}
+                      training={item.training}
+                      communityId={id}
+                      myUid={user?.uid ?? ''}
+                      myName={myName}
+                      myPhoto={myPhoto}
+                      isSuperAdmin={isSuperAdmin}
+                    />
+                  ) : (
+                    <PostCard
+                      key={item.post.id}
+                      post={item.post}
+                      communityId={id}
+                      myUid={user?.uid ?? ''}
+                      myName={myName}
+                      myPhoto={myPhoto}
+                      myRole={myRole}
+                      isSuperAdmin={isSuperAdmin}
+                      myProTitle={myProfile?.proTitle}
+                      onDelete={() => deletePost(item.post.id)}
+                      onOpen={() => setPostDetailTarget(item.post)}
+                    />
+                  )
+                )
+              })()}
           </div>
         )}
 
