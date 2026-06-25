@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { collection, onSnapshot, addDoc, updateDoc, doc, increment, serverTimestamp, query, orderBy, deleteDoc } from 'firebase/firestore'
+import { collection, onSnapshot, addDoc, updateDoc, doc, increment, serverTimestamp, query, orderBy, deleteDoc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'
 import { uploadTrainingPhoto } from '@/lib/firebase/storage'
@@ -44,6 +44,9 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
   const [comments, setComments] = useState<PostComment[]>([])
   const [commentText, setCommentText] = useState('')
   const [commenting, setCommenting] = useState(false)
+  const [reactionCounts, setReactionCounts] = useState<Record<string, string[]>>({})
+  const [myReaction, setMyReaction] = useState<string | null>(null)
+  const [showReactionPicker, setShowReactionPicker] = useState(false)
 
   // Subscribe to photos subcollection
   useEffect(() => {
@@ -53,8 +56,8 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
         const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as TrainingPhoto))
           .filter(p => p.visibility !== 'private' || p.authorId === myUid || isSuperAdmin)
         items.sort((a, b) => {
-          const ta = a.createdAt?.toMillis?.() ?? 0
-          const tb = b.createdAt?.toMillis?.() ?? 0
+          const ta = a.createdAt?.toMillis?.() ?? Number.MAX_SAFE_INTEGER
+          const tb = b.createdAt?.toMillis?.() ?? Number.MAX_SAFE_INTEGER
           return ta - tb
         })
         setPhotos(items)
@@ -62,6 +65,26 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
     )
     return unsub
   }, [communityId, training.id, myUid, isSuperAdmin])
+
+  // Subscribe to reactions subcollection
+  useEffect(() => {
+    return onSnapshot(
+      collection(db, 'communities', communityId, 'trainings', training.id, 'reactions'),
+      snap => {
+        const counts: Record<string, string[]> = {}
+        let mine: string | null = null
+        snap.docs.forEach(d => {
+          const { emoji } = d.data() as { emoji: string }
+          if (!counts[emoji]) counts[emoji] = []
+          counts[emoji].push(d.id)
+          if (d.id === myUid) mine = emoji
+        })
+        setReactionCounts(counts)
+        setMyReaction(mine)
+      },
+      () => { /* permission denied or offline */ }
+    )
+  }, [communityId, training.id, myUid])
 
   // Subscribe to comments subcollection
   useEffect(() => {
@@ -75,6 +98,17 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
       () => { /* permission denied or offline */ }
     )
   }, [showComments, training.id, communityId])
+
+  async function handleReaction(emoji: string) {
+    if (!myUid) return
+    const ref = doc(db, 'communities', communityId, 'trainings', training.id, 'reactions', myUid)
+    if (myReaction === emoji) {
+      await deleteDoc(ref)
+    } else {
+      await setDoc(ref, { emoji, at: serverTimestamp() })
+    }
+    setShowReactionPicker(false)
+  }
 
   async function addComment() {
     if (!commentText.trim() || commenting) return
@@ -205,9 +239,9 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
   if (photos.length === 0 && !canAddPhoto) return null
 
   return (
-    <div className="mb-4 rounded-2xl overflow-hidden border border-white/8" style={{ backgroundColor: 'var(--app-surface)' }}>
+    <div className="rounded-2xl p-4 mb-3" style={{ backgroundColor: 'var(--app-surface)' }}>
       {/* Header */}
-      <div className="p-3 pb-2">
+      <div className="mb-3">
         <div className="flex items-center gap-2 mb-1">
           <Camera size={14} className="text-brand-green" />
           <span className="text-sm font-bold text-white flex-1">{training.name}</span>
@@ -259,7 +293,7 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
       </div>
 
       {/* Carousel */}
-      <div className="px-2 pb-3">
+      <div className="mb-3">
         <TrainingPhotoCarousel
           photos={photos}
           canAddPhoto={canAddPhoto}
@@ -282,17 +316,44 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
 
       {/* Upload indicator */}
       {uploading && (
-        <div className="px-3 pb-3">
+        <div className="mb-3">
           <div className="h-1 rounded-full bg-white/10 overflow-hidden">
             <div className="h-full bg-brand-green animate-pulse w-2/3 rounded-full" />
           </div>
         </div>
       )}
 
-      {/* Comment toggle */}
-      <div className="px-3 pb-1 flex items-center">
+      {/* Reactions + Comment toggle */}
+      <div className="flex items-center gap-2 flex-wrap mt-1">
+        {['💪', '❤️'].map(e => {
+          const count = (reactionCounts[e] ?? []).length
+          return (
+            <button key={e} onClick={() => handleReaction(e)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                myReaction === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
+              }`}>
+              {e} {count > 0 && count}
+            </button>
+          )
+        })}
+        {['🔥', '👏', '😮'].map(e => {
+          const count = (reactionCounts[e] ?? []).length
+          if (count === 0 && myReaction !== e && !showReactionPicker) return null
+          return (
+            <button key={e} onClick={() => { handleReaction(e); setShowReactionPicker(false) }}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                myReaction === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
+              }`}>
+              {e} {count > 0 && count}
+            </button>
+          )
+        })}
+        {!showReactionPicker && (
+          <button onClick={() => setShowReactionPicker(true)}
+            className="w-7 h-7 rounded-full bg-white/8 border border-white/12 text-white/40 text-sm flex items-center justify-center">+</button>
+        )}
         <button onClick={() => setShowComments(v => !v)}
-          className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${showComments ? 'text-brand-green' : 'text-white/40 hover:text-white/60'}`}>
+          className={`flex items-center gap-1.5 text-xs font-semibold ml-1 transition-colors ${showComments ? 'text-brand-green' : 'text-white/40 hover:text-white/60'}`}>
           <MessageCircle size={14} />
           {(showComments ? comments.length : (training.commentsCount ?? 0)) > 0 && (
             <span>{showComments ? comments.length : training.commentsCount}</span>
@@ -302,7 +363,7 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
 
       {/* Comments section */}
       {showComments && (
-        <div className="mx-3 mb-3 border-t border-white/8 pt-3">
+        <div className="mt-3 border-t border-white/8 pt-3">
           {comments.map(c => (
             <div key={c.id} className="flex gap-2 mb-2">
               <div className="mt-0.5 w-6 h-6 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 bg-white/20">

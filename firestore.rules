@@ -224,6 +224,12 @@ service cloud.firestore {
         allow update: if false;
       }
 
+      // Training reactions — one per user
+      match /trainings/{trainingId}/reactions/{uid} {
+        allow read: if isAuth();
+        allow write: if isOwner(uid);
+      }
+
       // Training comments — community members can comment
       match /trainings/{trainingId}/comments/{commentId} {
         allow read: if isAuth();
