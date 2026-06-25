@@ -104,7 +104,7 @@ export default function CommunityDetailPage() {
   const { theme } = useTheme()
   const { displayName: myName, photoUrl: myPhoto, profile: myProfile } = useMyProfile()
   const { requestPermission } = usePushNotifications(user?.uid)
-  const _t = useT()
+  const t = useT()
   const { showToast } = useToast()
   const router = useRouter()
   const params = useParams()
@@ -548,11 +548,11 @@ export default function CommunityDetailPage() {
   if (!community) return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-6 text-center" style={{ backgroundColor: 'var(--app-bg)' }}>
       <p className="text-4xl mb-4">🏚️</p>
-      <p className="text-base font-bold text-white mb-1">Comunitate negăsită</p>
-      <p className="text-sm text-white/50 mb-6">Această comunitate nu există sau a fost ștearsă.</p>
+      <p className="text-base font-bold text-white mb-1">{t('comm_detail.not_found_title')}</p>
+      <p className="text-sm text-white/50 mb-6">{t('comm_detail.not_found_text')}</p>
       <button onClick={() => router.replace('/community')}
         className="h-11 px-6 rounded-2xl bg-brand-green text-black text-sm font-bold">
-        Înapoi la comunități
+        {t('comm_detail.back')}
       </button>
     </div>
   )
@@ -591,7 +591,7 @@ export default function CommunityDetailPage() {
     if (!isTrainingPast(t)) return false
     const end = parseTrainingDateTime(t.timeEnd, t.date)
     return !!end && end >= recentCutoff
-  }).sort((a, b) => (b.timeStart ?? b.date ?? '').localeCompare(a.timeStart ?? a.date ?? '')).slice(0, 2)
+  }).sort((a, b) => (b.timeStart ?? b.date ?? '').localeCompare(a.timeStart ?? a.date ?? '')).slice(0, 1)
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -709,16 +709,16 @@ export default function CommunityDetailPage() {
                   </button>
                   {showCommunityMenu && (
                     <div className="absolute right-0 top-10 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[200px]" style={{ backgroundColor: 'var(--app-bg)' }}>
-                      <button onClick={() => { setShowDescription(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Info size={14} /> Descriere</button>
+                      <button onClick={() => { setShowDescription(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Info size={14} /> {t('comm_detail.description')}</button>
                       {(isSuperAdmin || myRole === 'ADMIN') && (
-                        <button onClick={() => { setShowEditCommunity(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Pencil size={14} /> Editează</button>
+                        <button onClick={() => { setShowEditCommunity(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Pencil size={14} /> {t('comm_detail.edit')}</button>
                       )}
                       <button onClick={toggleEmailNotifications} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left">
                         {myEmailNotifications ? <MailX size={14} /> : <Mail size={14} />}
-                        {myEmailNotifications ? 'Dezactivează emailuri' : 'Activează emailuri'}
+                        {myEmailNotifications ? t('comm_detail.disable_emails') : t('comm_detail.enable_emails')}
                       </button>
                       <button onClick={leaveCommunity} disabled={leaving} className="w-full px-4 py-3 text-sm text-red-400 hover:bg-white/8 flex items-center gap-2 text-left disabled:opacity-50">
-                        <LogOut size={14} /> {leaving ? '...' : 'Ieși din comunitate'}
+                        <LogOut size={14} /> {leaving ? '...' : t('comm_detail.leave')}
                       </button>
                     </div>
                   )}
@@ -732,7 +732,7 @@ export default function CommunityDetailPage() {
                 <p className="text-base font-black text-white flex-1 truncate leading-tight">{community.name}</p>
                 {community.verified && <ShieldCheck size={15} className="text-brand-green flex-shrink-0" />}
               </div>
-              <p className="text-xs text-white/50 mt-0.5">{members.length} membri · {community.location ?? ''}</p>
+              <p className="text-xs text-white/50 mt-0.5">{members.length} {t('common.members')} · {community.location ?? ''}</p>
             </div>
           </div>
         </div>
@@ -748,7 +748,7 @@ export default function CommunityDetailPage() {
                 <p className="font-black text-white text-base truncate">{community?.name ?? '...'}</p>
                 {community?.verified && <ShieldCheck size={14} className="text-brand-green flex-shrink-0" />}
               </div>
-              <p className="text-xs text-white/45">{members.length} membri · {isMember ? 'Membru' : 'Vizitator'}</p>
+              <p className="text-xs text-white/45">{members.length} {t('common.members')} · {isMember ? t('comm_detail.member_badge') : t('comm_detail.visitor_badge')}</p>
             </div>
             <button aria-label="Distribuie" onClick={shareCommunity} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
               <Share2 size={16} className="text-white/70" />
@@ -760,16 +760,16 @@ export default function CommunityDetailPage() {
                 </button>
                 {showCommunityMenu && (
                   <div className="absolute right-0 top-10 z-50 rounded-xl overflow-hidden shadow-xl border border-white/10 min-w-[200px]" style={{ backgroundColor: 'var(--app-bg)' }}>
-                    <button onClick={() => { setShowDescription(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Info size={14} /> Descriere</button>
+                    <button onClick={() => { setShowDescription(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Info size={14} /> {t('comm_detail.description')}</button>
                     {(isSuperAdmin || myRole === 'ADMIN') && (
-                      <button onClick={() => { setShowEditCommunity(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Pencil size={14} /> Editează</button>
+                      <button onClick={() => { setShowEditCommunity(true); setShowCommunityMenu(false) }} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left"><Pencil size={14} /> {t('comm_detail.edit')}</button>
                     )}
                     <button onClick={toggleEmailNotifications} className="w-full px-4 py-3 text-sm text-white/80 hover:bg-white/8 flex items-center gap-2 text-left">
                       {myEmailNotifications ? <MailX size={14} /> : <Mail size={14} />}
-                      {myEmailNotifications ? 'Dezactivează emailuri' : 'Activează emailuri'}
+                      {myEmailNotifications ? t('comm_detail.disable_emails') : t('comm_detail.enable_emails')}
                     </button>
                     <button onClick={leaveCommunity} disabled={leaving} className="w-full px-4 py-3 text-sm text-red-400 hover:bg-white/8 flex items-center gap-2 text-left disabled:opacity-50">
-                      <LogOut size={14} /> {leaving ? '...' : 'Ieși din comunitate'}
+                      <LogOut size={14} /> {leaving ? '...' : t('comm_detail.leave')}
                     </button>
                   </div>
                 )}
@@ -786,10 +786,10 @@ export default function CommunityDetailPage() {
           style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.04)' }}>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-black text-white">
-              {user ? 'Ești vizitator' : 'Autentifică-te pentru a te alătura'}
+              {user ? t('comm_detail.visitor') : t('comm_detail.login_to_join')}
             </p>
             <p className="text-xs text-white/50 mt-0.5">
-              {user ? 'Intră în comunitate pentru a accesa antrenamentele și feed-ul.' : 'Creează un cont sau intră în cont pentru acces complet.'}
+              {user ? t('comm_detail.join_access_text') : t('comm_detail.login_access_text')}
             </p>
           </div>
           {user ? (
@@ -798,15 +798,15 @@ export default function CommunityDetailPage() {
               disabled={joining}
               className="h-9 px-4 rounded-xl bg-brand-green text-black text-sm font-black flex-shrink-0 disabled:opacity-50"
             >
-              {joining ? '...' : 'Intru'}
+              {joining ? '...' : t('community.join_btn')}
             </button>
           ) : (
             <div className="flex gap-2 flex-shrink-0">
               <Link href="/login">
-                <span className="h-9 px-3 rounded-xl border border-white/20 text-xs font-bold text-white flex items-center">Cont</span>
+                <span className="h-9 px-3 rounded-xl border border-white/20 text-xs font-bold text-white flex items-center">{t('home.login')}</span>
               </Link>
               <Link href="/register">
-                <span className="h-9 px-4 rounded-xl bg-brand-green text-black text-xs font-black flex items-center">Înscrie-te</span>
+                <span className="h-9 px-4 rounded-xl bg-brand-green text-black text-xs font-black flex items-center">{t('comm_detail.join_short')}</span>
               </Link>
             </div>
           )}
@@ -920,10 +920,10 @@ export default function CommunityDetailPage() {
                   | { type: 'training'; training: PlannedTraining; sortMs: number }
                   | { type: 'post'; post: CommunityPost; sortMs: number }
 
-                const trainingItems: FeedItem[] = photoEligible.map(t => {
-                  const end = t.timeEnd ? parseTrainingDateTime(t.timeEnd, t.date) : null
-                  const start = t.timeStart ? parseTrainingDateTime(t.timeStart, t.date) : null
-                  return { type: 'training' as const, training: t, sortMs: end?.getTime() ?? start?.getTime() ?? 0 }
+                const trainingItems: FeedItem[] = photoEligible.map(tr => {
+                  const end = tr.timeEnd ? parseTrainingDateTime(tr.timeEnd, tr.date) : null
+                  const start = tr.timeStart ? parseTrainingDateTime(tr.timeStart, tr.date) : null
+                  return { type: 'training' as const, training: tr, sortMs: end?.getTime() ?? start?.getTime() ?? 0 }
                 })
 
                 const postItems: FeedItem[] = posts.map(p => ({
@@ -933,7 +933,7 @@ export default function CommunityDetailPage() {
                 const feed = [...trainingItems, ...postItems].sort((a, b) => b.sortMs - a.sortMs)
 
                 if (feed.length === 0 && !isSuperAdmin) {
-                  return <p className="text-sm text-white/35 text-center py-8">Niciun post încă. Fii primul!</p>
+                  return <p className="text-sm text-white/35 text-center py-8">{t('comm_detail.no_posts_first')}</p>
                 }
 
                 return feed.map(item =>
@@ -998,31 +998,31 @@ export default function CommunityDetailPage() {
                 </div>
               )
               : <>
-                {upcoming.map(t => (
+                {upcoming.map(tr => (
                   <TrainingCard
-                    key={t.id}
-                    training={t}
+                    key={tr.id}
+                    training={tr}
                     communityId={id}
                     myUid={user?.uid ?? ''}
                     members={members}
-                    canLoad={isMember && (t.exercises?.length ?? 0) > 0}
+                    canLoad={isMember && (tr.exercises?.length ?? 0) > 0}
                     canDelete={isSuperAdmin}
-                    canEdit={t.authorId === user?.uid}
-                    onRsvp={status => rsvp(t.id, status)}
-                    onLoad={() => loadTraining(t)}
+                    canEdit={tr.authorId === user?.uid}
+                    onRsvp={status => rsvp(tr.id, status)}
+                    onLoad={() => loadTraining(tr)}
                     onDelete={async () => {
                       try {
                         const token = await auth.currentUser?.getIdToken()
                         const res = await fetch('/api/admin/delete-training', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                          body: JSON.stringify({ communityId: id, trainingId: t.id }),
+                          body: JSON.stringify({ communityId: id, trainingId: tr.id }),
                         })
                         const data = await res.json()
                         if (!data.ok) console.error('Delete failed:', data.reason)
                       } catch (e) { console.error('Delete error:', e) }
                     }}
-                    onEdit={fields => updateDoc(doc(db, 'communities', id, 'trainings', t.id), fields)}
+                    onEdit={fields => updateDoc(doc(db, 'communities', id, 'trainings', tr.id), fields)}
                   />
                 ))}
                 {recentPast.length > 0 && (
@@ -1030,13 +1030,13 @@ export default function CommunityDetailPage() {
                     <button onClick={() => setRecentCollapsed(v => !v)}
                       className="flex items-center gap-2 text-xs text-white/40 mb-2 hover:text-white/60 transition-colors">
                       <Clock size={12} />
-                      Antrenamente recente ({recentPast.length})
+                      {t('comm_detail.last_workout')}
                       {recentCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
                     </button>
-                    {!recentCollapsed && recentPast.map(t => (
-                      <div key={t.id} className="opacity-40 pointer-events-none select-none">
+                    {!recentCollapsed && recentPast.map(tr => (
+                      <div key={tr.id} className="opacity-40 pointer-events-none select-none">
                         <TrainingCard
-                          training={t}
+                          training={tr}
                           communityId={id}
                           myUid={user?.uid ?? ''}
                           members={members}
@@ -1060,7 +1060,7 @@ export default function CommunityDetailPage() {
               className="flex items-center justify-center gap-2 mt-4 py-3 rounded-2xl border border-white/10 text-sm text-white/40 hover:text-white/60 transition-colors"
               style={{ backgroundColor: 'var(--app-surface)' }}>
               <History size={14} />
-              Istoric antrenamente
+              {t('training.history_title')}
             </Link>
           </div>
         )}
@@ -1071,14 +1071,14 @@ export default function CommunityDetailPage() {
             <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)' }}>
               <Users size={24} className="text-brand-green" />
             </div>
-            <p className="font-black text-white mb-1">Vezi membrii comunității</p>
-            <p className="text-sm text-white/50 mb-5">Autentifică-te pentru a vedea membrii</p>
+            <p className="font-black text-white mb-1">{t('comm_detail.see_members')}</p>
+            <p className="text-sm text-white/50 mb-5">{t('comm_detail.login_see_members')}</p>
             <div className="flex flex-col gap-2 max-w-xs mx-auto">
               <Link href="/register">
-                <span className="h-11 rounded-2xl bg-brand-green text-black text-sm font-black flex items-center justify-center">Creează cont</span>
+                <span className="h-11 rounded-2xl bg-brand-green text-black text-sm font-black flex items-center justify-center">{t('comm_detail.register_btn')}</span>
               </Link>
               <Link href="/login">
-                <span className="h-11 rounded-2xl border border-white/15 text-white text-sm font-semibold flex items-center justify-center">Intră în cont</span>
+                <span className="h-11 rounded-2xl border border-white/15 text-white text-sm font-semibold flex items-center justify-center">{t('home.login')}</span>
               </Link>
             </div>
           </div>
@@ -2130,6 +2130,7 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
   onDelete: () => void
   onOpen?: () => void
 }) {
+  const t = useT()
   const [showComments, setShowComments] = useState(false)
   const [comments, setComments] = useState<PostComment[]>([])
   const [commentText, setCommentText] = useState('')
@@ -2292,7 +2293,7 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
         {/* Comment count hint (when collapsed) */}
         {onOpen && !showComments && (post.commentsCount ?? 0) > 0 && (
           <p className="text-xs text-white/25 mb-2">
-            {post.commentsCount === 1 ? '1 comentariu' : `${post.commentsCount} comentarii`}
+            {post.commentsCount === 1 ? t('comm_detail.comment_1') : t('comm_detail.comment_n', { n: post.commentsCount ?? 0 })}
           </p>
         )}
       </div>
@@ -2360,7 +2361,7 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
               value={commentText}
               onChange={e => setCommentText(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addComment()}
-              placeholder="Adaugă un comentariu..."
+              placeholder={t('comm_detail.add_comment')}
               className="flex-1 h-8 rounded-lg px-3 text-xs text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
             />
             <button onClick={addComment} disabled={commenting || !commentText.trim()}
@@ -2390,6 +2391,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(panelRef, true)
+  const t = useT()
   const [comments, setComments] = useState<PostComment[]>([])
   const [commentText, setCommentText] = useState('')
   const [commenting, setCommenting] = useState(false)
@@ -2468,7 +2470,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
         <div className="flex items-center justify-between pt-3 pb-2 px-5 flex-shrink-0">
           <div className="w-10 h-1 rounded-full bg-white/20 mx-auto absolute left-1/2 -translate-x-1/2 top-3" />
           <div className="w-6" />
-          <p className="text-sm font-bold text-white/50">Postare</p>
+          <p className="text-sm font-bold text-white/50">{t('comm_detail.post_label')}</p>
           <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
             <X size={13} className="text-white/50" />
           </button>
@@ -2557,9 +2559,9 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
           </div>
 
           {/* Comments */}
-          <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">COMENTARII ({comments.length})</p>
+          <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">{t('comm_detail.comments_header', { n: comments.length })}</p>
           {comments.length === 0 && (
-            <p className="text-xs text-white/25 text-center py-4">Niciun comentariu încă</p>
+            <p className="text-xs text-white/25 text-center py-4">{t('comm_detail.no_comments_yet')}</p>
           )}
           {comments.map(c => (
             <div key={c.id} className="flex gap-2.5 mb-3">
@@ -2589,7 +2591,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
             value={commentText}
             onChange={e => setCommentText(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addComment()}
-            placeholder="Adaugă un comentariu..."
+            placeholder={t('comm_detail.add_comment')}
             className="flex-1 h-10 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
           />
           <button onClick={addComment} disabled={commenting || !commentText.trim()}

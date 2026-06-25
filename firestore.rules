@@ -198,7 +198,7 @@ service cloud.firestore {
                   .hasOnly(['rsvps', 'rsvpNames', 'rsvpPhotos', 'lastRsvpNotifAt']))
           || (isCommunityMember(communityId)
               && request.resource.data.diff(resource.data).affectedKeys()
-                  .hasOnly(['photoCount']))
+                  .hasOnly(['photoCount', 'commentsCount']))
           || (request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
               && request.resource.data.guestRsvps.size() <= 200);
@@ -222,6 +222,20 @@ service cloud.firestore {
           || isSuperAdmin()
         );
         allow update: if false;
+      }
+
+      // Training comments — community members can comment
+      match /trainings/{trainingId}/comments/{commentId} {
+        allow read: if isAuth();
+        allow create: if isCommunityMember(communityId)
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 1000
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if isAuth() && (
+          request.auth.uid == resource.data.authorId ||
+          isCommunityStaff(communityId) ||
+          isSuperAdmin()
+        );
       }
 
       // Immutable mirror of trainings — no updates, no deletes from any client

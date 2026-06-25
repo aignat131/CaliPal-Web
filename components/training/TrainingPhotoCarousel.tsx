@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { TrainingPhoto } from '@/types'
+import { useT } from '@/lib/context/LanguageContext'
 
 interface Props {
   photos: TrainingPhoto[]
@@ -17,6 +18,7 @@ interface Props {
 export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto, myUid, isSuperAdmin, onDeletePhoto, onDeleteAll }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [activeIndex, setActiveIndex] = useState(0)
+  const t = useT()
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current
@@ -81,7 +83,7 @@ export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto,
           >
             <Plus size={24} className="text-white/40" />
             {photos.length === 0 && (
-              <span className="text-xs text-white/40">Adaugă o poză</span>
+              <span className="text-xs text-white/40">{t('comm_detail.add_photo')}</span>
             )}
           </button>
         )}
@@ -108,7 +110,7 @@ export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto,
           className="flex items-center justify-center gap-1.5 mt-2 w-full py-1.5 rounded-lg text-[11px] text-red-400/70 hover:text-red-400 hover:bg-red-400/10 transition-colors"
         >
           <Trash2 size={11} />
-          Șterge toate pozele
+          {t('comm_detail.delete_all_photos')}
         </button>
       )}
     </div>

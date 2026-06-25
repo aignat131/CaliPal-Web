@@ -397,6 +397,17 @@ const T: Record<string, { RO: string; EN: string }> = {
   'comm_detail.no_posts_be_first': { RO: 'Niciun post încă. Fii primul!', EN: 'No posts yet. Be the first!' },
   'comm_detail.by_author':       { RO: 'de {name}', EN: 'by {name}' },
   'comm_detail.share_community': { RO: 'Distribuie comunitatea', EN: 'Share community' },
+  'comm_detail.disable_emails':    { RO: 'Dezactivează emailuri',    EN: 'Disable emails' },
+  'comm_detail.enable_emails':     { RO: 'Activează emailuri',       EN: 'Enable emails' },
+  'comm_detail.comment_1':         { RO: '1 comentariu',             EN: '1 comment' },
+  'comm_detail.comment_n':         { RO: '{n} comentarii',           EN: '{n} comments' },
+  'comm_detail.add_photo':         { RO: 'Adaugă o poză',            EN: 'Add a photo' },
+  'comm_detail.delete_all_photos': { RO: 'Șterge toate pozele',      EN: 'Delete all photos' },
+  'comm_detail.last_workout':      { RO: 'Ultimul antrenament',      EN: 'The last workout' },
+  'comm_detail.no_comments_yet':   { RO: 'Niciun comentariu încă',   EN: 'No comments yet' },
+  'comm_detail.comments_header':   { RO: 'COMENTARII ({n})',         EN: 'COMMENTS ({n})' },
+  'comm_detail.post_label':        { RO: 'Postare',                  EN: 'Post' },
+  'comm_detail.no_posts_first':    { RO: 'Niciun post încă. Fii primul!', EN: 'No posts yet. Be the first!' },
 
   // ── Authentication Pages ─────────────────────────────────────────────────────
   'auth.back_to_login':      { RO: '← Înapoi la login',       EN: '← Back to login' },

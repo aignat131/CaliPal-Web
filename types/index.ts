@@ -133,6 +133,7 @@ export interface PlannedTraining {
   deletedByUid?: string
   // Training photos
   photoCount?: number
+  commentsCount?: number
   // Visibility
   visibility?: 'public' | 'private'
 }

@@ -1,14 +1,15 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { collection, onSnapshot, addDoc, updateDoc, doc, increment, serverTimestamp } from 'firebase/firestore'
+import { collection, onSnapshot, addDoc, updateDoc, doc, increment, serverTimestamp, query, orderBy, deleteDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'
 import { uploadTrainingPhoto } from '@/lib/firebase/storage'
-import { MapPin, Clock, Camera, Trash2 } from 'lucide-react'
-import type { PlannedTraining, TrainingPhoto } from '@/types'
+import { MapPin, Clock, Camera, Trash2, MessageCircle, Send } from 'lucide-react'
+import type { PlannedTraining, TrainingPhoto, PostComment } from '@/types'
 import TrainingPhotoCarousel from './TrainingPhotoCarousel'
 import PhotoDeleteModal from './PhotoDeleteModal'
+import { useT } from '@/lib/context/LanguageContext'
 
 interface Props {
   training: PlannedTraining
@@ -33,11 +34,16 @@ function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null 
 }
 
 export default function TrainingPhotoCard({ training, communityId, myUid, myName, myPhoto, isSuperAdmin }: Props) {
+  const t = useT()
   const [photos, setPhotos] = useState<TrainingPhoto[]>([])
   const [uploading, setUploading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ mode: 'single' | 'all'; photo?: TrainingPhoto } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [showComments, setShowComments] = useState(false)
+  const [comments, setComments] = useState<PostComment[]>([])
+  const [commentText, setCommentText] = useState('')
+  const [commenting, setCommenting] = useState(false)
 
   // Subscribe to photos subcollection
   useEffect(() => {
@@ -56,6 +62,37 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
     )
     return unsub
   }, [communityId, training.id, myUid, isSuperAdmin])
+
+  // Subscribe to comments subcollection
+  useEffect(() => {
+    if (!showComments) return
+    const q = query(
+      collection(db, 'communities', communityId, 'trainings', training.id, 'comments'),
+      orderBy('createdAt', 'asc')
+    )
+    return onSnapshot(q,
+      snap => { setComments(snap.docs.map(d => ({ id: d.id, ...d.data() }) as PostComment)) },
+      () => { /* permission denied or offline */ }
+    )
+  }, [showComments, training.id, communityId])
+
+  async function addComment() {
+    if (!commentText.trim() || commenting) return
+    setCommenting(true)
+    try {
+      await addDoc(
+        collection(db, 'communities', communityId, 'trainings', training.id, 'comments'),
+        { authorId: myUid, authorName: myName, authorPhotoUrl: myPhoto || null, text: commentText.trim(), createdAt: serverTimestamp() }
+      )
+      await updateDoc(doc(db, 'communities', communityId, 'trainings', training.id), { commentsCount: increment(1) })
+      setCommentText('')
+    } finally { setCommenting(false) }
+  }
+
+  async function deleteComment(commentId: string) {
+    await deleteDoc(doc(db, 'communities', communityId, 'trainings', training.id, 'comments', commentId))
+    await updateDoc(doc(db, 'communities', communityId, 'trainings', training.id), { commentsCount: increment(-1) })
+  }
 
   // Can user add a photo?
   const isAttendee = training.attendedBy?.includes(myUid) || training.rsvps?.[myUid] === 'GOING'
@@ -248,6 +285,58 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
         <div className="px-3 pb-3">
           <div className="h-1 rounded-full bg-white/10 overflow-hidden">
             <div className="h-full bg-brand-green animate-pulse w-2/3 rounded-full" />
+          </div>
+        </div>
+      )}
+
+      {/* Comment toggle */}
+      <div className="px-3 pb-1 flex items-center">
+        <button onClick={() => setShowComments(v => !v)}
+          className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${showComments ? 'text-brand-green' : 'text-white/40 hover:text-white/60'}`}>
+          <MessageCircle size={14} />
+          {(showComments ? comments.length : (training.commentsCount ?? 0)) > 0 && (
+            <span>{showComments ? comments.length : training.commentsCount}</span>
+          )}
+        </button>
+      </div>
+
+      {/* Comments section */}
+      {showComments && (
+        <div className="mx-3 mb-3 border-t border-white/8 pt-3">
+          {comments.map(c => (
+            <div key={c.id} className="flex gap-2 mb-2">
+              <div className="mt-0.5 w-6 h-6 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 bg-white/20">
+                {c.authorPhotoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={c.authorPhotoUrl} alt={c.authorName} className="w-6 h-6 rounded-full object-cover" />
+                ) : (
+                  <span className="text-[9px] font-bold text-white">{c.authorName.trim().charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-bold text-white">{c.authorName} </span>
+                <span className="text-xs text-white/70">{c.text}</span>
+              </div>
+              {isSuperAdmin && (
+                <button onClick={() => deleteComment(c.id)} aria-label="Delete comment"
+                  className="text-red-400/60 hover:text-red-400 transition-colors p-0.5 flex-shrink-0 mt-0.5">
+                  <Trash2 size={11} />
+                </button>
+              )}
+            </div>
+          ))}
+          <div className="flex gap-2 mt-2">
+            <input
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addComment()}
+              placeholder={t('comm_detail.add_comment')}
+              className="flex-1 h-8 rounded-lg px-3 text-xs text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60"
+            />
+            <button onClick={addComment} disabled={commenting || !commentText.trim()}
+              className="w-8 h-8 rounded-lg bg-brand-green disabled:opacity-40 flex items-center justify-center flex-shrink-0">
+              <Send size={12} className="text-black" />
+            </button>
           </div>
         </div>
       )}
