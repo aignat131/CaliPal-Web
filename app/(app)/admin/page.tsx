@@ -14,7 +14,6 @@ import { ArrowLeft, Plus, Trash2, Pencil, Check, X, MapPin, Trophy, Users, Shiel
 import { auth } from '@/lib/firebase/auth'
 import { DEFAULT_EXERCISE_CATALOGUE, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 
-const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 const EXERCISES = [
   'Tracțiuni', 'Flotări', 'Genuflexiuni', 'Dips', 'Muscle-up',
@@ -26,7 +25,7 @@ const EXERCISES = [
 type AdminTab = 'parks' | 'challenges' | 'communities' | 'park_requests' | 'verifications' | 'exercises' | 'feedback' | 'trainings'
 
 export default function AdminPage() {
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const router = useRouter()
   const [tab, setTab] = useState<AdminTab>('parks')
   const [resettingPoints, setResettingPoints] = useState(false)
@@ -56,10 +55,10 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    if (user && user.email !== SUPERADMIN) router.replace('/home')
-  }, [user, router])
+    if (user && !isSuperAdmin) router.replace('/home')
+  }, [user, isSuperAdmin, router])
 
-  if (!user || user.email !== SUPERADMIN) return <div className="min-h-screen" style={{ backgroundColor: 'var(--app-bg)' }} />
+  if (!user || !isSuperAdmin) return <div className="min-h-screen" style={{ backgroundColor: 'var(--app-bg)' }} />
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>

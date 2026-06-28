@@ -3,7 +3,7 @@ import { adminDb, adminAuth } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
 
-const SUPERADMIN_EMAIL = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
+const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL ?? ''
 
 export async function GET(req: NextRequest) {
   try {

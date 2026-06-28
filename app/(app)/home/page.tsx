@@ -19,7 +19,6 @@ import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 import { useT } from '@/lib/context/LanguageContext'
 
-const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null {
   if (!str) return null
@@ -43,7 +42,7 @@ function formatTrainingDate(timeStart: string, legacyDate?: string): string {
 }
 
 export default function HomePage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, isSuperAdmin } = useAuth()
   const t = useT()
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null)
   const [joinedCommunities, setJoinedCommunities] = useState<CommunityDoc[]>([])
@@ -70,7 +69,7 @@ export default function HomePage() {
   // Workout dates for streak calendar
   useEffect(() => {
     if (!user || !showStreakCalendar) return
-    getDocs(query(collection(db, 'users', user.uid, 'workouts'), orderBy('createdAt', 'desc'))).then(snap => {
+    getDocs(query(collection(db, 'users', user.uid, 'workouts'), orderBy('createdAt', 'desc'), limit(400))).then(snap => {
       const dates = new Set<string>()
       snap.docs.forEach(d => {
         const ts = d.data().createdAt
@@ -96,7 +95,7 @@ export default function HomePage() {
     if (!favId) { setLatestFavTraining(null); setCommChallenge(null); return }
 
     const unsubTraining = onSnapshot(
-      collection(db, 'communities', favId, 'trainings'),
+      query(collection(db, 'communities', favId, 'trainings'), orderBy('timeStart', 'desc'), limit(30)),
       snap => {
         if (snap.empty) { setLatestFavTraining(null); return }
         const now = new Date()
@@ -218,7 +217,7 @@ export default function HomePage() {
                 <span className="text-xs font-black" style={{ color: streakIsActive ? '#FF6B2B' : 'rgba(255,255,255,0.35)' }}>{streak}</span>
               </button>
             )}
-            {user?.email === SUPERADMIN && (
+            {isSuperAdmin && (
               <Link href="/admin">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: '#FF000020', border: '1px solid #FF000040' }}>

@@ -3,12 +3,13 @@ import { Resend } from 'resend'
 import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { feedbackReplyHtml, getDefaultPrefix, getDefaultSuffix } from '@/lib/email/feedbackReplyTemplate'
 import { FieldValue } from 'firebase-admin/firestore'
+import { parseBody } from '@/lib/api/parseBody'
 
 export const dynamic = 'force-dynamic'
 
 const FROM_EMAIL        = process.env.EMAIL_FROM ?? 'CaliPal <noreply@calipal.ro>'
 const APP_URL           = process.env.NEXT_PUBLIC_APP_URL ?? 'https://calipal.ro'
-const SUPERADMIN_EMAIL  = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
+const SUPERADMIN_EMAIL  = process.env.SUPERADMIN_EMAIL ?? ''
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,7 +31,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 2. Parse body ─────────────────────────────────────────────────────────
-    const { feedbackId, replyBody, lang } = await req.json() as {
+    const [parsed, bodyErr] = await parseBody(req)
+    if (bodyErr) return bodyErr
+    const { feedbackId, replyBody, lang } = parsed as {
       feedbackId: string
       replyBody: string
       lang: 'RO' | 'EN'
@@ -96,6 +99,6 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     console.error('[email/feedback-reply] error:', err)
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, reason: 'server-error' }, { status: 500 })
   }
 }

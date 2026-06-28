@@ -3,7 +3,7 @@ import { adminDb, adminAuth } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
 
-const SUPERADMIN_EMAIL = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
+const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL ?? ''
 const POINTS_PER_TRAINING = 10
 
 export async function POST(req: NextRequest) {

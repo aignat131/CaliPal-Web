@@ -8,6 +8,10 @@ service firebase.storage {
     function isOwner(uid) {
       return isAuth() && request.auth.uid == uid;
     }
+    function isCommunityMember(communityId) {
+      let member = firestore.get(/databases/(default)/documents/communities/$(communityId)/members/$(request.auth.uid));
+      return isAuth() && member != null;
+    }
     // Check if the requesting user is an admin or moderator of this community
     function isCommunityAdmin(communityId) {
       let member = firestore.get(/databases/(default)/documents/communities/$(communityId)/members/$(request.auth.uid));
@@ -38,18 +42,18 @@ service firebase.storage {
         && request.resource.size <= 8 * 1024 * 1024;
     }
 
-    // Training photos — any community member can upload their own
+    // Training photos — only community members can upload
     match /training_photos/{communityId}/{trainingId}/{fileName} {
       allow read: if isAuth();
-      allow write: if isAuth()
+      allow write: if isCommunityMember(communityId)
         && request.resource.contentType.matches('image/.*')
         && request.resource.size <= 8 * 1024 * 1024;
     }
 
-    // Community post photos — any community member can upload
+    // Community post photos — only community members can upload
     match /community_posts/{communityId}/{fileName} {
       allow read: if isAuth();
-      allow write: if isAuth()
+      allow write: if isCommunityMember(communityId)
         && request.resource.contentType.matches('image/.*')
         && request.resource.size <= 8 * 1024 * 1024;
     }

@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { messageEmailHtml } from '@/lib/email/messageTemplate'
 import { FieldValue } from 'firebase-admin/firestore'
+import { parseBody } from '@/lib/api/parseBody'
 
 const EMAIL_RATE_LIMIT = 5 // max new-conversation emails per sender per hour
 
@@ -27,7 +28,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 2. Parse body ─────────────────────────────────────────────────────────
-    const { conversationId, recipientUid, preview } = await req.json() as {
+    const [parsed, bodyErr] = await parseBody(req)
+    if (bodyErr) return bodyErr
+    const { conversationId, recipientUid, preview } = parsed as {
       conversationId: string
       recipientUid: string
       preview: string
@@ -117,6 +120,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[email/message] error:', err)
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, reason: 'server-error' }, { status: 500 })
   }
 }

@@ -115,6 +115,9 @@ export default function ChatDetailPage() {
   const swipeStartX = useRef<number>(0)
   const swipeTriggered = useRef(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const isNearBottomRef = useRef(true)
+  const justSentRef = useRef(false)
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const typingActiveRef = useRef(false)
 
@@ -208,9 +211,25 @@ export default function ChatDetailPage() {
     }
   }, [reactionPickerMsgId])
 
-  // Scroll to bottom on new messages or typing indicator
+  // Track if user is near the bottom of the scroll area
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = scrollContainerRef.current
+    if (!el) return
+    function handleScroll() {
+      if (!el) return
+      const threshold = 150
+      isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+    }
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Scroll to bottom on new messages or typing indicator (only if near bottom or just sent)
+  useEffect(() => {
+    if (isNearBottomRef.current || justSentRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      justSentRef.current = false
+    }
   }, [messages, otherIsTyping])
 
   // Mark messages as read + mark my sent messages as isRead for receipt display
@@ -250,6 +269,8 @@ export default function ChatDetailPage() {
   async function loadOlderMessages() {
     if (!oldestDocRef.current || loadingMore) return
     setLoadingMore(true)
+    const el = scrollContainerRef.current
+    const prevScrollHeight = el?.scrollHeight ?? 0
     try {
       const q = query(
         collection(db, 'conversations', conversationId, 'messages'),
@@ -263,6 +284,10 @@ export default function ChatDetailPage() {
         const fetched = snap.docs.map(d => ({ id: d.id, ...d.data() }) as ChatMessage)
         setOlderMessages(prev => [...fetched, ...prev])
         setHasMore(snap.docs.length >= 50)
+        // Preserve scroll position after prepending older messages
+        requestAnimationFrame(() => {
+          if (el) el.scrollTop = el.scrollHeight - prevScrollHeight
+        })
       } else {
         setHasMore(false)
       }
@@ -286,6 +311,7 @@ export default function ChatDetailPage() {
     const content = text.trim()
     setText('')
     setSending(true)
+    justSentRef.current = true
 
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
     typingActiveRef.current = false
@@ -485,7 +511,7 @@ export default function ChatDetailPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4">
         {loading && <SkeletonMessages />}
         {!loading && hasMore && (
           <div className="flex justify-center mb-3">

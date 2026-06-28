@@ -20,7 +20,6 @@ import { getInstallPrompt, clearInstallPrompt } from '@/components/layout/Servic
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useLanguage } from '@/lib/context/LanguageContext'
 
-const SUPERADMIN = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
 
 // ── Toggle row helper ──────────────────────────────────────────────────────────
 function EmailToggleRow({
@@ -55,14 +54,12 @@ function EmailToggleRow({
 
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const router = useRouter()
   const [showLogout, setShowLogout] = useState(false)
   const { status: pushStatus, requestPermission } = usePushNotifications(user?.uid)
   const { theme, setTheme } = useTheme()
   const { lang, setLang, t } = useLanguage()
-
-  const isSuperAdmin = user?.email === SUPERADMIN
 
   // User doc state
   const [locationMode, setLocationMode] = useState<LocationSharingMode>('EVERYWHERE')

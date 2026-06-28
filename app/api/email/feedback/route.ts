@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { feedbackEmailHtml } from '@/lib/email/feedbackTemplate'
 import { FieldValue } from 'firebase-admin/firestore'
+import { parseBody } from '@/lib/api/parseBody'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 2. Parse body ─────────────────────────────────────────────────────────
-    const { category, subject, message, rating } = await req.json() as {
+    const [parsed, bodyErr] = await parseBody(req)
+    if (bodyErr) return bodyErr
+    const { category, subject, message, rating } = parsed as {
       category: string
       subject: string
       message: string
@@ -143,7 +146,7 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     console.error('[email/feedback] error:', err)
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, reason: 'server-error' }, { status: 500 })
   }
 }
 
@@ -185,6 +188,6 @@ export async function GET(req: NextRequest) {
       canSendToday: effectiveDayCount < DAY_LIMIT && effectiveWeekCount < WEEK_LIMIT,
     })
   } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, reason: 'server-error' }, { status: 500 })
   }
 }

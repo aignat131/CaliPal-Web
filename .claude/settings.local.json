@@ -61,7 +61,12 @@
       "Bash(git -C \"E:/Web_Apps/CaliPal-Web\" add \"app/\\(app\\)/workout/_components/WorkoutHomeTab.tsx\" \"app/\\(app\\)/workout/page.tsx\" \"components/workout/RepCounterModal.tsx\" \"lib/ml/pose-math.ts\" \"lib/ml/rep-counter.ts\" \"app/\\(app\\)/workout/_components/QuickRepCounterView.tsx\")",
       "Bash(git -C E:/Web_Apps/CaliPal-Web commit -m ':*)",
       "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(git revert:*)",
+      "Bash(firebase --version)",
+      "Bash(git -C /e/Web_Apps/CaliPal-Web log --all --oneline --grep=\"training\\\\|delete\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m 'Add totalTrainings counter, fix email notif permissions, update Firestore rules:*)"
     ]
   }
 }

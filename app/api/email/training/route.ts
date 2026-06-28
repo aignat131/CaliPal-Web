@@ -3,6 +3,7 @@ import { createHmac } from 'crypto'
 import { Resend } from 'resend'
 import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { trainingEmailHtml } from '@/lib/email/trainingTemplate'
+import { parseBody } from '@/lib/api/parseBody'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,6 +41,8 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 2. Parse body ──────────────────────────────────────────────────────────
+  const [parsed, bodyErr] = await parseBody(req)
+  if (bodyErr) return bodyErr
   const {
     communityId,
     trainingId,
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
     timeEnd,
     location,
     authorName,
-  }: {
+  } = parsed as {
     communityId: string
     trainingId: string
     trainingName: string
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
     timeEnd?: string
     location?: string
     authorName: string
-  } = await req.json()
+  }
 
   if (!communityId || !trainingId || !trainingName || !timeStart) {
     return NextResponse.json({ ok: false, reason: 'missing-fields' }, { status: 400 })
@@ -173,6 +176,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, sent })
   } catch (err) {
     console.error('[email/training] unhandled error:', err)
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, reason: 'server-error' }, { status: 500 })
   }
 }

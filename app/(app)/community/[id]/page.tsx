@@ -130,6 +130,10 @@ export default function CommunityDetailPage() {
   const [postImagePreview, setPostImagePreview] = useState<string | null>(null)
   const postImageRef = useRef<HTMLInputElement>(null)
   const [posting, setPosting] = useState(false)
+  const [showPostMentionList, setShowPostMentionList] = useState(false)
+  const [postMentionQuery, setPostMentionQuery] = useState('')
+  const [mentionedUids, setMentionedUids] = useState<Set<string>>(new Set())
+  const postInputRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null)
   const [showAddTraining, setShowAddTraining] = useState(false)
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set())
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
@@ -450,9 +454,37 @@ export default function CommunityDetailPage() {
     }
   }
 
+  // ── @mention helpers ──
+  function handlePostTextChange(val: string) {
+    setPostText(val)
+    const atIdx = val.lastIndexOf('@')
+    if (atIdx !== -1) {
+      const afterAt = val.slice(atIdx + 1)
+      if (!afterAt.includes(' ') && afterAt.length > 0 && afterAt.length <= 30) {
+        setPostMentionQuery(afterAt)
+        setShowPostMentionList(true)
+        return
+      }
+    }
+    setShowPostMentionList(false)
+  }
+
+  function insertPostMention(name: string, userId: string) {
+    const atIdx = postText.lastIndexOf('@')
+    setPostText(postText.slice(0, atIdx) + '@' + name + ' ')
+    setMentionedUids(prev => new Set(prev).add(userId))
+    setShowPostMentionList(false)
+    postInputRef.current?.focus()
+  }
+
+  const postMentionFiltered = showPostMentionList
+    ? members.filter(m => m.displayName.toLowerCase().includes(postMentionQuery.toLowerCase()) && m.userId !== user?.uid).slice(0, 5)
+    : []
+
   async function addPost() {
     if (!user || !postText.trim() || posting) return
     setPosting(true)
+    const mentionIds = [...mentionedUids].filter(uid => uid !== user.uid)
     try {
       const docRef = await addDoc(collection(db, 'communities', id, 'posts'), {
         authorId: user.uid,
@@ -463,6 +495,7 @@ export default function CommunityDetailPage() {
         likesCount: 0,
         commentsCount: 0,
         createdAt: serverTimestamp(),
+        ...(mentionIds.length > 0 && { mentionedUserIds: mentionIds }),
       })
       if (postImage) {
         try {
@@ -470,9 +503,19 @@ export default function CommunityDetailPage() {
           await updateDoc(docRef, { photoUrl })
         } catch { /* non-critical — post created without image */ }
       }
+      // Notify mentioned users
+      if (mentionIds.length > 0) {
+        const communityName = community?.name ?? ''
+        await Promise.allSettled(
+          mentionIds.map(uid =>
+            createNotification(uid, 'POST_MENTION', communityName, `${myName} te-a menționat într-o postare`, id)
+          )
+        )
+      }
       setPostText('')
       setPostImage(null)
       setPostImagePreview(null)
+      setMentionedUids(new Set())
       showToast('Post publicat!')
     } catch {
       showToast('Eroare la publicare. Încearcă din nou.', 'error')
@@ -860,12 +903,31 @@ export default function CommunityDetailPage() {
           <div>
             {isMember && (
               <div className="mb-4">
-                <div className="flex gap-2">
+                <div className="flex gap-2 relative">
+                  {/* @mention dropdown */}
+                  {showPostMentionList && postMentionFiltered.length > 0 && (
+                    <div
+                      className="absolute bottom-full left-0 right-0 rounded-xl max-h-40 overflow-y-auto z-10 mb-1 border border-white/12"
+                      style={{ backgroundColor: 'var(--app-surface)' }}
+                    >
+                      {postMentionFiltered.map(m => (
+                        <button
+                          key={m.userId}
+                          onClick={() => insertPostMention(m.displayName, m.userId)}
+                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-left text-sm text-white/80"
+                        >
+                          <MemberAvatar photoUrl={m.photoUrl} name={m.displayName} size={24} />
+                          {m.displayName}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <input
+                    ref={postInputRef as React.RefObject<HTMLInputElement>}
                     value={postText}
-                    onChange={e => setPostText(e.target.value)}
+                    onChange={e => handlePostTextChange(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && addPost()}
-                    placeholder="Scrie ceva..."
+                    placeholder={t('comm_detail.post_placeholder')}
                     maxLength={2000}
                     className="flex-1 h-11 rounded-xl px-3 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/60 transition-colors"
                   />
@@ -1301,6 +1363,7 @@ function MemberSheet({
   onAddFriend: () => void
   onKick: () => void
 }) {
+  const t = useT()
   const roleColor = ROLE_COLORS[member.role as MemberRole] ?? 'var(--accent)'
   const isMe = member.userId === myUid
 
@@ -1310,6 +1373,23 @@ function MemberSheet({
   const daysSinceJoin = joinedAtMs !== null
     ? Math.floor((Date.now() - joinedAtMs) / 86400000)
     : null
+
+  function formatMemberDuration(days: number): string {
+    if (days <= 1) return t('comm_detail.member_1day')
+    if (days < 30) return t('comm_detail.member_days', { n: days })
+    const months = Math.floor(days / 30)
+    const years = Math.floor(days / 365)
+    const remainingMonths = Math.floor((days % 365) / 30)
+    if (years === 0) {
+      return months === 1 ? t('comm_detail.member_1month') : t('comm_detail.member_months', { n: months })
+    }
+    if (remainingMonths === 0) {
+      return years === 1 ? t('comm_detail.member_1year') : t('comm_detail.member_years', { n: years })
+    }
+    return years === 1
+      ? t('comm_detail.member_1year_months', { m: remainingMonths })
+      : t('comm_detail.member_years_months', { y: years, m: remainingMonths })
+  }
 
   return (
     <div
@@ -1343,7 +1423,7 @@ function MemberSheet({
             {daysSinceJoin !== null && (
               <>
                 <span className="text-xs text-white/35">•</span>
-                <span className="text-xs text-white/50">Membru de {daysSinceJoin} zile</span>
+                <span className="text-xs text-white/50">{formatMemberDuration(daysSinceJoin)}</span>
               </>
             )}
           </div>
@@ -2118,6 +2198,15 @@ function formatPostDuration(s: number): string {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
+function renderTextWithMentions(text: string): React.ReactNode {
+  const parts = text.split(/(@\w[\w\s]*?\w(?=\s|$)|@\w+)/g)
+  return parts.map((part, i) =>
+    part.startsWith('@')
+      ? <span key={i} className="text-brand-green font-semibold">{part}</span>
+      : part
+  )
+}
+
 function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, myProTitle, onDelete, onOpen }: {
   post: CommunityPost
   communityId: string
@@ -2135,6 +2224,8 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
   const [comments, setComments] = useState<PostComment[]>([])
   const [commentText, setCommentText] = useState('')
   const [commenting, setCommenting] = useState(false)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentText, setEditCommentText] = useState('')
   // Emoji reactions: { [emoji]: string[] (userIds) }
   const [reactionCounts, setReactionCounts] = useState<Record<string, string[]>>({})
   const [myReaction, setMyReaction] = useState<string | null>(null)
@@ -2206,6 +2297,16 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
     await updateDoc(doc(db, 'communities', communityId, 'posts', post.id), { commentsCount: increment(-1) })
   }
 
+  async function saveEditComment(commentId: string) {
+    if (!editCommentText.trim()) return
+    await updateDoc(
+      doc(db, 'communities', communityId, 'posts', post.id, 'comments', commentId),
+      { text: editCommentText.trim() }
+    )
+    setEditingCommentId(null)
+    setEditCommentText('')
+  }
+
   const roleColor = ROLE_COLORS[post.authorRole as MemberRole] ?? 'var(--accent)'
 
   return (
@@ -2248,7 +2349,7 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
         {/* Description — more prominent (workout note or regular content) */}
         {(isWorkoutPost ? post.workoutNote : post.content) && (
           <p className="text-[15px] text-white/90 leading-snug mb-3 whitespace-pre-line font-medium">
-            {isWorkoutPost ? post.workoutNote : post.content}
+            {renderTextWithMentions(isWorkoutPost ? (post.workoutNote ?? '') : post.content)}
           </p>
         )}
 
@@ -2346,13 +2447,36 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
               </div>
               <div className="flex-1 min-w-0">
                 <span className="text-xs font-bold text-white">{c.authorName} </span>
-                <span className="text-xs text-white/70">{c.text}</span>
+                {editingCommentId === c.id ? (
+                  <div className="flex gap-1 mt-1">
+                    <input
+                      value={editCommentText}
+                      onChange={e => setEditCommentText(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveEditComment(c.id)}
+                      className="flex-1 h-7 rounded-lg px-2 text-xs text-white outline-none border border-brand-green/60 bg-white/7"
+                      autoFocus
+                    />
+                    <button onClick={() => saveEditComment(c.id)} className="text-brand-green text-xs font-bold px-1">&#10003;</button>
+                    <button onClick={() => setEditingCommentId(null)} className="text-white/40 text-xs px-1">&#10005;</button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-white/70">{c.text}</span>
+                )}
               </div>
-              {isSuperAdmin && (
-                <button onClick={() => deleteComment(c.id)} aria-label="Șterge comentariu"
-                  className="text-red-400/60 hover:text-red-400 transition-colors p-0.5 flex-shrink-0 mt-0.5">
-                  <Trash2 size={11} />
-                </button>
+              {(c.authorId === myUid || isSuperAdmin) && editingCommentId !== c.id && (
+                <div className="flex gap-0.5 flex-shrink-0 mt-0.5">
+                  {c.authorId === myUid && (
+                    <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.text) }}
+                      aria-label="Editează comentariu"
+                      className="text-white/40 hover:text-white/70 transition-colors p-0.5">
+                      <Pencil size={11} />
+                    </button>
+                  )}
+                  <button onClick={() => deleteComment(c.id)} aria-label="Șterge comentariu"
+                    className="text-red-400/60 hover:text-red-400 transition-colors p-0.5">
+                    <Trash2 size={11} />
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -2395,6 +2519,8 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
   const [comments, setComments] = useState<PostComment[]>([])
   const [commentText, setCommentText] = useState('')
   const [commenting, setCommenting] = useState(false)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentText, setEditCommentText] = useState('')
   const [reactionCounts, setReactionCounts] = useState<Record<string, string[]>>({})
   const [myReaction, setMyReaction] = useState<string | null>(null)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
@@ -2453,6 +2579,16 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
     await updateDoc(doc(db, 'communities', communityId, 'posts', post.id), { commentsCount: increment(-1) })
   }
 
+  async function saveEditComment(commentId: string) {
+    if (!editCommentText.trim()) return
+    await updateDoc(
+      doc(db, 'communities', communityId, 'posts', post.id, 'comments', commentId),
+      { text: editCommentText.trim() }
+    )
+    setEditingCommentId(null)
+    setEditCommentText('')
+  }
+
   function formatPostDurationLocal(s: number): string {
     const m = Math.floor(s / 60); const sec = s % 60
     return `${m}:${sec.toString().padStart(2, '0')}`
@@ -2499,7 +2635,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
           {/* Content */}
           {(isWorkoutPost ? post.workoutNote : post.content) && (
             <p className="text-[15px] text-white/90 leading-snug mb-3 whitespace-pre-line font-medium">
-              {isWorkoutPost ? post.workoutNote : post.content}
+              {renderTextWithMentions(isWorkoutPost ? (post.workoutNote ?? '') : post.content)}
             </p>
           )}
 
@@ -2571,14 +2707,37 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
               <div className="flex-1 min-w-0">
                 <div className="rounded-2xl px-3 py-2" style={{ backgroundColor: 'var(--app-surface)' }}>
                   <span className="text-xs font-bold text-white">{c.authorName} </span>
-                  <span className="text-xs text-white/70">{c.text}</span>
+                  {editingCommentId === c.id ? (
+                    <div className="flex gap-1 mt-1">
+                      <input
+                        value={editCommentText}
+                        onChange={e => setEditCommentText(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && saveEditComment(c.id)}
+                        className="flex-1 h-7 rounded-lg px-2 text-xs text-white outline-none border border-brand-green/60 bg-white/7"
+                        autoFocus
+                      />
+                      <button onClick={() => saveEditComment(c.id)} className="text-brand-green text-xs font-bold px-1">&#10003;</button>
+                      <button onClick={() => setEditingCommentId(null)} className="text-white/40 text-xs px-1">&#10005;</button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-white/70">{c.text}</span>
+                  )}
                 </div>
               </div>
-              {isSuperAdmin && (
-                <button onClick={() => deleteComment(c.id)} aria-label="Șterge comentariu"
-                  className="text-red-400/60 hover:text-red-400 transition-colors p-0.5 flex-shrink-0 mt-2">
-                  <Trash2 size={12} />
-                </button>
+              {(c.authorId === myUid || isSuperAdmin) && editingCommentId !== c.id && (
+                <div className="flex gap-0.5 flex-shrink-0 mt-2">
+                  {c.authorId === myUid && (
+                    <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.text) }}
+                      aria-label="Editează comentariu"
+                      className="text-white/40 hover:text-white/70 transition-colors p-0.5">
+                      <Pencil size={12} />
+                    </button>
+                  )}
+                  <button onClick={() => deleteComment(c.id)} aria-label="Șterge comentariu"
+                    className="text-red-400/60 hover:text-red-400 transition-colors p-0.5">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               )}
             </div>
           ))}

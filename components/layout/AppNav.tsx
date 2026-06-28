@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Users, Dumbbell, Map, User, LogIn } from 'lucide-react'
+import { Home, Users, Dumbbell, Map, User, LogIn, MessageSquare } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useT } from '@/lib/context/LanguageContext'
@@ -107,6 +107,30 @@ export default function AppNav() {
               </Link>
             )
           })}
+          {/* Messages — desktop only */}
+          {!loading && user && (() => {
+            const active = pathname === '/chat' || pathname.startsWith('/chat/')
+            return (
+              <Link
+                href="/chat"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors duration-150 group"
+                style={{ backgroundColor: active ? 'rgba(var(--accent-rgb), 0.09)' : 'transparent' }}
+              >
+                <MessageSquare
+                  size={20}
+                  className="flex-shrink-0 transition-colors"
+                  style={{ color: active ? 'var(--accent)' : inactiveColor }}
+                  strokeWidth={active ? 2.5 : 1.8}
+                />
+                <span
+                  className="text-sm font-semibold tracking-wide transition-colors hidden lg:block"
+                  style={{ color: active ? 'var(--accent)' : inactiveColor }}
+                >
+                  {t('nav.messages')}
+                </span>
+              </Link>
+            )
+          })()}
         </div>
       </nav>
     </>

@@ -92,6 +92,7 @@ export interface CommunityPost {
   workoutDuration?: number            // seconds
   workoutReps?: number
   workoutExercises?: { name: string; summary: string }[]
+  mentionedUserIds?: string[]
 }
 
 export interface TrainingExercise {
@@ -380,6 +381,8 @@ export type NotificationType =
   | 'COMMUNITY_REMOVED'
   | 'TRAINING_RSVP'
   | 'PHOTO_DELETED'
+  | 'TASK_COMPLETED'
+  | 'POST_MENTION'
 
 export interface AppNotification {
   id: string

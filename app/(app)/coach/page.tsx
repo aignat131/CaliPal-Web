@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  collection, onSnapshot, query, orderBy, where, updateDoc, doc, serverTimestamp,
+  collection, onSnapshot, query, orderBy, where, limit, updateDoc, doc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -18,7 +18,7 @@ const STATUS_COLORS = {
 }
 
 export default function CoachPage() {
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const { profile } = useMyProfile()
   const isCoach = profile?.isCoach ?? false
   const router = useRouter()
@@ -37,10 +37,9 @@ export default function CoachPage() {
 
   useEffect(() => {
     if (!user) return
-    const isSuperAdmin = user.email === process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL
     const q = isSuperAdmin
-      ? query(collection(db, 'form_check_requests'), orderBy('createdAt', 'desc'))
-      : query(collection(db, 'form_check_requests'), where('userId', '==', user.uid))
+      ? query(collection(db, 'form_check_requests'), orderBy('createdAt', 'desc'), limit(50))
+      : query(collection(db, 'form_check_requests'), where('userId', '==', user.uid), limit(50))
     const unsub = onSnapshot(q, snap => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }) as FormCheckRequest)
       if (!isSuperAdmin) list.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))

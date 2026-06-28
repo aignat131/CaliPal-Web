@@ -1,7 +1,8 @@
 import {
-  doc, updateDoc, increment, getDoc, setDoc, serverTimestamp, runTransaction,
+  doc, updateDoc, increment, getDoc, setDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
+import { createNotification } from '@/lib/firebase/notifications'
 
 function localDate(d: Date): string {
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
@@ -42,6 +43,21 @@ const COIN_AMOUNTS: Record<CoinTask, number> = {
   SKILLS_10: 75,
 }
 
+const TASK_NOTIF_LABELS: Partial<Record<CoinTask, string>> = {
+  FIRST_WORKOUT: 'Primul antrenament completat!',
+  STREAK_3: 'Streak de 3 zile!',
+  STREAK_7: 'Streak de 7 zile!',
+  STREAK_30: 'Streak de 30 de zile!',
+  COMPLETE_ASSESSMENT: 'Evaluare completată!',
+  JOIN_COMMUNITY: 'Te-ai alăturat unei comunități!',
+  ADD_FRIEND: 'Ai adăugat un prieten!',
+  WORKOUTS_10: '10 antrenamente totale!',
+  WORKOUTS_50: '50 de antrenamente totale!',
+  WORKOUTS_100: '100 de antrenamente totale!',
+  SKILLS_5: '5 skill-uri deblocate!',
+  SKILLS_10: '10 skill-uri deblocate!',
+}
+
 /** Award coins for a task. One-time tasks are guarded by a `coin_tasks/{uid}_{task}` doc. */
 export async function awardCoins(uid: string, task: CoinTask, amount?: number): Promise<number> {
   const coins = amount ?? COIN_AMOUNTS[task]
@@ -62,6 +78,13 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
   }
 
   await updateDoc(doc(db, 'users', uid), { coins: increment(coins) })
+
+  // Send one-time in-app notification for task completion
+  const label = TASK_NOTIF_LABELS[task]
+  if (label) {
+    createNotification(uid, 'TASK_COMPLETED', label, `+${coins} monede`).catch(() => {})
+  }
+
   return coins
 }
 
@@ -78,66 +101,29 @@ export async function checkWorkoutMilestones(uid: string, newTotal: number) {
 /**
  * Award 10 training attendance points to a community member per training.
  * No daily cap — each call awards 10 points (e.g. 2 trainings = 20 pts).
- * Tracks a streak of consecutive attendance days with milestone bonuses.
  */
 export async function awardTrainingAttendancePoints(
   uid: string,
   communityId: string,
   { countAttendance = true }: { countAttendance?: boolean } = {},
-): Promise<{ pointsAwarded: number; streakBonus: number; newStreak: number }> {
-  const today = localDate(new Date())
-  const yesterday = localDate(new Date(Date.now() - 86400000))
+): Promise<{ pointsAwarded: number }> {
   const memberRef = doc(db, 'communities', communityId, 'members', uid)
 
-  let pointsAwarded = 0
-  let streakBonus = 0
-  let newStreak = 0
-
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(memberRef)
-    if (!snap.exists()) return
-
-    const data = snap.data()
-    const lastAttendDate: string | undefined = data.lastAttendanceDate
-    const currentStreak: number = data.trainingAttendanceStreak ?? 0
-
-    // Always award 10 points per training (no daily cap)
-    pointsAwarded = 10
-
-    if (lastAttendDate === today) {
-      // Already updated streak today — just award points + count attendance
-      newStreak = currentStreak
-      tx.update(memberRef, {
-        trainingPoints: increment(10),
-        ...(countAttendance ? { totalTrainingsAttended: increment(1) } : {}),
-      })
-    } else {
-      // First attendance today — update streak + award points
-      newStreak = lastAttendDate === yesterday ? currentStreak + 1 : 1
-      tx.update(memberRef, {
-        trainingPoints: increment(10),
-        lastAttendanceDate: today,
-        trainingAttendanceStreak: newStreak,
-        ...(countAttendance ? { totalTrainingsAttended: increment(1) } : {}),
-      })
-    }
+  await updateDoc(memberRef, {
+    trainingPoints: increment(10),
+    ...(countAttendance ? { totalTrainingsAttended: increment(1) } : {}),
   })
 
-  // Streak milestone bonuses (guarded against double-award)
-  if (pointsAwarded > 0 && (newStreak === 3 || newStreak === 7 || newStreak === 30)) {
-    const milestone = newStreak as 3 | 7 | 30
-    const bonusAmounts: Record<3 | 7 | 30, number> = { 3: 5, 7: 15, 30: 50 }
-    const guardRef = doc(db, 'training_streak_tasks', `${uid}_${communityId}_${milestone}`)
-    const guardSnap = await getDoc(guardRef)
-    if (!guardSnap.exists()) {
-      await setDoc(guardRef, { uid, communityId, milestone, awardedAt: serverTimestamp() })
-      const bonus = bonusAmounts[milestone]
-      await updateDoc(memberRef, { trainingPoints: increment(bonus) })
-      streakBonus = bonus
-    }
-  }
+  return { pointsAwarded: 10 }
+}
 
-  return { pointsAwarded, streakBonus, newStreak }
+/** Check and award streak milestone coins. */
+export async function checkStreakMilestones(uid: string, streak: number) {
+  const promises: Promise<unknown>[] = []
+  if (streak >= 3) promises.push(awardCoins(uid, 'STREAK_3'))
+  if (streak >= 7) promises.push(awardCoins(uid, 'STREAK_7'))
+  if (streak >= 30) promises.push(awardCoins(uid, 'STREAK_30'))
+  await Promise.all(promises)
 }
 
 /** Check and award milestone coins after skills count changes. */

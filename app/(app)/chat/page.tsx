@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { ConversationDoc } from '@/types'
@@ -34,7 +34,8 @@ export default function ChatListPage() {
     const q = query(
       collection(db, 'conversations'),
       where('participantIds', 'array-contains', user.uid),
-      orderBy('lastMessageTimestamp', 'desc')
+      orderBy('lastMessageTimestamp', 'desc'),
+      limit(50)
     )
     const unsub = onSnapshot(q, snap => {
       setConversations(snap.docs.map(d => ({ id: d.id, ...d.data() }) as ConversationDoc))

@@ -5,7 +5,7 @@ import { collection, onSnapshot, addDoc, updateDoc, doc, increment, serverTimest
 import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'
 import { uploadTrainingPhoto } from '@/lib/firebase/storage'
-import { MapPin, Clock, Camera, Trash2, MessageCircle, Send } from 'lucide-react'
+import { MapPin, Clock, Camera, Trash2, MessageCircle, Send, Pencil } from 'lucide-react'
 import type { PlannedTraining, TrainingPhoto, PostComment } from '@/types'
 import TrainingPhotoCarousel from './TrainingPhotoCarousel'
 import PhotoDeleteModal from './PhotoDeleteModal'
@@ -47,6 +47,8 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
   const [reactionCounts, setReactionCounts] = useState<Record<string, string[]>>({})
   const [myReaction, setMyReaction] = useState<string | null>(null)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentText, setEditCommentText] = useState('')
 
   // Subscribe to photos subcollection
   useEffect(() => {
@@ -126,6 +128,16 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
   async function deleteComment(commentId: string) {
     await deleteDoc(doc(db, 'communities', communityId, 'trainings', training.id, 'comments', commentId))
     await updateDoc(doc(db, 'communities', communityId, 'trainings', training.id), { commentsCount: increment(-1) })
+  }
+
+  async function saveEditComment(commentId: string) {
+    if (!editCommentText.trim()) return
+    await updateDoc(
+      doc(db, 'communities', communityId, 'trainings', training.id, 'comments', commentId),
+      { text: editCommentText.trim() }
+    )
+    setEditingCommentId(null)
+    setEditCommentText('')
   }
 
   // Can user add a photo?
@@ -376,13 +388,36 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
               </div>
               <div className="flex-1 min-w-0">
                 <span className="text-xs font-bold text-white">{c.authorName} </span>
-                <span className="text-xs text-white/70">{c.text}</span>
+                {editingCommentId === c.id ? (
+                  <div className="flex gap-1 mt-1">
+                    <input
+                      value={editCommentText}
+                      onChange={e => setEditCommentText(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveEditComment(c.id)}
+                      className="flex-1 h-7 rounded-lg px-2 text-xs text-white outline-none border border-brand-green/60 bg-white/7"
+                      autoFocus
+                    />
+                    <button onClick={() => saveEditComment(c.id)} className="text-brand-green text-xs font-bold px-1">&#10003;</button>
+                    <button onClick={() => setEditingCommentId(null)} className="text-white/40 text-xs px-1">&#10005;</button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-white/70">{c.text}</span>
+                )}
               </div>
-              {isSuperAdmin && (
-                <button onClick={() => deleteComment(c.id)} aria-label="Delete comment"
-                  className="text-red-400/60 hover:text-red-400 transition-colors p-0.5 flex-shrink-0 mt-0.5">
-                  <Trash2 size={11} />
-                </button>
+              {(c.authorId === myUid || isSuperAdmin) && editingCommentId !== c.id && (
+                <div className="flex gap-0.5 flex-shrink-0 mt-0.5">
+                  {c.authorId === myUid && (
+                    <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.text) }}
+                      aria-label="Edit comment"
+                      className="text-white/40 hover:text-white/70 transition-colors p-0.5">
+                      <Pencil size={11} />
+                    </button>
+                  )}
+                  <button onClick={() => deleteComment(c.id)} aria-label="Delete comment"
+                    className="text-red-400/60 hover:text-red-400 transition-colors p-0.5">
+                    <Trash2 size={11} />
+                  </button>
+                </div>
               )}
             </div>
           ))}

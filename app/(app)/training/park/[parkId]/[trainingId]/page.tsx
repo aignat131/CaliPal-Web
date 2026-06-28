@@ -107,7 +107,7 @@ async function maybeNotifyAuthor(
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function StandaloneParkTrainingPage() {
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const { displayName: myDisplayName, photoUrl: myPhotoUrl } = useMyProfile()
   const router = useRouter()
   const params = useParams()
@@ -118,7 +118,6 @@ export default function StandaloneParkTrainingPage() {
   const [parkName, setParkName] = useState('')
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
-  const isSuperAdmin = user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '')
   const [profiles, setProfiles] = useState<Record<string, { name: string; photoUrl: string | null }>>({})
 
   // Edit state

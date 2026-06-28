@@ -3,7 +3,7 @@
 import { useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signInWithPopup, AuthError } from 'firebase/auth'
+import { signInWithCustomToken, sendEmailVerification, signInWithPopup, AuthError } from 'firebase/auth'
 import { auth, googleProvider } from '@/lib/firebase/auth'
 import { ensureUserDoc } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
@@ -63,9 +63,30 @@ export default function RegisterPage() {
     }
     setLoading(true)
     try {
-      const credential = await createUserWithEmailAndPassword(auth, email, password)
-      await updateProfile(credential.user, { displayName: name.trim() })
-      await ensureUserDoc({ ...credential.user, displayName: name.trim() })
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: turnstileToken,
+          email,
+          password,
+          displayName: name.trim(),
+          gender: gender || undefined,
+          age: age || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        const reasonMap: Record<string, string> = {
+          'email-in-use': t('auth.email_in_use'),
+          'weak-password': t('auth.password_weak'),
+          'captcha-failed': t('auth.captcha_required'),
+          'captcha-required': t('auth.captcha_required'),
+        }
+        setErrorMessage(reasonMap[data.reason] ?? t('auth.error_generic'))
+        return
+      }
+      const credential = await signInWithCustomToken(auth, data.customToken)
       await sendEmailVerification(credential.user).catch(() => { /* non-critical */ })
       router.replace('/home')
     } catch (e) {

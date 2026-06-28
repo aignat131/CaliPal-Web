@@ -8,7 +8,7 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
-// import { awardCoins } from '@/lib/gamification/coins'
+import { checkWorkoutMilestones, checkStreakMilestones } from '@/lib/gamification/coins'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
 import { DEFAULT_EXERCISE_CATALOGUE, getCategory, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
@@ -259,6 +259,10 @@ export default function WorkoutPage() {
         newStreak = lastWorkoutDate === yesterday ? currentStreak + 1 : lastWorkoutDate === today ? currentStreak : 1
         tx.update(userRef, { totalWorkouts: increment(1), currentStreak: newStreak, lastWorkoutDate: today })
       })
+
+      // Award milestone coins for workout count and streak
+      await checkWorkoutMilestones(user.uid, _newTotal)
+      await checkStreakMilestones(user.uid, newStreak)
 
       if (challenge) {
         const exerciseReps: Record<string, number> = {}

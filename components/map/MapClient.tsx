@@ -411,11 +411,10 @@ function CalloutCoordHelper({
 const LOCATION_CONSENT_KEY = 'calipal_location_consent'
 
 export default function MapClient() {
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const { displayName: myDisplayName, photoUrl: myPhoto } = useMyProfile()
   const { theme } = useTheme()
   const t = useT()
-  const isSuperAdmin = user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '')
 
   const [parks, setParks] = useState<ParkDoc[]>([])
   const [presence, setPresence] = useState<Record<string, ParkPresenceMember[]>>({})

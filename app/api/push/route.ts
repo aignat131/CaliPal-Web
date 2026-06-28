@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminMessaging, adminDb, adminAuth } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
+import { parseBody } from '@/lib/api/parseBody'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +40,9 @@ export async function POST(req: NextRequest) {
   }, { merge: true })
 
   // ── Parse & validate ──────────────────────────────────────────────────────
-  const { toUid, title, body, url, notifType } = await req.json()
+  const [parsed, err] = await parseBody(req)
+  if (err) return err
+  const { toUid, title, body, url, notifType } = parsed as Record<string, string>
   if (!toUid || !title) return NextResponse.json({ ok: false }, { status: 400 })
 
   try {

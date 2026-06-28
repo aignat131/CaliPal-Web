@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { sendPasswordResetEmail, AuthError } from 'firebase/auth'
 import { auth } from '@/lib/firebase/auth'
@@ -18,6 +18,13 @@ export default function ForgotPasswordPage() {
   const [emailSent, setEmailSent] = useState(false)
   const [resendDone, setResendDone] = useState(false)
   const [resendError, setResendError] = useState('')
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = setTimeout(() => setCooldown(c => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [cooldown])
 
   async function handleSend() {
     setErrorMessage('')
@@ -25,15 +32,18 @@ export default function ForgotPasswordPage() {
       setErrorMessage(t('auth.invalid_email_error'))
       return
     }
+    if (cooldown > 0) return
     setLoading(true)
     try {
       await sendPasswordResetEmail(auth, email)
       setEmailSent(true)
+      setCooldown(60)
     } catch (e) {
       const err = e as AuthError
       if (err.code === 'auth/user-not-found') {
         // Don't reveal if email exists — just show success
         setEmailSent(true)
+        setCooldown(60)
       } else {
         setErrorMessage(t('auth.error_generic'))
       }
@@ -43,11 +53,12 @@ export default function ForgotPasswordPage() {
   }
 
   async function handleResend() {
-    if (resendDone) return
+    if (resendDone || cooldown > 0) return
     setResendError('')
     try {
       await sendPasswordResetEmail(auth, email)
       setResendDone(true)
+      setCooldown(60)
     } catch {
       setResendError(t('auth.resend_failed'))
     }

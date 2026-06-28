@@ -11,6 +11,9 @@ import {
 import { auth, googleProvider } from '@/lib/firebase/auth'
 import { ensureUserDoc } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
+import Turnstile from 'react-turnstile'
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? ''
 
 function authErrorMessage(e: AuthError, t: (key: string) => string): string {
   switch (e.code) {
@@ -41,6 +44,7 @@ export default function LoginPage() {
   const [passwordError, setPasswordError] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState('')
 
   function validate() {
     let valid = true
@@ -137,10 +141,22 @@ export default function LoginPage() {
           </Link>
         </div>
 
+        {/* Turnstile bot protection */}
+        {TURNSTILE_SITE_KEY && (
+          <div className="flex justify-center mb-4">
+            <Turnstile
+              sitekey={TURNSTILE_SITE_KEY}
+              onVerify={token => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken('')}
+              theme="dark"
+            />
+          </div>
+        )}
+
         {/* Login button */}
         <button
           onClick={handleLogin}
-          disabled={loading}
+          disabled={loading || (!!TURNSTILE_SITE_KEY && !turnstileToken)}
           className="w-full h-[52px] rounded-full font-extrabold text-[15px] tracking-wide text-white disabled:opacity-50 transition-opacity flex items-center justify-center bg-brand-green"
         >
           {loading

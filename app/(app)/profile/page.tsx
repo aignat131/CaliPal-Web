@@ -90,6 +90,22 @@ const COIN_TASK_KEYS: Record<string, string> = {
   SKILLS_10:            'profile.task_skills_10',
 }
 
+const COIN_TASK_DESC_KEYS: Record<string, string> = {
+  FIRST_WORKOUT:        'profile.task_first_workout_desc',
+  COMPLETE_WORKOUT:     'profile.task_complete_workout_desc',
+  STREAK_3:             'profile.task_streak_3_desc',
+  STREAK_7:             'profile.task_streak_7_desc',
+  STREAK_30:            'profile.task_streak_30_desc',
+  COMPLETE_ASSESSMENT:  'profile.task_complete_assessment_desc',
+  JOIN_COMMUNITY:       'profile.task_join_community_desc',
+  ADD_FRIEND:           'profile.task_add_friend_desc',
+  WORKOUTS_10:          'profile.task_workouts_10_desc',
+  WORKOUTS_50:          'profile.task_workouts_50_desc',
+  WORKOUTS_100:         'profile.task_workouts_100_desc',
+  SKILLS_5:             'profile.task_skills_5_desc',
+  SKILLS_10:            'profile.task_skills_10_desc',
+}
+
 const COIN_TASKS = [
   { id: 'FIRST_WORKOUT',        coins: 20,  icon: '🏋️' },
   { id: 'COMPLETE_WORKOUT',     coins: 10,  icon: '✅' },
@@ -113,7 +129,7 @@ const SHOP_ITEMS = [
 ]
 
 export default function ProfilePage() {
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const { theme } = useTheme()
   const router = useRouter()
   const t = useT()
@@ -520,7 +536,7 @@ export default function ProfilePage() {
                 ⭐ Early Supporter
               </span>
             )}
-            {user?.email === (process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? '') && (
+            {isSuperAdmin && (
               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
                 style={{
                   backgroundColor: theme === 'light' ? '#fff3cc' : '#FFB80022',
@@ -726,6 +742,11 @@ export default function ProfilePage() {
                     <p className={`text-sm font-semibold ${done ? 'text-white/50 line-through' : 'text-white'}`}>
                       {t(COIN_TASK_KEYS[task.id])}
                     </p>
+                    {COIN_TASK_DESC_KEYS[task.id] && (
+                      <p className={`text-[11px] mt-0.5 ${done ? 'text-white/25' : 'text-white/40'}`}>
+                        {t(COIN_TASK_DESC_KEYS[task.id])}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <span className={`text-xs font-bold ${done ? 'text-white/30' : 'text-brand-green'}`}>

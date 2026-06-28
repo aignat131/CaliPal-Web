@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { broadcastEmailHtml } from '@/lib/email/broadcastTemplate'
+import { parseBody } from '@/lib/api/parseBody'
 
 export const dynamic = 'force-dynamic'
 
 const FROM_EMAIL  = process.env.EMAIL_FROM ?? 'CaliPal <noreply@calipal.ro>'
 const APP_URL     = process.env.NEXT_PUBLIC_APP_URL ?? 'https://calipal.ro'
-const SUPERADMIN_EMAIL = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
+const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL ?? ''
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,7 +32,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 2. Parse body ─────────────────────────────────────────────────────────
-    const { subject, body } = await req.json() as { subject: string; body: string }
+    const [parsed, bodyErr] = await parseBody(req)
+    if (bodyErr) return bodyErr
+    const { subject, body } = parsed as { subject: string; body: string }
 
     if (!subject?.trim() || !body?.trim()) {
       return NextResponse.json({ ok: false, reason: 'missing-fields' }, { status: 400 })
@@ -79,6 +82,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, sent, total: targets.length })
   } catch (err) {
     console.error('[email/broadcast] error:', err)
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    return NextResponse.json({ ok: false, reason: 'server-error' }, { status: 500 })
   }
 }

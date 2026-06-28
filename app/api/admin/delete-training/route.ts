@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
+import { parseBody } from '@/lib/api/parseBody'
 
 export const dynamic = 'force-dynamic'
 
-const SUPERADMIN_EMAIL = process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL ?? ''
+const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL ?? ''
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,7 +29,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 2. Parse body ─────────────────────────────────────────────────────────
-    const { communityId, parkId, trainingId } = await req.json() as {
+    const [parsed, bodyErr] = await parseBody(req)
+    if (bodyErr) return bodyErr
+    const { communityId, parkId, trainingId } = parsed as {
       communityId?: string
       parkId?: string
       trainingId?: string
