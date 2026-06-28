@@ -284,7 +284,19 @@ service cloud.firestore {
           request.resource.data.text is string &&
           request.resource.data.text.size() <= 4000 &&
           request.resource.data.timestamp == request.time;
+        // Allow participants to update messages (e.g. mark as read, add reactions)
+        allow update: if isAuth() && request.auth.uid in convParticipants();
         allow delete: if isAuth() && resource.data.senderId == request.auth.uid;
+      }
+
+      // Typing indicators — participants can read/write their own typing status
+      match /typing/{uid} {
+        function typingConvParticipants() {
+          let conv = get(/databases/$(database)/documents/conversations/$(conversationId));
+          return conv == null ? [] : conv.data.participantIds;
+        }
+        allow read: if isAuth() && request.auth.uid in typingConvParticipants();
+        allow write: if isOwner(uid) && request.auth.uid in typingConvParticipants();
       }
     }
 
