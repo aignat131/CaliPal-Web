@@ -12,12 +12,13 @@ export function useAuth() {
   useEffect(() => {
     if (!auth) { setLoading(false); return }
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u)
       if (u) {
         const result = await u.getIdTokenResult(true)
         setIsSuperAdmin(result.claims.superAdmin === true)
+        setUser(u)
       } else {
         setIsSuperAdmin(false)
+        setUser(null)
       }
       setLoading(false)
     })
