@@ -70,3 +70,48 @@ export function getCroppedImage(
     img.src = imageSrc
   })
 }
+
+/**
+ * Crop a training photo preserving the crop's aspect ratio.
+ * Caps the longest side at maxDimension and encodes as JPEG.
+ */
+export function getCroppedTrainingImage(
+  imageSrc: string,
+  pixelCrop: { x: number; y: number; width: number; height: number },
+  maxDimension = 1080,
+  quality = 0.82,
+): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      let outW = pixelCrop.width
+      let outH = pixelCrop.height
+      if (outW > maxDimension || outH > maxDimension) {
+        if (outW > outH) {
+          outH = Math.round((outH / outW) * maxDimension)
+          outW = maxDimension
+        } else {
+          outW = Math.round((outW / outH) * maxDimension)
+          outH = maxDimension
+        }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = outW
+      canvas.height = outH
+      canvas.getContext('2d')!.drawImage(
+        img,
+        pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
+        0, 0, outW, outH
+      )
+      canvas.toBlob(
+        blob => blob
+          ? resolve(new File([blob], 'training.jpg', { type: 'image/jpeg' }))
+          : reject(new Error('Canvas toBlob failed')),
+        'image/jpeg',
+        quality
+      )
+    }
+    img.onerror = reject
+    img.src = imageSrc
+  })
+}

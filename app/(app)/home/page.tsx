@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
-  collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, updateDoc,
+  collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, updateDoc, deleteField,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -281,6 +281,8 @@ export default function HomePage() {
             training={latestFavTraining}
             favId={userDoc.favoriteCommunityId}
             uid={user.uid}
+            userName={displayName}
+            userPhoto={userDoc?.photoUrl || user?.photoURL || null}
           />
         )}
 
@@ -440,7 +442,7 @@ function ChallengeCard({
   )
 }
 
-function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; favId: string; uid: string }) {
+function FavTrainingCard({ training, favId, uid, userName, userPhoto }: { training: PlannedTraining; favId: string; uid: string; userName: string; userPhoto: string | null }) {
   const t = useT()
   const [localRsvp, setLocalRsvp] = useState<'GOING' | 'MAYBE' | 'NOT_GOING' | null>(null)
   const myRsvp = localRsvp ?? (training.rsvps?.[uid] ?? null)
@@ -464,8 +466,16 @@ function FavTrainingCard({ training, favId, uid }: { training: PlannedTraining; 
   async function setRsvp(value: 'GOING' | 'MAYBE' | 'NOT_GOING') {
     setLocalRsvp(value)
     try {
+      const nameUpdate = value === 'GOING' && userName
+        ? { [`rsvpNames.${uid}`]: userName }
+        : { [`rsvpNames.${uid}`]: deleteField() }
+      const photoUpdate = value === 'GOING' && userPhoto
+        ? { [`rsvpPhotos.${uid}`]: userPhoto }
+        : { [`rsvpPhotos.${uid}`]: deleteField() }
       await updateDoc(doc(db, 'communities', favId, 'trainings', training.id), {
         [`rsvps.${uid}`]: value,
+        ...nameUpdate,
+        ...photoUpdate,
       })
     } catch (e) {
       setLocalRsvp(null)

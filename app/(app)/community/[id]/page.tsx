@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter, useParams } from 'next/navigation'
 import {
-  doc, collection, onSnapshot, addDoc, deleteDoc,
+  doc, collection, onSnapshot, addDoc, deleteDoc, deleteField,
   updateDoc, setDoc, serverTimestamp, getDoc, query, orderBy, getDocs, where,
   increment, arrayRemove, arrayUnion, writeBatch, limit,
 } from 'firebase/firestore'
@@ -528,8 +528,16 @@ export default function CommunityDetailPage() {
 
   async function rsvp(trainingId: string, status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
     if (!user) return
+    const nameUpdate = status === 'GOING' && myName
+      ? { [`rsvpNames.${user.uid}`]: myName }
+      : { [`rsvpNames.${user.uid}`]: deleteField() }
+    const photoUpdate = status === 'GOING' && myPhoto
+      ? { [`rsvpPhotos.${user.uid}`]: myPhoto }
+      : { [`rsvpPhotos.${user.uid}`]: deleteField() }
     await updateDoc(doc(db, 'communities', id, 'trainings', trainingId), {
       [`rsvps.${user.uid}`]: status,
+      ...nameUpdate,
+      ...photoUpdate,
     })
   }
 

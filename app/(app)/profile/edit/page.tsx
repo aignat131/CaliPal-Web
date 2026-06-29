@@ -9,6 +9,7 @@ import {
 import { doc, updateDoc } from 'firebase/firestore'
 import { db, getUserDoc, updateUserDoc } from '@/lib/firebase/firestore'
 import { uploadProfilePhoto } from '@/lib/firebase/storage'
+import { propagateDisplayName } from '@/lib/firebase/propagateName'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { ArrowLeft, Camera, ChevronDown, ChevronUp } from 'lucide-react'
 import ImageCropModal from '@/components/ui/ImageCropModal'
@@ -187,6 +188,9 @@ export default function EditProfilePage() {
           }).catch(() => {})
         )
       )
+
+      // Fire-and-forget: propagate name/photo to trainings, posts, photos, rsvps
+      propagateDisplayName(user.uid, trimmedName, finalPhotoUrl, communityIds).catch(() => {})
 
       router.back()
     } catch {

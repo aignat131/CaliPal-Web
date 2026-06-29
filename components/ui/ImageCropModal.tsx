@@ -3,19 +3,23 @@
 import { useState, useCallback } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
 import { Check, X } from 'lucide-react'
-import { getCroppedImage } from '@/lib/utils/imageUtils'
+import { getCroppedImage, getCroppedTrainingImage } from '@/lib/utils/imageUtils'
 
 interface Props {
   imageSrc: string
   onConfirm: (file: File) => void
   onCancel: () => void
+  mode?: 'profile' | 'training'
+  zIndex?: number
 }
 
-export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: Props) {
+export default function ImageCropModal({ imageSrc, onConfirm, onCancel, mode = 'profile', zIndex = 100 }: Props) {
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
   const [processing, setProcessing] = useState(false)
+
+  const isTraining = mode === 'training'
 
   const onCropComplete = useCallback((_: Area, pixels: Area) => {
     setCroppedAreaPixels(pixels)
@@ -25,7 +29,9 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: Props)
     if (!croppedAreaPixels) return
     setProcessing(true)
     try {
-      const file = await getCroppedImage(imageSrc, croppedAreaPixels, 400)
+      const file = isTraining
+        ? await getCroppedTrainingImage(imageSrc, croppedAreaPixels)
+        : await getCroppedImage(imageSrc, croppedAreaPixels, 400)
       onConfirm(file)
     } finally {
       setProcessing(false)
@@ -33,7 +39,7 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: Props)
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col" style={{ backgroundColor: '#000' }}>
+    <div className="fixed inset-0 flex flex-col" style={{ backgroundColor: '#000', zIndex }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-12 pb-4 flex-shrink-0">
         <button
@@ -60,9 +66,9 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel }: Props)
           image={imageSrc}
           crop={crop}
           zoom={zoom}
-          aspect={1}
-          cropShape="round"
-          showGrid={false}
+          aspect={isTraining ? 4 / 3 : 1}
+          cropShape={isTraining ? 'rect' : 'round'}
+          showGrid={isTraining}
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={onCropComplete}

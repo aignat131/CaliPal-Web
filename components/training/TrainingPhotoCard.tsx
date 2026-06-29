@@ -5,6 +5,8 @@ import { collection, onSnapshot, addDoc, updateDoc, doc, increment, serverTimest
 import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'
 import { uploadTrainingPhoto } from '@/lib/firebase/storage'
+import { useToast } from '@/lib/context/ToastContext'
+import ImageCropModal from '@/components/ui/ImageCropModal'
 import { MapPin, Clock, Camera, Trash2, MessageCircle, Send, Pencil } from 'lucide-react'
 import type { PlannedTraining, TrainingPhoto, PostComment } from '@/types'
 import TrainingPhotoCarousel from './TrainingPhotoCarousel'
@@ -35,8 +37,10 @@ function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null 
 
 export default function TrainingPhotoCard({ training, communityId, myUid, myName, myPhoto, isSuperAdmin }: Props) {
   const t = useT()
+  const { showToast } = useToast()
   const [photos, setPhotos] = useState<TrainingPhoto[]>([])
   const [uploading, setUploading] = useState(false)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ mode: 'single' | 'all'; photo?: TrainingPhoto } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -152,12 +156,20 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
   const withinUploadWindow = isOngoing || (fourHoursAfterEnd && now < fourHoursAfterEnd)
   const canAddPhoto = isAttendee && myPhotoCount < 3 && !!withinUploadWindow && !uploading && hasStarted
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !canAddPhoto) return
+    const url = URL.createObjectURL(file)
+    setCropSrc(url)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  async function handleCropConfirm(croppedFile: File) {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
     setUploading(true)
     try {
-      const photoUrl = await uploadTrainingPhoto(communityId, training.id, myUid, file)
+      const photoUrl = await uploadTrainingPhoto(communityId, training.id, myUid, croppedFile)
       await addDoc(collection(db, 'communities', communityId, 'trainings', training.id, 'photos'), {
         authorId: myUid,
         authorName: myName,
@@ -171,10 +183,15 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
       })
     } catch (err) {
       console.error('Failed to upload training photo:', err)
+      showToast('Eroare la încărcarea pozei. Încearcă din nou.', 'error')
     } finally {
       setUploading(false)
-      if (fileRef.current) fileRef.current.value = ''
     }
+  }
+
+  function handleCropCancel() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
   }
 
   function handleDeletePhoto(photo: TrainingPhoto) {
@@ -445,6 +462,16 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
           photoCount={photos.length}
           onConfirm={handleConfirmDelete}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {/* Crop modal */}
+      {cropSrc && (
+        <ImageCropModal
+          imageSrc={cropSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+          mode="training"
         />
       )}
     </div>
