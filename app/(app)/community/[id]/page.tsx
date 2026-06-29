@@ -915,7 +915,7 @@ export default function CommunityDetailPage() {
                   {/* @mention dropdown */}
                   {showPostMentionList && postMentionFiltered.length > 0 && (
                     <div
-                      className="absolute bottom-full left-0 right-0 rounded-xl max-h-40 overflow-y-auto z-10 mb-1 border border-white/12"
+                      className="absolute top-full left-0 right-0 rounded-xl max-h-40 overflow-y-auto z-10 mt-1 border border-white/12"
                       style={{ backgroundColor: 'var(--app-surface)' }}
                     >
                       {postMentionFiltered.map(m => (
