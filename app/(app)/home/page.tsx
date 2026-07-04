@@ -18,6 +18,7 @@ import { Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, 
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 import { useT } from '@/lib/context/LanguageContext'
+import { compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
 
 
 function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null {
@@ -106,7 +107,7 @@ export default function HomePage() {
             const start = t.timeStart ? parseTrainingDateTime(t.timeStart, t.date) : null
             return start !== null && start >= now
           })
-          .sort((a, b) => (a.timeStart ?? '').localeCompare(b.timeStart ?? ''))
+          .sort(compareTrainingDatesAsc)
         setLatestFavTraining(upcoming[0] ?? null)
       },
       () => setLatestFavTraining(null)

@@ -54,7 +54,7 @@ export default function ChatListPage() {
   /* On desktop this page is not shown — layout.tsx shows the placeholder in the right
      panel and ChatListPane in the left panel. Only visible on mobile. */
   return (
-    <div className="min-h-[calc(100vh-64px)] md:hidden" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="min-h-[calc(100dvh-64px)] md:hidden" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="max-w-lg mx-auto">
         <div className="px-4 pt-5 pb-3 flex items-center gap-3">
           <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">

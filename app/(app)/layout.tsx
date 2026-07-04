@@ -17,6 +17,7 @@ import { useT } from '@/lib/context/LanguageContext'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
 import TrainingPhotoBanner from '@/components/training/TrainingPhotoBanner'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
+import { useKeyboardAvoidance } from '@/lib/hooks/useKeyboardAvoidance'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
@@ -263,6 +264,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { status: pushStatus, requestPermission } = usePushNotifications(user?.uid)
   const [showNotifModal, setShowNotifModal] = useState(false)
   const [showThemePicker, setShowThemePicker] = useState(false)
+  useKeyboardAvoidance()
 
   useEffect(() => {
     if (!loading && !user && !isGuestRoute) {

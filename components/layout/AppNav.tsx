@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Users, Dumbbell, Map, User, LogIn, MessageSquare } from 'lucide-react'
@@ -13,6 +14,17 @@ export default function AppNav() {
   const { user, loading } = useAuth()
   const t = useT()
   const inactiveColor = theme === 'light' ? '#888888' : 'rgba(255,255,255,0.45)'
+  const [keyboardOpen, setKeyboardOpen] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return
+    const vv = window.visualViewport
+    function handleResize() {
+      setKeyboardOpen(vv!.height < window.innerHeight * 0.75)
+    }
+    vv.addEventListener('resize', handleResize)
+    return () => vv.removeEventListener('resize', handleResize)
+  }, [])
 
   const tabs = [
     { href: '/home',      label: t('nav.home'),      Icon: Home },
@@ -34,7 +46,7 @@ export default function AppNav() {
     <>
       {/* ── Mobile bottom bar (hidden on md+) ── */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 flex items-center border-t border-white/8 md:hidden"
+        className={`fixed bottom-0 left-0 right-0 z-50 flex items-center border-t border-white/8 md:hidden${keyboardOpen ? ' hidden' : ''}`}
         style={{
           backgroundColor: 'var(--app-bg)',
           height: 'calc(56px + env(safe-area-inset-bottom))',

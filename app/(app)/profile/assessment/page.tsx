@@ -203,7 +203,7 @@ export default function AssessmentPage() {
 
   if (loadingCats) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <div className="flex items-center justify-center min-h-[calc(100dvh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
         <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -215,7 +215,7 @@ export default function AssessmentPage() {
     const totalWant  = Object.values(assignments).reduce((sum, v) => sum + v.wantToLearn.length, 0)
     const totalClose = Object.values(assignments).reduce((sum, v) => sum + (v.close?.length ?? 0), 0)
     return (
-      <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center px-6" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <div className="min-h-[calc(100dvh-64px)] flex flex-col items-center justify-center px-6" style={{ backgroundColor: 'var(--app-bg)' }}>
         {saving ? (
           <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin mb-4" />
         ) : (
@@ -269,7 +269,7 @@ export default function AssessmentPage() {
   const progress = step / (totalSteps - 1)
 
   return (
-    <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="min-h-[calc(100dvh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="max-w-sm mx-auto px-4 pt-5 pb-10">
 
         {/* Header */}

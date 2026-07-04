@@ -35,6 +35,12 @@ import { useT } from '@/lib/context/LanguageContext'
 import { useToast } from '@/lib/context/ToastContext'
 import { SkeletonCard, SkeletonTrainingRow } from '@/components/ui/SkeletonLoaders'
 import TrainingPhotoCard from '@/components/training/TrainingPhotoCard'
+import {
+  parseTrainingDateTime as _parseTrainingDateTime,
+  compareTrainingDatesAsc,
+  compareTrainingDatesDesc,
+  isTrainingPast as _isTrainingPast,
+} from '@/lib/utils/trainingDateTime'
 
 
 const ROLE_COLORS: Record<MemberRole, string> = {
@@ -78,9 +84,7 @@ function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null 
 }
 
 function isTrainingPast(t: PlannedTraining): boolean {
-  if (!t.timeEnd) return false
-  const end = parseTrainingDateTime(t.timeEnd, t.date)
-  return !!end && end < new Date()
+  return _isTrainingPast(t)
 }
 
 function formatTrainingDate(timeStart: string, legacyDate?: string): string {
@@ -591,13 +595,13 @@ export default function CommunityDetailPage() {
   }
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="flex items-center justify-center min-h-[calc(100dvh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
   if (!community) return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-6 text-center" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-64px)] px-6 text-center" style={{ backgroundColor: 'var(--app-bg)' }}>
       <p className="text-4xl mb-4">🏚️</p>
       <p className="text-base font-bold text-white mb-1">{t('comm_detail.not_found_title')}</p>
       <p className="text-sm text-white/50 mb-6">{t('comm_detail.not_found_text')}</p>
@@ -635,17 +639,17 @@ export default function CommunityDetailPage() {
   const trainingSorter = (a: PlannedTraining, b: PlannedTraining) => {
     if (a.official && !b.official) return -1
     if (!a.official && b.official) return 1
-    return (a.timeStart ?? a.date ?? '').localeCompare(b.timeStart ?? b.date ?? '')
+    return compareTrainingDatesAsc(a, b)
   }
   const upcoming = [...trainings].filter(t => !isTrainingPast(t)).sort(trainingSorter)
   const recentPast = [...trainings].filter(t => {
     if (!isTrainingPast(t)) return false
-    const end = parseTrainingDateTime(t.timeEnd, t.date)
+    const end = _parseTrainingDateTime(t.timeEnd || t.timeStart, t.date)
     return !!end && end >= recentCutoff
-  }).sort((a, b) => (b.timeStart ?? b.date ?? '').localeCompare(a.timeStart ?? a.date ?? '')).slice(0, 1)
+  }).sort(compareTrainingDatesDesc).slice(0, 1)
 
   return (
-    <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="min-h-[calc(100dvh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
 
       {/* Community edit modal (admin only) */}
       {showEditCommunity && community && (
@@ -1028,6 +1032,7 @@ export default function CommunityDetailPage() {
                       myRole={myRole}
                       isSuperAdmin={isSuperAdmin}
                       myProTitle={myProfile?.proTitle}
+                      members={members}
                       onDelete={() => deletePost(item.post.id)}
                       onOpen={() => setPostDetailTarget(item.post)}
                     />
@@ -1260,6 +1265,7 @@ export default function CommunityDetailPage() {
           myRole={myRole}
           isSuperAdmin={isSuperAdmin}
           myProTitle={myProfile?.proTitle}
+          members={members}
           onDelete={() => { deletePost(postDetailTarget.id); setPostDetailTarget(null) }}
           onClose={() => setPostDetailTarget(null)}
         />
@@ -1529,6 +1535,67 @@ function MemberAvatar({ photoUrl, name, size = 28 }: { photoUrl?: string | null;
         ? <img src={photoUrl} alt={name} width={size} height={size} className="object-cover w-full h-full"
             onError={() => setImgError(true)} />
         : <span className="text-white font-bold" style={{ fontSize: size * 0.38 }}>{initials}</span>}
+    </div>
+  )
+}
+
+function ReactorsModal({ emoji, reactionCounts, members, onClose }: {
+  emoji: string
+  reactionCounts: Record<string, string[]>
+  members: CommunityMember[]
+  onClose: () => void
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(panelRef, true)
+  const [tab, setTab] = useState(emoji)
+
+  const memberMap = new Map(members.map(m => [m.userId, m]))
+  const emojis = Object.keys(reactionCounts).filter(e => (reactionCounts[e]?.length ?? 0) > 0)
+  const userIds = reactionCounts[tab] ?? []
+
+  return (
+    <div className="fixed inset-0 z-[500] flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}
+      onClick={onClose}>
+      <div ref={panelRef}
+        className="w-full max-w-lg rounded-t-3xl flex flex-col"
+        style={{ backgroundColor: 'var(--app-bg)', maxHeight: '60vh' }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-10 h-1 rounded-full bg-white/20" />
+        </div>
+
+        {/* Emoji tabs */}
+        <div className="flex gap-2 px-5 pb-3 overflow-x-auto">
+          {emojis.map(e => (
+            <button key={e} onClick={() => setTab(e)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border transition-all flex-shrink-0 ${
+                tab === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
+              }`}>
+              {e} {reactionCounts[e].length}
+            </button>
+          ))}
+        </div>
+
+        {/* User list */}
+        <div className="overflow-y-auto px-5 pb-6 flex flex-col gap-3">
+          {userIds.map(uid => {
+            const m = memberMap.get(uid)
+            return (
+              <div key={uid} className="flex items-center gap-3">
+                <MemberAvatar photoUrl={m?.photoUrl} name={m?.displayName ?? '?'} size={32} />
+                <span className="text-sm text-white font-semibold truncate">
+                  {m?.displayName ?? 'Utilizator necunoscut'}
+                </span>
+              </div>
+            )
+          })}
+          {userIds.length === 0 && (
+            <p className="text-xs text-white/35 text-center py-4">Nicio reacție.</p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -2215,7 +2282,7 @@ function renderTextWithMentions(text: string): React.ReactNode {
   )
 }
 
-function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, myProTitle, onDelete, onOpen }: {
+function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, myProTitle, members, onDelete, onOpen }: {
   post: CommunityPost
   communityId: string
   myUid: string
@@ -2224,6 +2291,7 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
   myRole: MemberRole
   isSuperAdmin: boolean
   myProTitle?: boolean
+  members: CommunityMember[]
   onDelete: () => void
   onOpen?: () => void
 }) {
@@ -2238,6 +2306,7 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
   const [reactionCounts, setReactionCounts] = useState<Record<string, string[]>>({})
   const [myReaction, setMyReaction] = useState<string | null>(null)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
+  const [showReactors, setShowReactors] = useState<string | null>(null)
 
   const _POST_REACTIONS = ['💪', '❤️', '🔥', '👏', '😮']
 
@@ -2416,7 +2485,7 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
               className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                 myReaction === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
               }`}>
-              {e} {count > 0 && count}
+              {e} {count > 0 && <span onClick={ev => { ev.stopPropagation(); setShowReactors(e) }}>{count}</span>}
             </button>
           )
         })}
@@ -2429,7 +2498,7 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
               className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                 myReaction === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
               }`}>
-              {e} {count > 0 && count}
+              {e} {count > 0 && <span onClick={ev => { ev.stopPropagation(); setShowReactors(e) }}>{count}</span>}
             </button>
           )
         })}
@@ -2445,6 +2514,10 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
           )}
         </button>
       </div>
+
+      {showReactors && (
+        <ReactorsModal emoji={showReactors} reactionCounts={reactionCounts} members={members} onClose={() => setShowReactors(null)} />
+      )}
 
       {showComments && (
         <div className="mt-3 border-t border-white/8 pt-3">
@@ -2509,7 +2582,7 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
 
 // ── Post Detail Sheet ─────────────────────────────────────────────────────────
 
-function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, myProTitle: _myProTitle, onDelete, onClose }: {
+function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, myProTitle: _myProTitle, members, onDelete, onClose }: {
   post: CommunityPost
   communityId: string
   myUid: string
@@ -2518,6 +2591,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
   myRole: MemberRole
   isSuperAdmin: boolean
   myProTitle?: boolean
+  members: CommunityMember[]
   onDelete: () => void
   onClose: () => void
 }) {
@@ -2532,6 +2606,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
   const [reactionCounts, setReactionCounts] = useState<Record<string, string[]>>({})
   const [myReaction, setMyReaction] = useState<string | null>(null)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
+  const [showReactors, setShowReactors] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const _POST_REACTIONS = ['💪', '❤️', '🔥', '👏', '😮']
@@ -2679,7 +2754,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
                   className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                     myReaction === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
                   }`}>
-                  {e} {count > 0 && count}
+                  {e} {count > 0 && <span onClick={ev => { ev.stopPropagation(); setShowReactors(e) }}>{count}</span>}
                 </button>
               )
             })}
@@ -2692,7 +2767,7 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
                   className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                     myReaction === e ? 'bg-brand-green/20 border-brand-green/50 text-brand-green' : 'bg-white/8 border-white/12 text-white/60'
                   }`}>
-                  {e} {count > 0 && count}
+                  {e} {count > 0 && <span onClick={ev => { ev.stopPropagation(); setShowReactors(e) }}>{count}</span>}
                 </button>
               )
             })}
@@ -2701,6 +2776,10 @@ function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, is
                 className="w-7 h-7 rounded-full bg-white/8 border border-white/12 text-white/40 text-sm flex items-center justify-center">+</button>
             )}
           </div>
+
+          {showReactors && (
+            <ReactorsModal emoji={showReactors} reactionCounts={reactionCounts} members={members} onClose={() => setShowReactors(null)} />
+          )}
 
           {/* Comments */}
           <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">{t('comm_detail.comments_header', { n: comments.length })}</p>

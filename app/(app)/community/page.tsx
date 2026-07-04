@@ -20,6 +20,7 @@ import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search, Bell
 import { useT } from '@/lib/context/LanguageContext'
 import { awardCoins } from '@/lib/gamification/coins'
 import { useToast } from '@/lib/context/ToastContext'
+import { compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
 
 function formatDate(str: string | undefined): string {
   if (!str) return ''
@@ -162,7 +163,7 @@ export default function CommunityPage() {
         }
       })
     ).then(results => {
-      const all = results.flat().sort((a, b) => (a.timeStart ?? a.date ?? '').localeCompare(b.timeStart ?? b.date ?? ''))
+      const all = results.flat().sort(compareTrainingDatesAsc)
       setEventi(all)
     })
   }, [tab, joinedIds, communities])

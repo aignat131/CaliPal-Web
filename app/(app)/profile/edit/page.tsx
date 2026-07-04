@@ -205,7 +205,7 @@ export default function EditProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
+      <div className="flex items-center justify-center min-h-[calc(100dvh-64px)]">
         <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -221,7 +221,7 @@ export default function EditProfilePage() {
         />
       )}
 
-      <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <div className="min-h-[calc(100dvh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
         <div className="max-w-sm mx-auto px-4 pt-5 pb-10">
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">

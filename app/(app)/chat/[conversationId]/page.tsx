@@ -472,7 +472,7 @@ export default function ChatDetailPage() {
 
   if (notFound) {
     return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-3" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <div className="flex flex-col items-center justify-center h-[calc(100dvh-64px)] gap-3" style={{ backgroundColor: 'var(--app-bg)' }}>
         <p className="text-white/50 text-sm">{t('chat.conv_not_found')}</p>
         <button onClick={() => router.back()} className="text-brand-green text-sm font-semibold">{t('chat.back')}</button>
       </div>
@@ -480,7 +480,7 @@ export default function ChatDetailPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] md:h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="flex flex-col h-[calc(100dvh-64px)] md:h-screen" style={{ backgroundColor: 'var(--app-bg)' }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/8 flex-shrink-0">
         <button onClick={() => router.back()} aria-label="Înapoi" className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center md:hidden">
