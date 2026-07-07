@@ -7,8 +7,8 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge } from '@/types'
-import { checkWorkoutMilestones, checkStreakMilestones } from '@/lib/gamification/coins'
+import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge, GripType } from '@/types'
+import { checkWorkoutMilestones, checkStreakMilestones, awardCoins } from '@/lib/gamification/coins'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
 import { DEFAULT_EXERCISE_CATALOGUE, getCategory, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
@@ -122,12 +122,19 @@ export default function WorkoutPage() {
 
   // ── Exercise mutations ──────────────────────────────────────────────────────
 
-  function replaceExerciseSets(ei: number, sets: WorkoutSet[]) {
-    setExercises(exercises.map((ex, i) => i === ei ? { ...ex, sets } : ex))
+  function replaceExerciseSets(ei: number, sets: WorkoutSet[], grip?: GripType) {
+    setExercises(exercises.map((ex, i) =>
+      i === ei ? { ...ex, sets, ...(grip !== undefined && { grip }) } : ex
+    ))
   }
 
-  function addExercise(name: string, initialSet: WorkoutSet) {
-    setExercises([...exercises, { name, category: getCategory(name, catalogue), sets: [initialSet] }])
+  function addExercise(name: string, initialSet: WorkoutSet, grip?: GripType) {
+    setExercises([...exercises, {
+      name,
+      category: getCategory(name, catalogue),
+      sets: [initialSet],
+      ...(grip && { grip }),
+    }])
   }
 
   function removeExercise(idx: number) {
@@ -242,6 +249,10 @@ export default function WorkoutPage() {
         note: finalNote.trim(),
         createdAt: serverTimestamp(),
       })
+
+      // Award 10 coins for completing a workout
+      const completeCoins = await awardCoins(user.uid, 'COMPLETE_WORKOUT')
+      earned += completeCoins
 
       const userRef = doc(db, 'users', user.uid)
       const today = localDate(new Date())
@@ -377,7 +388,7 @@ export default function WorkoutPage() {
           doneKeys={doneKeys}
           onNoteChange={setNote}
           onReplaceExerciseSets={replaceExerciseSets}
-          onAddExercise={(name, set) => addExercise(name, set)}
+          onAddExercise={(name, set, grip) => addExercise(name, set, grip)}
           onRemoveExercise={removeExercise}
           onFinish={() => captureWorkout()}
           onCancel={() => { ctxStop(); setScreen('home') }}

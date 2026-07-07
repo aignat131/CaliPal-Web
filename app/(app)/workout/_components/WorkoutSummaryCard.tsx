@@ -9,6 +9,7 @@ import type { WorkoutDoc } from '@/types'
 import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
 import { formatDuration, exerciseOneLiner, circuitSummaryLine, formatCircuitRounds, circuitAverage, circuitTotal } from '../_helpers'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
+import { CoinRewardBanner } from './CoinRewardBanner'
 
 export function WorkoutSummaryCard({
   workout, coinsEarned, onDone, userId, userDisplayName, userPhotoURL,
@@ -110,6 +111,7 @@ export function WorkoutSummaryCard({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--app-bg)' }}>
+      {coinsEarned > 0 && <CoinRewardBanner coins={coinsEarned} />}
       <div className="flex-1 max-w-sm mx-auto w-full px-4 py-8 flex flex-col">
 
         {/* Celebration header */}

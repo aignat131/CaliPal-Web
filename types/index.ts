@@ -207,11 +207,14 @@ export interface WorkoutSet {
   timedDurationSeconds?: number  // AMRAP countdown (e.g. 180 = "3 min push-ups")
 }
 
+export type GripType = 'pronat' | 'supinat' | 'neutru'
+
 export interface WorkoutExercise {
   name: string
   category: string
   sets: WorkoutSet[]
   fromProgram?: boolean   // true only when pre-loaded from a community/program training card
+  grip?: GripType         // pull exercise grip: pronat (default), supinat, neutru
 }
 
 export interface WorkoutDoc {

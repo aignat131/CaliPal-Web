@@ -12,8 +12,6 @@ const DONE_KEYS_STORAGE_KEY = 'calipal_workout_done_keys'
 const PAUSED_ELAPSED_KEY = 'calipal_workout_paused_elapsed'
 const LAST_ACTIVE_KEY = 'calipal_workout_last_active'
 
-const AUTO_PAUSE_THRESHOLD_MS = 10 * 60 * 1000 // 10 minutes
-
 // ── Active circuit state (live during workout) ──────────────────────────────
 
 export interface ActiveCircuit {
@@ -143,29 +141,17 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       try { setActiveTimedSet(JSON.parse(storedTimed)) } catch { /* ignore */ }
     }
 
-    // Check if we should auto-pause (user was away >10 minutes)
     const storedPaused = localStorage.getItem(PAUSED_ELAPSED_KEY)
-    const lastActive = localStorage.getItem(LAST_ACTIVE_KEY)
-    const awayTooLong = lastActive && (Date.now() - parseInt(lastActive, 10)) > AUTO_PAUSE_THRESHOLD_MS
 
     if (storedPaused) {
-      // Was already paused — restore paused state
+      // Was explicitly paused — restore paused state
       const elapsed = parseInt(storedPaused, 10)
       setStartedAt(ts)
       setIsActive(true)
       setIsPaused(true)
       setSeconds(isNaN(elapsed) ? 0 : elapsed)
-    } else if (awayTooLong) {
-      // Was running but user was away >10 min — auto-pause at the moment they left
-      const leftAt = parseInt(lastActive!, 10)
-      const elapsed = Math.floor((leftAt - ts) / 1000)
-      setStartedAt(ts)
-      setIsActive(true)
-      setIsPaused(true)
-      setSeconds(elapsed > 0 ? elapsed : 0)
-      localStorage.setItem(PAUSED_ELAPSED_KEY, String(elapsed > 0 ? elapsed : 0))
     } else {
-      // Normal restore — timer keeps running
+      // Timer keeps running from original startedAt — no auto-pause
       setStartedAt(ts)
       setIsActive(true)
       setSeconds(Math.floor((Date.now() - ts) / 1000))
@@ -208,26 +194,16 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [isActive, isPaused, startedAt])
 
-  // Re-sync timer on visibility restore; auto-pause if away >10 min
+  // Re-sync timer on visibility restore
   useEffect(() => {
     const handleVisibility = () => {
       if (!isActive || startedAt === null) return
 
       if (document.hidden) {
-        // User is leaving — record the moment
         localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()))
       } else if (!isPaused) {
-        // User came back — check if they were away too long
-        const lastActive = localStorage.getItem(LAST_ACTIVE_KEY)
-        if (lastActive && (Date.now() - parseInt(lastActive, 10)) > AUTO_PAUSE_THRESHOLD_MS) {
-          const leftAt = parseInt(lastActive, 10)
-          const elapsed = Math.floor((leftAt - startedAt) / 1000)
-          setIsPaused(true)
-          setSeconds(elapsed > 0 ? elapsed : 0)
-          localStorage.setItem(PAUSED_ELAPSED_KEY, String(elapsed > 0 ? elapsed : 0))
-        } else {
-          setSeconds(Math.floor((Date.now() - startedAt) / 1000))
-        }
+        // User came back — re-sync timer (no auto-pause)
+        setSeconds(Math.floor((Date.now() - startedAt) / 1000))
       }
     }
 

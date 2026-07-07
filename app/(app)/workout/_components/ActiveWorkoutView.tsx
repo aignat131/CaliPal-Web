@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { Plus, Trash2, ChevronRight, Check, X, Square, Search, Camera, Timer, RotateCcw, Layers, Pause, Play } from 'lucide-react'
-import type { WorkoutExercise, WorkoutSet } from '@/types'
+import type { WorkoutExercise, WorkoutSet, GripType } from '@/types'
 import type { ActiveCircuit, ActiveTimedSet } from '@/lib/context/WorkoutContext'
 import { getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 import RepCounterModal from '@/components/workout/RepCounterModal'
@@ -24,8 +24,8 @@ export function ActiveWorkoutView({
   isPaused: boolean
   doneKeys: Set<string>
   onNoteChange: (v: string) => void
-  onReplaceExerciseSets: (ei: number, sets: WorkoutSet[]) => void
-  onAddExercise: (name: string, set: WorkoutSet) => void
+  onReplaceExerciseSets: (ei: number, sets: WorkoutSet[], grip?: GripType) => void
+  onAddExercise: (name: string, set: WorkoutSet, grip?: GripType) => void
   onRemoveExercise: (idx: number) => void
   onFinish: () => void
   onCancel: () => void
@@ -50,6 +50,7 @@ export function ActiveWorkoutView({
   const [popupExIdx, setPopupExIdx] = useState<number | null>(null)
   const [popupSets, setPopupSets] = useState<WorkoutSet[]>([])
   const [popupModifier, setPopupModifier] = useState<'none' | 'weight' | 'band'>('none')
+  const [popupGrip, setPopupGrip] = useState<GripType | undefined>(undefined)
 
   // Search sheet
   const [showSearch, setShowSearch] = useState(false)
@@ -74,6 +75,7 @@ export function ActiveWorkoutView({
   const [logBandKg, setLogBandKg] = useState(5)
   const [logTimedOn, setLogTimedOn] = useState(false)
   const [logTimedMinutes, setLogTimedMinutes] = useState(3)
+  const [logGrip, setLogGrip] = useState<GripType>('pronat')
   const [showRepCounter, setShowRepCounter] = useState(false)
 
   // Circuit creation
@@ -84,6 +86,7 @@ export function ActiveWorkoutView({
   // Timed set countdown
   const [timedCountdown, setTimedCountdown] = useState(0)
   const timedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timedNotifTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
 
   // Timed set rep entry after countdown
@@ -118,6 +121,7 @@ export function ActiveWorkoutView({
   useEffect(() => {
     if (!activeTimedSet?.startedAt) {
       if (timedIntervalRef.current) { clearInterval(timedIntervalRef.current); timedIntervalRef.current = null }
+      if (timedNotifTimeoutRef.current) { clearTimeout(timedNotifTimeoutRef.current); timedNotifTimeoutRef.current = null }
       return
     }
     const tick = () => {
@@ -140,7 +144,26 @@ export function ActiveWorkoutView({
     }
     tick()
     timedIntervalRef.current = setInterval(tick, 1000)
-    return () => { if (timedIntervalRef.current) clearInterval(timedIntervalRef.current) }
+
+    // Schedule a browser notification for when the timer expires (works in background tabs)
+    const elapsed = Math.floor((Date.now() - activeTimedSet.startedAt) / 1000)
+    const remaining = Math.max(0, activeTimedSet.targetDurationSeconds - elapsed)
+    if (remaining > 0 && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      timedNotifTimeoutRef.current = setTimeout(() => {
+        try {
+          new Notification('CaliPal — Timer terminat!', {
+            body: `${exercises[activeTimedSet.exerciseIndex]?.name ?? 'Exercițiu'} — timpul s-a scurs!`,
+            icon: '/icons/icon-192.png',
+            tag: 'timed-set-done',
+          })
+        } catch { /* notification failed */ }
+      }, remaining * 1000)
+    }
+
+    return () => {
+      if (timedIntervalRef.current) clearInterval(timedIntervalRef.current)
+      if (timedNotifTimeoutRef.current) { clearTimeout(timedNotifTimeoutRef.current); timedNotifTimeoutRef.current = null }
+    }
   }, [activeTimedSet, onClearTimedSet]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build a set of exercise indices that belong to circuits
@@ -190,6 +213,7 @@ export function ActiveWorkoutView({
     const hasBand   = copied.some(s => s.bandKg   != null)
     const category  = exercises[ei]?.category ?? ''
     setPopupModifier(hasWeight || category === 'Cu Greutate' ? 'weight' : hasBand || category === 'Cu Bandă' ? 'band' : 'none')
+    setPopupGrip(exercises[ei]?.grip)
   }
 
   function savePopup() {
@@ -200,7 +224,8 @@ export function ActiveWorkoutView({
         if (popupModifier === 'band')   return { ...rest, bandKg:   s.bandKg   }
         return rest
       })
-      onReplaceExerciseSets(popupExIdx, cleaned)
+      const gripVal = exercises[popupExIdx]?.category === 'Trageri' ? popupGrip : undefined
+      onReplaceExerciseSets(popupExIdx, cleaned, gripVal)
       setPopupExIdx(null)
     }
   }
@@ -217,11 +242,13 @@ export function ActiveWorkoutView({
     setLogBandKg(5)
     setLogTimedOn(false)
     setLogTimedMinutes(3)
+    setLogGrip('pronat')
   }
 
   function confirmLog() {
     if (!logExercise) return
     const metric = getMetric(logExercise, catalogue)
+    const category = getCategory(logExercise, catalogue)
     const set: WorkoutSet = logTimedOn
       ? { reps: 0, timedDurationSeconds: logTimedMinutes * 60,
           ...(logWeightOn ? { weightKg: logWeight } : {}),
@@ -232,7 +259,8 @@ export function ActiveWorkoutView({
           ...(logWeightOn ? { weightKg: logWeight } : {}),
           ...(logBandOn   ? { bandKg:   logBandKg } : {}),
         }
-    onAddExercise(logExercise, set)
+    const grip = category === 'Trageri' ? logGrip : undefined
+    onAddExercise(logExercise, set, grip)
     setLogExercise(null)
     setShowSearch(false)
     setSearchQuery('')
@@ -320,17 +348,22 @@ export function ActiveWorkoutView({
                   borderColor: allDone ? 'rgba(var(--accent-rgb), 0.13)' : 'transparent',
                 }}
               >
-                {accentColor && !allDone && (
+                {(accentColor && !allDone || ex.grip) && (
                   <div className="flex items-center gap-1.5 px-4 py-1.5"
-                    style={{ backgroundColor: `${accentColor}18` }}>
-                    {hasWeight && (
+                    style={{ backgroundColor: accentColor && !allDone ? `${accentColor}18` : 'rgba(59, 130, 246, 0.06)' }}>
+                    {hasWeight && !allDone && (
                       <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-orange-500/35 text-orange-400 bg-orange-500/10">
                         ⚖️ cu greutate
                       </span>
                     )}
-                    {hasBand && (
+                    {hasBand && !allDone && (
                       <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-purple-500/35 text-purple-400 bg-purple-500/10">
                         🔴 cu bandă
+                      </span>
+                    )}
+                    {ex.grip && (
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full border border-blue-500/35 text-blue-400 bg-blue-500/10">
+                        {ex.grip === 'pronat' ? '🤲 pronat' : ex.grip === 'supinat' ? '🔄 supinat' : '🤝 neutru'}
                       </span>
                     )}
                   </div>
@@ -547,6 +580,22 @@ export function ActiveWorkoutView({
                     </button>
                   ))}
                 </div>
+                {exercises[popupExIdx].category === 'Trageri' && (
+                  <div className="flex gap-2 mt-2">
+                    {(['pronat', 'supinat', 'neutru'] as const).map(g => (
+                      <button key={g}
+                        onClick={() => setPopupGrip(g)}
+                        className={`flex-1 h-9 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
+                          popupGrip === g
+                            ? 'bg-blue-500/15 border-blue-500/40 text-blue-400'
+                            : 'bg-white/4 border-white/10 text-white/35'
+                        }`}
+                      >
+                        {g === 'pronat' ? '🤲 Pronat' : g === 'supinat' ? '🔄 Supinat' : '🤝 Neutru'}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Sets list */}
@@ -905,6 +954,24 @@ export function ActiveWorkoutView({
                       <button onClick={() => setLogSecs(s => s + 5)}
                         className="w-14 h-14 rounded-full bg-brand-green flex items-center justify-center text-black text-3xl font-bold active:scale-95 transition-transform">+</button>
                     </div>
+                  </div>
+                )}
+
+                {/* Grip toggle chips — only for pull exercises */}
+                {logExercise && getCategory(logExercise, catalogue) === 'Trageri' && (
+                  <div className="flex gap-2 mb-4">
+                    {(['pronat', 'supinat', 'neutru'] as const).map(g => (
+                      <button key={g}
+                        onClick={() => setLogGrip(g)}
+                        className={`flex-1 h-10 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all active:scale-95 ${
+                          logGrip === g
+                            ? 'bg-blue-500/15 border-blue-500/50 text-blue-400'
+                            : 'bg-white/5 border-white/12 text-white/40 hover:text-white/60'
+                        }`}
+                      >
+                        {g === 'pronat' ? '🤲 Pronat' : g === 'supinat' ? '🔄 Supinat' : '🤝 Neutru'}
+                      </button>
+                    ))}
                   </div>
                 )}
 
