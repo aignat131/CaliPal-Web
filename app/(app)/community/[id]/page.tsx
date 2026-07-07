@@ -232,32 +232,39 @@ export default function CommunityDetailPage() {
     updateDoc(doc(db, 'communities', id, 'members', user.uid), patch).catch(() => {})
   }, [user, isMember, members, myPhoto, myName, id])
 
-  // Bulk-fetch photos from user profiles for members with missing photos
+  // Bulk-fetch photos/names from user profiles for members with missing or stale data
   const [memberPhotos, setMemberPhotos] = useState<Record<string, string>>({})
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({})
   const memberPhotosFetchedRef = useRef(false)
   useEffect(() => {
     if (memberPhotosFetchedRef.current || !user || !members.length) return
-    const missing = members.filter(m => !m.photoUrl && m.userId !== user.uid)
-    if (missing.length === 0) { memberPhotosFetchedRef.current = true; return }
+    const stale = members.filter(m =>
+      m.userId !== user.uid && (!m.photoUrl || !m.displayName || m.displayName === 'Utilizator')
+    )
+    if (stale.length === 0) { memberPhotosFetchedRef.current = true; return }
     memberPhotosFetchedRef.current = true
-    async function fetchPhotos() {
+    async function fetchProfiles() {
       const photos: Record<string, string> = {}
+      const names: Record<string, string> = {}
       await Promise.allSettled(
-        missing.map(async (m) => {
+        stale.map(async (m) => {
           const snap = await getDoc(doc(db, 'users', m.userId))
           if (!snap.exists()) return
           const data = snap.data()
           const url = (data.photoUrl as string) || ''
-          if (url) {
-            photos[m.userId] = url
-            // Also heal the member doc so future loads don't need this fetch
-            updateDoc(doc(db, 'communities', id, 'members', m.userId), { photoUrl: url }).catch(() => {})
+          const name = (data.displayName as string) || ''
+          const patch: Record<string, string> = {}
+          if (url && m.photoUrl !== url) { photos[m.userId] = url; patch.photoUrl = url }
+          if (name && name !== 'Utilizator' && m.displayName !== name) { names[m.userId] = name; patch.displayName = name }
+          if (Object.keys(patch).length > 0) {
+            updateDoc(doc(db, 'communities', id, 'members', m.userId), patch).catch(() => {})
           }
         })
       )
       if (Object.keys(photos).length > 0) setMemberPhotos(photos)
+      if (Object.keys(names).length > 0) setMemberNames(names)
     }
-    fetchPhotos()
+    fetchProfiles()
   }, [user, members, id])
 
   // Show community notification prompt the first time a member visits this community
@@ -379,14 +386,19 @@ export default function CommunityDetailPage() {
     if (!user || joining) return
     setJoining(true)
     try {
+      // Read canonical name/photo from Firestore to avoid stale hook defaults
+      const userSnap = await getDoc(doc(db, 'users', user.uid))
+      const userData = userSnap.data()
+      const memberName = userData?.displayName || myName || user.displayName || ''
+      const memberPhoto = userData?.photoUrl || myPhoto || user.photoURL || null
       const batch = writeBatch(db)
       batch.set(doc(db, 'communities', id, 'members', user.uid), {
         userId: user.uid,
-        displayName: myName || user.displayName || '',
+        displayName: memberName,
         role: 'MEMBER',
         level: 1,
         points: 0,
-        photoUrl: myPhoto || user.photoURL || null,
+        photoUrl: memberPhoto,
         joinedAt: serverTimestamp(),
       })
       batch.update(doc(db, 'communities', id), { memberCount: increment(1) })
@@ -1165,6 +1177,7 @@ export default function CommunityDetailPage() {
               const roleTextColor = ROLE_TEXT_COLORS[m.role as MemberRole] ?? '#7E8A84'
               const isMe = m.userId === user?.uid
               const livePhoto = (isMe ? (myPhoto || m.photoUrl) : m.photoUrl) || memberPhotos[m.userId] || ''
+              const liveName = (isMe ? (myName || m.displayName) : m.displayName) || memberNames[m.userId] || m.displayName
               const isTopThree = index < 3
               const medal = isTopThree ? MEDAL_STYLES[index] : null
 
@@ -1199,14 +1212,14 @@ export default function CommunityDetailPage() {
 
                   {/* Avatar */}
                   <div className="relative flex-shrink-0">
-                    <RoleAvatar photoUrl={livePhoto} name={m.displayName} roleColor={roleColor}
+                    <RoleAvatar photoUrl={livePhoto} name={liveName} roleColor={roleColor}
                       goldRing={index === 0} />
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-[15px] font-medium text-white truncate">{m.displayName}</span>
+                      <span className="text-[15px] font-medium text-white truncate">{liveName}</span>
                       {isMe && (
                         <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
                           style={{ color: 'var(--accent)', backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>Tu</span>

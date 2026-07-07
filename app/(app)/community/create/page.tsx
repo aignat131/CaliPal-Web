@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import nextDynamic from 'next/dynamic'
 import {
-  collection, addDoc, doc, setDoc, updateDoc,
+  collection, addDoc, doc, setDoc, updateDoc, getDoc,
   arrayUnion, serverTimestamp, getDocs, query, where,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
@@ -157,6 +157,12 @@ export default function CreateCommunityPage() {
     setCreating(true)
     setError('')
     try {
+      // Read canonical name/photo from Firestore to avoid stale hook defaults
+      const userSnap = await getDoc(doc(db, 'users', user.uid))
+      const userData = userSnap.data()
+      const memberName = userData?.displayName || myName || user.displayName || ''
+      const memberPhoto = userData?.photoUrl || myPhoto || user.photoURL || null
+
       const communityRef = await addDoc(collection(db, 'communities'), {
         name: name.trim(),
         description: description.trim(),
@@ -164,7 +170,7 @@ export default function CreateCommunityPage() {
         latitude: selectedPark.latitude,
         longitude: selectedPark.longitude,
         creatorId: user.uid,
-        creatorName: user.displayName ?? '',
+        creatorName: memberName,
         memberCount: 1,
         isPublic: true,
         imageUrl: '',
@@ -177,15 +183,14 @@ export default function CreateCommunityPage() {
         imageUrl = await uploadCommunityPhoto(communityRef.id, pendingFile)
         await updateDoc(communityRef, { imageUrl })
       }
-
       // Add creator as ADMIN member
       await setDoc(doc(db, 'communities', communityRef.id, 'members', user.uid), {
         userId: user.uid,
-        displayName: myName || user.displayName || '',
+        displayName: memberName,
         role: 'ADMIN',
         level: 1,
         points: 0,
-        photoUrl: myPhoto || user.photoURL || null,
+        photoUrl: memberPhoto,
         joinedAt: serverTimestamp(),
       })
       // Update user's joinedCommunityIds
