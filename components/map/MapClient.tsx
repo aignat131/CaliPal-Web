@@ -625,7 +625,7 @@ export default function MapClient() {
                   searchDebounceRef.current = setTimeout(async () => {
                     try {
                       const res = await fetch(
-                        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&accept-language=ro`,
+                        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&countrycodes=ro&accept-language=ro`,
                         { headers: { 'Accept-Language': 'ro' } }
                       )
                       const data: NominatimResult[] = await res.json()
