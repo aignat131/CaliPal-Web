@@ -155,30 +155,23 @@ type NominatimResult = {
   lon: string
 }
 
-interface OverpassPark {
-  id: number
+interface DiscoveredPark {
+  id: string
   name: string
+  address: string
   lat: number
   lon: number
+  rating: number | null
+  totalRatings: number
 }
 
-// ── Overpass API (free calisthenics park discovery) ───────────────────────────
+// ── Google Places park discovery (via server route) ──────────────────────────
 
-async function fetchOverpassParks(lat: number, lon: number, radiusMeters = 15000): Promise<OverpassPark[]> {
-  const q = `[out:json][timeout:10];(node["leisure"="fitness_station"](around:${radiusMeters},${lat},${lon});node["sport"="calisthenics"](around:${radiusMeters},${lat},${lon});way["leisure"="fitness_station"](around:${radiusMeters},${lat},${lon});way["sport"="calisthenics"](around:${radiusMeters},${lat},${lon}););out center;`
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    body: `data=${encodeURIComponent(q)}`,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  })
+async function fetchDiscoveredParks(lat: number, lon: number): Promise<DiscoveredPark[]> {
+  const res = await fetch(`/api/parks/discover?lat=${lat}&lon=${lon}`)
+  if (!res.ok) return []
   const data = await res.json()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return data.elements.map((el: any) => ({
-    id: el.id,
-    name: el.tags?.name || el.tags?.description || 'Calisthenics Park',
-    lat: el.lat ?? el.center?.lat,
-    lon: el.lon ?? el.center?.lon,
-  })).filter((p: OverpassPark) => p.lat && p.lon)
+  return data.parks ?? []
 }
 
 // ── Callout coord helper (must live inside MapContainer) ──────────────────────
@@ -244,7 +237,7 @@ export default function MapClient() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isFlySearch, setIsFlySearch] = useState(false)
   const [parksLoading, setParksLoading] = useState(true)
-  const [discoveredParks, setDiscoveredParks] = useState<OverpassPark[]>([])
+  const [discoveredParks, setDiscoveredParks] = useState<DiscoveredPark[]>([])
   const [discoveringParks, setDiscoveringParks] = useState(false)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [sharing, setSharing] = useState(false)
@@ -715,10 +708,10 @@ export default function MapClient() {
                       setIsFlySearch(true)
                       setSuggestions([])
                       setShowSuggestions(false)
-                      // Discover calisthenics parks via Overpass
+                      // Discover calisthenics parks via Google Places
                       setDiscoveringParks(true)
                       try {
-                        const results = await fetchOverpassParks(lat, lon)
+                        const results = await fetchDiscoveredParks(lat, lon)
                         const newParks = results.filter(op =>
                           !parks.some(fp => Math.abs(fp.latitude - op.lat) < 0.0005 && Math.abs(fp.longitude - op.lon) < 0.0005)
                         )
@@ -817,11 +810,15 @@ export default function MapClient() {
 
           {discoveredParks.map(park => (
             <Marker
-              key={`osm-${park.id}`}
+              key={`gp-${park.id}`}
               position={[park.lat, park.lon]}
               icon={makeDiscoveredParkIcon()}
             >
-              <Popup>{park.name}</Popup>
+              <Popup>
+                <div className="text-sm font-semibold">{park.name}</div>
+                {park.address && <div className="text-xs text-gray-500 mt-0.5">{park.address}</div>}
+                {park.rating && <div className="text-xs mt-0.5">⭐ {park.rating} ({park.totalRatings})</div>}
+              </Popup>
             </Marker>
           ))}
 

@@ -46,9 +46,8 @@ const GLOBAL_SECURITY_HEADERS = [
         // Google OAuth & API loader (needed by Firebase Auth + Google Sign-In)
         "https://apis.google.com",
         "https://accounts.google.com",
-        // Map tile search + Overpass park discovery
+        // Map tile search
         "https://nominatim.openstreetmap.org",
-        "https://overpass-api.de",
         // MediaPipe WASM
         "https://cdn.jsdelivr.net",
         // ffmpeg WASM (will be replaced once hosted locally)
