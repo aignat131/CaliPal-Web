@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const queries = ['calisthenics park', 'street workout park', 'outdoor gym']
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allResults: any[] = []
     const seenIds = new Set<string>()
 
