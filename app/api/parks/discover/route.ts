@@ -17,30 +17,50 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const queries = ['calisthenics park', 'street workout park', 'outdoor gym']
+    const queries = [
+      'calisthenics park',
+      'street workout park',
+      'outdoor fitness park',
+      'parc calisthenics',
+      'street workout',
+    ]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allResults: any[] = []
     const seenIds = new Set<string>()
 
+    // Words that indicate an indoor gym (not an outdoor park)
+    const gymKeywords = ['gym', 'fitness', 'sala', 'crossfit', 'bodybuilding', 'world class', 'smartfit', 'igym']
+
     for (const q of queries) {
-      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q)}&location=${lat},${lon}&radius=15000&key=${key}`
+      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q)}&location=${lat},${lon}&radius=30000&key=${key}`
       const res = await fetch(url)
       const data = await res.json()
 
       if (data.results) {
         for (const place of data.results) {
-          if (!seenIds.has(place.place_id)) {
-            seenIds.add(place.place_id)
-            allResults.push({
-              id: place.place_id,
-              name: place.name,
-              address: place.formatted_address || '',
-              lat: place.geometry.location.lat,
-              lon: place.geometry.location.lng,
-              rating: place.rating || null,
-              totalRatings: place.user_ratings_total || 0,
-            })
-          }
+          if (seenIds.has(place.place_id)) continue
+          seenIds.add(place.place_id)
+
+          const nameLower = (place.name || '').toLowerCase()
+          const types: string[] = place.types || []
+
+          // Skip indoor gyms: check types and name
+          const isGym = types.includes('gym') || types.includes('health')
+          const hasGymName = gymKeywords.some(kw => nameLower.includes(kw))
+          // Keep if name explicitly mentions calisthenics/street workout/outdoor
+          const isOutdoor = nameLower.includes('calisthenics') || nameLower.includes('street workout') || nameLower.includes('outdoor') || nameLower.includes('parc')
+
+          if ((isGym || hasGymName) && !isOutdoor) continue
+
+          allResults.push({
+            id: place.place_id,
+            name: place.name,
+            address: place.formatted_address || '',
+            lat: place.geometry.location.lat,
+            lon: place.geometry.location.lng,
+            rating: place.rating || null,
+            totalRatings: place.user_ratings_total || 0,
+          })
         }
       }
     }
