@@ -42,15 +42,13 @@ export async function GET(req: NextRequest) {
           seenIds.add(place.place_id)
 
           const nameLower = (place.name || '').toLowerCase()
-          const types: string[] = place.types || []
 
-          // Skip indoor gyms: check types and name
-          const isGym = types.includes('gym') || types.includes('health')
+          // Skip places that are clearly indoor gyms by name
           const hasGymName = gymKeywords.some(kw => nameLower.includes(kw))
-          // Keep if name explicitly mentions calisthenics/street workout/outdoor
-          const isOutdoor = nameLower.includes('calisthenics') || nameLower.includes('street workout') || nameLower.includes('outdoor') || nameLower.includes('parc')
+          // Keep if name mentions calisthenics/street workout/outdoor/parc
+          const isOutdoor = nameLower.includes('calisthenics') || nameLower.includes('calistenice') || nameLower.includes('street workout') || nameLower.includes('outdoor') || nameLower.includes('parc') || nameLower.includes('workout')
 
-          if ((isGym || hasGymName) && !isOutdoor) continue
+          if (hasGymName && !isOutdoor) continue
 
           allResults.push({
             id: place.place_id,
