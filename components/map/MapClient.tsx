@@ -73,17 +73,6 @@ function makeParkIcon(hasComm: boolean, activeCount: number, hasUpcomingTraining
   })
 }
 
-function makeDiscoveredParkIcon() {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
-      <ellipse cx="20" cy="43" rx="5" ry="2.5" fill="rgba(0,0,0,0.25)"/>
-      <path d="M20 4 C11 4 5 11 5 19 C5 29 20 43 20 43 C20 43 35 29 35 19 C35 11 29 4 20 4Z"
-        fill="#F59E0B" stroke="white" stroke-width="1.5"/>
-      <circle cx="20" cy="19" r="6" fill="white" opacity="0.9"/>
-      <text x="20" y="23" text-anchor="middle" font-size="11" font-weight="bold" fill="#F59E0B">?</text>
-    </svg>`
-  return L.divIcon({ html: svg, className: '', iconSize: [40, 48], iconAnchor: [20, 48] })
-}
 
 function makeUserIcon(photoUrl: string, name: string) {
   const initial = name.charAt(0).toUpperCase()
@@ -812,7 +801,7 @@ export default function MapClient() {
             <Marker
               key={`gp-${park.id}`}
               position={[park.lat, park.lon]}
-              icon={makeDiscoveredParkIcon()}
+              icon={makeParkIcon(false, 0, false)}
             >
               <Popup>
                 <div className="text-sm font-semibold">{park.name}</div>
