@@ -14,7 +14,7 @@ import { useT } from '@/lib/context/LanguageContext'
 import type { ParkDoc, ParkPresenceMember, CommunityDoc, LocationSharingMode, ParkCommunityRequest, PlannedTraining, CommunityMember } from '@/types'
 import { MapPin, Navigation } from 'lucide-react'
 import {
-  MapContainer, TileLayer, Marker, useMap,
+  MapContainer, TileLayer, Marker, Popup, useMap,
 } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -71,6 +71,18 @@ function makeParkIcon(hasComm: boolean, activeCount: number, hasUpcomingTraining
     iconSize: [40, 48],
     iconAnchor: [20, 48],
   })
+}
+
+function makeDiscoveredParkIcon() {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
+      <ellipse cx="20" cy="43" rx="5" ry="2.5" fill="rgba(0,0,0,0.25)"/>
+      <path d="M20 4 C11 4 5 11 5 19 C5 29 20 43 20 43 C20 43 35 29 35 19 C35 11 29 4 20 4Z"
+        fill="#F59E0B" stroke="white" stroke-width="1.5"/>
+      <circle cx="20" cy="19" r="6" fill="white" opacity="0.9"/>
+      <text x="20" y="23" text-anchor="middle" font-size="11" font-weight="bold" fill="#F59E0B">?</text>
+    </svg>`
+  return L.divIcon({ html: svg, className: '', iconSize: [40, 48], iconAnchor: [20, 48] })
 }
 
 function makeUserIcon(photoUrl: string, name: string) {
@@ -143,6 +155,32 @@ type NominatimResult = {
   lon: string
 }
 
+interface OverpassPark {
+  id: number
+  name: string
+  lat: number
+  lon: number
+}
+
+// ── Overpass API (free calisthenics park discovery) ───────────────────────────
+
+async function fetchOverpassParks(lat: number, lon: number, radiusMeters = 15000): Promise<OverpassPark[]> {
+  const q = `[out:json][timeout:10];(node["leisure"="fitness_station"](around:${radiusMeters},${lat},${lon});node["sport"="calisthenics"](around:${radiusMeters},${lat},${lon});way["leisure"="fitness_station"](around:${radiusMeters},${lat},${lon});way["sport"="calisthenics"](around:${radiusMeters},${lat},${lon}););out center;`
+  const res = await fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    body: `data=${encodeURIComponent(q)}`,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  })
+  const data = await res.json()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.elements.map((el: any) => ({
+    id: el.id,
+    name: el.tags?.name || el.tags?.description || 'Calisthenics Park',
+    lat: el.lat ?? el.center?.lat,
+    lon: el.lon ?? el.center?.lon,
+  })).filter((p: OverpassPark) => p.lat && p.lon)
+}
+
 // ── Callout coord helper (must live inside MapContainer) ──────────────────────
 
 function CalloutCoordHelper({
@@ -206,6 +244,8 @@ export default function MapClient() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isFlySearch, setIsFlySearch] = useState(false)
   const [parksLoading, setParksLoading] = useState(true)
+  const [discoveredParks, setDiscoveredParks] = useState<OverpassPark[]>([])
+  const [discoveringParks, setDiscoveringParks] = useState(false)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [sharing, setSharing] = useState(false)
   const [liveLocations, setLiveLocations] = useState<Record<string, string>>({})
@@ -619,6 +659,7 @@ export default function MapClient() {
                 const q = e.target.value
                 setSearch(q)
                 setIsFlySearch(false)
+                setDiscoveredParks([])
                 setShowSuggestions(true)
                 if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
                 if (q.trim().length > 2) {
@@ -648,7 +689,7 @@ export default function MapClient() {
             />
             {search && (
               <button
-                onClick={() => { setSearch(''); setIsFlySearch(false) }}
+                onClick={() => { setSearch(''); setIsFlySearch(false); setDiscoveredParks([]) }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-xs"
                 style={{ backgroundColor: theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.15)', color: theme === 'light' ? '#333' : '#ccc' }}
               >
@@ -666,12 +707,24 @@ export default function MapClient() {
                 {suggestions.map(s => (
                   <button
                     key={s.place_id}
-                    onMouseDown={() => {
-                      setFlyTarget([parseFloat(s.lat), parseFloat(s.lon)])
+                    onMouseDown={async () => {
+                      const lat = parseFloat(s.lat)
+                      const lon = parseFloat(s.lon)
+                      setFlyTarget([lat, lon])
                       setSearch(s.display_name.split(',')[0])
                       setIsFlySearch(true)
                       setSuggestions([])
                       setShowSuggestions(false)
+                      // Discover calisthenics parks via Overpass
+                      setDiscoveringParks(true)
+                      try {
+                        const results = await fetchOverpassParks(lat, lon)
+                        const newParks = results.filter(op =>
+                          !parks.some(fp => Math.abs(fp.latitude - op.lat) < 0.0005 && Math.abs(fp.longitude - op.lon) < 0.0005)
+                        )
+                        setDiscoveredParks(newParks)
+                      } catch { setDiscoveredParks([]) }
+                      finally { setDiscoveringParks(false) }
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm border-b last:border-b-0 hover:bg-brand-green/10 transition-colors"
                     style={{
@@ -712,7 +765,7 @@ export default function MapClient() {
       </div>
 
       {/* Parks loading indicator */}
-      {parksLoading && (
+      {(parksLoading || discoveringParks) && (
         <div
           className="absolute top-24 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 px-4 py-2 rounded-full shadow-lg"
           style={{
@@ -722,7 +775,7 @@ export default function MapClient() {
         >
           <div className="w-4 h-4 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
           <span className="text-xs font-medium" style={{ color: theme === 'light' ? '#0D1B1A' : 'rgba(255,255,255,0.7)' }}>
-            {t('map.loading_parks')}
+            {discoveringParks ? t('map.discovering_parks') : t('map.loading_parks')}
           </span>
         </div>
       )}
@@ -761,6 +814,16 @@ export default function MapClient() {
               />
             )
           })}
+
+          {discoveredParks.map(park => (
+            <Marker
+              key={`osm-${park.id}`}
+              position={[park.lat, park.lon]}
+              icon={makeDiscoveredParkIcon()}
+            >
+              <Popup>{park.name}</Popup>
+            </Marker>
+          ))}
 
           {myLat !== null && myLng !== null && (
             <>
