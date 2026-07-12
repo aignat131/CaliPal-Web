@@ -11,6 +11,7 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import type { FormCheckRequest } from '@/types'
 import { ArrowLeft, Video, MessageSquare, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
+import { SkeletonCardList } from '@/components/ui/SkeletonLoaders'
 
 const STATUS_COLORS = {
   PENDING: '#F59E0B',
@@ -94,8 +95,8 @@ export default function CoachPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-7 h-7 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+          <div className="px-1 py-4">
+            <SkeletonCardList count={3} />
           </div>
         ) : requests.length === 0 ? (
           <div className="text-center py-16">

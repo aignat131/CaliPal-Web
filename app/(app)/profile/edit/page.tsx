@@ -13,6 +13,7 @@ import { propagateDisplayName } from '@/lib/firebase/propagateName'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { ArrowLeft, Camera, ChevronDown, ChevronUp } from 'lucide-react'
 import ImageCropModal from '@/components/ui/ImageCropModal'
+import { SkeletonEditForm } from '@/components/ui/SkeletonLoaders'
 import { useT } from '@/lib/context/LanguageContext'
 
 export default function EditProfilePage() {
@@ -205,8 +206,8 @@ export default function EditProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100dvh-64px)]">
-        <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-[calc(100dvh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+        <SkeletonEditForm />
       </div>
     )
   }

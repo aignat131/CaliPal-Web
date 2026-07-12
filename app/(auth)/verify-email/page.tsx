@@ -78,7 +78,7 @@ export default function VerifyEmailPage() {
 
         <button
           onClick={handleSignOut}
-          className="text-[13px] text-white/30 hover:text-white/50 transition-colors"
+          className="text-[13px] text-white/60 hover:text-white/80 transition-colors"
         >
           Deconectează-te
         </button>

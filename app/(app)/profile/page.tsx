@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useTheme } from '@/lib/hooks/useTheme'
+import { SkeletonProfile } from '@/components/ui/SkeletonLoaders'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import type { UserDoc, WorkoutDoc, PlannedTraining } from '@/types'
 import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag, Calendar, MapPin } from 'lucide-react'
@@ -323,8 +324,8 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
-        <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+        <SkeletonProfile />
       </div>
     )
   }
@@ -371,7 +372,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="min-h-[calc(100vh-64px)] animate-page-enter" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <h1 className="sr-only">Profile</h1>
       {/* Task done toast */}
       {taskDoneToast && (
         <div
@@ -501,7 +503,7 @@ export default function ProfilePage() {
           <div className="flex-1">
             <div className="flex justify-around mb-2">
               <Link href="/workout"><Stat value={String((profile?.totalWorkouts ?? 0) + (profile?.totalTrainings ?? 0))} label={t('profile.workouts')} /></Link>
-              <button onClick={() => setShowShop(true)}><Stat value={String(profile?.coins ?? 0)} label={t('profile.coins')} /></button>
+              <button onClick={() => setShowShop(true)}><Stat value={String(profile?.coins ?? 0)} label={t('profile.coins')} animate /></button>
               <Link href="/profile/friends"><Stat value={String(profile?.friendCount ?? 0)} label={t('profile.friends')} /></Link>
             </div>
             {(profile?.currentStreak ?? 0) > 0 && (
@@ -768,10 +770,10 @@ export default function ProfilePage() {
   )
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
+function Stat({ value, label, animate }: { value: string; label: string; animate?: boolean }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <span className="text-[17px] font-black text-white">{value}</span>
+      <span key={animate ? value : undefined} className={`text-[17px] font-black text-white ${animate ? 'animate-coin-pop' : ''}`}>{value}</span>
       <span className="text-[10px] text-white/45">{label}</span>
     </div>
   )

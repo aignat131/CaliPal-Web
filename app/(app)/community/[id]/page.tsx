@@ -36,10 +36,11 @@ import { useToast } from '@/lib/context/ToastContext'
 import { SkeletonCard, SkeletonTrainingRow } from '@/components/ui/SkeletonLoaders'
 import TrainingPhotoCard from '@/components/training/TrainingPhotoCard'
 import {
-  parseTrainingDateTime as _parseTrainingDateTime,
+  parseTrainingDateTime,
+  formatTrainingDate,
   compareTrainingDatesAsc,
   compareTrainingDatesDesc,
-  isTrainingPast as _isTrainingPast,
+  isTrainingPast,
 } from '@/lib/utils/trainingDateTime'
 
 
@@ -62,38 +63,6 @@ const MEDAL_STYLES = [
   { bg: '#C3C9D1', color: '#2C2C2A' }, // silver
   { bg: '#C5824A', color: '#4A1B0C' }, // bronze
 ]
-
-/**
- * Parse a training datetime string.
- * Supports Android format "dd/MM/yyyy HH:mm" and ISO date "yyyy-MM-dd".
- */
-function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null {
-  if (!str) return null
-  // Android format: "dd/MM/yyyy HH:mm"
-  const androidMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
-  if (androidMatch) {
-    const [, dd, mm, yyyy, hh, min] = androidMatch
-    return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`)
-  }
-  // Legacy web format: timeStart is time-only "HH:mm", fallbackDate is "yyyy-MM-dd"
-  if (fallbackDate && /^\d{2}:\d{2}$/.test(str)) {
-    return new Date(`${fallbackDate}T${str}`)
-  }
-  // Try direct parse
-  try { return new Date(str) } catch { return null }
-}
-
-function isTrainingPast(t: PlannedTraining): boolean {
-  return _isTrainingPast(t)
-}
-
-function formatTrainingDate(timeStart: string, legacyDate?: string): string {
-  const d = parseTrainingDateTime(timeStart, legacyDate)
-  if (!d || isNaN(d.getTime())) return legacyDate ?? ''
-  try {
-    return d.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' })
-  } catch { return '' }
-}
 
 /** Format "dd/MM/yyyy HH:mm" full-datetime string from a date + time inputs. */
 function toAndroidDateTime(date: string, time: string): string {
@@ -656,12 +625,13 @@ export default function CommunityDetailPage() {
   const upcoming = [...trainings].filter(t => !isTrainingPast(t)).sort(trainingSorter)
   const recentPast = [...trainings].filter(t => {
     if (!isTrainingPast(t)) return false
-    const end = _parseTrainingDateTime(t.timeEnd || t.timeStart, t.date)
+    const end = parseTrainingDateTime(t.timeEnd || t.timeStart, t.date)
     return !!end && end >= recentCutoff
   }).sort(compareTrainingDatesDesc).slice(0, 1)
 
   return (
-    <div className="min-h-[calc(100dvh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="min-h-[calc(100dvh-64px)] animate-page-enter" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <h1 className="sr-only">{community?.name ?? 'Community'}</h1>
 
       {/* Community edit modal (admin only) */}
       {showEditCommunity && community && (

@@ -10,19 +10,7 @@ import { useToast } from '@/lib/context/ToastContext'
 import ImageCropModal from '@/components/ui/ImageCropModal'
 import { Camera, X, Upload, Eye, EyeOff } from 'lucide-react'
 import type { PlannedTraining } from '@/types'
-
-function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null {
-  if (!str) return null
-  const androidMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
-  if (androidMatch) {
-    const [, dd, mm, yyyy, hh, min] = androidMatch
-    return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`)
-  }
-  if (fallbackDate && /^\d{2}:\d{2}$/.test(str)) {
-    return new Date(`${fallbackDate}T${str}`)
-  }
-  try { return new Date(str) } catch { return null }
-}
+import { parseTrainingDateTime } from '@/lib/utils/trainingDateTime'
 
 function getDismissKey(trainingId: string) {
   return `calipal_photo_popup_dismissed_${trainingId}`

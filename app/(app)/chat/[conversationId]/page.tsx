@@ -717,6 +717,7 @@ export default function ChatDetailPage() {
           onChange={e => { setText(e.target.value); handleTyping() }}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
           placeholder={t('chat.placeholder')}
+          aria-label={t('chat.placeholder')}
           maxLength={4000}
           className="flex-1 h-11 rounded-full px-4 text-sm text-white placeholder:text-white/30 outline-none border border-white/12 bg-white/7 focus:border-brand-green/40 transition-colors"
         />

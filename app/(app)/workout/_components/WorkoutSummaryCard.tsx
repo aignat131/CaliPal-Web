@@ -4,16 +4,18 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { collection, doc, addDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
-import { Check, Share2, X } from 'lucide-react'
+import { Check, Share2, X, ClipboardList } from 'lucide-react'
 import type { WorkoutDoc } from '@/types'
 import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
 import { formatDuration, exerciseOneLiner, circuitSummaryLine, formatCircuitRounds, circuitAverage, circuitTotal } from '../_helpers'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { CoinRewardBanner } from './CoinRewardBanner'
+import { ConfettiBurst } from './ConfettiBurst'
 
 export function WorkoutSummaryCard({
   workout, coinsEarned, onDone, userId, userDisplayName, userPhotoURL,
   joinedCommunityIds, favoriteCommunityId, startedAt, photoFile, autoOpenShare,
+  hasAssessment, totalWorkouts,
 }: {
   workout: WorkoutDoc
   coinsEarned: number
@@ -26,6 +28,8 @@ export function WorkoutSummaryCard({
   startedAt: number | null
   photoFile?: File | null
   autoOpenShare?: boolean
+  hasAssessment?: boolean
+  totalWorkouts?: number
 }) {
   const router = useRouter()
   const description = workout.note
@@ -111,6 +115,7 @@ export function WorkoutSummaryCard({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <ConfettiBurst />
       {coinsEarned > 0 && <CoinRewardBanner coins={coinsEarned} />}
       <div className="flex-1 max-w-sm mx-auto w-full px-4 py-8 flex flex-col">
 
@@ -234,6 +239,22 @@ export function WorkoutSummaryCard({
         )}
         {shared && (
           <p className="text-xs text-brand-green text-center mb-3">✓ Postat în comunitate!</p>
+        )}
+
+        {/* Assessment nudge — show after first few workouts if not done */}
+        {!hasAssessment && (totalWorkouts ?? 0) <= 3 && (
+          <button
+            onClick={() => router.push('/profile/assessment')}
+            className="w-full rounded-2xl p-4 mb-3 flex items-center gap-3 text-left border border-brand-green/30 bg-brand-green/8 hover:bg-brand-green/12 transition-colors"
+          >
+            <div className="w-10 h-10 rounded-full bg-brand-green/20 flex items-center justify-center flex-shrink-0">
+              <ClipboardList size={18} className="text-brand-green" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Evaluare skill-uri</p>
+              <p className="text-xs text-white/55">Completează evaluarea pentru a-ți personaliza antrenamentele</p>
+            </div>
+          </button>
         )}
 
         <button

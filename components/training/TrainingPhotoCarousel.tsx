@@ -78,6 +78,7 @@ export default function TrainingPhotoCarousel({ photos, canAddPhoto, onAddPhoto,
         {canAddPhoto && (
           <button
             onClick={onAddPhoto}
+            aria-label="Add photo"
             className="snap-center flex-shrink-0 rounded-xl border border-dashed border-white/20 flex flex-col items-center justify-center gap-2 hover:border-brand-green/40 hover:bg-brand-green/5 transition-colors"
             style={{ width: photos.length > 0 ? '80px' : 'calc(100% - 16px)', height: '256px' }}
           >

@@ -84,6 +84,7 @@ export function NotificationBell({ uid }: { uid: string }) {
     <>
       <button
         onClick={handleOpen}
+        aria-label="Notifications"
         className="relative w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/8 transition-colors"
         style={{ backgroundColor: 'var(--app-surface)' }}
       >
@@ -155,6 +156,7 @@ function NotificationPanel({ uid, onClose }: { uid: string; onClose: () => void 
           </div>
           <button
             onClick={onClose}
+            aria-label="Close notifications"
             className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center"
           >
             <X size={14} className="text-white/70" />
@@ -207,6 +209,7 @@ function NotificationPanel({ uid, onClose }: { uid: string; onClose: () => void 
                     )}
                     <button
                       onClick={e => handleDelete(e, n.id)}
+                      aria-label="Delete notification"
                       className="w-6 h-6 rounded-full bg-white/6 flex items-center justify-center hover:bg-red-500/20 transition-colors"
                     >
                       <Trash2 size={10} className="text-white/30" />

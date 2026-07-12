@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { ConversationDoc } from '@/types'
 import { ArrowLeft, MessageSquare } from 'lucide-react'
+import { SkeletonCardList } from '@/components/ui/SkeletonLoaders'
 import { useT } from '@/lib/context/LanguageContext'
 
 function formatTs(ts: { toDate?: () => Date } | null | undefined, yesterdayLabel: string): string {
@@ -57,14 +58,14 @@ export default function ChatListPage() {
     <div className="min-h-[calc(100dvh-64px)] md:hidden" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="max-w-lg mx-auto">
         <div className="px-4 pt-5 pb-3 flex items-center gap-3">
-          <button onClick={() => router.back()} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
+          <button onClick={() => router.back()} aria-label="Back" className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
             <ArrowLeft size={18} className="text-white/80" />
           </button>
           <h1 className="text-lg font-black text-white">{t('chat.title')}</h1>
         </div>
 
         {loading
-          ? <div className="flex justify-center py-12"><div className="w-7 h-7 border-2 border-brand-green border-t-transparent rounded-full animate-spin" /></div>
+          ? <div className="px-4 py-4"><SkeletonCardList count={4} /></div>
           : conversations.length === 0
             ? (
               <div className="flex flex-col items-center justify-center py-16 px-8 text-center">

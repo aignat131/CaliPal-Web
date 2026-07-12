@@ -21,6 +21,7 @@ import { useT } from '@/lib/context/LanguageContext'
 import { awardCoins } from '@/lib/gamification/coins'
 import { useToast } from '@/lib/context/ToastContext'
 import { compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
+import { SkeletonCardList } from '@/components/ui/SkeletonLoaders'
 
 function formatDate(str: string | undefined): string {
   if (!str) return ''
@@ -309,7 +310,7 @@ export default function CommunityPage() {
         {/* ── Comunitate tab ── */}
         {tab === 0 && (
           loading
-            ? <div className="flex justify-center py-12"><div className="w-7 h-7 border-2 border-brand-green border-t-transparent rounded-full animate-spin" /></div>
+            ? <div className="px-1 py-4"><SkeletonCardList count={3} /></div>
             : (() => {
                 const cityLower = citySearch.toLowerCase().trim()
                 const allFiltered = cityLower
@@ -379,7 +380,7 @@ export default function CommunityPage() {
         {tab === 1 && (
           <div>
             {eventi === null ? (
-              <div className="flex justify-center py-12"><div className="w-7 h-7 border-2 border-brand-green border-t-transparent rounded-full animate-spin" /></div>
+              <div className="px-1 py-4"><SkeletonCardList count={3} /></div>
             ) : eventi.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12 text-center">
                 <Calendar size={32} className="text-white/20" />
@@ -399,7 +400,7 @@ export default function CommunityPage() {
         {tab === 2 && (
           <div>
             {!loadedProv ? (
-              <div className="flex justify-center py-12"><div className="w-7 h-7 border-2 border-brand-green border-t-transparent rounded-full animate-spin" /></div>
+              <div className="px-1 py-4"><SkeletonCardList count={3} /></div>
             ) : provChallenges.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12 text-center">
                 <Trophy size={32} className="text-white/20" />

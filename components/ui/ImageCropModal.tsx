@@ -44,6 +44,7 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel, mode = '
       <div className="flex items-center justify-between px-5 pt-12 pb-4 flex-shrink-0">
         <button
           onClick={onCancel}
+          aria-label="Cancel crop"
           className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10"
         >
           <X size={18} className="text-white" />
@@ -52,6 +53,7 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel, mode = '
         <button
           onClick={handleConfirm}
           disabled={processing}
+          aria-label="Confirm crop"
           className="w-9 h-9 rounded-full flex items-center justify-center bg-brand-green disabled:opacity-50"
         >
           {processing

@@ -9,10 +9,11 @@ export const dynamic = 'force-dynamic'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://calipal.ro'
 const FROM_EMAIL = process.env.EMAIL_FROM ?? 'CaliPal <noreply@calipal.ro>'
-const UNSUB_SECRET = process.env.UNSUBSCRIBE_SECRET ?? 'change-me-in-env'
+const UNSUB_SECRET = process.env.UNSUBSCRIBE_SECRET
+if (!UNSUB_SECRET) throw new Error('UNSUBSCRIBE_SECRET env var is required')
 
 function unsubToken(uid: string, communityId: string): string {
-  return createHmac('sha256', UNSUB_SECRET).update(`${uid}:${communityId}`).digest('hex')
+  return createHmac('sha256', UNSUB_SECRET!).update(`${uid}:${communityId}`).digest('hex')
 }
 
 /** Format "dd/MM/yyyy HH:mm" → readable label */

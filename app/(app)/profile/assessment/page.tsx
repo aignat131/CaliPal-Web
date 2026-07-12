@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { awardCoins, checkSkillMilestones } from '@/lib/gamification/coins'
 import { loadSkillCategories } from '@/lib/data/skillCategories'
 import { ArrowLeft, ArrowRight, Check, Plus } from 'lucide-react'
+import { SkeletonProfile } from '@/components/ui/SkeletonLoaders'
 import type {
   CalisthenicsLevel, PushupType, PullupType, CardioFrequency,
   SkillCategoryDef, SkillItem, UserSkillData, SkillsByCategory,
@@ -203,8 +204,8 @@ export default function AssessmentPage() {
 
   if (loadingCats) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100dvh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
-        <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-[calc(100dvh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+        <SkeletonProfile />
       </div>
     )
   }

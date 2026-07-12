@@ -227,6 +227,7 @@ function ThemePickerModal({ onConfirm, onSkip }: { onConfirm: () => void; onSkip
         <div className="flex justify-center gap-3 mb-6">
           {THEME_SWATCHES.map(({ key, swatch }) => (
             <button key={key} onClick={() => setTheme(key)}
+              aria-label={`${key} theme`}
               className="w-10 h-10 rounded-full transition-all duration-200"
               style={{
                 backgroundColor: swatch,

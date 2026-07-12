@@ -12,6 +12,7 @@ import type { PlannedTraining, TrainingPhoto, PostComment } from '@/types'
 import TrainingPhotoCarousel from './TrainingPhotoCarousel'
 import PhotoDeleteModal from './PhotoDeleteModal'
 import { useT } from '@/lib/context/LanguageContext'
+import { parseTrainingDateTime } from '@/lib/utils/trainingDateTime'
 
 interface Props {
   training: PlannedTraining
@@ -20,19 +21,6 @@ interface Props {
   myName: string
   myPhoto: string | null
   isSuperAdmin?: boolean
-}
-
-function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null {
-  if (!str) return null
-  const androidMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
-  if (androidMatch) {
-    const [, dd, mm, yyyy, hh, min] = androidMatch
-    return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`)
-  }
-  if (fallbackDate && /^\d{2}:\d{2}$/.test(str)) {
-    return new Date(`${fallbackDate}T${str}`)
-  }
-  try { return new Date(str) } catch { return null }
 }
 
 export default function TrainingPhotoCard({ training, communityId, myUid, myName, myPhoto, isSuperAdmin }: Props) {
@@ -379,9 +367,11 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
         })}
         {!showReactionPicker && (
           <button onClick={() => setShowReactionPicker(true)}
+            aria-label="Add reaction"
             className="w-7 h-7 rounded-full bg-white/8 border border-white/12 text-white/40 text-sm flex items-center justify-center">+</button>
         )}
         <button onClick={() => setShowComments(v => !v)}
+          aria-label="Toggle comments"
           className={`flex items-center gap-1.5 text-xs font-semibold ml-1 transition-colors ${showComments ? 'text-brand-green' : 'text-white/40 hover:text-white/60'}`}>
           <MessageCircle size={14} />
           {(showComments ? comments.length : (training.commentsCount ?? 0)) > 0 && (
@@ -414,8 +404,8 @@ export default function TrainingPhotoCard({ training, communityId, myUid, myName
                       className="flex-1 h-7 rounded-lg px-2 text-xs text-white outline-none border border-brand-green/60 bg-white/7"
                       autoFocus
                     />
-                    <button onClick={() => saveEditComment(c.id)} className="text-brand-green text-xs font-bold px-1">&#10003;</button>
-                    <button onClick={() => setEditingCommentId(null)} className="text-white/40 text-xs px-1">&#10005;</button>
+                    <button onClick={() => saveEditComment(c.id)} aria-label="Save comment" className="text-brand-green text-xs font-bold px-1">&#10003;</button>
+                    <button onClick={() => setEditingCommentId(null)} aria-label="Cancel edit" className="text-white/40 text-xs px-1">&#10005;</button>
                   </div>
                 ) : (
                   <span className="text-xs text-white/70">{c.text}</span>

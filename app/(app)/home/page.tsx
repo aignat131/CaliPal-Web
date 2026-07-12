@@ -18,29 +18,7 @@ import { Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, 
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 import { useT } from '@/lib/context/LanguageContext'
-import { compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
-
-
-function parseTrainingDateTime(str: string, fallbackDate?: string): Date | null {
-  if (!str) return null
-  const androidMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/)
-  if (androidMatch) {
-    const [, dd, mm, yyyy, hh, min] = androidMatch
-    return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}`)
-  }
-  if (fallbackDate && /^\d{2}:\d{2}$/.test(str)) {
-    return new Date(`${fallbackDate}T${str}`)
-  }
-  try { return new Date(str) } catch { return null }
-}
-
-function formatTrainingDate(timeStart: string, legacyDate?: string): string {
-  const d = parseTrainingDateTime(timeStart, legacyDate)
-  if (!d || isNaN(d.getTime())) return legacyDate ?? ''
-  try {
-    return d.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' })
-  } catch { return '' }
-}
+import { parseTrainingDateTime, formatTrainingDate, compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
 
 export default function HomePage() {
   const { user, loading: authLoading, isSuperAdmin } = useAuth()
@@ -188,7 +166,7 @@ export default function HomePage() {
   if (!authLoading && !user) return <GuestHomePage />
 
   return (
-    <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="min-h-[calc(100vh-64px)] animate-page-enter" style={{ backgroundColor: 'var(--app-bg)' }}>
 
       {/* Streak Calendar Modal */}
       {showStreakCalendar && user && (
@@ -235,7 +213,7 @@ export default function HomePage() {
           <p className="text-white/50 text-sm">{greeting},</p>
           {authLoading || (!userDoc && !user?.displayName)
             ? <div className="h-7 w-32 rounded-lg bg-white/8 animate-pulse" />
-            : <h1 className="text-2xl font-black text-white leading-tight">{firstName} 👋</h1>
+            : <p className="text-2xl font-black text-white leading-tight">{firstName} 👋</p>
           }
         </div>
 
@@ -792,7 +770,7 @@ function GuestHomePage() {
   }, [])
 
   return (
-    <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="min-h-[calc(100vh-64px)] animate-page-enter" style={{ backgroundColor: 'var(--app-bg)' }}>
       <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
 
         {/* Header */}

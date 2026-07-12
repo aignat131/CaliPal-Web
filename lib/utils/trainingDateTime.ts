@@ -51,6 +51,15 @@ export function compareTrainingDatesDesc(a: HasTrainingDates, b: HasTrainingDate
   return -compareTrainingDatesAsc(a, b)
 }
 
+/** Format a training date as a short Romanian locale string (e.g. "lun. 07 iul."). */
+export function formatTrainingDate(timeStart: string, legacyDate?: string): string {
+  const d = parseTrainingDateTime(timeStart, legacyDate)
+  if (!d || isNaN(d.getTime())) return legacyDate ?? ''
+  try {
+    return d.toLocaleDateString('ro', { weekday: 'short', day: '2-digit', month: 'short' })
+  } catch { return '' }
+}
+
 /** Check if a training's end (or start) time is in the past. */
 export function isTrainingPast(t: HasTrainingDates): boolean {
   const str = t.timeEnd || t.timeStart

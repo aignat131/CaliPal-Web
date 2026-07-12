@@ -350,7 +350,8 @@ export default function WorkoutPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+    <div className="min-h-[calc(100vh-64px)] animate-page-enter" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <h1 className="sr-only">Workout</h1>
 
       {screen === 'postdetails' && (
         <PostWorkoutDetails
@@ -375,6 +376,8 @@ export default function WorkoutPage() {
           startedAt={workoutStartedAt}
           photoFile={summaryPhotoFile}
           autoOpenShare={autoOpenShare}
+          hasAssessment={!!profile?.basicStrength?.level}
+          totalWorkouts={profile?.totalWorkouts ?? 0}
         />
       )}
 

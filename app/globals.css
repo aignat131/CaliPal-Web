@@ -135,6 +135,11 @@
   html {
     @apply font-sans;
   }
+  :focus-visible {
+    outline: 2px solid var(--accent, #1ED75F);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 }
 
 /* ── Micro-animations ────────────────────────────────────────────────────── */
@@ -228,6 +233,31 @@
     rgba(17,17,17,0.06) 75%
   );
   background-size: 200% 100%;
+}
+
+/* Page enter transition — apply to page-level wrappers */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-page-enter {
+  animation: pageEnter 0.25s ease-out forwards;
+}
+
+/* Coin count-up pulse */
+@keyframes coinPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.25); color: #1ED75F; }
+  100% { transform: scale(1); }
+}
+.animate-coin-pop {
+  animation: coinPop 0.5s ease-out;
+}
+
+/* Confetti particle burst */
+@keyframes confettiFall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
 }
 
 /* Hide scrollbar for carousel */
@@ -357,8 +387,13 @@
 /* Hover states */
 .light .hover\:bg-white\/5:hover, .soft .hover\:bg-white\/5:hover { background-color: rgba(17,17,17,0.05) !important; }
 
-/* ── Contrast improvements (B2-13) ──────────────────────────────────────── */
-/* Bump input label opacity for WCAG AA compliance */
-.text-white\/45 { color: rgba(255,255,255,0.60) !important; }
-.light .text-white\/45, .soft .text-white\/45 { color: rgba(17,17,17,0.60) !important; }
+/* ── Contrast improvements (WCAG AA minimum) ─────────────────────────────── */
+/* Enforce minimum 50% opacity on all text-white utility classes below /50 */
+.text-white\/30, .text-white\/35, .text-white\/40, .text-white\/45 {
+  color: rgba(255,255,255,0.55) !important;
+}
+.light .text-white\/30, .light .text-white\/35, .light .text-white\/40, .light .text-white\/45,
+.soft .text-white\/30, .soft .text-white\/35, .soft .text-white\/40, .soft .text-white\/45 {
+  color: rgba(17,17,17,0.55) !important;
+}
 

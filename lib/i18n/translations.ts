@@ -730,6 +730,7 @@ const T: Record<string, { RO: string; EN: string }> = {
   'map.select_city_title':      { RO: 'Selectează orașul tău',   EN: 'Select your city' },
   'map.back':                   { RO: '← Înapoi',               EN: '← Back' },
   'map.explore_no_location':    { RO: 'Explorează fără locație', EN: 'Explore without location' },
+  'map.loading_parks':           { RO: 'Se încarcă parcurile...', EN: 'Loading parks...' },
   'map.callout_community':      { RO: 'Comunitate activă',       EN: 'Active community' },
   'map.callout_text':           { RO: 'O echipă se adună regulat la acest parc. Dă tap să afli mai mult 💪', EN: 'A team gathers regularly at this park. Tap to learn more 💪' },
   'map.location_off':           { RO: 'Locație oprită',          EN: 'Location off' },

@@ -272,7 +272,7 @@ export function ActiveWorkoutView({
       {/* Timer bar */}
       <div className="flex-shrink-0 border-b border-white/8">
         <div className="max-w-2xl mx-auto flex items-center justify-between px-4 pt-4 pb-3">
-          <button onClick={() => setShowCancel(true)} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
+          <button onClick={() => setShowCancel(true)} aria-label="Abandonează antrenamentul" className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
             <Square size={14} className="text-white/60" />
           </button>
           <div className="text-center flex items-center gap-3 justify-center">
@@ -281,6 +281,7 @@ export function ActiveWorkoutView({
               className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
                 isPaused ? 'bg-brand-green animate-pulse' : 'bg-white/8 hover:bg-white/12'
               }`}
+              aria-label={isPaused ? 'Continuă' : 'Pauză'}
               title={isPaused ? 'Continuă' : 'Pauză'}
             >
               {isPaused ? <Play size={14} className="text-black" /> : <Pause size={14} className="text-white/60" />}
@@ -385,6 +386,7 @@ export function ActiveWorkoutView({
                     </div>
                     <button
                       onPointerDown={() => onRemoveExercise(ei)}
+                      aria-label="Șterge exercițiu"
                       className="w-7 h-7 rounded-full flex items-center justify-center text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0"
                     >
                       <Trash2 size={13} />

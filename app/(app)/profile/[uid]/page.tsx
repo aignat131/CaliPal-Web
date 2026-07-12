@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import type { UserDoc, WorkoutDoc } from '@/types'
+import { SkeletonProfile } from '@/components/ui/SkeletonLoaders'
 import { conversationId } from '@/types'
 import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell, X } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
@@ -226,8 +227,8 @@ export default function UserProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
-        <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+        <SkeletonProfile />
       </div>
     )
   }
@@ -265,6 +266,7 @@ export default function UserProfilePage() {
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+      <h1 className="sr-only">{displayName}</h1>
       <div className="max-w-lg mx-auto px-4 pt-4 pb-8">
 
         {/* Header */}
