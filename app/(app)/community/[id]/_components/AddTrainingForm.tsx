@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import {
-  doc, collection, addDoc, getDocs, query, where, serverTimestamp, writeBatch,
+  doc, collection, getDocs, query, where, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'

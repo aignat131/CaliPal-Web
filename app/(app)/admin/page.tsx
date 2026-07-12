@@ -15,13 +15,6 @@ import { ExercisesTab } from './_components/ExercisesTab'
 import { FeedbackTab } from './_components/FeedbackTab'
 import { TrainingsBackupTab } from './_components/TrainingsBackupTab'
 
-const EXERCISES = [
-  'Tracțiuni', 'Flotări', 'Genuflexiuni', 'Dips', 'Muscle-up',
-  'L-sit', 'Planche lean', 'Front lever', 'Back lever',
-  'Dragon flag', 'Human flag', 'Burpees', 'Abdomene', 'Pistol squat',
-  'Altul...',
-]
-
 type AdminTab = 'parks' | 'challenges' | 'communities' | 'park_requests' | 'verifications' | 'exercises' | 'feedback' | 'trainings'
 
 export default function AdminPage() {

@@ -187,7 +187,7 @@ export async function GET(req: NextRequest) {
       remaining: WEEK_LIMIT - effectiveWeekCount,
       canSendToday: effectiveDayCount < DAY_LIMIT && effectiveWeekCount < WEEK_LIMIT,
     })
-  } catch (err) {
+  } catch {
     return NextResponse.json({ ok: false, reason: 'server-error' }, { status: 500 })
   }
 }
