@@ -751,7 +751,6 @@ const T: Record<string, { RO: string; EN: string }> = {
   'map.assoc_comm_desc':        { RO: 'Leagă o comunitate pe care o administrezi', EN: 'Link a community you manage' },
   'map.add_community_btn':      { RO: '＋ Adaugă comunitate',    EN: '＋ Add community' },
   'map.no_community':           { RO: 'Nicio comunitate asociată acestui parc', EN: 'No community associated with this park' },
-  'map.discovered_via_google':  { RO: 'Descoperit prin Google Places',         EN: 'Discovered via Google Places' },
   'map.active_now':             { RO: 'ACTIVI ACUM ({n})',       EN: 'ACTIVE NOW ({n})' },
   'map.going_singular':         { RO: 'merge',                   EN: 'going' },
   'map.going_plural':           { RO: 'merg',                    EN: 'going' },

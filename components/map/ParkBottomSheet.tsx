@@ -221,16 +221,18 @@ export function ParkBottomSheet({
             </div>
           )}
 
-          {/* Community training history button */}
-          <div className="mt-2">
-            <Link href={`/training/${community.id}/history`} onClick={onClose}>
-              <button
-                className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors"
-              >
-                <span className="text-base">🕓</span> {t('map.training_history')}
-              </button>
-            </Link>
-          </div>
+          {/* Community training history button — only if trainings exist */}
+          {(parkTrainings.length > 0 || parkPastTrainings.length > 0) && (
+            <div className="mt-2">
+              <Link href={`/training/${community.id}/history`} onClick={onClose}>
+                <button
+                  className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors"
+                >
+                  <span className="text-base">🕓</span> {t('map.training_history')}
+                </button>
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <div className="mb-3">
@@ -348,14 +350,16 @@ export function ParkBottomSheet({
             </button>
           )}
 
-          {/* Training history button */}
-          <Link href={`/training/park/${park.id}/history`} onClick={onClose}>
-            <button
-              className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors mb-2"
-            >
-              <span className="text-base">🕓</span> {t('map.training_history')}
-            </button>
-          </Link>
+          {/* Training history button — only if trainings exist */}
+          {(parkStandaloneTrainings.length > 0 || parkPastTrainings.length > 0) && (
+            <Link href={`/training/park/${park.id}/history`} onClick={onClose}>
+              <button
+                className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-semibold hover:bg-white/5 transition-colors mb-2"
+              >
+                <span className="text-base">🕓</span> {t('map.training_history')}
+              </button>
+            </Link>
+          )}
 
           {parkPendingReq ? (
             <div className="flex items-center gap-2 p-3 rounded-2xl border border-yellow-400/25"
