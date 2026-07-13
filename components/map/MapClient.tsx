@@ -337,6 +337,7 @@ export default function MapClient() {
 
   function finishMapIntro() {
     localStorage.setItem('calipal_map_intro_done', '1')
+    localStorage.setItem('calipal_park_visited', '1')
     if (!localStorage.getItem(LOCATION_CONSENT_KEY)) {
       localStorage.setItem(LOCATION_CONSENT_KEY, 'denied')
     }
@@ -785,6 +786,22 @@ export default function MapClient() {
           <div className="w-4 h-4 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
           <span className="text-xs font-medium" style={{ color: theme === 'light' ? '#0D1B1A' : 'rgba(255,255,255,0.7)' }}>
             {discoveringParks ? t('map.discovering_parks') : t('map.loading_parks')}
+          </span>
+        </div>
+      )}
+
+      {/* No parks message */}
+      {!parksLoading && !discoveringParks && filteredParks.length === 0 && discoveredParks.length === 0 && !showMapIntro && (
+        <div
+          className="absolute top-24 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 px-4 py-2.5 rounded-2xl shadow-lg"
+          style={{
+            backgroundColor: theme === 'light' ? 'rgba(255,255,255,0.92)' : 'rgba(13,46,43,0.92)',
+            border: '1px solid rgba(128,128,128,0.2)',
+          }}
+        >
+          <MapPin size={14} className="text-white/40" />
+          <span className="text-xs font-medium" style={{ color: theme === 'light' ? '#0D1B1A' : 'rgba(255,255,255,0.5)' }}>
+            {t('empty.map_no_parks')}
           </span>
         </div>
       )}

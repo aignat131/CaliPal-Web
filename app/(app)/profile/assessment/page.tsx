@@ -9,6 +9,7 @@ import { awardCoins, checkSkillMilestones } from '@/lib/gamification/coins'
 import { loadSkillCategories } from '@/lib/data/skillCategories'
 import { ArrowLeft, ArrowRight, Check, Plus } from 'lucide-react'
 import { SkeletonProfile } from '@/components/ui/SkeletonLoaders'
+import { useT } from '@/lib/context/LanguageContext'
 import type {
   CalisthenicsLevel, PushupType, PullupType, CardioFrequency,
   SkillCategoryDef, SkillItem, UserSkillData, SkillsByCategory,
@@ -78,6 +79,7 @@ function getSkillZone(assignments: SkillsByCategory, categoryId: string, skillId
 export default function AssessmentPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const t = useT()
 
   const [categories, setCategories] = useState<SkillCategoryDef[]>([])
   const [loadingCats, setLoadingCats] = useState(true)
@@ -256,6 +258,10 @@ export default function AssessmentPage() {
                 className="w-full h-12 rounded-full bg-brand-green text-black font-bold">
                 Vezi skill-urile mele →
               </button>
+              <button onClick={() => router.push('/workout')}
+                className="w-full h-12 rounded-full border border-brand-green/40 text-brand-green font-semibold text-sm">
+                {t('assessment.start_workout')} →
+              </button>
               <button onClick={() => router.push('/profile')}
                 className="w-full h-12 rounded-full border border-white/20 text-white/70 font-semibold text-sm">
                 Înapoi la profil
@@ -294,7 +300,7 @@ export default function AssessmentPage() {
         </div>
 
         {/* Steps */}
-        {step === 0 && <StepIntro onStart={() => setStep(1)} />}
+        {step === 0 && <StepIntro onStart={() => setStep(1)} t={t} />}
         {step === 1 && (
           <StepLevel value={strength.level}
             onChange={level => { setStrength(s => ({ ...s, level })); goNext() }} />
@@ -392,16 +398,30 @@ export default function AssessmentPage() {
 
 // ── Step: Intro ───────────────────────────────────────────────────────────────
 
-function StepIntro({ onStart }: { onStart: () => void }) {
+function StepIntro({ onStart, t }: { onStart: () => void; t: (key: string) => string }) {
   return (
     <div className="flex flex-col items-center justify-center text-center pt-12">
       <div className="w-20 h-20 rounded-3xl bg-brand-green/15 flex items-center justify-center mb-6">
         <span className="text-4xl">🏋️</span>
       </div>
       <h1 className="text-2xl font-black text-white mb-2">Evaluare fizică</h1>
-      <p className="text-white/50 text-sm leading-relaxed mb-10 max-w-xs">
+      <p className="text-white/50 text-sm leading-relaxed mb-4 max-w-xs">
         Hai să aflăm nivelul tău actual pentru a-ți personaliza experiența în aplicație.
       </p>
+
+      {/* Benefits */}
+      <div className="w-full max-w-xs mb-8">
+        <div className="flex flex-col gap-2 text-left">
+          {[t('assessment.intro_benefit1'), t('assessment.intro_benefit2'), t('assessment.intro_benefit3')].map((b, i) => (
+            <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white/5">
+              <Check size={14} className="text-brand-green flex-shrink-0" />
+              <span className="text-sm text-white/70">{b}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-white/35 mt-3">{t('assessment.intro_time')}</p>
+      </div>
+
       <button onClick={onStart}
         className="w-full max-w-xs h-13 rounded-full font-bold text-black bg-brand-green flex items-center justify-center gap-2"
         style={{ height: 52 }}>

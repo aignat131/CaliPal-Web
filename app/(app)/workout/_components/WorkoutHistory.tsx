@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Flame, Trash2, X } from 'lucide-react'
+import Link from 'next/link'
+import { Flame, Trash2, X, Coins } from 'lucide-react'
 import type { WorkoutDoc, WorkoutExercise } from '@/types'
+import { useT } from '@/lib/context/LanguageContext'
 import { formatDate, formatDuration, exerciseOneLiner, circuitSummaryLine, formatCircuitRounds, circuitAverage, circuitTotal } from '../_helpers'
 
 function workoutTitle(exercises: WorkoutExercise[]): string {
@@ -40,6 +42,7 @@ export function WorkoutHistory({ history, loading, onDelete }: {
   loading: boolean
   onDelete: (id: string) => Promise<void>
 }) {
+  const t = useT()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutDoc | null>(null)
 
@@ -65,8 +68,11 @@ export function WorkoutHistory({ history, loading, onDelete }: {
     return (
       <div className="text-center py-16">
         <Flame size={48} className="text-white/15 mx-auto mb-4" />
-        <p className="text-white/50 font-semibold text-sm mb-1">Niciun antrenament înregistrat</p>
-        <p className="text-white/30 text-xs">Apasă &ldquo;Începe antrenamentul&rdquo; pentru primul tău workout!</p>
+        <p className="text-white/50 font-semibold text-sm mb-1">{t('empty.workout_title')}</p>
+        <p className="text-white/30 text-xs flex items-center justify-center gap-1">
+          <Coins size={12} className="text-amber-400" />
+          {t('empty.workout_desc')}
+        </p>
       </div>
     )
   }

@@ -820,6 +820,51 @@ const T: Record<string, { RO: string; EN: string }> = {
   // Settings feedback row
   'settings.feedback':           { RO: 'Trimite feedback',                      EN: 'Send Feedback' },
 
+  // ── Intro carousel ───────────────────────────────────────────────────────────
+  'intro.slide1_title':   { RO: 'Antrenamente',                          EN: 'Workouts' },
+  'intro.slide1_desc':    { RO: 'Înregistrează antrenamentele, numără repetările cu camera și urmărește-ți progresul.', EN: 'Log your workouts, count reps with the camera, and track your progress.' },
+  'intro.slide2_title':   { RO: 'Comunitate',                            EN: 'Community' },
+  'intro.slide2_desc':    { RO: 'Alătură-te unor grupuri de calisthenics, participă la antrenamente și conectează-te cu alți sportivi.', EN: 'Join calisthenics groups, attend trainings, and connect with other athletes.' },
+  'intro.slide3_title':   { RO: 'Hartă',                                 EN: 'Map' },
+  'intro.slide3_desc':    { RO: 'Găsește parcuri de street workout în apropierea ta și descoperă locuri noi.', EN: 'Find street workout parks near you and discover new spots.' },
+  'intro.slide4_title':   { RO: 'Provocări',                             EN: 'Challenges' },
+  'intro.slide4_desc':    { RO: 'Câștigă monede, deblochează realizări și participă la provocări săptămânale.', EN: 'Earn coins, unlock achievements, and take on weekly challenges.' },
+  'intro.skip':           { RO: 'Sari peste',                            EN: 'Skip' },
+  'intro.next':           { RO: 'Următorul',                             EN: 'Next' },
+  'intro.start':          { RO: 'Începe',                                EN: 'Start' },
+
+  // ── Onboarding checklist ────────────────────────────────────────────────────
+  'onboarding.title':           { RO: 'Primii pași',                                    EN: 'Getting Started' },
+  'onboarding.subtitle':        { RO: 'Completează acești pași pentru a-ți personaliza experiența', EN: 'Complete these steps to unlock your full experience' },
+  'onboarding.progress':        { RO: '{done}/{total} completat',                       EN: '{done}/{total} complete' },
+  'onboarding.coins_total':     { RO: 'Câștigă până la {n} monede',                    EN: 'Earn up to {n} coins' },
+  'onboarding.step_assessment': { RO: 'Completează evaluarea',                          EN: 'Complete your assessment' },
+  'onboarding.step_community':  { RO: 'Alătură-te unei comunități',                     EN: 'Join a community' },
+  'onboarding.step_workout':    { RO: 'Înregistrează primul antrenament',                EN: 'Log your first workout' },
+  'onboarding.step_friend':     { RO: 'Adaugă un prieten',                              EN: 'Add a friend' },
+  'onboarding.step_map':        { RO: 'Explorează harta',                               EN: 'Explore the map' },
+  'onboarding.dismiss':         { RO: 'Ascunde',                                        EN: 'Dismiss' },
+
+  // ── Empty states ────────────────────────────────────────────────────────────
+  'empty.workout_title':        { RO: 'Începe primul tău antrenament',                   EN: 'Start your first workout' },
+  'empty.workout_desc':         { RO: 'Câștigă 20 monede pentru primul antrenament înregistrat!', EN: 'Earn 20 coins for logging your first workout!' },
+  'empty.community_banner':     { RO: 'Alătură-te primei tale comunități pentru a participa la antrenamente și a câștiga 5 monede', EN: 'Join your first community to attend trainings and earn 5 coins' },
+  'empty.chat_cta':             { RO: 'Adaugă prieteni pentru a începe conversațiile',   EN: 'Add friends to start chatting' },
+  'empty.map_no_parks':         { RO: 'Niciun parc găsit în această zonă',               EN: 'No parks found in this area' },
+  'empty.map_request_park':     { RO: 'Solicită un parc nou',                            EN: 'Request a new park' },
+
+  // ── First-time hints ────────────────────────────────────────────────────────
+  'hint.first_workout':         { RO: 'Apasă aici pentru a-ți începe antrenamentul. Adaugă exerciții, serii și repetări.', EN: 'Tap here to start tracking your workout. Add exercises, sets, and reps.' },
+  'hint.join_community':        { RO: 'Apasă pe o comunitate pentru a vedea detalii și a te alătura. Câștigi 5 monede!', EN: 'Tap a community to see details and join. You\'ll earn 5 coins!' },
+
+  // ── Assessment improvements ─────────────────────────────────────────────────
+  'assessment.intro_coins':     { RO: 'Câștigă 25 monede',                              EN: 'Earn 25 coins' },
+  'assessment.intro_benefit1':  { RO: 'Recomandări zilnice personalizate',               EN: 'Personalized daily recommendations' },
+  'assessment.intro_benefit2':  { RO: 'Urmărește-ți skill-urile de calisthenics',        EN: 'Track your calisthenics skills' },
+  'assessment.intro_benefit3':  { RO: 'Câștigă 25 de monede',                           EN: 'Earn 25 coins' },
+  'assessment.intro_time':      { RO: 'Durează doar 2 minute',                          EN: 'Takes only 2 minutes' },
+  'assessment.start_workout':   { RO: 'Începe un antrenament',                           EN: 'Start a workout' },
+
   // ── Shared fallbacks ─────────────────────────────────────────────────────────
   'common.user_fallback': { RO: 'Utilizator',       EN: 'User' },
   'common.n_sets':        { RO: '{n} serii',         EN: '{n} sets' },

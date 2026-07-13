@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
@@ -71,7 +72,11 @@ export default function ChatListPage() {
               <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
                 <MessageSquare size={56} className="text-white/15 mb-4" />
                 <p className="text-base font-semibold text-white/60 mb-1">{t('chat.no_convs')}</p>
-                <p className="text-sm text-white/35">{t('chat.no_convs_sub')}</p>
+                <p className="text-sm text-white/35 mb-4">{t('chat.no_convs_sub')}</p>
+                <Link href="/profile/friends"
+                  className="h-9 px-5 rounded-xl border border-brand-green/30 text-brand-green text-xs font-bold flex items-center gap-1.5">
+                  {t('empty.chat_cta')}
+                </Link>
               </div>
             )
             : conversations.map(conv => {

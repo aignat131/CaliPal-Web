@@ -18,6 +18,7 @@ import { Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, 
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 import { useT } from '@/lib/context/LanguageContext'
+import OnboardingChecklist from '@/components/onboarding/OnboardingChecklist'
 import { parseTrainingDateTime, formatTrainingDate, compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
 
 export default function HomePage() {
@@ -217,42 +218,8 @@ export default function HomePage() {
           }
         </div>
 
-        {/* Onboarding card for new users with no communities */}
-        {userDoc && !userDoc.joinedCommunityIds?.length && (
-          <div className="rounded-2xl p-5 mb-4 border border-brand-green/30"
-            style={{ background: 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.03) 0%, rgba(13,61,40,0.03) 100%)' }}>
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', border: '1px solid rgba(var(--accent-rgb), 0.19)' }}>
-                <span className="text-2xl">🏋️</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-black text-white text-sm leading-tight">{t('home.welcome_title')}</p>
-                <p className="text-xs text-white/55 mt-1 leading-relaxed">{t('home.welcome_text')}</p>
-                <Link href="/community">
-                  <button className="mt-3 h-9 px-4 rounded-xl bg-brand-green text-black text-xs font-black flex items-center gap-1.5">
-                    <Users size={13} />
-                    {t('home.welcome_cta')}
-                  </button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Assessment banner for new users */}
-        {userDoc && userDoc.assessmentCompleted === false && (
-          <div className="rounded-2xl p-4 mb-4 border border-brand-green/30"
-            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.03)' }}>
-            <p className="font-black text-white text-sm">{t('home.assessment_title')}</p>
-            <p className="text-xs text-white/60 mt-1">{t('home.assessment_text')}</p>
-            <Link href="/profile/assessment">
-              <button className="mt-3 h-9 px-5 rounded-xl bg-brand-green text-black text-sm font-bold">
-                {t('home.assessment_cta')}
-              </button>
-            </Link>
-          </div>
-        )}
+        {/* Onboarding checklist for new users */}
+        {userDoc && <OnboardingChecklist userDoc={userDoc} />}
 
         {/* Latest training from favorite community */}
         {latestFavTraining && userDoc?.favoriteCommunityId && user && (

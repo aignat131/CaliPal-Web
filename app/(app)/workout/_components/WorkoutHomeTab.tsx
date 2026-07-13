@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { Play, Hash, Zap, Scissors, BookOpen, Star, ChevronRight } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
+import FirstTimeHint from '@/components/ui/FirstTimeHint'
+import { useT } from '@/lib/context/LanguageContext'
 import { ChallengeCard } from './ChallengeCard'
 import { WorkoutHistory } from './WorkoutHistory'
 import { formatDate, formatDuration } from '../_helpers'
@@ -30,6 +32,7 @@ export function WorkoutHomeTab({
   onCountReps: () => void
   onDeleteWorkout: (id: string) => Promise<void>
 }) {
+  const t = useT()
   return (
     <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
       <div className="flex items-center justify-between mb-4">
@@ -49,14 +52,21 @@ export function WorkoutHomeTab({
       {tab === 0 && (
         <div>
           {/* Start workout CTA */}
-          <button
-            onClick={onStartWorkout}
-            className="w-full h-16 rounded-2xl mb-3 flex items-center justify-center gap-3 font-black text-lg text-black"
-            style={{ backgroundColor: 'var(--accent)' }}
-          >
-            <Play size={22} className="text-black fill-black" />
-            Începe antrenamentul
-          </button>
+          <div className="relative">
+            <button
+              onClick={onStartWorkout}
+              className="w-full h-16 rounded-2xl mb-3 flex items-center justify-center gap-3 font-black text-lg text-black"
+              style={{ backgroundColor: 'var(--accent)' }}
+            >
+              <Play size={22} className="text-black fill-black" />
+              Începe antrenamentul
+            </button>
+            {history.length === 0 && (
+              <FirstTimeHint storageKey="calipal_hint_first_workout">
+                {t('hint.first_workout')}
+              </FirstTimeHint>
+            )}
+          </div>
 
           {/* Count reps quick entry */}
           <button

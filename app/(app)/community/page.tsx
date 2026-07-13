@@ -17,6 +17,7 @@ import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import type { CommunityDoc, CommunityMember, PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress } from '@/types'
 import { ROLE_LABELS } from '@/types'
 import { Plus, Users, MapPin, Star, Calendar, Trophy, Clock, Check, Search, Bell, X, ArrowRight } from 'lucide-react'
+import FirstTimeHint from '@/components/ui/FirstTimeHint'
 import { useT } from '@/lib/context/LanguageContext'
 import { awardCoins } from '@/lib/gamification/coins'
 import { useToast } from '@/lib/context/ToastContext'
@@ -332,6 +333,14 @@ export default function CommunityPage() {
                       />
                     </div>
 
+                    {/* Nudge for users with no communities */}
+                    {joinedIds.size === 0 && (
+                      <div className="flex items-center gap-2.5 px-3 py-3 rounded-xl border border-brand-green/20 bg-brand-green/5 mb-4">
+                        <Users size={16} className="text-brand-green flex-shrink-0" />
+                        <p className="text-xs text-white/60">{t('empty.community_banner')}</p>
+                      </div>
+                    )}
+
                     {/* My communities */}
                     {myCommunities.length > 0 && (
                       <div className="mb-5">
@@ -351,8 +360,13 @@ export default function CommunityPage() {
 
                     {/* Discover section */}
                     {discover.length > 0 && (
-                      <div>
+                      <div className="relative">
                         <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2">{t('community.section_disc')}</p>
+                        {joinedIds.size === 0 && (
+                          <FirstTimeHint storageKey="calipal_hint_join_community" position="top">
+                            {t('hint.join_community')}
+                          </FirstTimeHint>
+                        )}
                         <div className="grid grid-cols-2 gap-3">
                           {discover.map(c => (
                             <DiscoverCommunityCard

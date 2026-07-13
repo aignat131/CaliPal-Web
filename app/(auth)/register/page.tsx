@@ -88,7 +88,7 @@ export default function RegisterPage() {
       }
       const credential = await signInWithCustomToken(auth, data.customToken)
       await sendEmailVerification(credential.user).catch(() => { /* non-critical */ })
-      router.replace('/home')
+      router.replace('/intro')
     } catch (e) {
       setErrorMessage(authErrorMessage(e as AuthError, t))
     } finally {
@@ -103,7 +103,7 @@ export default function RegisterPage() {
     try {
       const result = await signInWithPopup(auth, googleProvider)
       await ensureUserDoc(result.user)
-      router.replace('/home')
+      router.replace('/intro')
     } catch (e) {
       const msg = authErrorMessage(e as AuthError, t)
       if (msg) setErrorMessage(msg)
