@@ -23,13 +23,22 @@ export async function GET(req: NextRequest) {
       'outdoor fitness park',
       'parc calisthenics',
       'street workout',
+      'outdoor gym',
+      'workout park',
+      'fitness park',
+      'parc fitness',
     ]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allResults: any[] = []
     const seenIds = new Set<string>()
 
     // Words that indicate an indoor gym (not an outdoor park)
-    const gymKeywords = ['gym', 'fitness', 'sala', 'crossfit', 'bodybuilding', 'world class', 'smartfit', 'igym']
+    const gymKeywords = [
+      'gym', 'fitness', 'sala', 'crossfit', 'bodybuilding',
+      'world class', 'smartfit', 'igym',
+      'body time', 'fit gym', 'sport club', 'flex gym', 'go gym',
+      'be fit', 'stay fit', 'nextfit', 'vitalfit', 'megagym', '18 gym',
+    ]
 
     for (const q of queries) {
       const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q)}&location=${lat},${lon}&radius=30000&key=${key}`
@@ -49,6 +58,11 @@ export async function GET(req: NextRequest) {
           const isOutdoor = nameLower.includes('calisthenics') || nameLower.includes('calistenice') || nameLower.includes('street workout') || nameLower.includes('outdoor') || nameLower.includes('parc') || nameLower.includes('workout')
 
           if (hasGymName && !isOutdoor) continue
+
+          // Additional type-based filtering: skip unmistakably indoor types
+          const types: string[] = place.types || []
+          const indoorTypes = ['spa', 'physiotherapist', 'beauty_salon', 'hair_care', 'shopping_mall']
+          if (indoorTypes.some((t: string) => types.includes(t)) && !isOutdoor) continue
 
           allResults.push({
             id: place.place_id,

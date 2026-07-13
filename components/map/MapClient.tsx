@@ -12,9 +12,9 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useT } from '@/lib/context/LanguageContext'
 import type { ParkDoc, ParkPresenceMember, CommunityDoc, LocationSharingMode, ParkCommunityRequest, PlannedTraining, CommunityMember } from '@/types'
-import { MapPin, Navigation } from 'lucide-react'
+import { MapPin, Navigation, X } from 'lucide-react'
 import {
-  MapContainer, TileLayer, Marker, Popup, useMap,
+  MapContainer, TileLayer, Marker, useMap,
 } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -228,6 +228,7 @@ export default function MapClient() {
   const [parksLoading, setParksLoading] = useState(true)
   const [discoveredParks, setDiscoveredParks] = useState<DiscoveredPark[]>([])
   const [discoveringParks, setDiscoveringParks] = useState(false)
+  const [selectedDiscoveredPark, setSelectedDiscoveredPark] = useState<DiscoveredPark | null>(null)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [sharing, setSharing] = useState(false)
   const [liveLocations, setLiveLocations] = useState<Record<string, string>>({})
@@ -642,6 +643,7 @@ export default function MapClient() {
                 setSearch(q)
                 setIsFlySearch(false)
                 setDiscoveredParks([])
+                setSelectedDiscoveredPark(null)
                 setShowSuggestions(true)
                 if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
                 if (q.trim().length > 2) {
@@ -671,7 +673,7 @@ export default function MapClient() {
             />
             {search && (
               <button
-                onClick={() => { setSearch(''); setIsFlySearch(false); setDiscoveredParks([]) }}
+                onClick={() => { setSearch(''); setIsFlySearch(false); setDiscoveredParks([]); setSelectedDiscoveredPark(null) }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-xs"
                 style={{ backgroundColor: theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.15)', color: theme === 'light' ? '#333' : '#ccc' }}
               >
@@ -792,7 +794,7 @@ export default function MapClient() {
                 key={park.id}
                 position={[park.latitude, park.longitude]}
                 icon={makeParkIcon(!!park.communityId, activeCount, hasUpcomingTraining)}
-                eventHandlers={{ click: () => setSelectedPark(park) }}
+                eventHandlers={{ click: () => { setSelectedDiscoveredPark(null); setSelectedPark(park) } }}
               />
             )
           })}
@@ -802,13 +804,8 @@ export default function MapClient() {
               key={`gp-${park.id}`}
               position={[park.lat, park.lon]}
               icon={makeParkIcon(false, 0, false)}
-            >
-              <Popup>
-                <div className="text-sm font-semibold">{park.name}</div>
-                {park.address && <div className="text-xs text-gray-500 mt-0.5">{park.address}</div>}
-                {park.rating && <div className="text-xs mt-0.5">⭐ {park.rating} ({park.totalRatings})</div>}
-              </Popup>
-            </Marker>
+              eventHandlers={{ click: () => { setSelectedPark(null); setSelectedDiscoveredPark(park) } }}
+            />
           ))}
 
           {myLat !== null && myLng !== null && (
@@ -960,6 +957,65 @@ export default function MapClient() {
           onTrainingSelect={(tr, source) => { setSelectedTraining(tr); setSelectedTrainingSource(source) }}
           onTrainingBack={() => { setSelectedTraining(null); setSelectedTrainingSource(null) }}
         />
+      )}
+
+      {/* Discovered park bottom sheet */}
+      {selectedDiscoveredPark && (
+        <div
+          className="absolute bottom-0 left-0 right-0 z-[2000] rounded-t-3xl px-4 pt-4 pb-6"
+          style={{
+            backgroundColor: 'var(--app-surface)',
+            boxShadow: theme === 'light' ? '0 -4px 24px rgba(0,0,0,0.15)' : '0 -4px 24px rgba(0,0,0,0.5)',
+          }}
+        >
+          <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-4" />
+
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex-1 min-w-0">
+              <h2 className="font-black text-white text-base leading-tight">
+                {selectedDiscoveredPark.name}
+              </h2>
+              {selectedDiscoveredPark.address && (
+                <p className="text-xs text-white/45 mt-0.5">{selectedDiscoveredPark.address}</p>
+              )}
+              {selectedDiscoveredPark.rating && (
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-xs text-yellow-400">⭐</span>
+                  <span className="text-xs text-white/60 font-semibold">
+                    {selectedDiscoveredPark.rating}
+                  </span>
+                  {selectedDiscoveredPark.totalRatings > 0 && (
+                    <span className="text-xs text-white/35">
+                      ({selectedDiscoveredPark.totalRatings})
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${selectedDiscoveredPark.lat},${selectedDiscoveredPark.lon}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"
+              >
+                <Navigation size={14} className="text-brand-green" />
+              </a>
+              <button
+                onClick={() => setSelectedDiscoveredPark(null)}
+                className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"
+              >
+                <X size={14} className="text-white/70" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 p-3 rounded-2xl border border-white/10"
+            style={{ backgroundColor: 'var(--app-bg)' }}>
+            <MapPin size={14} className="text-white/30" />
+            <p className="text-xs text-white/40">{t('map.discovered_via_google')}</p>
+          </div>
+        </div>
       )}
     </div>
   )
