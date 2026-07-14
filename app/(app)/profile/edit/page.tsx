@@ -63,8 +63,11 @@ export default function EditProfilePage() {
 
   // Revoke blob URLs on unmount
   useEffect(() => {
-    return () => { if (pendingPreview) URL.revokeObjectURL(pendingPreview) }
-  }, [pendingPreview])
+    return () => {
+      if (pendingPreview) URL.revokeObjectURL(pendingPreview)
+      if (cropSrc) URL.revokeObjectURL(cropSrc)
+    }
+  }, [pendingPreview, cropSrc])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]

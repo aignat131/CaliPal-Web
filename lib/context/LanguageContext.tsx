@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import { translations, type Lang } from '@/lib/i18n/translations'
 
 export type TFunction = (key: string, vars?: Record<string, string | number>) => string
@@ -32,26 +32,28 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setLangState(browserLang.startsWith('ro') ? 'RO' : 'EN')
   }, [])
 
-  function setLang(l: Lang) {
+  const setLang = useCallback((l: Lang) => {
     setLangState(l)
     localStorage.setItem('calipal_lang', l)
-  }
+  }, [])
 
-  function t(key: string, vars?: Record<string, string | number>): string {
+  const t = useCallback((key: string, vars?: Record<string, string | number>): string => {
     const dict = translations[lang] as Record<string, string>
     const fallback = translations.RO as Record<string, string>
     let str = dict[key] ?? fallback[key] ?? key
     if (vars) {
       str = Object.entries(vars).reduce(
-        (s, [k, v]) => s.replace(`{${k}}`, String(v)),
+        (s, [k, v]) => s.replaceAll(`{${k}}`, String(v)),
         str,
       )
     }
     return str
-  }
+  }, [lang])
+
+  const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t])
 
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   )

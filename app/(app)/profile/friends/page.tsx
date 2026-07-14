@@ -87,10 +87,15 @@ export default function FriendsPage() {
 
   async function removeFriend(entry: FriendEntry) {
     if (!user) return
-    await deleteDoc(doc(db, 'users', user.uid, 'friends', entry.friendUid))
-    await deleteDoc(doc(db, 'users', entry.friendUid, 'friends', user.uid))
-    await updateDoc(doc(db, 'users', user.uid), { friendCount: increment(-1) })
-    await updateDoc(doc(db, 'users', entry.friendUid), { friendCount: increment(-1) })
+    if (!window.confirm(t('friends.confirm_remove'))) return
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'friends', entry.friendUid))
+      await deleteDoc(doc(db, 'users', entry.friendUid, 'friends', user.uid))
+      await updateDoc(doc(db, 'users', user.uid), { friendCount: increment(-1) })
+      await updateDoc(doc(db, 'users', entry.friendUid), { friendCount: increment(-1) })
+    } catch (err) {
+      console.error('removeFriend failed', err)
+    }
   }
 
   async function searchUser() {

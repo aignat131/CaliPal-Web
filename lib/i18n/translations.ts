@@ -14,6 +14,9 @@ const T: Record<string, { RO: string; EN: string }> = {
 
   // ── Layout ───────────────────────────────────────────────────────────────────
   'layout.active_workout': { RO: 'Antrenament activ', EN: 'Active workout' },
+  'layout.paused':         { RO: 'Pauză',             EN: 'Paused' },
+  'layout.offline':        { RO: 'Fără conexiune la internet', EN: 'No internet connection' },
+  'crop.title':            { RO: 'Ajustează fotografia', EN: 'Adjust photo' },
 
   // ── Common ───────────────────────────────────────────────────────────────────
   'common.cancel':        { RO: 'Anulează',    EN: 'Cancel' },
@@ -492,6 +495,7 @@ const T: Record<string, { RO: string; EN: string }> = {
   'friends.friends_tab':      { RO: 'Prieteni ({n})', EN: 'Friends ({n})' },
   'friends.no_requests':      { RO: 'Nicio cerere în așteptare.', EN: 'No pending requests.' },
   'friends.no_friends':       { RO: 'Nu ai prieteni adăugați încă.', EN: 'No friends added yet.' },
+  'friends.confirm_remove':   { RO: 'Sigur vrei să elimini acest prieten?', EN: 'Are you sure you want to remove this friend?' },
 
   // ── Notification Panel ───────────────────────────────────────────────────────
   'notif.title':      { RO: 'Notificări', EN: 'Notifications' },
@@ -678,6 +682,7 @@ const T: Record<string, { RO: string; EN: string }> = {
   'pub_profile.workout_modal':  { RO: 'Antrenament · {date}', EN: 'Workout · {date}' },
   'pub_profile.set_n':          { RO: 'Seria {n}',          EN: 'Set {n}' },
   'pub_profile.spam_guard':     { RO: 'Ai trimis deja o cerere în ultimele 24h. Mai încearcă mâine.', EN: 'You already sent a request in the last 24h. Try again tomorrow.' },
+  'pub_profile.confirm_remove_friend': { RO: 'Sigur vrei să elimini acest prieten?', EN: 'Are you sure you want to remove this friend?' },
 
   // ── Training Detail Pages ────────────────────────────────────────────────────
   'training_detail.not_found_title': { RO: 'Antrenament negăsit',             EN: 'Training not found' },

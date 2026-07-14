@@ -10,6 +10,10 @@ function unsubToken(uid: string, communityId: string): string {
   return createHmac('sha256', secret).update(`${uid}:${communityId}`).digest('hex')
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 function html(title: string, heading: string, body: string, resubUrl?: string): string {
   const resubBtn = resubUrl
     ? `<a href="${resubUrl}" style="display:inline-block;margin-top:16px;background:#1ED75F;color:#000;padding:10px 22px;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;">Reabonare</a>`
@@ -86,7 +90,7 @@ export async function GET(req: NextRequest) {
     html(
       'Dezabonat',
       'Dezabonat cu succes',
-      `Nu vei mai primi notificări email de la <strong style="color:#F9FAFB;">${communityName}</strong>. Poți reactiva oricând din pagina comunității.`,
+      `Nu vei mai primi notificări email de la <strong style="color:#F9FAFB;">${escapeHtml(communityName)}</strong>. Poți reactiva oricând din pagina comunității.`,
       resubUrl,
     ),
     { status: 200, headers: { 'Content-Type': 'text/html' } },

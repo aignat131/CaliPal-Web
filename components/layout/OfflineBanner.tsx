@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { WifiOff } from 'lucide-react'
+import { useT } from '@/lib/context/LanguageContext'
 
 export default function OfflineBanner() {
+  const t = useT()
   const [offline, setOffline] = useState(false)
 
   useEffect(() => {
@@ -23,7 +25,7 @@ export default function OfflineBanner() {
   return (
     <div className="fixed top-0 left-0 right-0 z-[9000] flex items-center justify-center gap-2 py-2 px-4 bg-red-500/90 backdrop-blur-sm">
       <WifiOff size={14} className="text-white flex-shrink-0" />
-      <p className="text-xs font-bold text-white">Fără conexiune la internet</p>
+      <p className="text-xs font-bold text-white">{t('layout.offline')}</p>
     </div>
   )
 }

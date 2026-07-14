@@ -1,5 +1,5 @@
 import {
-  doc, updateDoc, increment, getDoc, setDoc, serverTimestamp,
+  doc, updateDoc, increment, serverTimestamp, runTransaction,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { createNotification } from '@/lib/firebase/notifications'
@@ -69,12 +69,17 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
 
   if (oneTimeTasks.includes(task)) {
     const guardRef = doc(db, 'coin_tasks', `${uid}_${task}`)
-    const snap = await getDoc(guardRef)
-    if (snap.exists()) return 0
-    await setDoc(guardRef, { uid, task, awardedAt: serverTimestamp() })
+    const awarded = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(guardRef)
+      if (snap.exists()) return false
+      tx.set(guardRef, { uid, task, awardedAt: serverTimestamp() })
+      tx.update(doc(db, 'users', uid), { coins: increment(coins) })
+      return true
+    })
+    if (!awarded) return 0
+  } else {
+    await updateDoc(doc(db, 'users', uid), { coins: increment(coins) })
   }
-
-  await updateDoc(doc(db, 'users', uid), { coins: increment(coins) })
 
   // Send one-time in-app notification for task completion
   const label = TASK_NOTIF_LABELS[task]

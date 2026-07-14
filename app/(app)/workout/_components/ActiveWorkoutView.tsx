@@ -166,6 +166,11 @@ export function ActiveWorkoutView({
     }
   }, [activeTimedSet, onClearTimedSet]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Close AudioContext on unmount
+  useEffect(() => {
+    return () => { audioCtxRef.current?.close().catch(() => {}) }
+  }, [])
+
   // Build a set of exercise indices that belong to circuits
   const circuitExerciseIndices = new Set<number>()
   circuits.forEach(c => c.exerciseIndices.forEach(i => circuitExerciseIndices.add(i)))

@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore'
 
 import { db } from '@/lib/firebase/firestore'
+import { auth } from '@/lib/firebase/auth'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useTheme } from '@/lib/hooks/useTheme'
@@ -157,7 +158,11 @@ interface DiscoveredPark {
 // ── Google Places park discovery (via server route) ──────────────────────────
 
 async function fetchDiscoveredParks(lat: number, lon: number): Promise<DiscoveredPark[]> {
-  const res = await fetch(`/api/parks/discover?lat=${lat}&lon=${lon}`)
+  const token = await auth.currentUser?.getIdToken()
+  if (!token) return []
+  const res = await fetch(`/api/parks/discover?lat=${lat}&lon=${lon}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
   if (!res.ok) return []
   const data = await res.json()
   return data.parks ?? []
@@ -165,9 +170,11 @@ async function fetchDiscoveredParks(lat: number, lon: number): Promise<Discovere
 
 async function ensureParkInFirestore(dp: DiscoveredPark): Promise<ParkDoc | null> {
   try {
+    const token = await auth.currentUser?.getIdToken()
+    if (!token) return null
     const res = await fetch('/api/parks/ensure', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ placeId: dp.id, name: dp.name, address: dp.address, lat: dp.lat, lon: dp.lon }),
     })
     if (!res.ok) return null

@@ -73,11 +73,10 @@ export async function POST(req: NextRequest) {
     // Generate a custom token for the client to sign in
     const customToken = await adminAuth().createCustomToken(userRecord.uid)
 
-    // Send email verification (non-blocking)
-    const verifyLink = await adminAuth().generateEmailVerificationLink(email).catch(() => null)
-    // The client will handle email verification via Firebase SDK as a fallback
+    // Trigger email verification (non-blocking, link not exposed to client)
+    await adminAuth().generateEmailVerificationLink(email).catch(() => null)
 
-    return NextResponse.json({ ok: true, customToken, verifyLink })
+    return NextResponse.json({ ok: true, customToken })
   } catch (err: unknown) {
     const code = (err as { code?: string }).code
     if (code === 'auth/email-already-exists') {

@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminDb } from '@/lib/firebase/admin'
+import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { parseBody } from '@/lib/api/parseBody'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
+  // ── Auth — any signed-in user ─────────────────────────────────────────────
+  const authHeader = req.headers.get('authorization') ?? ''
+  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!idToken) return NextResponse.json({ ok: false }, { status: 401 })
+
+  try {
+    await adminAuth().verifyIdToken(idToken)
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 401 })
+  }
+
   try {
     const [parsed, bodyErr] = await parseBody(req)
     if (bodyErr) return bodyErr

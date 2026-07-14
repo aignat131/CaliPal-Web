@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { adminAuth } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
+  // ── Auth — any signed-in user ─────────────────────────────────────────────
+  const authHeader = req.headers.get('authorization') ?? ''
+  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!idToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    await adminAuth().verifyIdToken(idToken)
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { searchParams } = req.nextUrl
   const lat = searchParams.get('lat')
   const lon = searchParams.get('lon')

@@ -22,9 +22,12 @@ export async function createNotification(
 export async function markAllRead(uid: string) {
   const snap = await getDocs(collection(db, 'notifications', uid, 'items'))
   if (snap.empty) return
-  const batch = writeBatch(db)
-  snap.docs.forEach(d => batch.update(d.ref, { isRead: true }))
-  await batch.commit()
+  const BATCH_LIMIT = 490
+  for (let i = 0; i < snap.docs.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db)
+    snap.docs.slice(i, i + BATCH_LIMIT).forEach(d => batch.update(d.ref, { isRead: true }))
+    await batch.commit()
+  }
 }
 
 export async function deleteNotification(uid: string, notifId: string) {

@@ -38,11 +38,12 @@ function ToastPill({ toast, onRemove }: { toast: ToastEntry; onRemove: (id: numb
 
   // Auto-dismiss after 3 s
   useEffect(() => {
+    let fadeTimer: ReturnType<typeof setTimeout>
     const t = setTimeout(() => {
       setVisible(false)
-      setTimeout(() => onRemove(toast.id), 300)
+      fadeTimer = setTimeout(() => onRemove(toast.id), 300)
     }, 3000)
-    return () => clearTimeout(t)
+    return () => { clearTimeout(t); clearTimeout(fadeTimer) }
   }, [toast.id, onRemove])
 
   const isSuccess = toast.variant === 'success'

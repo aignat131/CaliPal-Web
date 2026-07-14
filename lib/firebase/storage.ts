@@ -10,9 +10,13 @@ const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024   // 8 MB
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024 // 100 MB
 
-function validateImage(file: File) {
+function validateImageType(file: File) {
   if (!ALLOWED_IMAGE_TYPES.includes(file.type))
     throw new Error(`Tip fișier invalid. Acceptat: JPEG, PNG, WebP, GIF.`)
+}
+
+function validateImage(file: File) {
+  validateImageType(file)
   if (file.size > MAX_IMAGE_BYTES)
     throw new Error(`Imaginea depășește limita de 8 MB.`)
 }
@@ -36,40 +40,45 @@ export async function uploadProfilePhoto(uid: string, file: File): Promise<strin
 }
 
 export async function uploadCommunityPhoto(communityId: string, file: File): Promise<string> {
-  validateImage(file)
+  validateImageType(file)
   const compressed = await compressImage(file, { maxDimension: 1200, quality: 0.82 })
+  validateImage(compressed)
   const storageRef = ref(storage, `community_photos/${communityId}/photo.jpg`)
   await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)
 }
 
 export async function uploadWorkoutPhoto(userId: string, timestamp: number, file: File): Promise<string> {
-  validateImage(file)
+  validateImageType(file)
   const compressed = await compressImage(file, { maxDimension: 1080, quality: 0.82 })
+  validateImage(compressed)
   const storageRef = ref(storage, `workout_photos/${userId}/${timestamp}.jpg`)
   await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)
 }
 
 export async function uploadPostPhoto(communityId: string, postId: string, file: File): Promise<string> {
-  validateImage(file)
+  validateImageType(file)
   const compressed = await compressImage(file, { maxDimension: 1080, quality: 0.82 })
+  validateImage(compressed)
   const storageRef = ref(storage, `community_posts/${communityId}/${postId}.jpg`)
   await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)
 }
 
 export async function uploadChatImage(conversationId: string, uid: string, timestamp: number, file: File): Promise<string> {
-  validateImage(file)
+  validateImageType(file)
   const compressed = await compressImage(file, { maxDimension: 1080, quality: 0.82 })
+  validateImage(compressed)
   const storageRef = ref(storage, `chatImages/${conversationId}/${uid}_${timestamp}.jpg`)
   await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)
 }
 
 export async function uploadTrainingPhoto(communityId: string, trainingId: string, uid: string, file: File): Promise<string> {
-  validateImage(file)
+  validateImageType(file)
   const compressed = await compressImage(file, { maxDimension: 1080, quality: 0.82 })
+  validateImage(compressed)
   const storageRef = ref(storage, `training_photos/${communityId}/${trainingId}/${uid}_${Date.now()}.jpg`)
   await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)

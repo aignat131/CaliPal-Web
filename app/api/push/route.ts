@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 const PUSH_LIMIT = 20 // max pushes per sender per hour
 
 export async function POST(req: NextRequest) {
+  try {
   // ── Auth — any signed-in user ─────────────────────────────────────────────
   const authHeader = req.headers.get('authorization') ?? ''
   const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
@@ -83,5 +84,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ ok: false }, { status: 500 })
+  }
+  } catch {
+    return NextResponse.json({ ok: false, reason: 'server-error' }, { status: 500 })
   }
 }

@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
 import { Check, X } from 'lucide-react'
 import { getCroppedImage, getCroppedTrainingImage } from '@/lib/utils/imageUtils'
+import { useT } from '@/lib/context/LanguageContext'
 
 interface Props {
   imageSrc: string
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function ImageCropModal({ imageSrc, onConfirm, onCancel, mode = 'profile', zIndex = 100 }: Props) {
+  const t = useT()
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
@@ -49,7 +51,7 @@ export default function ImageCropModal({ imageSrc, onConfirm, onCancel, mode = '
         >
           <X size={18} className="text-white" />
         </button>
-        <p className="text-sm font-bold text-white">Ajustează fotografia</p>
+        <p className="text-sm font-bold text-white">{t('crop.title')}</p>
         <button
           onClick={handleConfirm}
           disabled={processing}

@@ -16,18 +16,7 @@ import { SkeletonProfile } from '@/components/ui/SkeletonLoaders'
 import { conversationId } from '@/types'
 import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell, X } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
-
-function formatDuration(s: number): string {
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return `${m}:${sec.toString().padStart(2, '0')}`
-}
-
-function formatDate(ts: { toDate?: () => Date } | null | undefined): string {
-  if (!ts) return ''
-  const d = ts.toDate ? ts.toDate() : new Date()
-  return d.toLocaleDateString('ro', { day: '2-digit', month: 'short' })
-}
+import { formatDuration, formatDate } from '@/lib/formatters'
 
 function exercisePreview(ex: import('@/types').WorkoutExercise, nSetsLabel: (n: number) => string): string {
   const n = ex.sets.length
@@ -175,13 +164,21 @@ export default function UserProfilePage() {
 
   async function removeFriend() {
     if (!user || friendLoading) return
+    if (!window.confirm(t('pub_profile.confirm_remove_friend'))) return
     setFriendLoading(true)
-    await Promise.all([
-      deleteDoc(doc(db, 'users', user.uid, 'friends', uid)),
-      deleteDoc(doc(db, 'users', uid, 'friends', user.uid)),
-    ])
-    setFriendStatus('none')
-    setFriendLoading(false)
+    try {
+      await Promise.all([
+        deleteDoc(doc(db, 'users', user.uid, 'friends', uid)),
+        deleteDoc(doc(db, 'users', uid, 'friends', user.uid)),
+        updateDoc(doc(db, 'users', user.uid), { friendCount: increment(-1) }),
+        updateDoc(doc(db, 'users', uid), { friendCount: increment(-1) }),
+      ])
+      setFriendStatus('none')
+    } catch (err) {
+      console.error('removeFriend failed', err)
+    } finally {
+      setFriendLoading(false)
+    }
   }
 
   async function acceptRequest() {

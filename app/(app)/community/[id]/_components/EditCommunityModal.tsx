@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { uploadCommunityPhoto } from '@/lib/firebase/storage'
@@ -22,9 +22,15 @@ export function EditCommunityModal({ community, onClose }: {
   const panelRef = useRef<HTMLDivElement>(null)
   useFocusTrap(panelRef, true)
 
+  // Revoke blob URL on unmount
+  useEffect(() => {
+    return () => { if (photoPreview) URL.revokeObjectURL(photoPreview) }
+  }, [photoPreview])
+
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
   }

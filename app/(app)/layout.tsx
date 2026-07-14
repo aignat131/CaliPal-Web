@@ -21,12 +21,7 @@ import { useKeyboardAvoidance } from '@/lib/hooks/useKeyboardAvoidance'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
-
-function formatDuration(s: number): string {
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return `${m}:${sec.toString().padStart(2, '0')}`
-}
+import { formatDuration } from '@/lib/formatters'
 
 /** Warn before page unload when a workout is active */
 function WorkoutUnloadGuard() {
@@ -64,7 +59,7 @@ function WorkoutMiniBar() {
       }
       <Dumbbell size={14} className="text-black flex-shrink-0" />
       <span className="text-sm font-black text-black whitespace-nowrap">
-        {isPaused ? 'Pauză' : t('layout.active_workout')} · {formatDuration(seconds)}
+        {isPaused ? t('layout.paused') : t('layout.active_workout')} · {formatDuration(seconds)}
       </span>
       <ChevronRight size={15} className="text-black flex-shrink-0" />
     </button>
@@ -290,21 +285,25 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     if (!localStorage.getItem(NOTIF_PROMPT_KEY)) setShowNotifModal(true)
   }, [user, pushStatus, showThemePicker])
 
-  // Track online/lastSeen status
+  // Track online/lastSeen status (debounced to avoid excessive writes)
   useEffect(() => {
     if (!user) return
     const userRef = doc(db, 'users', user.uid)
-    const setOnline  = () => updateDoc(userRef, { isOnline: true }).catch(() => {})
-    const setOffline = () => updateDoc(userRef, { isOnline: false, lastSeen: serverTimestamp() }).catch(() => {})
-    setOnline()
+    let debounceTimer: ReturnType<typeof setTimeout>
+    const writeOnline  = () => updateDoc(userRef, { isOnline: true }).catch(() => {})
+    const writeOffline = () => updateDoc(userRef, { isOnline: false, lastSeen: serverTimestamp() }).catch(() => {})
+    const setOnline = () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(writeOnline, 5000) }
+    const setOffline = () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(writeOffline, 5000) }
+    writeOnline() // immediate on mount
     window.addEventListener('focus', setOnline)
     window.addEventListener('blur',  setOffline)
-    window.addEventListener('beforeunload', setOffline)
+    window.addEventListener('beforeunload', writeOffline) // immediate on unload
     return () => {
-      setOffline()
+      clearTimeout(debounceTimer)
+      writeOffline()
       window.removeEventListener('focus', setOnline)
       window.removeEventListener('blur',  setOffline)
-      window.removeEventListener('beforeunload', setOffline)
+      window.removeEventListener('beforeunload', writeOffline)
     }
   }, [user])
 

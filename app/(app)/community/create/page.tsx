@@ -96,9 +96,15 @@ export default function CreateCommunityPage() {
     })
   }, [detectedCity])
 
+  // Revoke blob URL on unmount
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }
+  }, [previewUrl])
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPendingFile(file)
     setPreviewUrl(URL.createObjectURL(file))
   }
