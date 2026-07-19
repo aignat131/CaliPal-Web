@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Users, Dumbbell, Map, User, LogIn, MessageSquare } from 'lucide-react'
+import { Home, Users, Dumbbell, Map, User, LogIn } from 'lucide-react'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useT } from '@/lib/context/LanguageContext'
@@ -31,7 +31,6 @@ export default function AppNav() {
     { href: '/community', label: t('nav.community'), Icon: Users },
     { href: '/workout',   label: t('nav.workout'),   Icon: Dumbbell },
     { href: '/map',       label: t('nav.map'),       Icon: Map },
-    { href: '/chat',      label: t('nav.messages'),  Icon: MessageSquare },
     { href: '/profile',   label: t('nav.profile'),   Icon: User },
   ]
   const guestTabs = [

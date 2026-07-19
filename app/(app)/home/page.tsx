@@ -18,7 +18,6 @@ import { Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, 
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 import { useT } from '@/lib/context/LanguageContext'
-import OnboardingChecklist from '@/components/onboarding/OnboardingChecklist'
 import { parseTrainingDateTime, formatTrainingDate, compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
 
 export default function HomePage() {
@@ -218,8 +217,6 @@ export default function HomePage() {
           }
         </div>
 
-        {/* Onboarding checklist for new users */}
-        {userDoc && <OnboardingChecklist userDoc={userDoc} />}
 
         {/* Latest training from favorite community */}
         {latestFavTraining && userDoc?.favoriteCommunityId && user && (
