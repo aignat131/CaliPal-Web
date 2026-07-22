@@ -55,8 +55,8 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const [poseInvalid, setPoseInvalid] = useState<string | null>(null)
 
   // Camera facing mode
-  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
-  const facingModeRef = useRef<'environment' | 'user'>('environment')
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('user')
+  const facingModeRef = useRef<'environment' | 'user'>('user')
   const [cameraLoading, setCameraLoading] = useState(false)
 
   const [repCount, setRepCount]         = useState(0)
@@ -194,7 +194,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setLoading(true)
       setError('')
       try {
-        await startCamera('environment')
+        await startCamera('user')
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Eroare cameră')
         setLoading(false)

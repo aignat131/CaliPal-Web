@@ -1,13 +1,34 @@
 'use client'
 
 import Link from 'next/link'
-import { Play, Hash, Zap, Scissors, BookOpen, Star, ChevronRight } from 'lucide-react'
+import { Play, Hash, Zap, Scissors, BookOpen, Star, ChevronRight, Camera } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
+import type { ExerciseType } from '@/lib/ml/form-coach'
 import FirstTimeHint from '@/components/ui/FirstTimeHint'
 import { useT } from '@/lib/context/LanguageContext'
 import { ChallengeCard } from './ChallengeCard'
 import { WorkoutHistory } from './WorkoutHistory'
-import { formatDate, formatDuration } from '../_helpers'
+import { formatDate, formatDuration, getExerciseType } from '../_helpers'
+
+const DEFAULT_QUICK_EXERCISES: { name: string; emoji: string }[] = [
+  { name: 'Flotări',    emoji: '💪' },
+  { name: 'Tracțiuni',  emoji: '🏋️' },
+  { name: 'Squaturi',   emoji: '🦵' },
+]
+
+const EXERCISE_EMOJI: Record<string, string> = {
+  'flotări': '💪', 'flotari': '💪', 'push-up': '💪', 'pushup': '💪', 'diamond': '💎', 'pike': '🔺',
+  'tracțiuni': '🏋️', 'tractiuni': '🏋️', 'chin-up': '🏋️', 'chinup': '🏋️', 'australian': '🏋️',
+  'squaturi': '🦵', 'squat': '🦵',
+}
+
+function getEmojiForExercise(name: string): string {
+  const lower = name.toLowerCase()
+  for (const [key, emoji] of Object.entries(EXERCISE_EMOJI)) {
+    if (lower.includes(key)) return emoji
+  }
+  return '🔥'
+}
 
 export function WorkoutHomeTab({
   tab,
@@ -20,6 +41,7 @@ export function WorkoutHomeTab({
   onStartWorkout,
   onCountReps,
   onDeleteWorkout,
+  onQuickExercise,
 }: {
   tab: number
   onTabChange: (t: number) => void
@@ -31,6 +53,7 @@ export function WorkoutHomeTab({
   onStartWorkout: () => void
   onCountReps: () => void
   onDeleteWorkout: (id: string) => Promise<void>
+  onQuickExercise: (name: string, type: ExerciseType) => void
 }) {
   const t = useT()
   return (
@@ -77,6 +100,41 @@ export function WorkoutHomeTab({
             <Hash size={20} className="text-white" />
             Numără repetări
           </button>
+
+          {/* Quick exercises */}
+          {(() => {
+            const favorites = profile?.favoriteExercises ?? []
+            const cameraFavorites = favorites
+              .filter(name => getExerciseType(name) !== null)
+              .map(name => ({ name, emoji: getEmojiForExercise(name) }))
+            const quickExercises = cameraFavorites.length > 0
+              ? cameraFavorites.slice(0, 4)
+              : DEFAULT_QUICK_EXERCISES
+
+            return (
+              <div className="mb-4">
+                <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2.5">EXERCIȚII RAPIDE</p>
+                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                  {quickExercises.map(ex => {
+                    const exType = getExerciseType(ex.name)
+                    if (!exType) return null
+                    return (
+                      <button
+                        key={ex.name}
+                        onClick={() => onQuickExercise(ex.name, exType)}
+                        className="flex-shrink-0 rounded-2xl px-4 py-3 flex items-center gap-2.5 active:scale-[0.97] transition-transform"
+                        style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
+                      >
+                        <span className="text-xl">{ex.emoji}</span>
+                        <span className="font-bold text-white text-sm whitespace-nowrap">{ex.name}</span>
+                        <Camera size={14} className="text-brand-green ml-0.5" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* ML tools */}
           <div className="grid grid-cols-2 gap-2 mb-4">

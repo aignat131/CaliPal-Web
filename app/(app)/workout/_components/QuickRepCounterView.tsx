@@ -19,6 +19,7 @@ type QRCStep =
 interface Props {
   catalogue: CatalogueEntry[]
   onSaveAsWorkout: (exercises: WorkoutExercise[], seconds: number) => void
+  onContinueToWorkout: (exercises: WorkoutExercise[], seconds: number) => void
   onCancel: () => void
 }
 
@@ -45,7 +46,7 @@ const QUICK_EXERCISES: { type: ExerciseType; name: string; emoji: string; descri
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function QuickRepCounterView({ catalogue, onSaveAsWorkout, onCancel }: Props) {
+export function QuickRepCounterView({ catalogue, onSaveAsWorkout, onContinueToWorkout, onCancel }: Props) {
   const startTimeRef = useRef(Date.now())
   const [step, setStep] = useState<QRCStep>({ name: 'select' })
   const [accumulatedSets, setAccumulatedSets] = useState<WorkoutExercise[]>([])
@@ -272,11 +273,21 @@ export function QuickRepCounterView({ catalogue, onSaveAsWorkout, onCancel }: Pr
                 Salvează ca antrenament
               </button>
               <button
-                onClick={handleContinue}
+                onClick={() => {
+                  const elapsed = Math.round((Date.now() - startTimeRef.current) / 1000)
+                  onContinueToWorkout(mergeExercises(accumulatedSets), elapsed)
+                }}
                 className="w-full h-14 rounded-2xl font-bold text-base text-white flex items-center justify-center active:scale-[0.97] transition-transform"
                 style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
               >
-                Continuă antrenamentul
+                Mergi la antrenament complet
+              </button>
+              <button
+                onClick={handleContinue}
+                className="w-full h-14 rounded-2xl font-bold text-base text-white flex items-center justify-center active:scale-[0.97] transition-transform"
+                style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+              >
+                Continuă numărând
               </button>
               <button
                 onClick={onCancel}

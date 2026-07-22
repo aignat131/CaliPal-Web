@@ -151,10 +151,25 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
       setIsPaused(true)
       setSeconds(isNaN(elapsed) ? 0 : elapsed)
     } else {
-      // Timer keeps running from original startedAt — no auto-pause
-      setStartedAt(ts)
-      setIsActive(true)
-      setSeconds(Math.floor((Date.now() - ts) / 1000))
+      // Check if the user has been away too long (>2 hours) — auto-pause to avoid absurd timer values
+      const lastActiveStr = localStorage.getItem(LAST_ACTIVE_KEY)
+      const lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : Date.now()
+      const gap = Date.now() - lastActive
+
+      if (gap > 2 * 60 * 60 * 1000) {
+        // Auto-pause: freeze elapsed at (lastActive - startedAt)
+        const elapsed = Math.max(0, Math.floor((lastActive - ts) / 1000))
+        setStartedAt(ts)
+        setIsActive(true)
+        setIsPaused(true)
+        setSeconds(elapsed)
+        localStorage.setItem(PAUSED_ELAPSED_KEY, String(elapsed))
+      } else {
+        // Timer keeps running from original startedAt — no auto-pause
+        setStartedAt(ts)
+        setIsActive(true)
+        setSeconds(Math.floor((Date.now() - ts) / 1000))
+      }
     }
 
     mountedRef.current = true
