@@ -3,8 +3,9 @@
 import { use } from 'react'
 import { notFound, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Play, Clock, Info } from 'lucide-react'
+import { ArrowLeft, Play, Clock } from 'lucide-react'
 import { getProgramById } from '@/lib/data/training-programs'
+import ExerciseCard from '@/components/exercise/ExerciseCard'
 
 export default function TrainingDayPage({
   params,
@@ -83,29 +84,15 @@ export default function TrainingDayPage({
         <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">EXERCIȚII</p>
         <div className="flex flex-col gap-2 mb-6">
           {dayData.exercises.map((ex, i) => (
-            <div key={i} className="rounded-xl p-3.5 border border-white/8"
-              style={{ backgroundColor: 'var(--app-surface)' }}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black"
-                    style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)', color: 'var(--accent)' }}>
-                    {i + 1}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-white truncate">{ex.name}</p>
-                    <p className="text-xs text-white/45 mt-0.5">
-                      {ex.sets} × {ex.repsPerSet} {ex.metric === 'seconds' ? 'sec' : 'rep'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              {ex.notes && (
-                <div className="flex items-start gap-1.5 mt-2 pl-9">
-                  <Info size={11} className="text-brand-green flex-shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-white/45 leading-snug">{ex.notes}</p>
-                </div>
-              )}
-            </div>
+            <ExerciseCard
+              key={i}
+              index={i + 1}
+              name={ex.name}
+              sets={ex.sets}
+              repsPerSet={ex.repsPerSet}
+              metric={ex.metric}
+              notes={ex.notes}
+            />
           ))}
         </div>
 

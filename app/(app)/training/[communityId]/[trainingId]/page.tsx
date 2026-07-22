@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import TrainingPhotoCard from '@/components/training/TrainingPhotoCard'
+import ExerciseCard from '@/components/exercise/ExerciseCard'
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -598,12 +599,15 @@ export default function PublicTrainingPage() {
                 <Dumbbell size={12} className="text-brand-green" />
                 <p className="text-[10px] font-bold text-white/40 tracking-widest">EXERCIȚII</p>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 {training.exercises.map((ex, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-white/80">{ex.name}</span>
-                    <span className="text-xs text-white/40">{ex.sets} × {ex.repsPerSet}</span>
-                  </div>
+                  <ExerciseCard
+                    key={i}
+                    index={i + 1}
+                    name={ex.name}
+                    sets={ex.sets}
+                    repsPerSet={ex.repsPerSet}
+                  />
                 ))}
               </div>
             </div>

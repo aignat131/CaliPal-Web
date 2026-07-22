@@ -113,6 +113,7 @@ export function QuickRepCounterView({ catalogue, onSaveAsWorkout, onCancel }: Pr
         exerciseName={step.exerciseName}
         onConfirm={handleCountConfirm}
         onCancel={() => setStep({ name: 'select' })}
+        initialMode="balanced"
       />
     )
   }

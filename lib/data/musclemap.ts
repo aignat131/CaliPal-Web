@@ -21,10 +21,45 @@ export const CATEGORY_MUSCLE_MAP: Record<string, MuscleGroup[]> = {
   'Core':        ['core', 'hip_flexors'],
   'Picioare':    ['quadriceps', 'glutes', 'hamstrings', 'calves'],
   'Statice':     ['core', 'latissimus', 'triceps', 'front_deltoid'],
+  'Izometrice':  ['core', 'biceps', 'quadriceps'],
   'Cardio':      ['quadriceps', 'glutes', 'hamstrings', 'core'],
   'Cu Greutate': ['chest', 'triceps', 'biceps', 'latissimus', 'quadriceps'],
   'Cu Bandă':    ['biceps', 'latissimus', 'rear_deltoid', 'chest'],
   'Altele':      ['core'],
+}
+
+/** Romanian labels for muscle groups */
+export const MUSCLE_LABELS: Record<MuscleGroup, string> = {
+  chest: 'Piept',
+  triceps: 'Triceps',
+  front_deltoid: 'Deltoid ant.',
+  biceps: 'Biceps',
+  latissimus: 'Spate',
+  rear_deltoid: 'Deltoid post.',
+  core: 'Core',
+  hip_flexors: 'Flexori șold',
+  quadriceps: 'Cvadriceps',
+  glutes: 'Fesier',
+  hamstrings: 'Hamstring',
+  calves: 'Gambe',
+  forearms: 'Antebrațe',
+}
+
+/** Colors for muscle group pills */
+export const MUSCLE_COLORS: Record<MuscleGroup, string> = {
+  chest: '#ef4444',
+  triceps: '#f97316',
+  front_deltoid: '#eab308',
+  biceps: '#22c55e',
+  latissimus: '#3b82f6',
+  rear_deltoid: '#6366f1',
+  core: '#a855f7',
+  hip_flexors: '#ec4899',
+  quadriceps: '#14b8a6',
+  glutes: '#f43f5e',
+  hamstrings: '#0ea5e9',
+  calves: '#84cc16',
+  forearms: '#d97706',
 }
 
 /** Per-exercise overrides (match by substring of normalized name) */

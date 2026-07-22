@@ -30,14 +30,17 @@ export interface SquatThresholds {
   upAngle: number
 }
 
-export const STRICT_PULLUP: PullupThresholds = { hangEnter: 148, hangExit: 153, peak: 105 }
-export const EASY_PULLUP:   PullupThresholds = { hangEnter: 140, hangExit: 145, peak: 120 }
+export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 148, hangExit: 153, peak: 105 }
+export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 144, hangExit: 149, peak: 112 }
+export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 145, peak: 120 }
 
-export const STRICT_PUSHUP: PushupThresholds = { downAngle: 90,  upAngle: 155 }
-export const EASY_PUSHUP:   PushupThresholds = { downAngle: 115, upAngle: 140 }
+export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 90,  upAngle: 155 }
+export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 145 }
+export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 140 }
 
-export const STRICT_SQUAT: SquatThresholds = { downAngle: 100, upAngle: 160 }
-export const EASY_SQUAT:   SquatThresholds = { downAngle: 115, upAngle: 145 }
+export const STRICT_SQUAT:   SquatThresholds = { downAngle: 100, upAngle: 160 }
+export const BALANCED_SQUAT: SquatThresholds = { downAngle: 110, upAngle: 150 }
+export const EASY_SQUAT:     SquatThresholds = { downAngle: 115, upAngle: 145 }
 
 // ── Pull-up Counter ───────────────────────────────────────────────────────────
 

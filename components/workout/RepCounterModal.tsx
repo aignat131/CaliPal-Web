@@ -6,9 +6,9 @@ import {
   RepCounter, STATE_LABELS, STATE_COLORS,
   PushupCounter, PUSHUP_STATE_LABELS,
   SquatCounter, SQUAT_STATE_LABELS,
-  STRICT_PULLUP, EASY_PULLUP,
-  STRICT_PUSHUP, EASY_PUSHUP,
-  STRICT_SQUAT, EASY_SQUAT,
+  STRICT_PULLUP, BALANCED_PULLUP, EASY_PULLUP,
+  STRICT_PUSHUP, BALANCED_PUSHUP, EASY_PUSHUP,
+  STRICT_SQUAT, BALANCED_SQUAT, EASY_SQUAT,
 } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
 import { avgElbowAngle, avgKneeAngle, bestElbowAngle, bestKneeAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
@@ -16,6 +16,7 @@ import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
 import { drawSkeleton, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
+import { PoseValidator } from '@/lib/ml/pose-validator'
 
 // keep linter happy — POSE_CONNECTIONS imported to ensure tree-shaking keeps it
 void POSE_CONNECTIONS
@@ -28,7 +29,7 @@ interface Props {
   exerciseName: string
   onConfirm: (reps: number) => void
   onCancel: () => void
-  initialMode?: 'strict' | 'easy'
+  initialMode?: 'strict' | 'balanced' | 'easy'
 }
 
 export default function RepCounterModal({ exerciseType, exerciseName, onConfirm, onCancel, initialMode }: Props) {
@@ -43,13 +44,15 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const pushupCounterRef = useRef(new PushupCounter())
   const squatCounterRef  = useRef(new SquatCounter())
   const formCoachRef     = useRef(new FormCoach())
+  const poseValidatorRef = useRef(new PoseValidator())
 
   // Angle smoothers — one per joint type
   const elbowSmootherRef = useRef(new AngleSmoother(0.3))
   const kneeSmootherRef  = useRef(new AngleSmoother(0.3))
 
-  const [mode, setMode] = useState<'strict' | 'easy'>(initialMode ?? 'strict')
+  const [mode, setMode] = useState<'strict' | 'balanced' | 'easy'>(initialMode ?? 'strict')
   const [modeToast, setModeToast] = useState(false)
+  const [poseInvalid, setPoseInvalid] = useState<string | null>(null)
 
   // Camera facing mode
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
@@ -71,20 +74,33 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
 
   // Use refs so the rAF loop always reads latest values without closure staleness
   const repCountRef = useRef(0)
-  const modeRef = useRef<'strict' | 'easy'>(initialMode ?? 'strict')
+  const modeRef = useRef<'strict' | 'balanced' | 'easy'>(initialMode ?? 'strict')
+
+  // Threshold lookup helpers
+  function pullupThreshold(m: 'strict' | 'balanced' | 'easy') {
+    return m === 'easy' ? EASY_PULLUP : m === 'balanced' ? BALANCED_PULLUP : STRICT_PULLUP
+  }
+  function pushupThreshold(m: 'strict' | 'balanced' | 'easy') {
+    return m === 'easy' ? EASY_PUSHUP : m === 'balanced' ? BALANCED_PUSHUP : STRICT_PUSHUP
+  }
+  function squatThreshold(m: 'strict' | 'balanced' | 'easy') {
+    return m === 'easy' ? EASY_SQUAT : m === 'balanced' ? BALANCED_SQUAT : STRICT_SQUAT
+  }
 
   // Rebuild counters when mode changes
   useEffect(() => {
     modeRef.current = mode
-    repCounterRef.current    = new RepCounter(mode === 'easy' ? EASY_PULLUP  : STRICT_PULLUP)
-    pushupCounterRef.current = new PushupCounter(mode === 'easy' ? EASY_PUSHUP : STRICT_PUSHUP)
-    squatCounterRef.current  = new SquatCounter(mode === 'easy' ? EASY_SQUAT  : STRICT_SQUAT)
+    repCounterRef.current    = new RepCounter(pullupThreshold(mode))
+    pushupCounterRef.current = new PushupCounter(pushupThreshold(mode))
+    squatCounterRef.current  = new SquatCounter(squatThreshold(mode))
     setRepCount(0)
     repCountRef.current = 0
     lastHapticRef.current = 0
     formCoachRef.current.reset()
+    poseValidatorRef.current.reset()
     elbowSmootherRef.current.reset()
     kneeSmootherRef.current.reset()
+    setPoseInvalid(null)
   }, [mode])
 
   const stopCamera = useCallback(() => {
@@ -194,10 +210,23 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   }, []) // intentionally empty — exerciseType is stable for modal's lifetime
 
   function processFrame(lms: Landmark[], ctx: CanvasRenderingContext2D, w: number, h: number) {
-    const isEasy = modeRef.current === 'easy'
+    const currentMode = modeRef.current
+    const usesBest = currentMode !== 'strict' // balanced and easy use best-side angle
+
+    // Pose validation (skip counting if not in position — except easy mode which only warns)
+    const poseCheck = poseValidatorRef.current.validate(lms, exerciseType)
+    if (!poseCheck.valid && currentMode !== 'easy') {
+      drawSkeleton(ctx, lms, w, h, '#6B7280')
+      setPoseInvalid(poseCheck.reason ?? null)
+      setStateLabel('Pregătire...')
+      setStateColor('#6B7280')
+      setFormCues([])
+      return
+    }
+    setPoseInvalid(currentMode === 'easy' && !poseCheck.valid ? poseCheck.reason ?? null : null)
 
     if (exerciseType === 'pullup') {
-      const rawElbow = isEasy
+      const rawElbow = usesBest
         ? bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
         : avgElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
@@ -211,11 +240,11 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setStateColor(STATE_COLORS[cs.state])
       setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state))
       setAngleVelocity(elbowVel)
-      const t = modeRef.current === 'easy' ? EASY_PULLUP : STRICT_PULLUP
+      const t = pullupThreshold(modeRef.current)
       setArcProgress(Math.max(0, Math.min(1, (t.hangEnter - elbow) / (t.hangEnter - t.peak))))
 
     } else if (exerciseType === 'pushup') {
-      const rawElbow = isEasy
+      const rawElbow = usesBest
         ? bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
         : avgElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
@@ -229,11 +258,11 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
       setFormCues(formCoachRef.current.getFormCues(lms, 'pushup', cs.state))
       setAngleVelocity(elbowVel)
-      const pt = modeRef.current === 'easy' ? EASY_PUSHUP : STRICT_PUSHUP
+      const pt = pushupThreshold(modeRef.current)
       setArcProgress(Math.max(0, Math.min(1, (pt.upAngle - elbow) / (pt.upAngle - pt.downAngle))))
 
     } else {
-      const rawKnee = isEasy
+      const rawKnee = usesBest
         ? bestKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
         : avgKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
       const knee = kneeSmootherRef.current.smooth(rawKnee)
@@ -247,7 +276,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
       setFormCues(formCoachRef.current.getFormCues(lms, 'squat', cs.state))
       setAngleVelocity(kneeVel)
-      const st = modeRef.current === 'easy' ? EASY_SQUAT : STRICT_SQUAT
+      const st = squatThreshold(modeRef.current)
       setArcProgress(Math.max(0, Math.min(1, (st.upAngle - knee) / (st.upAngle - st.downAngle))))
     }
   }
@@ -259,10 +288,10 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     }
   }
 
-  function handleModeToggle(newMode: 'strict' | 'easy') {
+  function handleModeToggle(newMode: 'strict' | 'balanced' | 'easy') {
     if (newMode === mode) return
     setMode(newMode)
-    if (newMode === 'easy') {
+    if (newMode !== 'strict') {
       setModeToast(true)
       setTimeout(() => setModeToast(false), 2000)
     }
@@ -352,13 +381,19 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
         <div className="flex items-center bg-white/10 border border-white/20 rounded-full p-0.5 flex-shrink-0">
           <button
             onClick={() => handleModeToggle('strict')}
-            className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all ${mode === 'strict' ? 'bg-brand-green text-black' : 'text-white/50'}`}
+            className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all ${mode === 'strict' ? 'bg-brand-green text-black' : 'text-white/50'}`}
           >
             Strict
           </button>
           <button
+            onClick={() => handleModeToggle('balanced')}
+            className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all ${mode === 'balanced' ? 'bg-brand-green text-black' : 'text-white/50'}`}
+          >
+            Balansat
+          </button>
+          <button
             onClick={() => handleModeToggle('easy')}
-            className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all ${mode === 'easy' ? 'bg-brand-green text-black' : 'text-white/50'}`}
+            className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all ${mode === 'easy' ? 'bg-brand-green text-black' : 'text-white/50'}`}
           >
             Ușor
           </button>
@@ -380,7 +415,9 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       {modeToast && (
         <div className="absolute top-16 left-0 right-0 flex justify-center z-10 pointer-events-none">
           <div className="px-3 py-1.5 rounded-full bg-brand-green/20 border border-brand-green/40">
-            <span className="text-xs font-bold text-brand-green">Modul ușor activ — unghiuri relaxate</span>
+            <span className="text-xs font-bold text-brand-green">
+              {mode === 'balanced' ? 'Mod balansat — permisiv dar verifică poziția' : 'Modul ușor activ — unghiuri relaxate'}
+            </span>
           </div>
         </div>
       )}
@@ -427,8 +464,20 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
         </div>
       )}
 
+      {/* Pose invalid overlay */}
+      {!loading && poseInvalid && (
+        <div className="absolute bottom-28 left-4 right-4 flex flex-col gap-1.5 z-10">
+          <div
+            className="flex items-center gap-2 px-4 py-3 rounded-xl"
+            style={{ backgroundColor: 'rgba(99,102,241,0.88)', border: '1px solid rgba(99,102,241,0.6)' }}
+          >
+            <span className="text-white text-sm font-bold leading-tight">{poseInvalid}</span>
+          </div>
+        </div>
+      )}
+
       {/* Form cue banners */}
-      {!loading && formCues.length > 0 && (
+      {!loading && !poseInvalid && formCues.length > 0 && (
         <div className="absolute bottom-28 left-4 right-4 flex flex-col gap-1.5 z-10">
           {formCues.map(cue => (
             <div

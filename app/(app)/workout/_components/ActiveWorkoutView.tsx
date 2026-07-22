@@ -6,6 +6,7 @@ import type { WorkoutExercise, WorkoutSet, GripType } from '@/types'
 import type { ActiveCircuit, ActiveTimedSet } from '@/lib/context/WorkoutContext'
 import { getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 import RepCounterModal from '@/components/workout/RepCounterModal'
+import MusclePills from '@/components/exercise/MusclePills'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import { formatDuration, totalRepsInWorkout, norm, getExerciseType } from '../_helpers'
 
@@ -821,20 +822,23 @@ export function ActiveWorkoutView({
                     {group.exercises.map(({ name, metric, category }) => (
                       <button key={name}
                         onClick={() => openLogPopup(name)}
-                        className="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm text-left bg-white/5 border border-white/8 text-white/80 hover:bg-white/10 active:scale-[0.98] transition-all">
-                        <span>{name}</span>
-                        <div className="flex items-center gap-1.5">
-                          {category === 'Cu Greutate' && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25">⚖️</span>
-                          )}
-                          {category === 'Cu Bandă' && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/25">🔴</span>
-                          )}
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/40">
-                            {metric === 'reps' ? 'rep' : 'sec'}
-                          </span>
-                          <ChevronRight size={14} className="text-white/30" />
+                        className="flex flex-col gap-1.5 px-3 py-2.5 rounded-xl text-sm text-left bg-white/5 border border-white/8 text-white/80 hover:bg-white/10 active:scale-[0.98] transition-all">
+                        <div className="flex items-center justify-between w-full">
+                          <span>{name}</span>
+                          <div className="flex items-center gap-1.5">
+                            {category === 'Cu Greutate' && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25">⚖️</span>
+                            )}
+                            {category === 'Cu Bandă' && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/25">🔴</span>
+                            )}
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/40">
+                              {metric === 'reps' ? 'rep' : 'sec'}
+                            </span>
+                            <ChevronRight size={14} className="text-white/30" />
+                          </div>
                         </div>
+                        <MusclePills exerciseName={name} category={category} max={3} />
                       </button>
                     ))}
                   </div>
