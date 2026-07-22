@@ -12,8 +12,8 @@ import type { User } from 'firebase/auth'
 import { app } from './config'
 import type { UserDoc } from '@/types'
 
-if (!app) throw new Error('Firebase failed to initialize. Check NEXT_PUBLIC_FIREBASE_* env vars.')
-export const db = getFirestore(app)
+// app is null during SSR/build when env vars are absent — skip init, runtime always has them
+export const db = app ? getFirestore(app) : null!
 
 /** Create user document on first sign-up. Safe to call multiple times.
  *  Also syncs photoUrl and displayName from Firebase Auth on every login

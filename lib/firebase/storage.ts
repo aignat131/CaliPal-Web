@@ -2,8 +2,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { app } from './config'
 import { compressImage } from '@/lib/utils/imageUtils'
 
-if (!app) throw new Error('Firebase failed to initialize. Check NEXT_PUBLIC_FIREBASE_* env vars.')
-export const storage = getStorage(app)
+// app is null during SSR/build when env vars are absent — skip init, runtime always has them
+export const storage = app ? getStorage(app) : null!
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
