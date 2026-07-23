@@ -22,7 +22,7 @@ self.addEventListener('activate', event => {
   self.clients.claim()
 })
 
-// Fetch: network-first for API/Firestore, cache-first for static assets
+// Fetch: network-first for all assets, fall back to cache when offline
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url)
 
@@ -38,10 +38,16 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return
   if (SKIP_CACHE_DOMAINS.some(d => url.hostname === d || url.hostname.endsWith('.' + d))) return
 
-  // Static assets: cache-first
+  // Static assets: network-first, fall back to cache for offline support
   if (url.pathname.match(/\.(js|css|woff2?|png|svg|ico|json)$/)) {
     event.respondWith(
-      caches.match(event.request).then(cached => cached ?? fetch(event.request))
+      fetch(event.request)
+        .then(res => {
+          const clone = res.clone()
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
+          return res
+        })
+        .catch(() => caches.match(event.request))
     )
     return
   }

@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 // Inject a unique build ID so the service worker is re-registered on each deploy
-process.env.NEXT_PUBLIC_BUILD_ID = Date.now().toString(36)
+const buildId = Date.now().toString(36)
+process.env.NEXT_PUBLIC_BUILD_ID = buildId
 
 // Security headers applied to every route
 const GLOBAL_SECURITY_HEADERS = [
@@ -75,6 +76,7 @@ const GLOBAL_SECURITY_HEADERS = [
 ]
 
 const nextConfig: NextConfig = {
+  generateBuildId: () => buildId,
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'firebasestorage.googleapis.com' },
