@@ -184,13 +184,7 @@ export default function FormCheckPage() {
         canvas.width = video.videoWidth
         canvas.height = video.videoHeight
 
-        ctx.save()
-        if (facingMode === 'user') {
-          ctx.translate(canvas.width, 0)
-          ctx.scale(-1, 1)
-        }
         ctx.drawImage(video, 0, 0)
-        ctx.restore()
 
         if (time !== lastTime && video.readyState >= 2) {
           lastTime = time
@@ -780,8 +774,10 @@ export default function FormCheckPage() {
 
           {/* Camera view */}
           <div className="relative flex-1 bg-black overflow-hidden">
-            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
-            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover" />
+            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover"
+              style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined} muted playsInline />
+            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover"
+              style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined} />
 
             {status === 'running' && (
               <>
