@@ -85,6 +85,14 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Service worker: never cache so the browser always fetches the latest version
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
       // Global security headers on all routes
       {
         source: '/(.*)',

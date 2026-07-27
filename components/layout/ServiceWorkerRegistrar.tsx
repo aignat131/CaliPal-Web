@@ -28,7 +28,18 @@ export function ServiceWorkerRegistrar() {
     if ('serviceWorker' in navigator && !registeredRef.current) {
       registeredRef.current = true
       const buildId = process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev'
-      navigator.serviceWorker.register(`/sw.js?v=${buildId}`).catch(() => {})
+      navigator.serviceWorker.register(`/sw.js?v=${buildId}`).then(reg => {
+        // When a new SW is found, reload once it activates so the page gets fresh assets
+        reg.addEventListener('updatefound', () => {
+          const newSW = reg.installing
+          if (!newSW) return
+          newSW.addEventListener('statechange', () => {
+            if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
+              window.location.reload()
+            }
+          })
+        })
+      }).catch(() => {})
     }
 
     // Capture the PWA install prompt — prevents the default mini-infobar
