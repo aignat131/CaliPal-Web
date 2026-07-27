@@ -72,6 +72,7 @@ export class PoseValidator {
 
   private checkPushupPose(lms: Landmark[]): PoseValidation {
     // Need at least one complete arm chain + hips visible
+    // Legs/ankles NOT required — user may face the camera head-on
     const leftArmVis = this.minVis(lms, MP.LEFT_SHOULDER, MP.LEFT_ELBOW, MP.LEFT_WRIST)
     const rightArmVis = this.minVis(lms, MP.RIGHT_SHOULDER, MP.RIGHT_ELBOW, MP.RIGHT_WRIST)
     const hipVis = Math.max(lms[MP.LEFT_HIP].visibility ?? 0, lms[MP.RIGHT_HIP].visibility ?? 0)
@@ -80,27 +81,12 @@ export class PoseValidator {
       return { valid: false, reason: 'Asigură-te că brațele și corpul sunt vizibile' }
     }
 
-    // Body alignment: shoulder→hip→ankle should be roughly straight (>140°)
-    // indicating a plank position, not standing upright
-    const leftBodyAngle = this.safeAngle(lms, MP.LEFT_SHOULDER, MP.LEFT_HIP, MP.LEFT_ANKLE)
-    const rightBodyAngle = this.safeAngle(lms, MP.RIGHT_SHOULDER, MP.RIGHT_HIP, MP.RIGHT_ANKLE)
-    const bodyAngle = this.bestAngle(leftBodyAngle, rightBodyAngle,
-      this.minVis(lms, MP.LEFT_SHOULDER, MP.LEFT_HIP, MP.LEFT_ANKLE),
-      this.minVis(lms, MP.RIGHT_SHOULDER, MP.RIGHT_HIP, MP.RIGHT_ANKLE))
-
-    if (bodyAngle < 140) {
-      return { valid: false, reason: 'Intră în poziția de flotare — corp drept' }
-    }
-
-    // Shoulders should NOT be far above hips vertically (rules out standing)
-    // In MediaPipe normalized coords, y=0 is top, y=1 is bottom
+    // Only check that shoulders and hips aren't wildly vertical (rules out standing upright)
     const avgShoulderY = (lms[MP.LEFT_SHOULDER].y + lms[MP.RIGHT_SHOULDER].y) / 2
     const avgHipY = (lms[MP.LEFT_HIP].y + lms[MP.RIGHT_HIP].y) / 2
     const verticalDiff = Math.abs(avgShoulderY - avgHipY)
 
-    // If shoulders and hips are at very different heights, user is standing
-    // In push-up position, they should be roughly level (small vertical diff)
-    if (verticalDiff > 0.25) {
+    if (verticalDiff > 0.40) {
       return { valid: false, reason: 'Intră în poziția de flotare — corp orizontal' }
     }
 

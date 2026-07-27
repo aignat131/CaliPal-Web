@@ -34,9 +34,7 @@ export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 148, hangExit: 153
 export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 144, hangExit: 149, peak: 112 }
 export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 145, peak: 120 }
 
-export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 90,  upAngle: 155 }
-export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 145 }
-export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 140 }
+export const PUSHUP_THRESHOLDS: PushupThresholds = { downAngle: 120, upAngle: 135 }
 
 export const STRICT_SQUAT:   SquatThresholds = { downAngle: 100, upAngle: 160 }
 export const BALANCED_SQUAT: SquatThresholds = { downAngle: 110, upAngle: 150 }
@@ -206,9 +204,9 @@ export class PushupCounter {
   private t: PushupThresholds
   private startAngle: number | null = null
   private lowestAngle: number | null = null
-  private readonly minRangeRequired = 30
+  private readonly minRangeRequired = 15
 
-  constructor(thresholds: PushupThresholds = STRICT_PUSHUP) {
+  constructor(thresholds: PushupThresholds = PUSHUP_THRESHOLDS) {
     this.t = thresholds
   }
 

@@ -527,7 +527,6 @@ export default function WorkoutPage() {
           exerciseName={quickExercise.name}
           onConfirm={handleQuickExerciseConfirm}
           onCancel={() => setQuickExercise(null)}
-          initialMode="balanced"
         />
       )}
 

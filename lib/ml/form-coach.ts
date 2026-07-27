@@ -85,33 +85,10 @@ export class FormCoach {
     return cues
   }
 
-  private _pushupCues(landmarks: Landmark[]): FormCue[] {
-    const cues: FormCue[] = []
-
-    const lS = landmarks[MP.LEFT_SHOULDER]
-    const rS = landmarks[MP.RIGHT_SHOULDER]
-    const lH = landmarks[MP.LEFT_HIP]
-    const rH = landmarks[MP.RIGHT_HIP]
-    const lK = landmarks[MP.LEFT_KNEE]
-    const rK = landmarks[MP.RIGHT_KNEE]
-    const lA = landmarks[MP.LEFT_ANKLE]
-    const rA = landmarks[MP.RIGHT_ANKLE]
-
-    // Rule 1: hips too high — shoulder→hip→knee angle < 158° (piked body position)
-    const leftBodyAngle  = angleBetween(lS, lH, lK)
-    const rightBodyAngle = angleBetween(rS, rH, rK)
-    if ((leftBodyAngle + rightBodyAngle) / 2 < 158) {
-      cues.push({ id: 'ps-hips', message: 'Solduri prea sus', severity: 'error' })
-    }
-
-    // Rule 2: knees bent — hip→knee→ankle angle < 155°
-    const leftKneeAngle  = angleBetween(lH, lK, lA)
-    const rightKneeAngle = angleBetween(rH, rK, rA)
-    if ((leftKneeAngle + rightKneeAngle) / 2 < 155) {
-      cues.push({ id: 'ps-knee', message: 'Extinde genunchii', severity: 'warning' })
-    }
-
-    return cues
+  private _pushupCues(_landmarks: Landmark[]): FormCue[] {
+    // No form cues for push-ups — user may face camera head-on
+    // so leg/body landmarks are unreliable
+    return []
   }
 
   private _squatCues(landmarks: Landmark[], state: SquatState): FormCue[] {

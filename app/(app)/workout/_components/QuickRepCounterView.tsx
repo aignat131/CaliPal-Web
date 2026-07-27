@@ -114,7 +114,6 @@ export function QuickRepCounterView({ catalogue, onSaveAsWorkout, onContinueToWo
         exerciseName={step.exerciseName}
         onConfirm={handleCountConfirm}
         onCancel={() => setStep({ name: 'select' })}
-        initialMode="balanced"
       />
     )
   }

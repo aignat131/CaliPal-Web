@@ -6,12 +6,10 @@ import {
   RepCounter, STATE_LABELS, STATE_COLORS,
   PushupCounter, PUSHUP_STATE_LABELS,
   SquatCounter, SQUAT_STATE_LABELS,
-  STRICT_PULLUP, BALANCED_PULLUP, EASY_PULLUP,
-  STRICT_PUSHUP, BALANCED_PUSHUP, EASY_PUSHUP,
-  STRICT_SQUAT, BALANCED_SQUAT, EASY_SQUAT,
+  EASY_PULLUP, PUSHUP_THRESHOLDS, EASY_SQUAT,
 } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
-import { avgElbowAngle, avgKneeAngle, bestElbowAngle, bestKneeAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
+import { bestElbowAngle, bestKneeAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
@@ -29,10 +27,9 @@ interface Props {
   exerciseName: string
   onConfirm: (reps: number) => void
   onCancel: () => void
-  initialMode?: 'strict' | 'balanced' | 'easy'
 }
 
-export default function RepCounterModal({ exerciseType, exerciseName, onConfirm, onCancel, initialMode }: Props) {
+export default function RepCounterModal({ exerciseType, exerciseName, onConfirm, onCancel }: Props) {
   const videoRef   = useRef<HTMLVideoElement>(null)
   const canvasRef  = useRef<HTMLCanvasElement>(null)
   const streamRef  = useRef<MediaStream | null>(null)
@@ -40,9 +37,9 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const detectorRef = useRef<{ detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks: Landmark[][] }; close?: () => void } | null>(null)
   const lastHapticRef = useRef(0)
 
-  const repCounterRef    = useRef(new RepCounter())
-  const pushupCounterRef = useRef(new PushupCounter())
-  const squatCounterRef  = useRef(new SquatCounter())
+  const repCounterRef    = useRef(new RepCounter(EASY_PULLUP))
+  const pushupCounterRef = useRef(new PushupCounter(PUSHUP_THRESHOLDS))
+  const squatCounterRef  = useRef(new SquatCounter(EASY_SQUAT))
   const formCoachRef     = useRef(new FormCoach())
   const poseValidatorRef = useRef(new PoseValidator())
 
@@ -50,8 +47,6 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const elbowSmootherRef = useRef(new AngleSmoother(0.3))
   const kneeSmootherRef  = useRef(new AngleSmoother(0.3))
 
-  const [mode, setMode] = useState<'strict' | 'balanced' | 'easy'>(initialMode ?? 'strict')
-  const [modeToast, setModeToast] = useState(false)
   const [poseInvalid, setPoseInvalid] = useState<string | null>(null)
 
   // Camera facing mode
@@ -74,34 +69,6 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
 
   // Use refs so the rAF loop always reads latest values without closure staleness
   const repCountRef = useRef(0)
-  const modeRef = useRef<'strict' | 'balanced' | 'easy'>(initialMode ?? 'strict')
-
-  // Threshold lookup helpers
-  function pullupThreshold(m: 'strict' | 'balanced' | 'easy') {
-    return m === 'easy' ? EASY_PULLUP : m === 'balanced' ? BALANCED_PULLUP : STRICT_PULLUP
-  }
-  function pushupThreshold(m: 'strict' | 'balanced' | 'easy') {
-    return m === 'easy' ? EASY_PUSHUP : m === 'balanced' ? BALANCED_PUSHUP : STRICT_PUSHUP
-  }
-  function squatThreshold(m: 'strict' | 'balanced' | 'easy') {
-    return m === 'easy' ? EASY_SQUAT : m === 'balanced' ? BALANCED_SQUAT : STRICT_SQUAT
-  }
-
-  // Rebuild counters when mode changes
-  useEffect(() => {
-    modeRef.current = mode
-    repCounterRef.current    = new RepCounter(pullupThreshold(mode))
-    pushupCounterRef.current = new PushupCounter(pushupThreshold(mode))
-    squatCounterRef.current  = new SquatCounter(squatThreshold(mode))
-    setRepCount(0)
-    repCountRef.current = 0
-    lastHapticRef.current = 0
-    formCoachRef.current.reset()
-    poseValidatorRef.current.reset()
-    elbowSmootherRef.current.reset()
-    kneeSmootherRef.current.reset()
-    setPoseInvalid(null)
-  }, [mode])
 
   const stopCamera = useCallback(() => {
     if (animRef.current) cancelAnimationFrame(animRef.current)
@@ -203,25 +170,12 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   }, []) // intentionally empty — exerciseType is stable for modal's lifetime
 
   function processFrame(lms: Landmark[], ctx: CanvasRenderingContext2D, w: number, h: number) {
-    const currentMode = modeRef.current
-    const usesBest = currentMode !== 'strict' // balanced and easy use best-side angle
-
-    // Pose validation (skip counting if not in position — except easy mode which only warns)
+    // Pose validation — warn only, never block counting
     const poseCheck = poseValidatorRef.current.validate(lms, exerciseType)
-    if (!poseCheck.valid && currentMode !== 'easy') {
-      drawSkeleton(ctx, lms, w, h, '#6B7280')
-      setPoseInvalid(poseCheck.reason ?? null)
-      setStateLabel('Pregătire...')
-      setStateColor('#6B7280')
-      setFormCues([])
-      return
-    }
-    setPoseInvalid(currentMode === 'easy' && !poseCheck.valid ? poseCheck.reason ?? null : null)
+    setPoseInvalid(!poseCheck.valid ? poseCheck.reason ?? null : null)
 
     if (exerciseType === 'pullup') {
-      const rawElbow = usesBest
-        ? bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
-        : avgElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
+      const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
       const elbowVel = elbowSmootherRef.current.getVelocity()
       const cs = repCounterRef.current.update(elbow)
@@ -233,13 +187,10 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setStateColor(STATE_COLORS[cs.state])
       setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state))
       setAngleVelocity(elbowVel)
-      const t = pullupThreshold(modeRef.current)
-      setArcProgress(Math.max(0, Math.min(1, (t.hangEnter - elbow) / (t.hangEnter - t.peak))))
+      setArcProgress(Math.max(0, Math.min(1, (EASY_PULLUP.hangEnter - elbow) / (EASY_PULLUP.hangEnter - EASY_PULLUP.peak))))
 
     } else if (exerciseType === 'pushup') {
-      const rawElbow = usesBest
-        ? bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
-        : avgElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
+      const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
       const elbowVel = elbowSmootherRef.current.getVelocity()
       const cs = pushupCounterRef.current.update(elbow)
@@ -251,13 +202,10 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
       setFormCues(formCoachRef.current.getFormCues(lms, 'pushup', cs.state))
       setAngleVelocity(elbowVel)
-      const pt = pushupThreshold(modeRef.current)
-      setArcProgress(Math.max(0, Math.min(1, (pt.upAngle - elbow) / (pt.upAngle - pt.downAngle))))
+      setArcProgress(Math.max(0, Math.min(1, (PUSHUP_THRESHOLDS.upAngle - elbow) / (PUSHUP_THRESHOLDS.upAngle - PUSHUP_THRESHOLDS.downAngle))))
 
     } else {
-      const rawKnee = usesBest
-        ? bestKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
-        : avgKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
+      const rawKnee = bestKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
       const knee = kneeSmootherRef.current.smooth(rawKnee)
       const kneeVel = kneeSmootherRef.current.getVelocity()
       const cs = squatCounterRef.current.update(knee)
@@ -269,8 +217,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
       setFormCues(formCoachRef.current.getFormCues(lms, 'squat', cs.state))
       setAngleVelocity(kneeVel)
-      const st = squatThreshold(modeRef.current)
-      setArcProgress(Math.max(0, Math.min(1, (st.upAngle - knee) / (st.upAngle - st.downAngle))))
+      setArcProgress(Math.max(0, Math.min(1, (EASY_SQUAT.upAngle - knee) / (EASY_SQUAT.upAngle - EASY_SQUAT.downAngle))))
     }
   }
 
@@ -278,15 +225,6 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     if (count > lastHapticRef.current) {
       lastHapticRef.current = count
       navigator.vibrate?.(30)
-    }
-  }
-
-  function handleModeToggle(newMode: 'strict' | 'balanced' | 'easy') {
-    if (newMode === mode) return
-    setMode(newMode)
-    if (newMode !== 'strict') {
-      setModeToast(true)
-      setTimeout(() => setModeToast(false), 2000)
     }
   }
 
@@ -360,7 +298,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
         style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
       />
 
-      {/* Header: exercise name + mode toggle + camera flip + close */}
+      {/* Header: exercise name + camera flip + close */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 px-4 pt-safe pt-4 pb-3"
         style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent)' }}>
         <button
@@ -370,27 +308,6 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
           <X size={16} className="text-white/80" />
         </button>
         <p className="font-black text-white text-base flex-1 min-w-0 truncate">{exerciseName}</p>
-        {/* Mode toggle pill */}
-        <div className="flex items-center bg-white/10 border border-white/20 rounded-full p-0.5 flex-shrink-0">
-          <button
-            onClick={() => handleModeToggle('strict')}
-            className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all ${mode === 'strict' ? 'bg-brand-green text-black' : 'text-white/50'}`}
-          >
-            Strict
-          </button>
-          <button
-            onClick={() => handleModeToggle('balanced')}
-            className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all ${mode === 'balanced' ? 'bg-brand-green text-black' : 'text-white/50'}`}
-          >
-            Balansat
-          </button>
-          <button
-            onClick={() => handleModeToggle('easy')}
-            className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all ${mode === 'easy' ? 'bg-brand-green text-black' : 'text-white/50'}`}
-          >
-            Ușor
-          </button>
-        </div>
         {/* Camera flip button */}
         <button
           onClick={handleCameraFlip}
@@ -404,21 +321,9 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
         </button>
       </div>
 
-      {/* Easy mode toast */}
-      {modeToast && (
-        <div className="absolute top-16 left-0 right-0 flex justify-center z-10 pointer-events-none">
-          <div className="px-3 py-1.5 rounded-full bg-brand-green/20 border border-brand-green/40">
-            <span className="text-xs font-bold text-brand-green">
-              {mode === 'balanced' ? 'Mod balansat — permisiv dar verifică poziția' : 'Modul ușor activ — unghiuri relaxate'}
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Rep count (top center) */}
       {!loading && !error && (
-        <div className="absolute top-16 left-0 right-0 flex flex-col items-center z-10 pointer-events-none"
-          style={{ marginTop: modeToast ? 28 : 0, transition: 'margin-top 0.2s' }}>
+        <div className="absolute top-16 left-0 right-0 flex flex-col items-center z-10 pointer-events-none">
           <span
             className="text-7xl font-black text-white tabular-nums"
             style={{ textShadow: '0 2px 20px rgba(0,0,0,0.9)' }}
