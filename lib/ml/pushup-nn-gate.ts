@@ -137,8 +137,10 @@ export type GateState =
   | 'FALLBACK'
 
 const INFERENCE_INTERVAL = 6          // run NN every 6th frame (~5 Hz at 30 fps)
-const CONFIRM_COUNT = 3               // 3 consecutive positives to confirm
-const RECHECK_FAIL_COUNT = 3          // 3 consecutive negatives during recheck → back to VERIFYING
+const WINDOW_SIZE = 5                 // sliding window for majority vote
+const CONFIRM_COUNT = 3               // 3 out of 5 positives to confirm
+const RECHECK_FAIL_COUNT = 3          // 3 out of 5 negatives during recheck → back to VERIFYING
+const POSITION_THRESHOLD = 0.35       // lowered from 0.5 — model less confident on plank/up position
 const DRIFT_FRAME_THRESHOLD = 45      // ~1.5 seconds at 30 fps
 const HEAD_DRIFT_THRESHOLD = 0.15     // normalized Y — head moved significantly
 const SH_DRIFT_THRESHOLD = 0.12       // shoulder-hip vertical diff change
@@ -148,8 +150,8 @@ export class PushupNNGate {
   private state: GateState = 'LOADING'
   private frameCount = 0
 
-  // Verification
-  private consecutivePositive = 0
+  // Verification — sliding window majority vote
+  private recentResults: boolean[] = []
   private pendingInference = false
 
   // Drift baseline (captured at confirmation)
@@ -157,8 +159,8 @@ export class PushupNNGate {
   private baselineShDiff: number | null = null
   private driftFrameCount = 0
 
-  // Recheck
-  private recheckNegatives = 0
+  // Recheck — sliding window majority vote
+  private recheckResults: boolean[] = []
 
   // Latest frame data (for baseline capture in async callbacks)
   private latestLandmarks: Landmark[] | null = null
@@ -192,9 +194,9 @@ export class PushupNNGate {
     if (!this.isOpen || this.state === 'FALLBACK') return
     if (this.lastUpdateMs > 0 && performance.now() - this.lastUpdateMs > STALE_MS) {
       this.state = 'VERIFYING'
-      this.consecutivePositive = 0
+      this.recentResults = []
       this.driftFrameCount = 0
-      this.recheckNegatives = 0
+      this.recheckResults = []
     }
   }
 
@@ -228,12 +230,12 @@ export class PushupNNGate {
     const wasLoaded = this.state !== 'LOADING' && this.state !== 'FALLBACK'
     this.state = this.state === 'FALLBACK' ? 'FALLBACK' : (wasLoaded ? 'VERIFYING' : 'LOADING')
     this.frameCount = 0
-    this.consecutivePositive = 0
+    this.recentResults = []
     this.pendingInference = false
     this.baselineHeadY = null
     this.baselineShDiff = null
     this.driftFrameCount = 0
-    this.recheckNegatives = 0
+    this.recheckResults = []
   }
 
   // ── Private ────────────────────────────────────────────────────────────
@@ -244,14 +246,15 @@ export class PushupNNGate {
     this.pendingInference = true
     classifyPushupPosition(lms).then(prob => {
       this.pendingInference = false
-      if (prob !== null && prob >= 0.5) {
-        this.consecutivePositive++
-        if (this.consecutivePositive >= CONFIRM_COUNT) {
-          this.state = 'CONFIRMED'
-          this.captureBaseline()
-        }
-      } else {
-        this.consecutivePositive = 0
+      const positive = prob !== null && prob >= POSITION_THRESHOLD
+      this.recentResults.push(positive)
+      if (this.recentResults.length > WINDOW_SIZE) this.recentResults.shift()
+
+      const positiveCount = this.recentResults.filter(Boolean).length
+      if (positiveCount >= CONFIRM_COUNT && this.recentResults.length >= CONFIRM_COUNT) {
+        this.state = 'CONFIRMED'
+        this.captureBaseline()
+        this.recentResults = []
       }
     })
   }
@@ -262,17 +265,21 @@ export class PushupNNGate {
     this.pendingInference = true
     classifyPushupPosition(lms).then(prob => {
       this.pendingInference = false
-      if (prob !== null && prob >= 0.5) {
+      const positive = prob !== null && prob >= POSITION_THRESHOLD
+      this.recheckResults.push(positive)
+      if (this.recheckResults.length > WINDOW_SIZE) this.recheckResults.shift()
+
+      const positiveCount = this.recheckResults.filter(Boolean).length
+      const negativeCount = this.recheckResults.length - positiveCount
+
+      if (positiveCount >= CONFIRM_COUNT) {
         this.state = 'CONFIRMED'
         this.captureBaseline()
-        this.recheckNegatives = 0
-      } else {
-        this.recheckNegatives++
-        if (this.recheckNegatives >= RECHECK_FAIL_COUNT) {
-          this.state = 'VERIFYING'
-          this.consecutivePositive = 0
-          this.recheckNegatives = 0
-        }
+        this.recheckResults = []
+      } else if (negativeCount >= RECHECK_FAIL_COUNT && this.recheckResults.length >= RECHECK_FAIL_COUNT) {
+        this.state = 'VERIFYING'
+        this.recentResults = []
+        this.recheckResults = []
       }
     })
   }
@@ -310,7 +317,7 @@ export class PushupNNGate {
       this.state = 'RECHECKING'
       this.frameCount = 0
       this.driftFrameCount = 0
-      this.recheckNegatives = 0
+      this.recheckResults = []
     }
   }
 }
