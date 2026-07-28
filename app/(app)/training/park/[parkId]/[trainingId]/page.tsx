@@ -87,6 +87,7 @@ async function maybeNotifyAuthor(
   parkId: string,
   joinerName: string,
   authorUid: string,
+  fromUid?: string,
 ) {
   const now = Date.now()
   const lastAt = training.lastRsvpNotifAt?.toDate?.()?.getTime() ?? 0
@@ -101,6 +102,7 @@ async function maybeNotifyAuthor(
     'Cineva participă la antrenamentul tău! 💪',
     `${joinerName} a confirmat că merge la „${training.name}".`,
     training.id,
+    fromUid,
   )
 }
 
@@ -229,7 +231,7 @@ export default function StandaloneParkTrainingPage() {
       ...photoUpdate,
     })
     if (status === 'GOING' && !wasGoing && user.uid !== training.authorId) {
-      await maybeNotifyAuthor(training, parkId, myDisplayName, training.authorId)
+      await maybeNotifyAuthor(training, parkId, myDisplayName, training.authorId, user.uid)
     }
   }
 
@@ -241,7 +243,7 @@ export default function StandaloneParkTrainingPage() {
       await updateDoc(doc(db, 'parks', parkId, 'trainings', trainingId), {
         [`guestRsvps.${guestId}`]: { name, status: 'GOING' },
       })
-      await maybeNotifyAuthor(training, parkId, name, training.authorId)
+      await maybeNotifyAuthor(training, parkId, name, training.authorId, user?.uid)
       setGuestName(name)
       setGuestConfirmed(true)
       setGuestInput('')

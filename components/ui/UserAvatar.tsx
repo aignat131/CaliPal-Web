@@ -34,8 +34,8 @@ export function UserAvatar({ src, name, size = 40, className = '' }: UserAvatarP
       style={{
         width: size,
         height: size,
-        backgroundColor: 'rgba(30, 215, 95, 0.18)',
-        border: '1px solid rgba(30, 215, 95, 0.25)',
+        backgroundColor: 'rgba(var(--accent-rgb), 0.18)',
+        border: '1px solid rgba(var(--accent-rgb), 0.25)',
       }}
       aria-label={altText}
     >

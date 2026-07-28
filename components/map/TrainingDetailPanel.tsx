@@ -5,6 +5,7 @@ import { doc, onSnapshot, updateDoc, deleteField, serverTimestamp } from 'fireba
 import { db } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
 import { createNotification } from '@/lib/firebase/notifications'
+import { useAuth } from '@/lib/hooks/useAuth'
 import type { PlannedTraining, CommunityMember } from '@/types'
 import { ChevronLeft, Calendar, Clock, MapPin, Dumbbell, Users } from 'lucide-react'
 import Link from 'next/link'
@@ -24,6 +25,7 @@ export function TrainingDetailPanel({
   onClose: () => void
 }) {
   const t = useT()
+  const { user } = useAuth()
   const [liveTraining, setLiveTraining] = useState<PlannedTraining>(training)
   const [guestId, setGuestId] = useState('')
   const [guestInput, setGuestInput] = useState('')
@@ -78,6 +80,7 @@ export function TrainingDetailPanel({
             'Cineva participă la antrenamentul tău! 💪',
             `${name} a confirmat că merge la „${liveTraining.name}".`,
             training.id,
+            user?.uid,
           )
           fetch('/api/push', {
             method: 'POST',

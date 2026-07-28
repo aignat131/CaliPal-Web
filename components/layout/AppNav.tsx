@@ -62,17 +62,24 @@ export default function AppNav() {
               aria-label={label}
               className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 transition-colors duration-150"
             >
-              <Icon
-                size={20}
-                className="transition-all duration-200"
+              <div
+                className="flex items-center justify-center rounded-full transition-all duration-200"
                 style={{
-                  color: active ? 'var(--accent)' : inactiveColor,
+                  width: 32,
+                  height: 24,
+                  backgroundColor: active ? 'rgba(var(--accent-rgb), 0.12)' : 'transparent',
                   transform: active ? 'translateY(-1px)' : 'translateY(0)',
                 }}
-                strokeWidth={active ? 2.5 : 1.8}
-              />
+              >
+                <Icon
+                  size={22}
+                  className="transition-colors duration-150"
+                  style={{ color: active ? 'var(--accent)' : inactiveColor }}
+                  strokeWidth={active ? 2.5 : 1.8}
+                />
+              </div>
               <span
-                className="text-[9px] font-semibold tracking-wide transition-colors"
+                className="text-[10px] font-semibold tracking-wide transition-colors duration-150"
                 style={{ color: active ? 'var(--accent)' : inactiveColor }}
               >
                 {label}
@@ -106,7 +113,7 @@ export default function AppNav() {
                 }}
               >
                 <Icon
-                  size={20}
+                  size={22}
                   className="flex-shrink-0 transition-colors"
                   style={{ color: active ? 'var(--accent)' : inactiveColor }}
                   strokeWidth={active ? 2.5 : 1.8}

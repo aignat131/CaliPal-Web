@@ -7,10 +7,12 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { createNotification } from '@/lib/firebase/notifications'
+import { useAuth } from '@/lib/hooks/useAuth'
 import type { ParkDoc, CommunityDoc, ParkRequest } from '@/types'
 import { Plus, Trash2, Pencil, Check, X, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
 
 export function ParksTab() {
+  const { user } = useAuth()
   const [parks, setParks] = useState<ParkDoc[]>([])
   const [communities, setCommunities] = useState<CommunityDoc[]>([])
   const [parkRequests, setParkRequests] = useState<ParkRequest[]>([])
@@ -57,7 +59,8 @@ export function ParksTab() {
       req.requestedByUid, 'PARK_CREATED',
       'Parc aprobat! 🎉',
       `Parcul "${req.name}" pe care l-ai solicitat a fost adăugat pe hartă.`,
-      parkRef.id
+      parkRef.id,
+      user?.uid,
     )
   }
 

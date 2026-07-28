@@ -428,6 +428,7 @@ export default function CommunityDetailPage() {
         'Ai fost eliminat din comunitate',
         `Ne pare rău, dar ai fost eliminat din "${community?.name ?? 'comunitate'}". Poți explora alte comunități.`,
         id,
+        user?.uid,
       )
       showToast(`${member.displayName} a fost eliminat.`)
     } catch {
@@ -493,7 +494,7 @@ export default function CommunityDetailPage() {
         const communityName = community?.name ?? ''
         await Promise.allSettled(
           mentionIds.map(uid =>
-            createNotification(uid, 'POST_MENTION', communityName, `${myName} te-a menționat într-o postare`, id)
+            createNotification(uid, 'POST_MENTION', communityName, `${myName} te-a menționat într-o postare`, id, user?.uid)
           )
         )
       }
@@ -719,7 +720,7 @@ export default function CommunityDetailPage() {
             <button
               aria-label="Înapoi"
               onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }}
-              className="absolute top-3 left-3 w-9 h-9 rounded-full flex items-center justify-center"
+              className="absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center"
               style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)' }}
             >
               <ArrowLeft size={18} className="text-white" />
@@ -729,7 +730,7 @@ export default function CommunityDetailPage() {
               <button
                 aria-label="Distribuie comunitatea"
                 onClick={shareCommunity}
-                className="w-9 h-9 rounded-full flex items-center justify-center"
+                className="w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)' }}
               >
                 <Share2 size={16} className="text-white" />
@@ -739,7 +740,7 @@ export default function CommunityDetailPage() {
                   <button
                     onClick={() => setShowCommunityMenu(v => !v)}
                     aria-label="Opțiuni comunitate"
-                    className="w-9 h-9 rounded-full flex items-center justify-center"
+                    className="w-10 h-10 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)' }}
                   >
                     <Pencil size={15} className="text-white" />
@@ -777,7 +778,7 @@ export default function CommunityDetailPage() {
         /* ── Plain text header (no image) ── */
         <div className="px-4 pt-4 pb-3 border-b border-white/8">
           <div className="flex items-center gap-3">
-            <button aria-label="Înapoi" onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
+            <button aria-label="Înapoi" onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }} className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
               <ArrowLeft size={18} className="text-white/80" />
             </button>
             <div className="flex-1 min-w-0">
@@ -787,12 +788,12 @@ export default function CommunityDetailPage() {
               </div>
               <p className="text-xs text-white/45">{members.length} {t('common.members')} · {isMember ? t('comm_detail.member_badge') : t('comm_detail.visitor_badge')}</p>
             </div>
-            <button aria-label="Distribuie" onClick={shareCommunity} className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
+            <button aria-label="Distribuie" onClick={shareCommunity} className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
               <Share2 size={16} className="text-white/70" />
             </button>
             {isMember && (
               <div className="relative flex-shrink-0">
-                <button onClick={() => setShowCommunityMenu(v => !v)} aria-label="Opțiuni comunitate" className="w-9 h-9 rounded-full bg-white/8 flex items-center justify-center">
+                <button onClick={() => setShowCommunityMenu(v => !v)} aria-label="Opțiuni comunitate" className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center">
                   <Pencil size={15} className="text-white/70" />
                 </button>
                 {showCommunityMenu && (

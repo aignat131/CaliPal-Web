@@ -7,10 +7,12 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { createNotification } from '@/lib/firebase/notifications'
+import { useAuth } from '@/lib/hooks/useAuth'
 import type { ParkCommunityRequest } from '@/types'
 import { Check, X, MapPin } from 'lucide-react'
 
 export function ParkCommunityRequestsTab() {
+  const { user } = useAuth()
   const [requests, setRequests] = useState<ParkCommunityRequest[]>([])
 
   useEffect(() => {
@@ -37,14 +39,16 @@ export function ParkCommunityRequestsTab() {
         req.requestedByUid, 'COMMUNITY_REQUEST_APPROVED',
         'Comunitate aprobată! ✅',
         `Comunitatea "${req.communityName}" a fost aprobată și asociată parcului "${req.parkName}". A primit și badge-ul verificat!`,
-        req.communityId
+        req.communityId,
+        user?.uid,
       )
     } else {
       await createNotification(
         req.requestedByUid, 'COMMUNITY_REQUEST_APPROVED',
         'Cerere aprobată! ✅',
         `Comunitatea "${req.communityName}" a fost asociată parcului "${req.parkName}".`,
-        req.communityId
+        req.communityId,
+        user?.uid,
       )
     }
     await deleteDoc(doc(db, 'park_community_requests', req.id))
@@ -59,7 +63,9 @@ export function ParkCommunityRequestsTab() {
       await createNotification(
         req.requestedByUid, 'COMMUNITY_REQUEST_REJECTED',
         'Cerere respinsă',
-        `Cererea pentru comunitatea "${req.communityName}" la parcul "${req.parkName}" a fost respinsă de administrator.`
+        `Cererea pentru comunitatea "${req.communityName}" la parcul "${req.parkName}" a fost respinsă de administrator.`,
+        undefined,
+        user?.uid,
       )
     }
     await deleteDoc(doc(db, 'park_community_requests', req.id))

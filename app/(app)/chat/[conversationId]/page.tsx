@@ -359,7 +359,8 @@ export default function ChatDetailPage() {
       await createNotification(otherUserId, 'NEW_MESSAGE',
         myName || 'Mesaj nou',
         content.length > 60 ? content.slice(0, 57) + '...' : content,
-        conversationId
+        conversationId,
+        user.uid,
       )
 
       // One-time email reminder — fire-and-forget, never blocks sending

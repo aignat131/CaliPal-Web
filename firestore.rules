@@ -206,7 +206,7 @@ service cloud.firestore {
                   .hasOnly(['photoCount', 'commentsCount']))
           || (request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
-              && request.resource.data.guestRsvps.size() <= 200);
+              && request.resource.data.guestRsvps.size() <= 50);
       }
 
       // Training photos — one per attendee
@@ -363,7 +363,7 @@ service cloud.firestore {
                   .hasOnly(['rsvps', 'rsvpNames', 'rsvpPhotos', 'lastRsvpNotifAt']))
           || (request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['guestRsvps', 'lastRsvpNotifAt'])
-              && request.resource.data.guestRsvps.size() <= 200);
+              && request.resource.data.guestRsvps.size() <= 50);
       }
 
       // Immutable mirror of trainings — no updates, no deletes from any client
@@ -407,7 +407,9 @@ service cloud.firestore {
     match /notifications/{uid} {
       match /items/{itemId} {
         allow read, delete: if isOwner(uid);
+        // Any authenticated user can create, but must identify themselves
         allow create: if isAuth()
+          && request.resource.data.fromUid == request.auth.uid
           && request.resource.data.title is string
           && request.resource.data.title.size() <= 200
           && request.resource.data.body is string

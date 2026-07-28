@@ -321,8 +321,7 @@ export default function HomePage() {
               </Link>
             )}
             {!challenge && !commChallenge && (
-              <div className="rounded-2xl p-6 flex flex-col items-center gap-2 text-center"
-                style={{ backgroundColor: 'var(--app-surface)' }}>
+              <div className="app-card p-6 flex flex-col items-center gap-2 text-center">
                 <Trophy size={28} className="text-white/20" />
                 <p className="text-sm text-white/40">{t('home.no_challenges')}</p>
               </div>
@@ -332,8 +331,7 @@ export default function HomePage() {
 
         {/* Feedback CTA */}
         <Link href="/feedback" className="block mt-6">
-          <div className="rounded-2xl p-4 flex items-center gap-3 border border-white/8 cursor-pointer hover:border-brand-green/30 transition-colors"
-            style={{ backgroundColor: 'var(--app-surface)' }}>
+          <div className="app-card flex items-center gap-3 cursor-pointer hover:border-brand-green/30 transition-colors">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.15)' }}>
               <MessageSquarePlus size={18} className="text-brand-green" />
@@ -366,7 +364,7 @@ function ChallengeCard({
   const t = useT()
   const pct = Math.min(100, Math.round((current / targetReps) * 100))
   return (
-    <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+    <div className="app-card">
       <div className="flex items-center gap-2 mb-2">
         <Trophy size={14} className="text-yellow-400" />
         <p className="text-xs font-bold text-white/45 tracking-widest">{label}</p>
@@ -433,7 +431,7 @@ function FavTrainingCard({ training, favId, uid, userName, userPhoto }: { traini
 
   return (
     <Link href={`/training/${favId}/${training.id}`} className="block">
-    <div className="rounded-2xl p-4 mb-5" style={{ backgroundColor: 'var(--app-surface)' }}>
+    <div className="app-card mb-5">
       {/* Header: name + date badge */}
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <p className="font-black text-white text-[15px] leading-tight flex-1 min-w-0">{training.name}</p>

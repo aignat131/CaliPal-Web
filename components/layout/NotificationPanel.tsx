@@ -85,7 +85,7 @@ export function NotificationBell({ uid }: { uid: string }) {
       <button
         onClick={handleOpen}
         aria-label="Notifications"
-        className="relative w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/8 transition-colors"
+        className="relative w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/8 transition-colors"
         style={{ backgroundColor: 'var(--app-surface)' }}
       >
         <Bell

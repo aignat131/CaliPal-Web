@@ -84,7 +84,7 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
   // Send one-time in-app notification for task completion
   const label = TASK_NOTIF_LABELS[task]
   if (label) {
-    createNotification(uid, 'TASK_COMPLETED', label, `+${coins} monede`).catch(() => {})
+    createNotification(uid, 'TASK_COMPLETED', label, `+${coins} monede`, undefined, uid).catch(() => {})
   }
 
   return coins

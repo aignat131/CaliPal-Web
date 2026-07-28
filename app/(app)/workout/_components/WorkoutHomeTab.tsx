@@ -203,7 +203,7 @@ export function WorkoutHomeTab({
 
           {/* Last workout preview */}
           {history[0] && (
-            <div className="rounded-2xl p-4 mt-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="app-card mt-4">
               <p className="text-xs font-bold text-white/40 tracking-widest mb-2">ULTIMUL ANTRENAMENT</p>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-bold text-white">

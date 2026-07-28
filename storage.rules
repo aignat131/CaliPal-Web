@@ -17,6 +17,13 @@ service firebase.storage {
       let member = firestore.get(/databases/(default)/documents/communities/$(communityId)/members/$(request.auth.uid));
       return isAuth() && member != null && member.data.role in ['ADMIN', 'MODERATOR'];
     }
+    function isSuperAdmin() {
+      return isAuth() && request.auth.token.superAdmin == true;
+    }
+    function isChatParticipant(conversationId) {
+      let conv = firestore.get(/databases/(default)/documents/conversations/$(conversationId));
+      return isAuth() && conv != null && request.auth.uid in conv.data.participantIds;
+    }
 
     // Profile photos — owner writes, publicly readable (needed for shared training pages)
     match /profile_photos/{uid}/{fileName} {
@@ -58,17 +65,17 @@ service firebase.storage {
         && request.resource.size <= 8 * 1024 * 1024;
     }
 
-    // Chat images — conversation participants can upload
+    // Chat images — only conversation participants can upload
     match /chatImages/{conversationId}/{fileName} {
       allow read: if isAuth();
-      allow write: if isAuth()
+      allow write: if isChatParticipant(conversationId)
         && request.resource.contentType.matches('image/.*')
         && request.resource.size <= 8 * 1024 * 1024;
     }
 
-    // Form check videos — owner writes, superadmin reads
+    // Form check videos — owner writes, owner + superadmin reads
     match /form_check_videos/{uid}/{fileName} {
-      allow read: if isOwner(uid) || isAuth();
+      allow read: if isOwner(uid) || isSuperAdmin();
       allow write: if isOwner(uid)
         && request.resource.contentType.matches('video/.*')
         && request.resource.size <= 100 * 1024 * 1024;

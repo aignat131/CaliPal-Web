@@ -7,10 +7,12 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { createNotification } from '@/lib/firebase/notifications'
+import { useAuth } from '@/lib/hooks/useAuth'
 import type { CommunityDoc } from '@/types'
 import { Trash2, Dumbbell } from 'lucide-react'
 
 export function CommunitiesTab() {
+  const { user } = useAuth()
   const [communities, setCommunities] = useState<CommunityDoc[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [members, setMembers] = useState<Record<string, { userId: string; displayName: string; role: string }[]>>({})
@@ -75,7 +77,8 @@ export function CommunitiesTab() {
         c.creatorId, 'COMMUNITY_DELETED',
         'Comunitate ștearsă',
         `Ne pare rău, comunitatea "${c.name}" a fost ștearsă de administrator.`,
-        c.id
+        c.id,
+        user?.uid,
       )
     }
     await deleteDoc(doc(db, 'communities', c.id))

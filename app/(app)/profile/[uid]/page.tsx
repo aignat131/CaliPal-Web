@@ -152,7 +152,8 @@ export default function UserProfilePage() {
       await createNotification(uid, 'FRIEND_REQUEST',
         'Cerere de prietenie',
         `${myName || 'Cineva'} ți-a trimis o cerere de prietenie.`,
-        user.uid
+        user.uid,
+        user.uid,
       )
       setFriendStatus('sent')
     } catch (e: unknown) {
@@ -205,7 +206,8 @@ export default function UserProfilePage() {
         createNotification(uid, 'FRIEND_REQUEST_ACCEPTED',
           'Cerere acceptată! 🎉',
           `${myName || 'Cineva'} și-a acceptat cererea ta de prietenie.`,
-          user.uid
+          user.uid,
+          user.uid,
         ),
       ])
     } catch (err) {

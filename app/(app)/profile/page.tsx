@@ -466,17 +466,17 @@ export default function ProfilePage() {
         {/* Top action bar */}
         <div className="flex justify-end gap-2 mb-4">
           <Link href="/chat">
-            <button className="w-9 h-9 rounded-full flex items-center justify-center bg-white/8">
+            <button className="w-10 h-10 rounded-full flex items-center justify-center bg-white/8">
               <Mail size={16} className="text-white/70" />
             </button>
           </Link>
           <Link href="/profile/friends">
-            <button className="w-9 h-9 rounded-full flex items-center justify-center bg-white/8">
+            <button className="w-10 h-10 rounded-full flex items-center justify-center bg-white/8">
               <Users size={16} className="text-white/70" />
             </button>
           </Link>
           <Link href="/profile/settings">
-            <button className="w-9 h-9 rounded-full flex items-center justify-center bg-white/8">
+            <button className="w-10 h-10 rounded-full flex items-center justify-center bg-white/8">
               <Settings size={16} className="text-white/70" />
             </button>
           </Link>
@@ -569,7 +569,7 @@ export default function ProfilePage() {
         {tab === 0 && (
           <div>
             {/* Recent workouts */}
-            <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="app-card mb-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-bold text-white">{t('profile.recent_workouts')}</p>
                 <Link href="/workout">
@@ -606,7 +606,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Skills preview */}
-            <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="app-card mb-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-bold text-white">{t('profile.skills')}</p>
                 <Link href="/profile/skills">
@@ -651,7 +651,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Training history */}
-            <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="app-card mb-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-bold text-white">{t('profile.training_history')}</p>
                 {trainingHistory.length > 0 && (

@@ -72,7 +72,8 @@ export default function FriendsPage() {
       await createNotification(req.fromUid, 'FRIEND_REQUEST_ACCEPTED',
         'Cerere acceptată! 🎉',
         `${user.displayName || 'Cineva'} ți-a acceptat cererea de prietenie.`,
-        user.uid
+        user.uid,
+        user.uid,
       )
     } catch (err) {
       console.error('acceptRequest failed', err)
@@ -153,7 +154,8 @@ export default function FriendsPage() {
     await createNotification(toUid, 'FRIEND_REQUEST',
       'Cerere de prietenie',
       `${user.displayName || 'Cineva'} ți-a trimis o cerere de prietenie.`,
-      user.uid
+      user.uid,
+      user.uid,
     )
     awardCoins(user.uid, 'ADD_FRIEND').catch(() => {})
     setSearchResult(null)

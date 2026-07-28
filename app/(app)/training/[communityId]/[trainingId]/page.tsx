@@ -261,6 +261,7 @@ export default function PublicTrainingPage() {
           'Cineva participă la antrenamentul tău! 💪',
           `${name} a confirmat că merge la „${training.name}".`,
           trainingId,
+          user?.uid,
         )
         // Also send FCM push to creator's device (fire-and-forget)
         fetch('/api/push', {
@@ -462,6 +463,7 @@ export default function PublicTrainingPage() {
           'Cineva participă la antrenamentul tău! 💪',
           `${storedName} a confirmat că merge la „${training.name}".`,
           trainingId,
+          user.uid,
         )
       }
     }
