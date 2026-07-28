@@ -194,6 +194,10 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
           const result = detectorRef.current!.detectForVideo(video, time)
           if (result.landmarks.length > 0) {
             processFrame(result.landmarks[0], ctx, canvas.width, canvas.height)
+          } else if (exerciseType === 'pushup') {
+            // No body detected — check if gate should go stale (phone picked up, user left frame)
+            pushupGateRef.current.tick()
+            setGateStatus(pushupGateRef.current.gateState)
           }
         }
         animRef.current = requestAnimationFrame(detect)

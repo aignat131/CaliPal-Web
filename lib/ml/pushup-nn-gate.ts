@@ -139,9 +139,10 @@ export type GateState =
 const INFERENCE_INTERVAL = 6          // run NN every 6th frame (~5 Hz at 30 fps)
 const CONFIRM_COUNT = 3               // 3 consecutive positives to confirm
 const RECHECK_FAIL_COUNT = 3          // 3 consecutive negatives during recheck → back to VERIFYING
-const DRIFT_FRAME_THRESHOLD = 75      // ~2.5 seconds at 30 fps
+const DRIFT_FRAME_THRESHOLD = 45      // ~1.5 seconds at 30 fps
 const HEAD_DRIFT_THRESHOLD = 0.15     // normalized Y — head moved significantly
 const SH_DRIFT_THRESHOLD = 0.12       // shoulder-hip vertical diff change
+const STALE_MS = 2000                 // if no landmarks for 2s, gate goes to VERIFYING
 
 export class PushupNNGate {
   private state: GateState = 'LOADING'
@@ -163,6 +164,9 @@ export class PushupNNGate {
   private latestLandmarks: Landmark[] | null = null
   private latestElbow = 0
 
+  // Staleness: detect when landmarks disappear (phone picked up, body out of frame)
+  private lastUpdateMs = 0
+
   get gateState(): GateState { return this.state }
 
   /** Whether rep counting should proceed this frame */
@@ -179,10 +183,26 @@ export class PushupNNGate {
     this.state = ok ? 'VERIFYING' : 'FALLBACK'
   }
 
+  /**
+   * Call from the rAF loop even when no landmarks are detected.
+   * If the gate is CONFIRMED/RECHECKING and no update arrives for STALE_MS,
+   * transitions to VERIFYING (user likely left the frame or picked up phone).
+   */
+  tick(): void {
+    if (!this.isOpen || this.state === 'FALLBACK') return
+    if (this.lastUpdateMs > 0 && performance.now() - this.lastUpdateMs > STALE_MS) {
+      this.state = 'VERIFYING'
+      this.consecutivePositive = 0
+      this.driftFrameCount = 0
+      this.recheckNegatives = 0
+    }
+  }
+
   /** Call every frame with current landmarks and smoothed elbow angle. */
   update(landmarks: Landmark[], elbowAngle: number): void {
     this.latestLandmarks = landmarks
     this.latestElbow = elbowAngle
+    this.lastUpdateMs = performance.now()
     this.frameCount++
 
     switch (this.state) {
