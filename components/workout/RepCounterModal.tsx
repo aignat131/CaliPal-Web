@@ -472,28 +472,28 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
         </div>
       )}
 
-      {/* Pose invalid overlay */}
-      {!loading && poseInvalid && (
-        <div className="absolute bottom-28 left-4 right-4 flex flex-col gap-1.5 z-10">
-          <div
-            className="flex items-center gap-2 px-4 py-3 rounded-xl"
-            style={{ backgroundColor: 'rgba(99,102,241,0.88)', border: '1px solid rgba(99,102,241,0.6)' }}
-          >
-            <span className="text-white text-sm font-bold leading-tight">{poseInvalid}</span>
-          </div>
-        </div>
-      )}
-
-      {/* NN gate verifying overlay (pushups only, when pose rules pass but NN hasn't confirmed) */}
-      {!loading && !poseInvalid && exerciseType === 'pushup' && (gateStatus === 'LOADING' || gateStatus === 'VERIFYING') && (
+      {/* NN gate overlay for pushups — takes priority when gate is not confirmed */}
+      {!loading && exerciseType === 'pushup' && (gateStatus === 'LOADING' || gateStatus === 'VERIFYING') && (
         <div className="absolute bottom-28 left-4 right-4 flex flex-col gap-1.5 z-10">
           <div
             className="flex items-center gap-2 px-4 py-3 rounded-xl"
             style={{ backgroundColor: 'rgba(99,102,241,0.88)', border: '1px solid rgba(99,102,241,0.6)' }}
           >
             <span className="text-white text-sm font-bold leading-tight">
-              {gateStatus === 'LOADING' ? 'Se incarcă modelul...' : 'Intră în poziția de flotare'}
+              {gateStatus === 'LOADING' ? 'Se incarcă modelul...' : 'Pune-te în poziția de flotare'}
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Pose invalid overlay (hidden for pushups when gate overlay is showing) */}
+      {!loading && poseInvalid && !(exerciseType === 'pushup' && (gateStatus === 'LOADING' || gateStatus === 'VERIFYING')) && (
+        <div className="absolute bottom-28 left-4 right-4 flex flex-col gap-1.5 z-10">
+          <div
+            className="flex items-center gap-2 px-4 py-3 rounded-xl"
+            style={{ backgroundColor: 'rgba(99,102,241,0.88)', border: '1px solid rgba(99,102,241,0.6)' }}
+          >
+            <span className="text-white text-sm font-bold leading-tight">{poseInvalid}</span>
           </div>
         </div>
       )}
