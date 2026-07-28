@@ -272,7 +272,12 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       gate.update(lms, elbow)
       setGateStatus(gate.gateState)
 
-      if (poseCheck.valid && gate.isOpen) {
+      // Once the NN gate confirms the user is in pushup position, bypass PoseValidator.
+      // PoseValidator's verticalDiff check (shoulders vs hips) is too strict during the UP
+      // phase of a rep — it fails when arms extend because shoulders rise relative to hips.
+      // The NN gate already handles drift detection and re-verification.
+      if (gate.isOpen) {
+        setPoseInvalid(null)
         const cs = pushupCounterRef.current.update(elbow)
         newRepCount = cs.repCount
         drawSkeleton(ctx, lms, w, h, '#F97316')
