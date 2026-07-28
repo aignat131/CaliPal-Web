@@ -24,23 +24,34 @@ export function ServiceWorkerRegistrar() {
   const registeredRef = useRef(false)
 
   useEffect(() => {
-    // Register SW once, appending the build ID so the browser sees a new file on each deploy
-    if ('serviceWorker' in navigator && !registeredRef.current) {
-      registeredRef.current = true
-      const buildId = process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev'
-      navigator.serviceWorker.register(`/sw.js?v=${buildId}`).then(reg => {
-        // When a new SW is found, reload once it activates so the page gets fresh assets
-        reg.addEventListener('updatefound', () => {
-          const newSW = reg.installing
-          if (!newSW) return
-          newSW.addEventListener('statechange', () => {
-            if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
-              window.location.reload()
-            }
-          })
-        })
-      }).catch(() => {})
+    if (!('serviceWorker' in navigator) || registeredRef.current) return
+    registeredRef.current = true
+
+    const buildId = process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev'
+
+    function onUpdateFound(reg: ServiceWorkerRegistration) {
+      const newSW = reg.installing
+      if (!newSW) return
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
+          window.location.reload()
+        }
+      })
     }
+
+    navigator.serviceWorker.register(`/sw.js?v=${buildId}`).then(reg => {
+      reg.addEventListener('updatefound', () => onUpdateFound(reg))
+      // Force an update check immediately — catches stale cached SW
+      reg.update().catch(() => {})
+    }).catch(() => {})
+
+    // Also check for updates from any existing registration (e.g., PWA opened from cache)
+    navigator.serviceWorker.getRegistration().then(existing => {
+      if (existing) {
+        existing.addEventListener('updatefound', () => onUpdateFound(existing))
+        existing.update().catch(() => {})
+      }
+    }).catch(() => {})
 
     // Capture the PWA install prompt — prevents the default mini-infobar
     // and lets us show our own install UI at the right moment
