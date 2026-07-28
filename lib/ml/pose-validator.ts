@@ -72,7 +72,6 @@ export class PoseValidator {
 
   private checkPushupPose(lms: Landmark[]): PoseValidation {
     // Need at least one complete arm chain + hips visible
-    // Legs/ankles NOT required — user may face the camera head-on
     const leftArmVis = this.minVis(lms, MP.LEFT_SHOULDER, MP.LEFT_ELBOW, MP.LEFT_WRIST)
     const rightArmVis = this.minVis(lms, MP.RIGHT_SHOULDER, MP.RIGHT_ELBOW, MP.RIGHT_WRIST)
     const hipVis = Math.max(lms[MP.LEFT_HIP].visibility ?? 0, lms[MP.RIGHT_HIP].visibility ?? 0)
@@ -81,13 +80,32 @@ export class PoseValidator {
       return { valid: false, reason: 'Asigură-te că brațele și corpul sunt vizibile' }
     }
 
-    // Only check that shoulders and hips aren't wildly vertical (rules out standing upright)
     const avgShoulderY = (lms[MP.LEFT_SHOULDER].y + lms[MP.RIGHT_SHOULDER].y) / 2
     const avgHipY = (lms[MP.LEFT_HIP].y + lms[MP.RIGHT_HIP].y) / 2
-    const verticalDiff = Math.abs(avgShoulderY - avgHipY)
 
-    if (verticalDiff > 0.40) {
+    // Shoulders and hips must be roughly level (not standing upright)
+    const verticalDiff = Math.abs(avgShoulderY - avgHipY)
+    if (verticalDiff > 0.18) {
       return { valid: false, reason: 'Intră în poziția de flotare — corp orizontal' }
+    }
+
+    // Wrists must be below (or level with) shoulders — arms supporting body, not raised
+    const bestWristY = Math.max(lms[MP.LEFT_WRIST].y, lms[MP.RIGHT_WRIST].y)
+    const bestShoulderY = Math.min(lms[MP.LEFT_SHOULDER].y, lms[MP.RIGHT_SHOULDER].y)
+    if (bestWristY < bestShoulderY - 0.05) {
+      return { valid: false, reason: 'Mâinile trebuie pe podea — intră în poziția de flotare' }
+    }
+
+    // If ankles are visible, check body planarity (shoulder-hip-ankle roughly straight)
+    const leftAnkleVis = lms[MP.LEFT_ANKLE].visibility ?? 0
+    const rightAnkleVis = lms[MP.RIGHT_ANKLE].visibility ?? 0
+    if (Math.max(leftAnkleVis, rightAnkleVis) >= MIN_VISIBILITY) {
+      const bodyAngle = Math.max(leftAnkleVis, rightAnkleVis) === leftAnkleVis
+        ? this.safeAngle(lms, MP.LEFT_SHOULDER, MP.LEFT_HIP, MP.LEFT_ANKLE)
+        : this.safeAngle(lms, MP.RIGHT_SHOULDER, MP.RIGHT_HIP, MP.RIGHT_ANKLE)
+      if (bodyAngle > 0 && bodyAngle < 140) {
+        return { valid: false, reason: 'Corpul trebuie drept — nu sta pe genunchi' }
+      }
     }
 
     return { valid: true }

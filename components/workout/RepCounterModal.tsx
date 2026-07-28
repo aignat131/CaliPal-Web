@@ -219,53 +219,65 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   }, []) // intentionally empty — exerciseType is stable for modal's lifetime
 
   function processFrame(lms: Landmark[], ctx: CanvasRenderingContext2D, w: number, h: number) {
-    // Pose validation — warn only, never block counting
+    // Pose validation — gates the rep counters (no reps count when invalid)
     const poseCheck = poseValidatorRef.current.validate(lms, exerciseType)
     setPoseInvalid(!poseCheck.valid ? poseCheck.reason ?? null : null)
 
-    let newRepCount: number
+    // Always compute angles for visual feedback, but only feed them to the
+    // rep counter state machine when the pose is valid. When invalid the
+    // skeleton turns gray and the counter freezes.
+    let newRepCount = repCountRef.current
 
     if (exerciseType === 'pullup') {
       const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
-      const elbowVel = elbowSmootherRef.current.getVelocity()
-      const cs = repCounterRef.current.update(elbow)
-      newRepCount = cs.repCount
-      drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state] ?? '#1ED75F')
+      setAngleVelocity(elbowSmootherRef.current.getVelocity())
       setPrimaryAngle(Math.round(elbow))
-      setStateLabel(STATE_LABELS[cs.state])
-      setStateColor(STATE_COLORS[cs.state])
-      setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state))
-      setAngleVelocity(elbowVel)
       setArcProgress(Math.max(0, Math.min(1, (BALANCED_PULLUP.hangEnter - elbow) / (BALANCED_PULLUP.hangEnter - BALANCED_PULLUP.peak))))
+      if (poseCheck.valid) {
+        const cs = repCounterRef.current.update(elbow)
+        newRepCount = cs.repCount
+        drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state] ?? '#1ED75F')
+        setStateLabel(STATE_LABELS[cs.state])
+        setStateColor(STATE_COLORS[cs.state])
+        setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state))
+      } else {
+        drawSkeleton(ctx, lms, w, h, '#6B7280')
+      }
 
     } else if (exerciseType === 'pushup') {
       const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
-      const elbowVel = elbowSmootherRef.current.getVelocity()
-      const cs = pushupCounterRef.current.update(elbow)
-      newRepCount = cs.repCount
-      drawSkeleton(ctx, lms, w, h, '#F97316')
+      setAngleVelocity(elbowSmootherRef.current.getVelocity())
       setPrimaryAngle(Math.round(elbow))
-      setStateLabel(PUSHUP_STATE_LABELS[cs.state])
-      setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
-      setFormCues(formCoachRef.current.getFormCues(lms, 'pushup', cs.state))
-      setAngleVelocity(elbowVel)
       setArcProgress(Math.max(0, Math.min(1, (BALANCED_PUSHUP.upAngle - elbow) / (BALANCED_PUSHUP.upAngle - BALANCED_PUSHUP.downAngle))))
+      if (poseCheck.valid) {
+        const cs = pushupCounterRef.current.update(elbow)
+        newRepCount = cs.repCount
+        drawSkeleton(ctx, lms, w, h, '#F97316')
+        setStateLabel(PUSHUP_STATE_LABELS[cs.state])
+        setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
+        setFormCues(formCoachRef.current.getFormCues(lms, 'pushup', cs.state))
+      } else {
+        drawSkeleton(ctx, lms, w, h, '#6B7280')
+      }
 
     } else {
       const rawKnee = bestKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
       const knee = kneeSmootherRef.current.smooth(rawKnee)
-      const kneeVel = kneeSmootherRef.current.getVelocity()
-      const cs = squatCounterRef.current.update(knee)
-      newRepCount = cs.repCount
-      drawSkeleton(ctx, lms, w, h, '#3B82F6')
+      setAngleVelocity(kneeSmootherRef.current.getVelocity())
       setPrimaryAngle(Math.round(knee))
-      setStateLabel(SQUAT_STATE_LABELS[cs.state])
-      setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
-      setFormCues(formCoachRef.current.getFormCues(lms, 'squat', cs.state))
-      setAngleVelocity(kneeVel)
       setArcProgress(Math.max(0, Math.min(1, (BALANCED_SQUAT.upAngle - knee) / (BALANCED_SQUAT.upAngle - BALANCED_SQUAT.downAngle))))
+      if (poseCheck.valid) {
+        const cs = squatCounterRef.current.update(knee)
+        newRepCount = cs.repCount
+        drawSkeleton(ctx, lms, w, h, '#3B82F6')
+        setStateLabel(SQUAT_STATE_LABELS[cs.state])
+        setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
+        setFormCues(formCoachRef.current.getFormCues(lms, 'squat', cs.state))
+      } else {
+        drawSkeleton(ctx, lms, w, h, '#6B7280')
+      }
     }
 
     // Track rep timestamps
