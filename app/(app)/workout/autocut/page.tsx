@@ -25,7 +25,7 @@ export default function AutoCutPage() {
   const chunksRef = useRef<Blob[]>([])
   const animRef = useRef<number | null>(null)
   const detectorRef = useRef<unknown>(null)
-  const repCounterRef = useRef(new RepCounter())
+  const repCounterRef = useRef(new RepCounter(undefined, false))
   const repSegmentsRef = useRef<RepSegment[]>([])
   const recordingStartRef = useRef<number>(0)
   const lastRepCountRef = useRef(0)

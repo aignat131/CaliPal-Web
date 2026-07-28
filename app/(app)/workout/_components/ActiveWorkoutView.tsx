@@ -405,11 +405,12 @@ export function ActiveWorkoutView({
                       const isTimedComplete = isTimed && (s.reps ?? 0) > 0
                       const done = isTimed ? isTimedComplete : (isManual || doneKeys.has(key))
                       const isTimedRunning = activeTimedSet?.exerciseIndex === ei && activeTimedSet?.setIndex === si && activeTimedSet.startedAt !== null
+                      const repDur = s.reps != null && s.durationSeconds && s.durationSeconds > 0 ? ` (${s.durationSeconds}s)` : ''
                       const val = isTimed
                         ? isTimedComplete
                           ? `${s.reps} rep în ${formatDuration(s.timedDurationSeconds!)}`
                           : `⏱ ${formatDuration(s.timedDurationSeconds!)} — apasă pentru start`
-                        : s.reps != null ? `${s.reps} rep` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
+                        : s.reps != null ? `${s.reps} rep${repDur}` : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
                       const mod = s.weightKg ? ` · +${s.weightKg}kg` : s.bandKg ? ` · ~${s.bandKg}kg` : ''
                       const handleTap = () => {
                         if (isTimed && !isTimedComplete && !isTimedRunning) {
@@ -1077,7 +1078,7 @@ export function ActiveWorkoutView({
         <RepCounterModal
           exerciseType={getExerciseType(logExercise)!}
           exerciseName={logExercise}
-          onConfirm={(reps) => { setLogReps(reps); setShowRepCounter(false) }}
+          onConfirm={(reps, _duration) => { setLogReps(reps); setShowRepCounter(false) }}
           onCancel={() => setShowRepCounter(false)}
         />
       )}

@@ -2,8 +2,10 @@
  * Pull-up rep counter — port of RepetitionCounter.kt
  */
 
-const CONFIRM_FRAMES = 2
+const CONFIRM_FRAMES = 3
 const MIN_REP_FRAMES = 20
+const FIRST_REP_MIN_MS = 1800
+const SUBSEQUENT_REP_MIN_MS = 700
 
 // ── Threshold config types & presets ─────────────────────────────────────────
 
@@ -34,7 +36,10 @@ export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 148, hangExit: 153
 export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 144, hangExit: 149, peak: 112 }
 export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 145, peak: 120 }
 
-export const PUSHUP_THRESHOLDS: PushupThresholds = { downAngle: 120, upAngle: 135 }
+export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 95,  upAngle: 155 }
+export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 150 }
+export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 140 }
+export const PUSHUP_THRESHOLDS: PushupThresholds = BALANCED_PUSHUP
 
 export const STRICT_SQUAT:   SquatThresholds = { downAngle: 100, upAngle: 160 }
 export const BALANCED_SQUAT: SquatThresholds = { downAngle: 110, upAngle: 150 }
@@ -63,9 +68,12 @@ export class RepCounter {
   private startAngle: number | null = null
   private lowestAngle: number | null = null
   private readonly minRangeRequired = 25
+  private repStartMs: number | null = null
+  private readonly enforceTiming: boolean
 
-  constructor(thresholds: PullupThresholds = STRICT_PULLUP) {
+  constructor(thresholds: PullupThresholds = STRICT_PULLUP, enforceTiming = true) {
     this.t = thresholds
+    this.enforceTiming = enforceTiming
   }
 
   reset() {
@@ -76,6 +84,7 @@ export class RepCounter {
     this.peakReached = false
     this.startAngle = null
     this.lowestAngle = null
+    this.repStartMs = null
   }
 
   private snapshot(): RepCounterState {
@@ -104,6 +113,7 @@ export class RepCounter {
             this.confirmBuffer = 0
             this.startAngle = avgElbow
             this.lowestAngle = avgElbow
+            this.repStartMs = performance.now()
           }
         } else {
           this.confirmBuffer = 0
@@ -126,6 +136,7 @@ export class RepCounter {
           this.confirmBuffer = 0
           this.startAngle = null
           this.lowestAngle = null
+          this.repStartMs = null
         } else {
           this.confirmBuffer = 0
           // Track deepest point reached during pull
@@ -153,13 +164,20 @@ export class RepCounter {
           if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= MIN_REP_FRAMES) {
             const rangeOk = this.startAngle !== null && this.lowestAngle !== null
               && (this.startAngle - this.lowestAngle) >= this.minRangeRequired
-            if (rangeOk) this.repCount++
+            let timeOk = true
+            if (this.enforceTiming) {
+              const minMs = this.repCount === 0 ? FIRST_REP_MIN_MS : SUBSEQUENT_REP_MIN_MS
+              const elapsed = this.repStartMs !== null ? performance.now() - this.repStartMs : Infinity
+              timeOk = elapsed >= minMs
+            }
+            if (rangeOk && timeOk) this.repCount++
             this.state = 'HANGING'
             this.confirmBuffer = 0
             this.framesSinceRep = 0
             this.peakReached = false
             this.startAngle = null
             this.lowestAngle = null
+            this.repStartMs = null
           }
         } else {
           this.confirmBuffer = 0
@@ -201,33 +219,41 @@ export class PushupCounter {
   private repCount = 0
   private state: PushupState = 'IDLE'
   private confirmBuffer = 0
+  private framesSinceRep = 0
   private t: PushupThresholds
   private startAngle: number | null = null
   private lowestAngle: number | null = null
-  private readonly minRangeRequired = 15
+  private readonly minRangeRequired = 25
+  private repStartMs: number | null = null
+  private readonly enforceTiming: boolean
 
-  constructor(thresholds: PushupThresholds = PUSHUP_THRESHOLDS) {
+  constructor(thresholds: PushupThresholds = PUSHUP_THRESHOLDS, enforceTiming = true) {
     this.t = thresholds
+    this.enforceTiming = enforceTiming
   }
 
   reset() {
     this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0
+    this.framesSinceRep = 0
     this.startAngle = null; this.lowestAngle = null
+    this.repStartMs = null
   }
 
   update(avgElbow: number): { repCount: number; state: PushupState } {
     if (!isFinite(avgElbow)) return { repCount: this.repCount, state: this.state }
+    this.framesSinceRep++
     switch (this.state) {
       case 'IDLE':
       case 'UP':
         if (avgElbow > this.t.upAngle) { this.state = 'UP'; this.confirmBuffer = 0 }
         else if (avgElbow < this.t.downAngle) {
           this.confirmBuffer++
-          if (this.confirmBuffer >= 2) {
+          if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'DOWN'
             this.confirmBuffer = 0
             this.startAngle = avgElbow
             this.lowestAngle = avgElbow
+            this.repStartMs = performance.now()
           }
         } else { this.confirmBuffer = 0 }
         break
@@ -236,12 +262,20 @@ export class PushupCounter {
         if (this.lowestAngle === null || avgElbow < this.lowestAngle) this.lowestAngle = avgElbow
         if (avgElbow > this.t.upAngle) {
           this.confirmBuffer++
-          if (this.confirmBuffer >= 2) {
+          if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= MIN_REP_FRAMES) {
             const rangeOk = this.startAngle !== null && this.lowestAngle !== null
               && (this.startAngle - this.lowestAngle) >= this.minRangeRequired
-            if (rangeOk) this.repCount++
+            let timeOk = true
+            if (this.enforceTiming) {
+              const minMs = this.repCount === 0 ? FIRST_REP_MIN_MS : SUBSEQUENT_REP_MIN_MS
+              const elapsed = this.repStartMs !== null ? performance.now() - this.repStartMs : Infinity
+              timeOk = elapsed >= minMs
+            }
+            if (rangeOk && timeOk) this.repCount++
             this.state = 'UP'; this.confirmBuffer = 0
+            this.framesSinceRep = 0
             this.startAngle = null; this.lowestAngle = null
+            this.repStartMs = null
           }
         } else { this.confirmBuffer = 0 }
         break
@@ -265,33 +299,41 @@ export class SquatCounter {
   private repCount = 0
   private state: SquatState = 'IDLE'
   private confirmBuffer = 0
+  private framesSinceRep = 0
   private t: SquatThresholds
   private startAngle: number | null = null
   private lowestAngle: number | null = null
   private readonly minRangeRequired = 30
+  private repStartMs: number | null = null
+  private readonly enforceTiming: boolean
 
-  constructor(thresholds: SquatThresholds = STRICT_SQUAT) {
+  constructor(thresholds: SquatThresholds = STRICT_SQUAT, enforceTiming = true) {
     this.t = thresholds
+    this.enforceTiming = enforceTiming
   }
 
   reset() {
     this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0
+    this.framesSinceRep = 0
     this.startAngle = null; this.lowestAngle = null
+    this.repStartMs = null
   }
 
   update(avgKnee: number): { repCount: number; state: SquatState } {
     if (!isFinite(avgKnee)) return { repCount: this.repCount, state: this.state }
+    this.framesSinceRep++
     switch (this.state) {
       case 'IDLE':
       case 'UP':
         if (avgKnee > this.t.upAngle) { this.state = 'UP'; this.confirmBuffer = 0 }
         else if (avgKnee < this.t.downAngle) {
           this.confirmBuffer++
-          if (this.confirmBuffer >= 2) {
+          if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'DOWN'
             this.confirmBuffer = 0
             this.startAngle = avgKnee
             this.lowestAngle = avgKnee
+            this.repStartMs = performance.now()
           }
         } else { this.confirmBuffer = 0 }
         break
@@ -300,12 +342,20 @@ export class SquatCounter {
         if (this.lowestAngle === null || avgKnee < this.lowestAngle) this.lowestAngle = avgKnee
         if (avgKnee > this.t.upAngle) {
           this.confirmBuffer++
-          if (this.confirmBuffer >= 2) {
+          if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= MIN_REP_FRAMES) {
             const rangeOk = this.startAngle !== null && this.lowestAngle !== null
               && (this.startAngle - this.lowestAngle) >= this.minRangeRequired
-            if (rangeOk) this.repCount++
+            let timeOk = true
+            if (this.enforceTiming) {
+              const minMs = this.repCount === 0 ? FIRST_REP_MIN_MS : SUBSEQUENT_REP_MIN_MS
+              const elapsed = this.repStartMs !== null ? performance.now() - this.repStartMs : Infinity
+              timeOk = elapsed >= minMs
+            }
+            if (rangeOk && timeOk) this.repCount++
             this.state = 'UP'; this.confirmBuffer = 0
+            this.framesSinceRep = 0
             this.startAngle = null; this.lowestAngle = null
+            this.repStartMs = null
           }
         } else { this.confirmBuffer = 0 }
         break

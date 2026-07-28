@@ -243,6 +243,17 @@ export interface WorkoutCircuit {
   rounds: CircuitRound[]
 }
 
+// ── Rep Session (crash recovery) ─────────────────────────────────────────────
+
+export interface RepSession {
+  exerciseType: 'pullup' | 'pushup' | 'squat'
+  exerciseName: string
+  repCount: number
+  firstRepTimestamp: number | null
+  lastRepTimestamp: number | null
+  savedAt: number
+}
+
 // ── Challenge ─────────────────────────────────────────────────────────────────
 
 export interface WeeklyChallenge {

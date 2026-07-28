@@ -74,12 +74,12 @@ export function QuickRepCounterView({ catalogue, onSaveAsWorkout, onContinueToWo
     }
   }
 
-  function handleCountConfirm(reps: number) {
+  function handleCountConfirm(reps: number, durationSeconds: number) {
     if (step.name !== 'counting') return
     const newEntry: WorkoutExercise = {
       name: step.exerciseName,
       category: catalogue.find(e => norm(e.name) === norm(step.exerciseName))?.category ?? 'General',
-      sets: [{ reps }],
+      sets: [{ reps, ...(durationSeconds > 0 && { durationSeconds }) }],
     }
     setAccumulatedSets(prev => [...prev, newEntry])
     setStep({ name: 'post-set', lastReps: reps, lastExerciseName: step.exerciseName })

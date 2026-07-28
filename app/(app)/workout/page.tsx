@@ -7,14 +7,14 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge, GripType } from '@/types'
+import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge, GripType, RepSession } from '@/types'
 import { checkWorkoutMilestones, checkStreakMilestones, awardCoins } from '@/lib/gamification/coins'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
 import { DEFAULT_EXERCISE_CATALOGUE, getCategory, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
-import { localDate, totalRepsInWorkout, formatDuration, getExerciseType } from './_helpers'
+import { localDate, totalRepsInWorkout, formatDuration, getExerciseType, norm } from './_helpers'
 import type { ExerciseType } from '@/lib/ml/form-coach'
-import RepCounterModal from '@/components/workout/RepCounterModal'
+import RepCounterModal, { REP_SESSION_KEY } from '@/components/workout/RepCounterModal'
 import { WorkoutHomeTab } from './_components/WorkoutHomeTab'
 import { ActiveWorkoutView } from './_components/ActiveWorkoutView'
 import { PostWorkoutDetails } from './_components/PostWorkoutDetails'
@@ -58,6 +58,22 @@ export default function WorkoutPage() {
   const [historyLoading, setHistoryLoading] = useState(true)
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
   const [challengeProgress, setChallengeProgress] = useState<UserChallengeProgress | null>(null)
+
+  // Crash recovery
+  const [recoveredSession, setRecoveredSession] = useState<RepSession | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(REP_SESSION_KEY)
+      if (!raw) return
+      const session = JSON.parse(raw) as RepSession
+      if (Date.now() - session.savedAt > 60 * 60 * 1000) {
+        localStorage.removeItem(REP_SESSION_KEY)
+        return
+      }
+      if (session.repCount > 0) setRecoveredSession(session)
+    } catch { localStorage.removeItem(REP_SESSION_KEY) }
+  }, [])
 
   useEffect(() => {
     if (isActive && screen === 'home') setShowResumePrompt(true)
@@ -193,12 +209,28 @@ export default function WorkoutPage() {
     setQuickExercise({ name, type })
   }
 
-  function handleQuickExerciseConfirm(reps: number) {
+  function handleQuickExerciseConfirm(reps: number, durationSeconds: number) {
     if (!quickExercise) return
+    const set: WorkoutSet = { reps, ...(durationSeconds > 0 && { durationSeconds }) }
+
+    // If a workout is active, add directly to it
+    if (isActive) {
+      const existingIdx = exercises.findIndex(ex => norm(ex.name) === norm(quickExercise.name))
+      if (existingIdx >= 0) {
+        const updated = [...exercises]
+        updated[existingIdx] = { ...updated[existingIdx], sets: [...updated[existingIdx].sets, set] }
+        setExercises(updated)
+      } else {
+        addExercise(quickExercise.name, set)
+      }
+      setQuickExercise(null)
+      return
+    }
+
     const entry: WorkoutExercise = {
       name: quickExercise.name,
       category: getCategory(quickExercise.name, catalogue),
-      sets: [{ reps }],
+      sets: [set],
     }
     setQuickSets(prev => {
       const existing = prev.find(e => e.name === entry.name)
@@ -235,6 +267,16 @@ export default function WorkoutPage() {
     ctxStart(quickSets)
     setQuickSets([])
     setScreen('active')
+  }
+
+  function handleQuickRecord() {
+    const lastCameraEx = [...exercises].reverse().find(ex => getExerciseType(ex.name) !== null)
+    if (lastCameraEx) {
+      const type = getExerciseType(lastCameraEx.name)!
+      setQuickExercise({ name: lastCameraEx.name, type })
+    } else {
+      setScreen('quickcount')
+    }
   }
 
   function handleQuickCancel() {
@@ -517,6 +559,9 @@ export default function WorkoutPage() {
             await deleteDoc(doc(db, 'users', user.uid, 'workouts', wid))
           }}
           onQuickExercise={handleQuickExercise}
+          isActive={isActive}
+          lastExerciseName={exercises.length > 0 ? exercises[exercises.length - 1].name : null}
+          onQuickRecord={handleQuickRecord}
         />
       )}
 
@@ -571,6 +616,63 @@ export default function WorkoutPage() {
               </button>
               <button
                 onClick={handleQuickCancel}
+                className="w-full py-3 text-sm font-semibold text-red-400 active:opacity-70 transition-opacity"
+              >
+                Renunță
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crash recovery prompt */}
+      {recoveredSession && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-5 z-[100]">
+          <div className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-brand-green/15 flex items-center justify-center">
+                <span className="text-lg">📹</span>
+              </div>
+              <div>
+                <p className="font-black text-white text-base">Sesiune recuperată</p>
+                <p className="text-xs text-white/40 mt-0.5">Aplicația s-a închis în timpul numărării</p>
+              </div>
+            </div>
+            <div className="rounded-2xl px-4 py-3 mb-5" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-white/60">Exercițiu</span>
+                <span className="text-sm font-bold text-white">{recoveredSession.exerciseName}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-white/60">Repetări</span>
+                <span className="text-sm font-bold text-white">{recoveredSession.repCount}</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  const dur = recoveredSession.firstRepTimestamp && recoveredSession.lastRepTimestamp
+                    ? Math.max(0, Math.round((recoveredSession.lastRepTimestamp - recoveredSession.firstRepTimestamp) / 1000))
+                    : 0
+                  const entry: WorkoutExercise = {
+                    name: recoveredSession.exerciseName,
+                    category: getCategory(recoveredSession.exerciseName, catalogue),
+                    sets: [{ reps: recoveredSession.repCount, ...(dur > 0 && { durationSeconds: dur }) }],
+                  }
+                  setQuickSets([entry])
+                  setShowQuickPostSet(true)
+                  setRecoveredSession(null)
+                  localStorage.removeItem(REP_SESSION_KEY)
+                }}
+                className="w-full h-13 rounded-2xl bg-brand-green text-black font-black text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+              >
+                Recuperează {recoveredSession.repCount} repetări
+              </button>
+              <button
+                onClick={() => {
+                  setRecoveredSession(null)
+                  localStorage.removeItem(REP_SESSION_KEY)
+                }}
                 className="w-full py-3 text-sm font-semibold text-red-400 active:opacity-70 transition-opacity"
               >
                 Renunță

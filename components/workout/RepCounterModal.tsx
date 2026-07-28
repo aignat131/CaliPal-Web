@@ -6,7 +6,7 @@ import {
   RepCounter, STATE_LABELS, STATE_COLORS,
   PushupCounter, PUSHUP_STATE_LABELS,
   SquatCounter, SQUAT_STATE_LABELS,
-  EASY_PULLUP, PUSHUP_THRESHOLDS, EASY_SQUAT,
+  BALANCED_PULLUP, BALANCED_PUSHUP, BALANCED_SQUAT,
 } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
 import { bestElbowAngle, bestKneeAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
@@ -15,6 +15,7 @@ import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
 import { drawSkeleton, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
 import { PoseValidator } from '@/lib/ml/pose-validator'
+import type { RepSession } from '@/types'
 
 // keep linter happy — POSE_CONNECTIONS imported to ensure tree-shaking keeps it
 void POSE_CONNECTIONS
@@ -22,10 +23,12 @@ void POSE_CONNECTIONS
 const POSE_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task'
 
+export const REP_SESSION_KEY = 'calipal_rep_session'
+
 interface Props {
   exerciseType: ExerciseType
   exerciseName: string
-  onConfirm: (reps: number) => void
+  onConfirm: (reps: number, durationSeconds: number) => void
   onCancel: () => void
 }
 
@@ -37,15 +40,19 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const detectorRef = useRef<{ detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks: Landmark[][] }; close?: () => void } | null>(null)
   const lastHapticRef = useRef(0)
 
-  const repCounterRef    = useRef(new RepCounter(EASY_PULLUP))
-  const pushupCounterRef = useRef(new PushupCounter(PUSHUP_THRESHOLDS))
-  const squatCounterRef  = useRef(new SquatCounter(EASY_SQUAT))
+  const repCounterRef    = useRef(new RepCounter(BALANCED_PULLUP))
+  const pushupCounterRef = useRef(new PushupCounter(BALANCED_PUSHUP))
+  const squatCounterRef  = useRef(new SquatCounter(BALANCED_SQUAT))
   const formCoachRef     = useRef(new FormCoach())
   const poseValidatorRef = useRef(new PoseValidator())
 
   // Angle smoothers — one per joint type
   const elbowSmootherRef = useRef(new AngleSmoother(0.3))
   const kneeSmootherRef  = useRef(new AngleSmoother(0.3))
+
+  // Rep timing — track first and last rep timestamps
+  const firstRepTimestampRef = useRef<number | null>(null)
+  const lastRepTimestampRef = useRef<number | null>(null)
 
   const [poseInvalid, setPoseInvalid] = useState<string | null>(null)
 
@@ -69,6 +76,48 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
 
   // Use refs so the rAF loop always reads latest values without closure staleness
   const repCountRef = useRef(0)
+
+  // ── localStorage crash backup ─────────────────────────────────────────────
+  const saveSession = useCallback(() => {
+    if (repCountRef.current <= 0) return
+    const session: RepSession = {
+      exerciseType,
+      exerciseName,
+      repCount: repCountRef.current,
+      firstRepTimestamp: firstRepTimestampRef.current,
+      lastRepTimestamp: lastRepTimestampRef.current,
+      savedAt: Date.now(),
+    }
+    try { localStorage.setItem(REP_SESSION_KEY, JSON.stringify(session)) } catch { /* */ }
+  }, [exerciseType, exerciseName])
+
+  // Persist every 2s when reps > 0
+  useEffect(() => {
+    if (repCount === 0) return
+    const id = setInterval(saveSession, 2000)
+    return () => clearInterval(id)
+  }, [repCount > 0, saveSession]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save on page unload/hide — beforeunload is unreliable on mobile,
+  // so we also listen to pagehide (iOS Safari) and visibilitychange (Android Chrome)
+  useEffect(() => {
+    const handler = () => saveSession()
+    const visHandler = () => { if (document.visibilityState === 'hidden') saveSession() }
+    window.addEventListener('beforeunload', handler)
+    window.addEventListener('pagehide', handler)
+    document.addEventListener('visibilitychange', visHandler)
+    return () => {
+      window.removeEventListener('beforeunload', handler)
+      window.removeEventListener('pagehide', handler)
+      document.removeEventListener('visibilitychange', visHandler)
+    }
+  }, [saveSession])
+
+  function clearSession() {
+    try { localStorage.removeItem(REP_SESSION_KEY) } catch { /* */ }
+  }
+
+  // ── Camera lifecycle ──────────────────────────────────────────────────────
 
   const stopCamera = useCallback(() => {
     if (animRef.current) cancelAnimationFrame(animRef.current)
@@ -174,51 +223,61 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     const poseCheck = poseValidatorRef.current.validate(lms, exerciseType)
     setPoseInvalid(!poseCheck.valid ? poseCheck.reason ?? null : null)
 
+    let newRepCount: number
+
     if (exerciseType === 'pullup') {
       const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
       const elbowVel = elbowSmootherRef.current.getVelocity()
       const cs = repCounterRef.current.update(elbow)
+      newRepCount = cs.repCount
       drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state] ?? '#1ED75F')
-      triggerHaptic(cs.repCount)
-      setRepCount(cs.repCount); repCountRef.current = cs.repCount
       setPrimaryAngle(Math.round(elbow))
       setStateLabel(STATE_LABELS[cs.state])
       setStateColor(STATE_COLORS[cs.state])
       setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state))
       setAngleVelocity(elbowVel)
-      setArcProgress(Math.max(0, Math.min(1, (EASY_PULLUP.hangEnter - elbow) / (EASY_PULLUP.hangEnter - EASY_PULLUP.peak))))
+      setArcProgress(Math.max(0, Math.min(1, (BALANCED_PULLUP.hangEnter - elbow) / (BALANCED_PULLUP.hangEnter - BALANCED_PULLUP.peak))))
 
     } else if (exerciseType === 'pushup') {
       const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
       const elbowVel = elbowSmootherRef.current.getVelocity()
       const cs = pushupCounterRef.current.update(elbow)
+      newRepCount = cs.repCount
       drawSkeleton(ctx, lms, w, h, '#F97316')
-      triggerHaptic(cs.repCount)
-      setRepCount(cs.repCount); repCountRef.current = cs.repCount
       setPrimaryAngle(Math.round(elbow))
       setStateLabel(PUSHUP_STATE_LABELS[cs.state])
       setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
       setFormCues(formCoachRef.current.getFormCues(lms, 'pushup', cs.state))
       setAngleVelocity(elbowVel)
-      setArcProgress(Math.max(0, Math.min(1, (PUSHUP_THRESHOLDS.upAngle - elbow) / (PUSHUP_THRESHOLDS.upAngle - PUSHUP_THRESHOLDS.downAngle))))
+      setArcProgress(Math.max(0, Math.min(1, (BALANCED_PUSHUP.upAngle - elbow) / (BALANCED_PUSHUP.upAngle - BALANCED_PUSHUP.downAngle))))
 
     } else {
       const rawKnee = bestKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
       const knee = kneeSmootherRef.current.smooth(rawKnee)
       const kneeVel = kneeSmootherRef.current.getVelocity()
       const cs = squatCounterRef.current.update(knee)
+      newRepCount = cs.repCount
       drawSkeleton(ctx, lms, w, h, '#3B82F6')
-      triggerHaptic(cs.repCount)
-      setRepCount(cs.repCount); repCountRef.current = cs.repCount
       setPrimaryAngle(Math.round(knee))
       setStateLabel(SQUAT_STATE_LABELS[cs.state])
       setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
       setFormCues(formCoachRef.current.getFormCues(lms, 'squat', cs.state))
       setAngleVelocity(kneeVel)
-      setArcProgress(Math.max(0, Math.min(1, (EASY_SQUAT.upAngle - knee) / (EASY_SQUAT.upAngle - EASY_SQUAT.downAngle))))
+      setArcProgress(Math.max(0, Math.min(1, (BALANCED_SQUAT.upAngle - knee) / (BALANCED_SQUAT.upAngle - BALANCED_SQUAT.downAngle))))
     }
+
+    // Track rep timestamps
+    if (newRepCount > repCountRef.current) {
+      const now = Date.now()
+      if (!firstRepTimestampRef.current) firstRepTimestampRef.current = now
+      lastRepTimestampRef.current = now
+    }
+
+    triggerHaptic(newRepCount)
+    setRepCount(newRepCount)
+    repCountRef.current = newRepCount
   }
 
   function triggerHaptic(count: number) {
@@ -233,6 +292,20 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     facingModeRef.current = next
     setFacingMode(next)
     startCamera(next)
+  }
+
+  function handleConfirm() {
+    if (repCountRef.current <= 0) return
+    const start = firstRepTimestampRef.current ?? Date.now()
+    const end = lastRepTimestampRef.current ?? Date.now()
+    const durationSeconds = Math.max(0, Math.round((end - start) / 1000))
+    clearSession()
+    onConfirm(repCountRef.current, durationSeconds)
+  }
+
+  function handleCancel() {
+    clearSession()
+    onCancel()
   }
 
   // Suppress "declared but never used" for state types
@@ -302,7 +375,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 px-4 pt-safe pt-4 pb-3"
         style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent)' }}>
         <button
-          onClick={onCancel}
+          onClick={handleCancel}
           className="w-9 h-9 rounded-full bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0"
         >
           <X size={16} className="text-white/80" />
@@ -352,7 +425,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
               <Camera size={32} className="text-red-400" />
               <p className="text-red-400 text-sm font-semibold text-center px-8">{error}</p>
               <button
-                onClick={onCancel}
+                onClick={handleCancel}
                 className="mt-2 h-10 px-6 rounded-full border border-white/20 text-sm text-white/70"
               >
                 Înapoi
@@ -406,13 +479,13 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
         style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 60%, transparent)' }}
       >
         <button
-          onClick={onCancel}
+          onClick={handleCancel}
           className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform"
         >
           <X size={20} className="text-white/70" />
         </button>
         <button
-          onClick={() => { if (repCountRef.current > 0) onConfirm(repCountRef.current) }}
+          onClick={handleConfirm}
           disabled={repCount === 0}
           className="flex-1 h-14 rounded-2xl bg-brand-green text-black font-black text-base disabled:opacity-40 flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
         >

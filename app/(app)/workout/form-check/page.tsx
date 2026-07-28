@@ -66,10 +66,11 @@ export default function FormCheckPage() {
   const processingCanvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ML refs (shared between camera and video modes)
-  const repCounterRef = useRef(new RepCounter())
-  const pushupCounterRef = useRef(new PushupCounter())
-  const squatCounterRef = useRef(new SquatCounter())
+  // ML refs (shared between camera and video modes) — timing disabled
+  // because the same counters are used for video upload frame-by-frame processing
+  const repCounterRef = useRef(new RepCounter(undefined, false))
+  const pushupCounterRef = useRef(new PushupCounter(undefined, false))
+  const squatCounterRef = useRef(new SquatCounter(undefined, false))
   const formCoachRef = useRef(new FormCoach())
   const frameBufferRef = useRef<Landmark[][]>([])
   const detectorRef = useRef<unknown>(null)

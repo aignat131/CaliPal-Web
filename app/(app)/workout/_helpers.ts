@@ -24,11 +24,14 @@ export function exerciseOneLiner(ex: WorkoutExercise): string {
   const first = ex.sets[0]
 
   function setLabel(s: WorkoutSet): string {
-    const base = s.reps != null
-      ? s.timedDurationSeconds
-        ? `${s.reps} rep în ${formatDuration(s.timedDurationSeconds)}`
-        : `${s.reps}`
-      : s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
+    let base: string
+    if (s.reps != null) {
+      if (s.timedDurationSeconds) base = `${s.reps} rep în ${formatDuration(s.timedDurationSeconds)}`
+      else if (s.durationSeconds && s.durationSeconds > 0) base = `${s.reps} (${s.durationSeconds}s)`
+      else base = `${s.reps}`
+    } else {
+      base = s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
+    }
     const mod  = s.weightKg ? ` +${s.weightKg}kg` : s.bandKg ? ` ~${s.bandKg}kg` : ''
     return base + mod
   }
@@ -43,10 +46,11 @@ export function exerciseOneLiner(ex: WorkoutExercise): string {
 
   if (allSame) {
     const modSuffix = first.weightKg ? ` +${first.weightKg}kg` : first.bandKg ? ` ~${first.bandKg}kg` : ''
+    const repDur = first.reps != null && first.durationSeconds && first.durationSeconds > 0 ? ` (${first.durationSeconds}s)` : ''
     const valStr = first.reps != null
       ? first.timedDurationSeconds
         ? `${first.reps} rep în ${formatDuration(first.timedDurationSeconds)}`
-        : `${first.reps} rep`
+        : `${first.reps} rep${repDur}`
       : `${first.durationSeconds ?? 0}s`
     return `${ex.name} · ${n}×${valStr}${modSuffix}`
   }

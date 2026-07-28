@@ -42,6 +42,9 @@ export function WorkoutHomeTab({
   onCountReps,
   onDeleteWorkout,
   onQuickExercise,
+  isActive,
+  lastExerciseName,
+  onQuickRecord,
 }: {
   tab: number
   onTabChange: (t: number) => void
@@ -54,6 +57,9 @@ export function WorkoutHomeTab({
   onCountReps: () => void
   onDeleteWorkout: (id: string) => Promise<void>
   onQuickExercise: (name: string, type: ExerciseType) => void
+  isActive?: boolean
+  lastExerciseName?: string | null
+  onQuickRecord?: () => void
 }) {
   const t = useT()
   return (
@@ -221,6 +227,24 @@ export function WorkoutHomeTab({
           loading={historyLoading}
           onDelete={onDeleteWorkout}
         />
+      )}
+
+      {/* Floating record button when workout is active */}
+      {isActive && onQuickRecord && (
+        <div className="fixed right-4 z-30 flex flex-col items-center gap-1.5"
+          style={{ bottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
+          {lastExerciseName && (
+            <span className="text-[10px] font-bold text-white/50 bg-black/60 px-2.5 py-1 rounded-full whitespace-nowrap max-w-[120px] truncate">
+              {lastExerciseName}
+            </span>
+          )}
+          <button
+            onClick={onQuickRecord}
+            className="w-14 h-14 rounded-full bg-red-500 shadow-lg shadow-red-500/30 flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <Camera size={24} className="text-white" />
+          </button>
+        </div>
       )}
     </div>
   )
