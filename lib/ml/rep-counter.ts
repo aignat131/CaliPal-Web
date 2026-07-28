@@ -221,7 +221,7 @@ export class PushupCounter {
   private confirmBuffer = 0
   private framesSinceRep = 0
   private t: PushupThresholds
-  private startAngle: number | null = null
+  private highAngle: number | null = null
   private lowestAngle: number | null = null
   private readonly minRangeRequired = 25
   private repStartMs: number | null = null
@@ -235,7 +235,7 @@ export class PushupCounter {
   reset() {
     this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0
     this.framesSinceRep = 0
-    this.startAngle = null; this.lowestAngle = null
+    this.highAngle = null; this.lowestAngle = null
     this.repStartMs = null
   }
 
@@ -245,13 +245,16 @@ export class PushupCounter {
     switch (this.state) {
       case 'IDLE':
       case 'UP':
-        if (avgElbow > this.t.upAngle) { this.state = 'UP'; this.confirmBuffer = 0 }
+        // Track highest angle while in UP position — used as range start
+        if (avgElbow > this.t.upAngle) {
+          this.state = 'UP'; this.confirmBuffer = 0
+          if (this.highAngle === null || avgElbow > this.highAngle) this.highAngle = avgElbow
+        }
         else if (avgElbow < this.t.downAngle) {
           this.confirmBuffer++
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'DOWN'
             this.confirmBuffer = 0
-            this.startAngle = avgElbow
             this.lowestAngle = avgElbow
             this.repStartMs = performance.now()
           }
@@ -263,8 +266,8 @@ export class PushupCounter {
         if (avgElbow > this.t.upAngle) {
           this.confirmBuffer++
           if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= MIN_REP_FRAMES) {
-            const rangeOk = this.startAngle !== null && this.lowestAngle !== null
-              && (this.startAngle - this.lowestAngle) >= this.minRangeRequired
+            const rangeOk = this.highAngle !== null && this.lowestAngle !== null
+              && (this.highAngle - this.lowestAngle) >= this.minRangeRequired
             let timeOk = true
             if (this.enforceTiming) {
               const minMs = this.repCount === 0 ? FIRST_REP_MIN_MS : SUBSEQUENT_REP_MIN_MS
@@ -274,7 +277,7 @@ export class PushupCounter {
             if (rangeOk && timeOk) this.repCount++
             this.state = 'UP'; this.confirmBuffer = 0
             this.framesSinceRep = 0
-            this.startAngle = null; this.lowestAngle = null
+            this.highAngle = avgElbow; this.lowestAngle = null
             this.repStartMs = null
           }
         } else { this.confirmBuffer = 0 }
@@ -301,7 +304,7 @@ export class SquatCounter {
   private confirmBuffer = 0
   private framesSinceRep = 0
   private t: SquatThresholds
-  private startAngle: number | null = null
+  private highAngle: number | null = null
   private lowestAngle: number | null = null
   private readonly minRangeRequired = 30
   private repStartMs: number | null = null
@@ -315,7 +318,7 @@ export class SquatCounter {
   reset() {
     this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0
     this.framesSinceRep = 0
-    this.startAngle = null; this.lowestAngle = null
+    this.highAngle = null; this.lowestAngle = null
     this.repStartMs = null
   }
 
@@ -325,13 +328,16 @@ export class SquatCounter {
     switch (this.state) {
       case 'IDLE':
       case 'UP':
-        if (avgKnee > this.t.upAngle) { this.state = 'UP'; this.confirmBuffer = 0 }
+        // Track highest angle while standing — used as range start
+        if (avgKnee > this.t.upAngle) {
+          this.state = 'UP'; this.confirmBuffer = 0
+          if (this.highAngle === null || avgKnee > this.highAngle) this.highAngle = avgKnee
+        }
         else if (avgKnee < this.t.downAngle) {
           this.confirmBuffer++
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'DOWN'
             this.confirmBuffer = 0
-            this.startAngle = avgKnee
             this.lowestAngle = avgKnee
             this.repStartMs = performance.now()
           }
@@ -343,8 +349,8 @@ export class SquatCounter {
         if (avgKnee > this.t.upAngle) {
           this.confirmBuffer++
           if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= MIN_REP_FRAMES) {
-            const rangeOk = this.startAngle !== null && this.lowestAngle !== null
-              && (this.startAngle - this.lowestAngle) >= this.minRangeRequired
+            const rangeOk = this.highAngle !== null && this.lowestAngle !== null
+              && (this.highAngle - this.lowestAngle) >= this.minRangeRequired
             let timeOk = true
             if (this.enforceTiming) {
               const minMs = this.repCount === 0 ? FIRST_REP_MIN_MS : SUBSEQUENT_REP_MIN_MS
@@ -354,7 +360,7 @@ export class SquatCounter {
             if (rangeOk && timeOk) this.repCount++
             this.state = 'UP'; this.confirmBuffer = 0
             this.framesSinceRep = 0
-            this.startAngle = null; this.lowestAngle = null
+            this.highAngle = avgKnee; this.lowestAngle = null
             this.repStartMs = null
           }
         } else { this.confirmBuffer = 0 }

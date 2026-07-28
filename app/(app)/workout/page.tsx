@@ -253,18 +253,23 @@ export default function WorkoutPage() {
     }
   }
 
+  function quickSetsTotalDurationMs(sets: WorkoutExercise[]): number {
+    return sets.flatMap(e => e.sets).reduce((sum, s) => sum + (s.durationSeconds ?? 0), 0) * 1000
+  }
+
   function handleQuickSave() {
     setShowQuickPostSet(false)
     setCapturedExercises(quickSets)
-    setCapturedSeconds(0)
-    setWorkoutStartedAt(Date.now())
+    const totalSec = Math.round(quickSetsTotalDurationMs(quickSets) / 1000)
+    setCapturedSeconds(totalSec)
+    setWorkoutStartedAt(Date.now() - totalSec * 1000)
     setQuickSets([])
     setScreen('postdetails')
   }
 
   function handleQuickToWorkout() {
     setShowQuickPostSet(false)
-    ctxStart(quickSets)
+    ctxStart(quickSets, quickSetsTotalDurationMs(quickSets))
     setQuickSets([])
     setScreen('active')
   }

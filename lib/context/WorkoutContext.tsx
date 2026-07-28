@@ -39,7 +39,7 @@ interface WorkoutContextValue {
   exercises: WorkoutExercise[]
   note: string
   doneKeys: Set<string>
-  startWorkout: (exs?: WorkoutExercise[]) => void
+  startWorkout: (exs?: WorkoutExercise[], elapsedOffsetMs?: number) => void
   stopWorkout: () => void
   pauseWorkout: () => void
   resumeWorkout: () => void
@@ -248,15 +248,15 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LAST_ACTIVE_KEY)
   }, [])
 
-  const startWorkout = useCallback((exs: WorkoutExercise[] = []) => {
-    const now = Date.now()
+  const startWorkout = useCallback((exs: WorkoutExercise[] = [], elapsedOffsetMs = 0) => {
+    const now = Date.now() - elapsedOffsetMs
     setExercisesState(exs)
     setNoteState('')
     setDoneKeys(new Set())
     setStartedAt(now)
     setIsActive(true)
     setIsPaused(false)
-    setSeconds(0)
+    setSeconds(Math.floor(elapsedOffsetMs / 1000))
     setCircuits([])
     setActiveTimedSet(null)
     clearAllStorage()
