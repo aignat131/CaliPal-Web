@@ -485,7 +485,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
             style={{ backgroundColor: 'rgba(99,102,241,0.88)', border: '1px solid rgba(99,102,241,0.6)' }}
           >
             <span className="text-white text-sm font-bold leading-tight">
-              {gateStatus === 'LOADING' ? 'Se incarcă modelul...' : 'Pune-te în poziția de flotare'}
+              {gateStatus === 'LOADING' ? 'Se incarcă modelul...' : 'Pune-te în poziție'}
             </span>
           </div>
         </div>
