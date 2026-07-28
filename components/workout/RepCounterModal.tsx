@@ -15,6 +15,8 @@ import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
 import { drawSkeleton, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
 import { PoseValidator } from '@/lib/ml/pose-validator'
+import { PushupNNGate } from '@/lib/ml/pushup-nn-gate'
+import type { GateState } from '@/lib/ml/pushup-nn-gate'
 import type { RepSession } from '@/types'
 
 // keep linter happy — POSE_CONNECTIONS imported to ensure tree-shaking keeps it
@@ -45,6 +47,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const squatCounterRef  = useRef(new SquatCounter(BALANCED_SQUAT))
   const formCoachRef     = useRef(new FormCoach())
   const poseValidatorRef = useRef(new PoseValidator())
+  const pushupGateRef    = useRef(new PushupNNGate())
 
   // Angle smoothers — one per joint type
   const elbowSmootherRef = useRef(new AngleSmoother(0.3))
@@ -55,6 +58,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const lastRepTimestampRef = useRef<number | null>(null)
 
   const [poseInvalid, setPoseInvalid] = useState<string | null>(null)
+  const [gateStatus, setGateStatus] = useState<GateState>('LOADING')
 
   // Camera facing mode
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('user')
@@ -166,6 +170,13 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setLoading(false)
       setCameraLoading(false)
 
+      // Initialize NN gate for pushups (loads ~67KB model, non-blocking)
+      if (exerciseType === 'pushup') {
+        pushupGateRef.current.initialize().then(() => {
+          setGateStatus(pushupGateRef.current.gateState)
+        })
+      }
+
       let lastTime = -1
       function detect(time: number) {
         if (!videoRef.current || !canvasRef.current) return
@@ -251,15 +262,24 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setAngleVelocity(elbowSmootherRef.current.getVelocity())
       setPrimaryAngle(Math.round(elbow))
       setArcProgress(Math.max(0, Math.min(1, (BALANCED_PUSHUP.upAngle - elbow) / (BALANCED_PUSHUP.upAngle - BALANCED_PUSHUP.downAngle))))
-      if (poseCheck.valid) {
+
+      // NN gate: update every frame (triggers async inference internally when needed)
+      const gate = pushupGateRef.current
+      gate.update(lms, elbow)
+      setGateStatus(gate.gateState)
+
+      if (poseCheck.valid && gate.isOpen) {
         const cs = pushupCounterRef.current.update(elbow)
         newRepCount = cs.repCount
         drawSkeleton(ctx, lms, w, h, '#F97316')
         setStateLabel(PUSHUP_STATE_LABELS[cs.state])
         setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
         setFormCues(formCoachRef.current.getFormCues(lms, 'pushup', cs.state))
-      } else {
+      } else if (!poseCheck.valid) {
         drawSkeleton(ctx, lms, w, h, '#6B7280')
+      } else {
+        // Pose is valid but NN gate not yet confirmed — indigo skeleton
+        drawSkeleton(ctx, lms, w, h, '#6366F1')
       }
 
     } else {
@@ -303,6 +323,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     const next = facingMode === 'environment' ? 'user' : 'environment'
     facingModeRef.current = next
     setFacingMode(next)
+    pushupGateRef.current.reset() // baseline invalid after camera change
     startCamera(next)
   }
 
@@ -455,6 +476,20 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
             style={{ backgroundColor: 'rgba(99,102,241,0.88)', border: '1px solid rgba(99,102,241,0.6)' }}
           >
             <span className="text-white text-sm font-bold leading-tight">{poseInvalid}</span>
+          </div>
+        </div>
+      )}
+
+      {/* NN gate verifying overlay (pushups only, when pose rules pass but NN hasn't confirmed) */}
+      {!loading && !poseInvalid && exerciseType === 'pushup' && (gateStatus === 'LOADING' || gateStatus === 'VERIFYING') && (
+        <div className="absolute bottom-28 left-4 right-4 flex flex-col gap-1.5 z-10">
+          <div
+            className="flex items-center gap-2 px-4 py-3 rounded-xl"
+            style={{ backgroundColor: 'rgba(99,102,241,0.88)', border: '1px solid rgba(99,102,241,0.6)' }}
+          >
+            <span className="text-white text-sm font-bold leading-tight">
+              {gateStatus === 'LOADING' ? 'Se incarcă modelul...' : 'Intră în poziția de flotare'}
+            </span>
           </div>
         </div>
       )}
