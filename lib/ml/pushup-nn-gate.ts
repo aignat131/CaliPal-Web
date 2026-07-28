@@ -141,9 +141,9 @@ const WINDOW_SIZE = 5                 // sliding window for majority vote
 const CONFIRM_COUNT = 3               // 3 out of 5 positives to confirm
 const RECHECK_FAIL_COUNT = 3          // 3 out of 5 negatives during recheck → back to VERIFYING
 const POSITION_THRESHOLD = 0.35       // lowered from 0.5 — model less confident on plank/up position
-const DRIFT_FRAME_THRESHOLD = 60      // ~2 seconds at 30 fps
-const HEAD_DRIFT_THRESHOLD = 0.25     // normalized Y — head moved significantly (relaxed: normal reps move head ~0.15)
-const SH_DRIFT_THRESHOLD = 0.20       // shoulder-hip vertical diff change (relaxed: arms extending shifts this ~0.10)
+const DRIFT_FRAME_THRESHOLD = 50      // ~1.7 seconds at 30 fps
+const HEAD_DRIFT_THRESHOLD = 0.20     // normalized Y — head moved significantly
+const SH_DRIFT_THRESHOLD = 0.15       // shoulder-hip vertical diff change
 const STALE_MS = 2000                 // if no landmarks for 2s, gate goes to VERIFYING
 
 export class PushupNNGate {

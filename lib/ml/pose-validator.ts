@@ -85,7 +85,7 @@ export class PoseValidator {
 
     // Shoulders and hips must be roughly level (not standing upright)
     const verticalDiff = Math.abs(avgShoulderY - avgHipY)
-    if (verticalDiff > 0.18) {
+    if (verticalDiff > 0.28) {
       return { valid: false, reason: 'Intră în poziția de flotare — corp orizontal' }
     }
 
