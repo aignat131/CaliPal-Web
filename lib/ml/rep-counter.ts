@@ -37,8 +37,8 @@ export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 144, hangExit: 149
 export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 145, peak: 120 }
 
 export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 95,  upAngle: 155 }
-export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 143 }
-export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 140 }
+export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 130 }
+export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 125 }
 export const PUSHUP_THRESHOLDS: PushupThresholds = BALANCED_PUSHUP
 
 export const STRICT_SQUAT:   SquatThresholds = { downAngle: 100, upAngle: 160 }
