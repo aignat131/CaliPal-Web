@@ -25,6 +25,8 @@ export interface PushupThresholds {
   upAngle: number
   /** Minimum highAngle−lowestAngle to count a rep (default 25) */
   minRangeRequired?: number
+  /** Minimum ms for the first rep (default 1800) */
+  firstRepMinMs?: number
 }
 
 export interface SquatThresholds {
@@ -40,7 +42,7 @@ export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 145
 
 export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 95,  upAngle: 155 }
 export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 130 }
-export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 125, minRangeRequired: 15 }
+export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 125, minRangeRequired: 15, firstRepMinMs: 800 }
 export const PUSHUP_THRESHOLDS: PushupThresholds = BALANCED_PUSHUP
 
 export const STRICT_SQUAT:   SquatThresholds = { downAngle: 100, upAngle: 160 }
@@ -226,12 +228,14 @@ export class PushupCounter {
   private highAngle: number | null = null
   private lowestAngle: number | null = null
   private minRangeRequired: number
+  private firstRepMinMs: number
   private repStartMs: number | null = null
   private readonly enforceTiming: boolean
 
   constructor(thresholds: PushupThresholds = PUSHUP_THRESHOLDS, enforceTiming = true) {
     this.t = thresholds
     this.minRangeRequired = thresholds.minRangeRequired ?? 25
+    this.firstRepMinMs = thresholds.firstRepMinMs ?? FIRST_REP_MIN_MS
     this.enforceTiming = enforceTiming
   }
 
@@ -239,6 +243,7 @@ export class PushupCounter {
   setThresholds(t: PushupThresholds) {
     this.t = t
     this.minRangeRequired = t.minRangeRequired ?? 25
+    this.firstRepMinMs = t.firstRepMinMs ?? FIRST_REP_MIN_MS
   }
 
   reset() {
@@ -279,7 +284,7 @@ export class PushupCounter {
               && (this.highAngle - this.lowestAngle) >= this.minRangeRequired
             let timeOk = true
             if (this.enforceTiming) {
-              const minMs = this.repCount === 0 ? FIRST_REP_MIN_MS : SUBSEQUENT_REP_MIN_MS
+              const minMs = this.repCount === 0 ? this.firstRepMinMs : SUBSEQUENT_REP_MIN_MS
               const elapsed = this.repStartMs !== null ? performance.now() - this.repStartMs : Infinity
               timeOk = elapsed >= minMs
             }
