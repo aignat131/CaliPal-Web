@@ -27,6 +27,10 @@ export interface PushupThresholds {
   minRangeRequired?: number
   /** Minimum ms for the first rep (default 1800) */
   firstRepMinMs?: number
+  /** Minimum ms for subsequent reps (default 700) */
+  subsequentRepMinMs?: number
+  /** Minimum frames between reps (default 20) */
+  minRepFrames?: number
 }
 
 export interface SquatThresholds {
@@ -42,7 +46,7 @@ export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 145
 
 export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 95,  upAngle: 155 }
 export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 130 }
-export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 125, minRangeRequired: 15, firstRepMinMs: 800 }
+export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 125, minRangeRequired: 12, firstRepMinMs: 500, subsequentRepMinMs: 300, minRepFrames: 10 }
 export const PUSHUP_THRESHOLDS: PushupThresholds = BALANCED_PUSHUP
 
 export const STRICT_SQUAT:   SquatThresholds = { downAngle: 100, upAngle: 160 }
@@ -229,6 +233,8 @@ export class PushupCounter {
   private lowestAngle: number | null = null
   private minRangeRequired: number
   private firstRepMinMs: number
+  private subsequentRepMinMs: number
+  private minRepFrames: number
   private repStartMs: number | null = null
   private readonly enforceTiming: boolean
 
@@ -236,6 +242,8 @@ export class PushupCounter {
     this.t = thresholds
     this.minRangeRequired = thresholds.minRangeRequired ?? 25
     this.firstRepMinMs = thresholds.firstRepMinMs ?? FIRST_REP_MIN_MS
+    this.subsequentRepMinMs = thresholds.subsequentRepMinMs ?? SUBSEQUENT_REP_MIN_MS
+    this.minRepFrames = thresholds.minRepFrames ?? MIN_REP_FRAMES
     this.enforceTiming = enforceTiming
   }
 
@@ -244,6 +252,8 @@ export class PushupCounter {
     this.t = t
     this.minRangeRequired = t.minRangeRequired ?? 25
     this.firstRepMinMs = t.firstRepMinMs ?? FIRST_REP_MIN_MS
+    this.subsequentRepMinMs = t.subsequentRepMinMs ?? SUBSEQUENT_REP_MIN_MS
+    this.minRepFrames = t.minRepFrames ?? MIN_REP_FRAMES
   }
 
   reset() {
@@ -279,12 +289,12 @@ export class PushupCounter {
         if (this.lowestAngle === null || avgElbow < this.lowestAngle) this.lowestAngle = avgElbow
         if (avgElbow > this.t.upAngle) {
           this.confirmBuffer++
-          if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= MIN_REP_FRAMES) {
+          if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= this.minRepFrames) {
             const rangeOk = this.highAngle !== null && this.lowestAngle !== null
               && (this.highAngle - this.lowestAngle) >= this.minRangeRequired
             let timeOk = true
             if (this.enforceTiming) {
-              const minMs = this.repCount === 0 ? this.firstRepMinMs : SUBSEQUENT_REP_MIN_MS
+              const minMs = this.repCount === 0 ? this.firstRepMinMs : this.subsequentRepMinMs
               const elapsed = this.repStartMs !== null ? performance.now() - this.repStartMs : Infinity
               timeOk = elapsed >= minMs
             }

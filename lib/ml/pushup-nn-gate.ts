@@ -136,10 +136,10 @@ export type GateState =
   | 'RECHECKING'
   | 'FALLBACK'
 
-const INFERENCE_INTERVAL = 6          // run NN every 6th frame (~5 Hz at 30 fps)
-const WINDOW_SIZE = 5                 // sliding window for majority vote
-const CONFIRM_COUNT = 3               // 3 out of 5 positives to confirm
-const RECHECK_FAIL_COUNT = 3          // 3 out of 5 negatives during recheck → back to VERIFYING
+const INFERENCE_INTERVAL = 3          // run NN every 3rd frame (~10 Hz at 30 fps)
+const WINDOW_SIZE = 3                 // sliding window for majority vote
+const CONFIRM_COUNT = 2               // 2 out of 3 positives to confirm
+const RECHECK_FAIL_COUNT = 2          // 2 out of 3 negatives during recheck → back to VERIFYING
 const POSITION_THRESHOLD = 0.35       // lowered from 0.5 — model less confident on plank/up position
 const DRIFT_FRAME_THRESHOLD = 50      // ~1.7 seconds at 30 fps
 const HEAD_DRIFT_THRESHOLD = 0.20     // normalized Y — head moved significantly
