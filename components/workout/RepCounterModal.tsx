@@ -6,7 +6,7 @@ import {
   RepCounter, STATE_LABELS, STATE_COLORS,
   PushupCounter, PUSHUP_STATE_LABELS,
   SquatCounter, SQUAT_STATE_LABELS,
-  BALANCED_PULLUP, BALANCED_PUSHUP, BALANCED_SQUAT,
+  BALANCED_PULLUP, BALANCED_PUSHUP, BALANCED_SQUAT, EASY_PUSHUP,
 } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
 import { bestElbowAngle, bestKneeAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
@@ -43,7 +43,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const lastHapticRef = useRef(0)
 
   const repCounterRef    = useRef(new RepCounter(BALANCED_PULLUP))
-  const pushupCounterRef = useRef(new PushupCounter(BALANCED_PUSHUP))
+  const pushupCounterRef = useRef(new PushupCounter(EASY_PUSHUP))
   const squatCounterRef  = useRef(new SquatCounter(BALANCED_SQUAT))
   const formCoachRef     = useRef(new FormCoach())
   const poseValidatorRef = useRef(new PoseValidator())
@@ -66,17 +66,12 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const [cameraLoading, setCameraLoading] = useState(false)
 
   const [repCount, setRepCount]         = useState(0)
-  const [primaryAngle, setPrimaryAngle] = useState(0)
   const [stateLabel, setStateLabel]     = useState('Pregătire...')
   const [stateColor, setStateColor]     = useState('#6B7280')
   const [formCues, setFormCues]         = useState<FormCue[]>([])
+  const [strictMode, setStrictMode]     = useState(false)
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState('')
-
-  // Arc progress 0–1: how deep into the rep movement the user is
-  const [arcProgress, setArcProgress] = useState(0)
-  // Velocity: degrees/frame of the smoothed angle
-  const [angleVelocity, setAngleVelocity] = useState(0)
 
   // Use refs so the rAF loop always reads latest values without closure staleness
   const repCountRef = useRef(0)
@@ -246,9 +241,6 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     if (exerciseType === 'pullup') {
       const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
-      setAngleVelocity(elbowSmootherRef.current.getVelocity())
-      setPrimaryAngle(Math.round(elbow))
-      setArcProgress(Math.max(0, Math.min(1, (BALANCED_PULLUP.hangEnter - elbow) / (BALANCED_PULLUP.hangEnter - BALANCED_PULLUP.peak))))
       if (poseCheck.valid) {
         const cs = repCounterRef.current.update(elbow)
         newRepCount = cs.repCount
@@ -263,9 +255,6 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     } else if (exerciseType === 'pushup') {
       const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
-      setAngleVelocity(elbowSmootherRef.current.getVelocity())
-      setPrimaryAngle(Math.round(elbow))
-      setArcProgress(Math.max(0, Math.min(1, (BALANCED_PUSHUP.upAngle - elbow) / (BALANCED_PUSHUP.upAngle - BALANCED_PUSHUP.downAngle))))
 
       // NN gate: update every frame (triggers async inference internally when needed)
       const gate = pushupGateRef.current
@@ -289,9 +278,6 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     } else {
       const rawKnee = bestKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
       const knee = kneeSmootherRef.current.smooth(rawKnee)
-      setAngleVelocity(kneeSmootherRef.current.getVelocity())
-      setPrimaryAngle(Math.round(knee))
-      setArcProgress(Math.max(0, Math.min(1, (BALANCED_SQUAT.upAngle - knee) / (BALANCED_SQUAT.upAngle - BALANCED_SQUAT.downAngle))))
       if (poseCheck.valid) {
         const cs = squatCounterRef.current.update(knee)
         newRepCount = cs.repCount
@@ -348,49 +334,12 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   // Suppress "declared but never used" for state types
   void (null as unknown as RepState | PushupState | SquatState)
 
-  const angleLabel = exerciseType === 'squat' ? 'Unghi genunchi' : 'Unghi cot'
-
-  // ── Inline sub-components ──────────────────────────────────────────────────
-
-  function AngleArc() {
-    const fullArcD = 'M 5,45 A 35,35 0 0,1 75,45'
-    const theta = Math.PI - arcProgress * Math.PI
-    const dotX = 40 + 35 * Math.cos(theta)
-    const dotY = 45 - 35 * Math.sin(theta)
-    const largeArcFlag = arcProgress > 0.5 ? 1 : 0
-    const activeArcD = arcProgress > 0.01
-      ? `M 5,45 A 35,35 0 ${largeArcFlag},1 ${dotX.toFixed(1)},${dotY.toFixed(1)}`
-      : ''
-
-    return (
-      <div className="flex flex-col items-start gap-0">
-        <span className="text-[10px] text-white/40">{angleLabel}</span>
-        <svg width="80" height="50" viewBox="0 0 80 50" className="overflow-visible">
-          {/* Background track */}
-          <path d={fullArcD} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" strokeLinecap="round" />
-          {/* Active progress arc */}
-          {activeArcD && (
-            <path d={activeArcD} fill="none" stroke="#1ED75F" strokeWidth="4" strokeLinecap="round" />
-          )}
-          {/* Moving indicator dot */}
-          <circle cx={dotX} cy={dotY} r="5" fill="#1ED75F" />
-          <circle cx={dotX} cy={dotY} r="3" fill="white" />
-        </svg>
-        <span className="text-lg font-black text-white tabular-nums -mt-1">{primaryAngle}°</span>
-      </div>
-    )
-  }
-
-  function VelocityIndicator() {
-    if (Math.abs(angleVelocity) < 0.8) return null
-    const arrow = angleVelocity < 0 ? '↓' : '↑'
-    // Negative velocity = joint bending (correct direction for pulling/squatting)
-    const color = angleVelocity < 0 ? '#1ED75F' : 'rgba(255,255,255,0.5)'
-    return (
-      <span className="text-xs font-bold tabular-nums" style={{ color }}>
-        {arrow} {Math.abs(angleVelocity).toFixed(1)}°/f
-      </span>
-    )
+  function handleModeToggle() {
+    const nextStrict = !strictMode
+    setStrictMode(nextStrict)
+    poseValidatorRef.current.setStrict(nextStrict)
+    pushupCounterRef.current.setThresholds(nextStrict ? BALANCED_PUSHUP : EASY_PUSHUP)
+    poseValidatorRef.current.reset()
   }
 
   return (
@@ -418,6 +367,20 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
           <X size={16} className="text-white/80" />
         </button>
         <p className="font-black text-white text-base flex-1 min-w-0 truncate">{exerciseName}</p>
+        {/* Easy/Strict toggle — pushups only */}
+        {exerciseType === 'pushup' && (
+          <button
+            onClick={handleModeToggle}
+            className="h-7 px-3 rounded-full text-xs font-bold flex-shrink-0 transition-colors"
+            style={{
+              backgroundColor: strictMode ? 'rgba(239,68,68,0.25)' : 'rgba(30,215,95,0.25)',
+              border: `1px solid ${strictMode ? 'rgba(239,68,68,0.5)' : 'rgba(30,215,95,0.5)'}`,
+              color: strictMode ? '#ef4444' : '#1ED75F',
+            }}
+          >
+            {strictMode ? 'Strict' : 'Easy'}
+          </button>
+        )}
         {/* Camera flip button */}
         <button
           onClick={handleCameraFlip}
@@ -513,14 +476,6 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
               <span className="text-white text-xs font-bold leading-tight">{cue.message}</span>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Angle arc gauge + velocity indicator */}
-      {!loading && (
-        <div className="absolute bottom-[84px] left-4 z-10 flex flex-col gap-1">
-          <AngleArc />
-          <VelocityIndicator />
         </div>
       )}
 

@@ -20,6 +20,9 @@ export class PoseValidator {
   private consecutiveValid = 0
   private consecutiveInvalid = 0
   private wasValid = false
+  private strict = false
+
+  setStrict(value: boolean) { this.strict = value }
 
   reset() {
     this.consecutiveValid = 0
@@ -85,7 +88,8 @@ export class PoseValidator {
 
     // Shoulders and hips must be roughly level (not standing upright)
     const verticalDiff = Math.abs(avgShoulderY - avgHipY)
-    if (verticalDiff > 0.28) {
+    const maxVerticalDiff = this.strict ? 0.28 : 0.38
+    if (verticalDiff > maxVerticalDiff) {
       return { valid: false, reason: 'Intră în poziția de flotare — corp orizontal' }
     }
 
@@ -103,7 +107,8 @@ export class PoseValidator {
       const bodyAngle = Math.max(leftAnkleVis, rightAnkleVis) === leftAnkleVis
         ? this.safeAngle(lms, MP.LEFT_SHOULDER, MP.LEFT_HIP, MP.LEFT_ANKLE)
         : this.safeAngle(lms, MP.RIGHT_SHOULDER, MP.RIGHT_HIP, MP.RIGHT_ANKLE)
-      if (bodyAngle > 0 && bodyAngle < 140) {
+      const minBodyAngle = this.strict ? 140 : 120
+      if (bodyAngle > 0 && bodyAngle < minBodyAngle) {
         return { valid: false, reason: 'Corpul trebuie drept — nu sta pe genunchi' }
       }
     }

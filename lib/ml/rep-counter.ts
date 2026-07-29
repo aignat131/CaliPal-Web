@@ -23,6 +23,8 @@ export interface PushupThresholds {
   downAngle: number
   /** Elbow angle ABOVE this → top of rep */
   upAngle: number
+  /** Minimum highAngle−lowestAngle to count a rep (default 25) */
+  minRangeRequired?: number
 }
 
 export interface SquatThresholds {
@@ -38,7 +40,7 @@ export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 145
 
 export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 95,  upAngle: 155 }
 export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 130 }
-export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 125 }
+export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 125, minRangeRequired: 15 }
 export const PUSHUP_THRESHOLDS: PushupThresholds = BALANCED_PUSHUP
 
 export const STRICT_SQUAT:   SquatThresholds = { downAngle: 100, upAngle: 160 }
@@ -223,13 +225,20 @@ export class PushupCounter {
   private t: PushupThresholds
   private highAngle: number | null = null
   private lowestAngle: number | null = null
-  private readonly minRangeRequired = 25
+  private minRangeRequired: number
   private repStartMs: number | null = null
   private readonly enforceTiming: boolean
 
   constructor(thresholds: PushupThresholds = PUSHUP_THRESHOLDS, enforceTiming = true) {
     this.t = thresholds
+    this.minRangeRequired = thresholds.minRangeRequired ?? 25
     this.enforceTiming = enforceTiming
+  }
+
+  /** Swap thresholds at runtime (e.g. easy/strict toggle). Preserves rep count. */
+  setThresholds(t: PushupThresholds) {
+    this.t = t
+    this.minRangeRequired = t.minRangeRequired ?? 25
   }
 
   reset() {
