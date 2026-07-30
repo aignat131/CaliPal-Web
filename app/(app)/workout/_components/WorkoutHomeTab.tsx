@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Play, Hash, Zap, Scissors, BookOpen, Star, ChevronRight, Camera } from 'lucide-react'
+import { Play, Zap, BookOpen, ChevronRight, Camera, Clock } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import FirstTimeHint from '@/components/ui/FirstTimeHint'
@@ -61,6 +61,8 @@ export function WorkoutHomeTab({
   lastExerciseName?: string | null
   onQuickRecord?: () => void
 }) {
+  // Suppress unused lint — onCountReps kept in interface for backwards compat
+  void onCountReps
   const t = useT()
   return (
     <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
@@ -84,7 +86,7 @@ export function WorkoutHomeTab({
           <div className="relative">
             <button
               onClick={onStartWorkout}
-              className="w-full h-16 rounded-2xl mb-3 flex items-center justify-center gap-3 font-black text-lg text-black"
+              className="w-full h-16 rounded-2xl mb-4 flex items-center justify-center gap-3 font-black text-lg text-black"
               style={{ backgroundColor: 'var(--accent)' }}
             >
               <Play size={22} className="text-black fill-black" />
@@ -97,16 +99,6 @@ export function WorkoutHomeTab({
             )}
           </div>
 
-          {/* Count reps quick entry */}
-          <button
-            onClick={onCountReps}
-            className="w-full h-[52px] rounded-2xl mb-4 flex items-center justify-center gap-3 font-bold text-base text-white"
-            style={{ backgroundColor: 'var(--accent)' }}
-          >
-            <Hash size={20} className="text-white" />
-            Numără repetări
-          </button>
-
           {/* Quick exercises */}
           {(() => {
             const favorites = profile?.favoriteExercises ?? []
@@ -118,7 +110,7 @@ export function WorkoutHomeTab({
               : DEFAULT_QUICK_EXERCISES
 
             return (
-              <div className="mb-4">
+              <div className="mb-5">
                 <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2.5">EXERCIȚII RAPIDE</p>
                 <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                   {quickExercises.map(ex => {
@@ -142,81 +134,67 @@ export function WorkoutHomeTab({
             )
           })()}
 
-          {/* ML tools */}
+          {/* Last workout + AI Analysis — side by side */}
           <div className="grid grid-cols-2 gap-2 mb-4">
-            <Link href="/workout/form-check">
-              <div className="rounded-2xl p-3.5 flex items-center gap-3 border border-brand-green/25"
-                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.05)' }}>
-                <Zap size={20} className="text-brand-green flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-bold text-white">Analiză formă</p>
-                  <p className="text-xs text-white/40">AI în timp real</p>
+            {/* Last workout preview */}
+            {history[0] ? (
+              <div className="rounded-2xl p-3.5 border border-white/8" style={{ backgroundColor: 'var(--app-surface)' }}>
+                <div className="flex items-center gap-1.5 mb-2.5">
+                  <Clock size={13} className="text-white/40" />
+                  <p className="text-[10px] font-bold text-white/40 tracking-widest">ULTIMUL</p>
                 </div>
+                <p className="text-sm font-bold text-white mb-1.5">
+                  {history[0].exercises.length} exerciții
+                </p>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[11px] text-white/50">⏱ {formatDuration(history[0].durationSeconds)}</span>
+                  <span className="text-[11px] text-white/50">🔁 {history[0].totalReps} rep</span>
+                </div>
+                <p className="text-[10px] text-white/25 mt-2">{formatDate(history[0].createdAt)}</p>
               </div>
-            </Link>
-            <Link href="/workout/autocut">
-              <div className="rounded-2xl p-3.5 flex items-center gap-3 border border-purple-500/25"
-                style={{ backgroundColor: '#8B5CF60D' }}>
-                <Scissors size={20} className="text-purple-400 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-bold text-white">AutoCut Rep</p>
-                  <p className="text-xs text-white/40">Taie videoul auto</p>
+            ) : (
+              <div className="rounded-2xl p-3.5 border border-white/8" style={{ backgroundColor: 'var(--app-surface)' }}>
+                <div className="flex items-center gap-1.5 mb-2.5">
+                  <Clock size={13} className="text-white/40" />
+                  <p className="text-[10px] font-bold text-white/40 tracking-widest">ULTIMUL</p>
                 </div>
+                <p className="text-xs text-white/30 mt-2">Niciun antrenament încă</p>
+              </div>
+            )}
+
+            {/* Form Analysis card */}
+            <Link href="/workout/form-check">
+              <div className="rounded-2xl p-3.5 h-full flex flex-col border border-brand-green/20 hover:border-brand-green/40 transition-colors"
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.05)' }}>
+                <div className="flex items-center gap-1.5 mb-2.5">
+                  <Zap size={13} className="text-brand-green" />
+                  <p className="text-[10px] font-bold text-brand-green/70 tracking-widest">ANALIZĂ AI</p>
+                </div>
+                <p className="text-sm font-bold text-white mb-1">Analiză formă</p>
+                <p className="text-[11px] text-white/40 mt-auto">AI în timp real</p>
               </div>
             </Link>
           </div>
 
-          {/* Programs card */}
+          {/* Programs card — compact */}
           <Link href="/training/programs">
-            <div className="rounded-2xl p-4 mb-4 border border-blue-500/20 hover:border-blue-500/40 transition-colors" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.06)' }}>
+            <div className="rounded-2xl p-3.5 mb-4 border border-blue-500/15 hover:border-blue-500/30 transition-colors" style={{ backgroundColor: 'rgba(59,130,246,0.04)' }}>
               <div className="flex items-center gap-3">
-                <BookOpen size={18} className="text-blue-400 flex-shrink-0" />
+                <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                  <BookOpen size={16} className="text-blue-400" />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white">Programe Structurate</p>
-                  <p className="text-xs text-white/50 mt-0.5">Planuri de 4 săptămâni pentru progres real</p>
+                  <p className="text-[11px] text-white/40 mt-0.5">Planuri de 4 săptămâni</p>
                 </div>
-                <ChevronRight size={16} className="text-white/25 flex-shrink-0" />
+                <ChevronRight size={16} className="text-white/20 flex-shrink-0" />
               </div>
             </div>
           </Link>
 
-          {/* Master Coach card */}
-          {!profile?.isCoach && (
-            <Link href="/workout/master-coach">
-              <div className="rounded-2xl p-4 mb-4 border border-yellow-400/20 hover:border-yellow-400/40 transition-colors" style={{ backgroundColor: '#FFB80010' }}>
-                <div className="flex items-center gap-3 mb-2">
-                  <Star size={18} className="text-yellow-400 flex-shrink-0" />
-                  <p className="text-sm font-bold text-white">Master Coach</p>
-                  <span className="ml-auto text-xs font-bold text-yellow-400">500 🪙</span>
-                </div>
-                <p className="text-xs text-white/55 leading-relaxed">
-                  Trimite un video și primești feedback personalizat de la un antrenor certificat.
-                </p>
-              </div>
-            </Link>
-          )}
-
           {/* Weekly challenge */}
           {challenge && (
             <ChallengeCard challenge={challenge} progress={challengeProgress} />
-          )}
-
-          {/* Last workout preview */}
-          {history[0] && (
-            <div className="app-card mt-4">
-              <p className="text-xs font-bold text-white/40 tracking-widest mb-2">ULTIMUL ANTRENAMENT</p>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-white">
-                  {history[0].exercises.length} exerciții
-                </span>
-                <span className="text-xs text-white/40">{formatDate(history[0].createdAt)}</span>
-              </div>
-              <div className="flex gap-4">
-                <span className="text-xs text-white/60">⏱ {formatDuration(history[0].durationSeconds)}</span>
-                <span className="text-xs text-white/60">🔁 {history[0].totalReps} rep</span>
-                <span className="text-xs text-white/60">🪙 +{history[0].coinsEarned}</span>
-              </div>
-            </div>
           )}
         </div>
       )}

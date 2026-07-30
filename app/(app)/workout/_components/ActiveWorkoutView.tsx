@@ -328,12 +328,41 @@ export function ActiveWorkoutView({
       {/* Exercises */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 py-4">
-          {exercises.length === 0 && (
-            <div className="text-center py-10">
-              <p className="text-sm text-white/35 mb-2">Niciun exercițiu adăugat.</p>
-              <p className="text-xs text-white/25">Caută un exercițiu pentru a începe.</p>
-            </div>
-          )}
+          {exercises.length === 0 && (() => {
+            const suggestions = [
+              { name: 'Flotări', emoji: '💪' },
+              { name: 'Tracțiuni', emoji: '🏋️' },
+              { name: 'Squaturi', emoji: '🦵' },
+            ]
+            return (
+              <div className="py-6">
+                <p className="text-[10px] font-bold text-white/30 tracking-widest mb-3 text-center">ÎNCEPE CU</p>
+                <div className="flex flex-col gap-2">
+                  {suggestions.map(s => {
+                    const exType = getExerciseType(s.name)
+                    return (
+                      <button
+                        key={s.name}
+                        onClick={() => {
+                          if (exType) {
+                            setLogExercise(s.name)
+                          }
+                        }}
+                        className="w-full rounded-2xl px-4 py-4 flex items-center gap-3.5 active:scale-[0.98] transition-all border border-white/6 hover:border-brand-green/20"
+                        style={{ backgroundColor: 'var(--app-surface)' }}
+                      >
+                        <span className="text-2xl">{s.emoji}</span>
+                        <span className="font-bold text-white text-sm flex-1 text-left">{s.name}</span>
+                        {exType && <Camera size={15} className="text-brand-green/60" />}
+                        <ChevronRight size={15} className="text-white/20" />
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-white/20 text-center mt-4">sau caută un exercițiu mai jos</p>
+              </div>
+            )
+          })()}
 
           {exercises.map((ex, ei) => {
             const hasWeight = ex.sets.some(s => s.weightKg != null)
@@ -1082,6 +1111,31 @@ export function ActiveWorkoutView({
           onCancel={() => setShowRepCounter(false)}
         />
       )}
+
+      {/* Floating camera record button */}
+      {!showSearch && !logExercise && !showCircuitSheet && !showRepCounter && (() => {
+        const lastCameraEx = [...exercises].reverse().find(ex => getExerciseType(ex.name) !== null)
+        if (!lastCameraEx && exercises.length > 0) return null
+        const targetName = lastCameraEx?.name ?? 'Flotări'
+        const targetType = getExerciseType(targetName)
+        if (!targetType) return null
+        return (
+          <div className="fixed right-4 z-20 flex flex-col items-center gap-1.5"
+            style={{ bottom: 'calc(24px + env(safe-area-inset-bottom))' }}>
+            {lastCameraEx && (
+              <span className="text-[10px] font-bold text-white/50 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-full whitespace-nowrap max-w-[120px] truncate">
+                {targetName}
+              </span>
+            )}
+            <button
+              onClick={() => { setLogExercise(targetName); setShowRepCounter(true) }}
+              className="w-16 h-16 rounded-full bg-red-500 shadow-xl shadow-red-500/40 flex items-center justify-center active:scale-90 transition-transform ring-4 ring-red-500/20"
+            >
+              <Camera size={26} className="text-white" />
+            </button>
+          </div>
+        )
+      })()}
 
       {/* Timed set floating timer bar */}
       {activeTimedSet?.startedAt && (
