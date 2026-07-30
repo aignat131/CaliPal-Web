@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import {
   collection, query, orderBy, limit, onSnapshot,
   addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, getDocs, deleteDoc, setDoc, runTransaction,
@@ -20,6 +21,8 @@ import { ActiveWorkoutView } from './_components/ActiveWorkoutView'
 import { PostWorkoutDetails } from './_components/PostWorkoutDetails'
 import { WorkoutSummaryCard } from './_components/WorkoutSummaryCard'
 import { QuickRepCounterView } from './_components/QuickRepCounterView'
+
+const AUTH_REDIRECT_KEY = 'calipal_auth_redirect'
 
 type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount'
 
@@ -68,6 +71,7 @@ export default function WorkoutPage() {
   const [historyLoading, setHistoryLoading] = useState(true)
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
   const [challengeProgress, setChallengeProgress] = useState<UserChallengeProgress | null>(null)
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false)
 
   // Crash recovery — rep counter session
   const [recoveredSession, setRecoveredSession] = useState<RepSession | null>(null)
@@ -370,7 +374,12 @@ export default function WorkoutPage() {
   }
 
   async function saveWorkout(photoFile: File | null, description: string) {
-    if (!user) return
+    if (!user) {
+      // Guest user — prompt to create account; pending data is already in localStorage
+      sessionStorage.setItem(AUTH_REDIRECT_KEY, '/workout')
+      setShowAuthPrompt(true)
+      return
+    }
     setSummaryPhotoFile(photoFile)
 
     const finalExercises = capturedExercises
@@ -838,6 +847,51 @@ export default function WorkoutPage() {
                 className="w-full py-3 text-sm font-semibold text-red-400 active:opacity-70 transition-opacity"
               >
                 Renunță la antrenament
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Auth prompt — guest tried to save workout */}
+      {showAuthPrompt && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-5 z-[100]">
+          <div className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-brand-green/15 flex items-center justify-center">
+                <span className="text-lg">🔒</span>
+              </div>
+              <div>
+                <p className="font-black text-white text-base">Creează un cont</p>
+                <p className="text-xs text-white/40 mt-0.5">pentru a salva antrenamentul</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl px-4 py-3 mb-5" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+              <p className="text-sm text-white/60 leading-relaxed">
+                Antrenamentul tău este salvat local. Creează un cont sau loghează-te și vei putea salva imediat.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Link
+                href="/register"
+                className="w-full h-13 rounded-2xl bg-brand-green text-black font-black text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+              >
+                Creează cont
+              </Link>
+              <Link
+                href="/login"
+                className="w-full h-13 rounded-2xl font-bold text-sm text-white flex items-center justify-center active:scale-[0.97] transition-transform"
+                style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+              >
+                Am deja un cont
+              </Link>
+              <button
+                onClick={() => setShowAuthPrompt(false)}
+                className="w-full py-3 text-sm font-semibold text-white/40 active:opacity-70 transition-opacity"
+              >
+                Înapoi
               </button>
             </div>
           </div>

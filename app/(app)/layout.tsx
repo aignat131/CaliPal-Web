@@ -249,7 +249,7 @@ function ThemePickerModal({ onConfirm, onSkip }: { onConfirm: () => void; onSkip
   )
 }
 
-const GUEST_ROUTES = ['/home', '/map', '/community', '/training']
+const GUEST_ROUTES = ['/home', '/map', '/community', '/training', '/workout']
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()

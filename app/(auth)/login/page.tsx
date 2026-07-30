@@ -57,6 +57,14 @@ export default function LoginPage() {
     return valid
   }
 
+  function getRedirectUrl(): string {
+    try { return sessionStorage.getItem('calipal_auth_redirect') ?? '/home' } catch { return '/home' }
+  }
+
+  function clearRedirect() {
+    try { sessionStorage.removeItem('calipal_auth_redirect') } catch { /* */ }
+  }
+
   async function handleLogin() {
     if (!auth) { setErrorMessage(t('auth.firebase_not_configured')); return }
     if (!validate()) return
@@ -64,7 +72,9 @@ export default function LoginPage() {
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password)
       await ensureUserDoc(credential.user)
-      router.replace('/home')
+      const redirect = getRedirectUrl()
+      clearRedirect()
+      router.replace(redirect)
     } catch (e) {
       setErrorMessage(authErrorMessage(e as AuthError, t))
     } finally {
@@ -79,7 +89,9 @@ export default function LoginPage() {
     try {
       const result = await signInWithPopup(auth, googleProvider)
       await ensureUserDoc(result.user)
-      router.replace('/home')
+      const redirect = getRedirectUrl()
+      clearRedirect()
+      router.replace(redirect)
     } catch (e) {
       setErrorMessage(authErrorMessage(e as AuthError, t))
     } finally {

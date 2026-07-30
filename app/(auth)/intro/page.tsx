@@ -17,18 +17,31 @@ export default function IntroPage() {
   const t = useT()
   const [current, setCurrent] = useState(0)
 
+  function getRedirectUrl(): string {
+    try { return sessionStorage.getItem('calipal_auth_redirect') ?? '/home' } catch { return '/home' }
+  }
+
+  function clearRedirect() {
+    try { sessionStorage.removeItem('calipal_auth_redirect') } catch { /* */ }
+  }
+
+  function finish() {
+    localStorage.setItem('calipal_intro_seen', '1')
+    const redirect = getRedirectUrl()
+    clearRedirect()
+    router.replace(redirect)
+  }
+
   function next() {
     if (current < slideKeys.length - 1) {
       setCurrent(current + 1)
     } else {
-      localStorage.setItem('calipal_intro_seen', '1')
-      router.replace('/home')
+      finish()
     }
   }
 
   function skip() {
-    localStorage.setItem('calipal_intro_seen', '1')
-    router.replace('/home')
+    finish()
   }
 
   const slide = slideKeys[current]
