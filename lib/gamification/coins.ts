@@ -40,7 +40,6 @@ const COIN_AMOUNTS: Record<CoinTask, number> = {
 }
 
 const TASK_NOTIF_LABELS: Partial<Record<CoinTask, string>> = {
-  COMPLETE_WORKOUT: 'Antrenament completat!',
   FIRST_WORKOUT: 'Primul antrenament completat!',
   STREAK_3: 'Streak de 3 zile!',
   STREAK_7: 'Streak de 7 zile!',

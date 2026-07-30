@@ -23,6 +23,16 @@ import { QuickRepCounterView } from './_components/QuickRepCounterView'
 
 type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount'
 
+const PENDING_WORKOUT_KEY = 'calipal_pending_workout'
+
+interface PendingWorkoutData {
+  exercises: WorkoutExercise[]
+  seconds: number
+  circuits: WorkoutCircuit[]
+  startedAt: number
+  savedAt: number
+}
+
 export default function WorkoutPage() {
   const { user } = useAuth()
   const { profile } = useMyProfile()
@@ -59,7 +69,7 @@ export default function WorkoutPage() {
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
   const [challengeProgress, setChallengeProgress] = useState<UserChallengeProgress | null>(null)
 
-  // Crash recovery
+  // Crash recovery — rep counter session
   const [recoveredSession, setRecoveredSession] = useState<RepSession | null>(null)
 
   useEffect(() => {
@@ -73,6 +83,22 @@ export default function WorkoutPage() {
       }
       if (session.repCount > 0) setRecoveredSession(session)
     } catch { localStorage.removeItem(REP_SESSION_KEY) }
+  }, [])
+
+  // Crash recovery — pending workout (user exited on postdetails/summary screen)
+  const [recoveredPending, setRecoveredPending] = useState<PendingWorkoutData | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PENDING_WORKOUT_KEY)
+      if (!raw) return
+      const data = JSON.parse(raw) as PendingWorkoutData
+      if (Date.now() - data.savedAt > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(PENDING_WORKOUT_KEY)
+        return
+      }
+      if (data.exercises.length > 0) setRecoveredPending(data)
+    } catch { localStorage.removeItem(PENDING_WORKOUT_KEY) }
   }, [])
 
   useEffect(() => {
@@ -197,9 +223,16 @@ export default function WorkoutPage() {
   }
 
   function saveQuickCountAsWorkout(exercises: WorkoutExercise[], seconds: number) {
+    const startedAtMs = Date.now() - seconds * 1000
     setCapturedExercises(exercises)
     setCapturedSeconds(seconds)
-    setWorkoutStartedAt(Date.now() - seconds * 1000)
+    setWorkoutStartedAt(startedAtMs)
+    try {
+      const pending: PendingWorkoutData = {
+        exercises, seconds, circuits: [], startedAt: startedAtMs, savedAt: Date.now(),
+      }
+      localStorage.setItem(PENDING_WORKOUT_KEY, JSON.stringify(pending))
+    } catch { /* */ }
     setScreen('postdetails')
   }
 
@@ -211,7 +244,7 @@ export default function WorkoutPage() {
 
   function handleQuickExerciseConfirm(reps: number, durationSeconds: number) {
     if (!quickExercise) return
-    const set: WorkoutSet = { reps, ...(durationSeconds > 0 && { durationSeconds }) }
+    const set: WorkoutSet = { reps, recorded: true, ...(durationSeconds > 0 && { durationSeconds }) }
 
     // If a workout is active, add directly to it
     if (isActive) {
@@ -259,10 +292,17 @@ export default function WorkoutPage() {
 
   function handleQuickSave() {
     setShowQuickPostSet(false)
-    setCapturedExercises(quickSets)
     const totalSec = Math.round(quickSetsTotalDurationMs(quickSets) / 1000)
+    const startedAtMs = Date.now() - totalSec * 1000
+    setCapturedExercises(quickSets)
     setCapturedSeconds(totalSec)
-    setWorkoutStartedAt(Date.now() - totalSec * 1000)
+    setWorkoutStartedAt(startedAtMs)
+    try {
+      const pending: PendingWorkoutData = {
+        exercises: quickSets, seconds: totalSec, circuits: [], startedAt: startedAtMs, savedAt: Date.now(),
+      }
+      localStorage.setItem(PENDING_WORKOUT_KEY, JSON.stringify(pending))
+    } catch { /* */ }
     setQuickSets([])
     setScreen('postdetails')
   }
@@ -274,14 +314,8 @@ export default function WorkoutPage() {
     setScreen('active')
   }
 
-  function handleQuickRecord() {
-    const lastCameraEx = [...exercises].reverse().find(ex => getExerciseType(ex.name) !== null)
-    if (lastCameraEx) {
-      const type = getExerciseType(lastCameraEx.name)!
-      setQuickExercise({ name: lastCameraEx.name, type })
-    } else {
-      setScreen('quickcount')
-    }
+  function handleQuickRecord(name: string, type: ExerciseType) {
+    setQuickExercise({ name, type })
   }
 
   function handleQuickCancel() {
@@ -312,15 +346,25 @@ export default function WorkoutPage() {
         .filter(ex => ex.sets.length > 0)
       if (snap.length === 0) snap = [...exercises]
     }
-    setCapturedExercises(snap)
-    setCapturedSeconds(seconds)
-    setCapturedCircuits(circuits.map(c => ({
+    const capturedCircuitsData = circuits.map(c => ({
       id: c.id,
       exerciseIndices: c.exerciseIndices,
       targetRounds: c.targetRounds,
       rounds: c.completedRounds,
-    })))
-    setWorkoutStartedAt(startedAt ?? Date.now() - seconds * 1000)
+    }))
+    const capturedStartedAt = startedAt ?? Date.now() - seconds * 1000
+    setCapturedExercises(snap)
+    setCapturedSeconds(seconds)
+    setCapturedCircuits(capturedCircuitsData)
+    setWorkoutStartedAt(capturedStartedAt)
+    // Persist pending data before clearing workout context so it survives app exit
+    try {
+      const pending: PendingWorkoutData = {
+        exercises: snap, seconds, circuits: capturedCircuitsData,
+        startedAt: capturedStartedAt, savedAt: Date.now(),
+      }
+      localStorage.setItem(PENDING_WORKOUT_KEY, JSON.stringify(pending))
+    } catch { /* quota exceeded — proceed anyway */ }
     ctxStop()
     setScreen('postdetails')
   }
@@ -343,12 +387,13 @@ export default function WorkoutPage() {
     const serializedExercises = finalExercises.map(ex => ({
       ...ex,
       sets: ex.sets.map(s => {
-        const set: Record<string, number> = {}
+        const set: Record<string, number | boolean> = {}
         if (s.reps !== undefined) set.reps = s.reps
         if (s.durationSeconds !== undefined) set.durationSeconds = s.durationSeconds
         if (s.weightKg !== undefined) set.weightKg = s.weightKg
         if (s.bandKg !== undefined) set.bandKg = s.bandKg
         if (s.timedDurationSeconds !== undefined) set.timedDurationSeconds = s.timedDurationSeconds
+        if (s.recorded) set.recorded = true
         if (Object.keys(set).length === 0) set.reps = 0
         return set
       }),
@@ -374,6 +419,9 @@ export default function WorkoutPage() {
         note: finalNote.trim(),
         createdAt: serverTimestamp(),
       })
+
+      // Workout saved successfully — clear pending data
+      localStorage.removeItem(PENDING_WORKOUT_KEY)
 
       // Award 10 coins for completing a workout
       const completeCoins = await awardCoins(user.uid, 'COMPLETE_WORKOUT')
@@ -630,6 +678,61 @@ export default function WorkoutPage() {
         </div>
       )}
 
+      {/* Pending workout recovery prompt — workout was captured but app closed before saving */}
+      {recoveredPending && !recoveredSession && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-5 z-[100]">
+          <div className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-brand-green/15 flex items-center justify-center">
+                <span className="text-lg">💾</span>
+              </div>
+              <div>
+                <p className="font-black text-white text-base">Antrenament nesalvat</p>
+                <p className="text-xs text-white/40 mt-0.5">Aplicația s-a închis înainte de salvare</p>
+              </div>
+            </div>
+            <div className="rounded-2xl px-4 py-3 mb-5" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-white/60">Exerciții</span>
+                <span className="text-sm font-bold text-white">{recoveredPending.exercises.length}</span>
+              </div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-white/60">Durată</span>
+                <span className="text-sm font-bold text-white">{formatDuration(recoveredPending.seconds)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-white/60">Repetări</span>
+                <span className="text-sm font-bold text-white">{totalRepsInWorkout(recoveredPending.exercises)}</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setCapturedExercises(recoveredPending.exercises)
+                  setCapturedSeconds(recoveredPending.seconds)
+                  setCapturedCircuits(recoveredPending.circuits)
+                  setWorkoutStartedAt(recoveredPending.startedAt)
+                  setRecoveredPending(null)
+                  setScreen('postdetails')
+                }}
+                className="w-full h-13 rounded-2xl bg-brand-green text-black font-black text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+              >
+                Salvează antrenamentul
+              </button>
+              <button
+                onClick={() => {
+                  setRecoveredPending(null)
+                  localStorage.removeItem(PENDING_WORKOUT_KEY)
+                }}
+                className="w-full py-3 text-sm font-semibold text-red-400 active:opacity-70 transition-opacity"
+              >
+                Renunță
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Crash recovery prompt */}
       {recoveredSession && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-5 z-[100]">
@@ -662,7 +765,7 @@ export default function WorkoutPage() {
                   const entry: WorkoutExercise = {
                     name: recoveredSession.exerciseName,
                     category: getCategory(recoveredSession.exerciseName, catalogue),
-                    sets: [{ reps: recoveredSession.repCount, ...(dur > 0 && { durationSeconds: dur }) }],
+                    sets: [{ reps: recoveredSession.repCount, recorded: true, ...(dur > 0 && { durationSeconds: dur }) }],
                   }
                   setQuickSets([entry])
                   setShowQuickPostSet(true)

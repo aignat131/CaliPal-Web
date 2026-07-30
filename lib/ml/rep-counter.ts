@@ -73,7 +73,7 @@ export class RepCounter {
   private framesSinceRep = 0
   private peakReached = false
   private t: PullupThresholds
-  private startAngle: number | null = null
+  private highAngle: number | null = null
   private lowestAngle: number | null = null
   private readonly minRangeRequired = 25
   private repStartMs: number | null = null
@@ -90,7 +90,7 @@ export class RepCounter {
     this.confirmBuffer = 0
     this.framesSinceRep = 0
     this.peakReached = false
-    this.startAngle = null
+    this.highAngle = null
     this.lowestAngle = null
     this.repStartMs = null
   }
@@ -108,6 +108,8 @@ export class RepCounter {
       case 'HANGING': {
         if (avgElbow >= this.t.hangEnter) {
           this.confirmBuffer++
+          // Track highest angle while hanging (used as range start like PushupCounter)
+          if (this.highAngle === null || avgElbow > this.highAngle) this.highAngle = avgElbow
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'HANGING'
             this.confirmBuffer = 0
@@ -119,7 +121,6 @@ export class RepCounter {
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'PULLING'
             this.confirmBuffer = 0
-            this.startAngle = avgElbow
             this.lowestAngle = avgElbow
             this.repStartMs = performance.now()
           }
@@ -133,6 +134,8 @@ export class RepCounter {
       case 'PULLING': {
         if (avgElbow <= this.t.peak) {
           this.confirmBuffer++
+          // Track deepest angle even while confirming peak
+          if (this.lowestAngle === null || avgElbow < this.lowestAngle) this.lowestAngle = avgElbow
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'PEAK'
             this.peakReached = true
@@ -142,7 +145,6 @@ export class RepCounter {
           // Dropped back without reaching peak — not a full rep
           this.state = 'HANGING'
           this.confirmBuffer = 0
-          this.startAngle = null
           this.lowestAngle = null
           this.repStartMs = null
         } else {
@@ -154,6 +156,8 @@ export class RepCounter {
       }
 
       case 'PEAK': {
+        // Track deepest angle during peak hold
+        if (this.lowestAngle === null || avgElbow < this.lowestAngle) this.lowestAngle = avgElbow
         if (avgElbow > this.t.peak) {
           this.confirmBuffer++
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
@@ -170,8 +174,8 @@ export class RepCounter {
         if (avgElbow >= this.t.hangEnter && this.peakReached) {
           this.confirmBuffer++
           if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= MIN_REP_FRAMES) {
-            const rangeOk = this.startAngle !== null && this.lowestAngle !== null
-              && (this.startAngle - this.lowestAngle) >= this.minRangeRequired
+            const rangeOk = this.highAngle !== null && this.lowestAngle !== null
+              && (this.highAngle - this.lowestAngle) >= this.minRangeRequired
             let timeOk = true
             if (this.enforceTiming) {
               const minMs = this.repCount === 0 ? FIRST_REP_MIN_MS : SUBSEQUENT_REP_MIN_MS
@@ -183,7 +187,7 @@ export class RepCounter {
             this.confirmBuffer = 0
             this.framesSinceRep = 0
             this.peakReached = false
-            this.startAngle = null
+            this.highAngle = avgElbow
             this.lowestAngle = null
             this.repStartMs = null
           }

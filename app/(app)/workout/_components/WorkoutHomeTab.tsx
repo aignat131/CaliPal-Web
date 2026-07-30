@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { Play, Zap, BookOpen, ChevronRight, Camera, Clock } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
@@ -59,11 +60,13 @@ export function WorkoutHomeTab({
   onQuickExercise: (name: string, type: ExerciseType) => void
   isActive?: boolean
   lastExerciseName?: string | null
-  onQuickRecord?: () => void
+  onQuickRecord?: (name: string, type: ExerciseType) => void
 }) {
   // Suppress unused lint — onCountReps kept in interface for backwards compat
   void onCountReps
+  void lastExerciseName
   const t = useT()
+  const [fabOpen, setFabOpen] = useState(false)
   return (
     <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
       <div className="flex items-center justify-between mb-4">
@@ -108,6 +111,55 @@ export function WorkoutHomeTab({
             const quickExercises = cameraFavorites.length > 0
               ? cameraFavorites.slice(0, 4)
               : DEFAULT_QUICK_EXERCISES
+            const useTriangle = cameraFavorites.length === 0 && quickExercises.length === 3
+
+            if (useTriangle) {
+              return (
+                <div className="mb-5">
+                  <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2.5">EXERCIȚII RAPIDE</p>
+                  <div className="flex flex-col items-center gap-2.5">
+                    {/* Top exercise */}
+                    <div className="flex justify-center">
+                      {(() => {
+                        const ex = quickExercises[0]
+                        const exType = getExerciseType(ex.name)
+                        if (!exType) return null
+                        return (
+                          <button
+                            onClick={() => onQuickExercise(ex.name, exType)}
+                            className="w-28 rounded-2xl py-3 flex flex-col items-center gap-1 active:scale-[0.97] transition-transform"
+                            style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
+                          >
+                            <span className="text-2xl">{ex.emoji}</span>
+                            <span className="font-bold text-white text-xs">{ex.name}</span>
+                            <Camera size={12} className="text-brand-green" />
+                          </button>
+                        )
+                      })()}
+                    </div>
+                    {/* Bottom two exercises */}
+                    <div className="flex justify-center gap-3">
+                      {quickExercises.slice(1).map(ex => {
+                        const exType = getExerciseType(ex.name)
+                        if (!exType) return null
+                        return (
+                          <button
+                            key={ex.name}
+                            onClick={() => onQuickExercise(ex.name, exType)}
+                            className="w-28 rounded-2xl py-3 flex flex-col items-center gap-1 active:scale-[0.97] transition-transform"
+                            style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
+                          >
+                            <span className="text-2xl">{ex.emoji}</span>
+                            <span className="font-bold text-white text-xs">{ex.name}</span>
+                            <Camera size={12} className="text-brand-green" />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )
+            }
 
             return (
               <div className="mb-5">
@@ -120,12 +172,12 @@ export function WorkoutHomeTab({
                       <button
                         key={ex.name}
                         onClick={() => onQuickExercise(ex.name, exType)}
-                        className="flex-shrink-0 rounded-2xl px-4 py-3 flex items-center gap-2.5 active:scale-[0.97] transition-transform"
+                        className="flex-shrink-0 rounded-2xl px-3 py-2 flex items-center gap-2 active:scale-[0.97] transition-transform"
                         style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
                       >
-                        <span className="text-xl">{ex.emoji}</span>
-                        <span className="font-bold text-white text-sm whitespace-nowrap">{ex.name}</span>
-                        <Camera size={14} className="text-brand-green ml-0.5" />
+                        <span className="text-base">{ex.emoji}</span>
+                        <span className="font-bold text-white text-xs whitespace-nowrap">{ex.name}</span>
+                        <Camera size={12} className="text-brand-green ml-0.5" />
                       </button>
                     )
                   })}
@@ -207,22 +259,43 @@ export function WorkoutHomeTab({
         />
       )}
 
-      {/* Floating record button when workout is active */}
+      {/* Floating record FAB when workout is active */}
       {isActive && onQuickRecord && (
-        <div className="fixed right-4 z-30 flex flex-col items-center gap-1.5"
-          style={{ bottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
-          {lastExerciseName && (
-            <span className="text-[10px] font-bold text-white/50 bg-black/60 px-2.5 py-1 rounded-full whitespace-nowrap max-w-[120px] truncate">
-              {lastExerciseName}
-            </span>
+        <>
+          {/* Backdrop when FAB is open */}
+          {fabOpen && (
+            <div className="fixed inset-0 z-29" onClick={() => setFabOpen(false)} />
           )}
-          <button
-            onClick={onQuickRecord}
-            className="w-14 h-14 rounded-full bg-red-500 shadow-lg shadow-red-500/30 flex items-center justify-center active:scale-95 transition-transform"
-          >
-            <Camera size={24} className="text-white" />
-          </button>
-        </div>
+          <div className="fixed right-4 z-30 flex flex-col items-center gap-2"
+            style={{ bottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
+            {/* Expandable exercise options */}
+            {fabOpen && (
+              <div className="flex flex-col gap-2 animate-fade-in-up">
+                {DEFAULT_QUICK_EXERCISES.map(ex => {
+                  const exType = getExerciseType(ex.name)
+                  if (!exType) return null
+                  return (
+                    <button
+                      key={ex.name}
+                      onClick={() => { setFabOpen(false); onQuickRecord(ex.name, exType) }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-full shadow-lg active:scale-95 transition-transform whitespace-nowrap"
+                      style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.12)' }}
+                    >
+                      <span className="text-sm">{ex.emoji}</span>
+                      <span className="text-xs font-bold text-white">{ex.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            <button
+              onClick={() => setFabOpen(o => !o)}
+              className="w-14 h-14 rounded-full bg-red-500 shadow-lg shadow-red-500/30 flex items-center justify-center active:scale-95 transition-transform"
+            >
+              <Camera size={24} className="text-white" />
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

@@ -33,7 +33,8 @@ export function exerciseOneLiner(ex: WorkoutExercise): string {
       base = s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
     }
     const mod  = s.weightKg ? ` +${s.weightKg}kg` : s.bandKg ? ` ~${s.bandKg}kg` : ''
-    return base + mod
+    const rec  = s.recorded ? ' 📹' : ''
+    return base + mod + rec
   }
 
   const allSame = ex.sets.every(s =>
