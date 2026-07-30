@@ -15,8 +15,8 @@ import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
 import { drawSkeleton, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
 import { PoseValidator } from '@/lib/ml/pose-validator'
-import { PushupNNGate } from '@/lib/ml/pushup-nn-gate'
-import type { GateState } from '@/lib/ml/pushup-nn-gate'
+import { PositionGate } from '@/lib/ml/position-gate'
+import type { GateState } from '@/lib/ml/position-gate'
 import type { RepSession } from '@/types'
 
 // keep linter happy — POSE_CONNECTIONS imported to ensure tree-shaking keeps it
@@ -47,7 +47,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const squatCounterRef  = useRef(new SquatCounter(BALANCED_SQUAT))
   const formCoachRef     = useRef(new FormCoach())
   const poseValidatorRef = useRef(new PoseValidator())
-  const pushupGateRef    = useRef(new PushupNNGate())
+  const positionGateRef  = useRef(new PositionGate(exerciseType))
 
   // Angle smoothers — one per joint type
   const elbowSmootherRef = useRef(new AngleSmoother(0.3))
@@ -165,12 +165,10 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       setLoading(false)
       setCameraLoading(false)
 
-      // Initialize NN gate for pushups (loads ~67KB model, non-blocking)
-      if (exerciseType === 'pushup') {
-        pushupGateRef.current.initialize().then(() => {
-          setGateStatus(pushupGateRef.current.gateState)
-        })
-      }
+      // Initialize NN position gate (loads model per exercise type, non-blocking)
+      positionGateRef.current.initialize().then(() => {
+        setGateStatus(positionGateRef.current.gateState)
+      })
 
       let lastTime = -1
       function detect(time: number) {
@@ -189,10 +187,10 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
           const result = detectorRef.current!.detectForVideo(video, time)
           if (result.landmarks.length > 0) {
             processFrame(result.landmarks[0], ctx, canvas.width, canvas.height)
-          } else if (exerciseType === 'pushup') {
+          } else {
             // No body detected — check if gate should go stale (phone picked up, user left frame)
-            pushupGateRef.current.tick()
-            setGateStatus(pushupGateRef.current.gateState)
+            positionGateRef.current.tick()
+            setGateStatus(positionGateRef.current.gateState)
           }
         }
         animRef.current = requestAnimationFrame(detect)
@@ -238,26 +236,31 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     // skeleton turns gray and the counter freezes.
     let newRepCount = repCountRef.current
 
+    // NN gate: update every frame (triggers async inference internally when needed)
+    const gate = positionGateRef.current
+
     if (exerciseType === 'pullup') {
       const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
-      if (poseCheck.valid) {
+      gate.update(lms, elbow)
+      setGateStatus(gate.gateState)
+
+      if (poseCheck.valid && gate.isOpen) {
         const cs = repCounterRef.current.update(elbow)
         newRepCount = cs.repCount
         drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state] ?? '#1ED75F')
         setStateLabel(STATE_LABELS[cs.state])
         setStateColor(STATE_COLORS[cs.state])
         setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state))
-      } else {
+      } else if (!poseCheck.valid) {
         drawSkeleton(ctx, lms, w, h, '#6B7280')
+      } else {
+        drawSkeleton(ctx, lms, w, h, '#6366F1')
       }
 
     } else if (exerciseType === 'pushup') {
       const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
-
-      // NN gate: update every frame (triggers async inference internally when needed)
-      const gate = pushupGateRef.current
       gate.update(lms, elbow)
       setGateStatus(gate.gateState)
 
@@ -271,22 +274,26 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       } else if (!poseCheck.valid) {
         drawSkeleton(ctx, lms, w, h, '#6B7280')
       } else {
-        // Pose is valid but NN gate not yet confirmed — indigo skeleton
         drawSkeleton(ctx, lms, w, h, '#6366F1')
       }
 
     } else {
       const rawKnee = bestKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
       const knee = kneeSmootherRef.current.smooth(rawKnee)
-      if (poseCheck.valid) {
+      gate.update(lms, knee)
+      setGateStatus(gate.gateState)
+
+      if (poseCheck.valid && gate.isOpen) {
         const cs = squatCounterRef.current.update(knee)
         newRepCount = cs.repCount
         drawSkeleton(ctx, lms, w, h, '#3B82F6')
         setStateLabel(SQUAT_STATE_LABELS[cs.state])
         setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
         setFormCues(formCoachRef.current.getFormCues(lms, 'squat', cs.state))
-      } else {
+      } else if (!poseCheck.valid) {
         drawSkeleton(ctx, lms, w, h, '#6B7280')
+      } else {
+        drawSkeleton(ctx, lms, w, h, '#6366F1')
       }
     }
 
@@ -313,7 +320,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     const next = facingMode === 'environment' ? 'user' : 'environment'
     facingModeRef.current = next
     setFacingMode(next)
-    pushupGateRef.current.reset() // baseline invalid after camera change
+    positionGateRef.current.reset() // baseline invalid after camera change
     startCamera(next)
   }
 
@@ -435,22 +442,24 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
         </div>
       )}
 
-      {/* NN gate overlay for pushups — takes priority when gate is not confirmed */}
-      {!loading && exerciseType === 'pushup' && (gateStatus === 'LOADING' || gateStatus === 'VERIFYING') && (
+      {/* NN gate overlay — takes priority when gate is not confirmed */}
+      {!loading && (gateStatus === 'LOADING' || gateStatus === 'VERIFYING') && (
         <div className="absolute bottom-28 left-4 right-4 flex flex-col gap-1.5 z-10">
           <div
             className="flex items-center gap-2 px-4 py-3 rounded-xl"
             style={{ backgroundColor: 'rgba(99,102,241,0.88)', border: '1px solid rgba(99,102,241,0.6)' }}
           >
             <span className="text-white text-sm font-bold leading-tight">
-              {gateStatus === 'LOADING' ? 'Se incarcă modelul...' : 'Pune-te în poziție'}
+              {gateStatus === 'LOADING' ? 'Se incarcă modelul...' : (
+                { pushup: 'Pune-te în poziție', pullup: 'Agață-te de bară', squat: 'Stai în picioare' }[exerciseType]
+              )}
             </span>
           </div>
         </div>
       )}
 
-      {/* Pose invalid overlay (hidden for pushups when gate overlay is showing) */}
-      {!loading && poseInvalid && !(exerciseType === 'pushup' && (gateStatus === 'LOADING' || gateStatus === 'VERIFYING')) && (
+      {/* Pose invalid overlay (hidden when gate overlay is showing) */}
+      {!loading && poseInvalid && !(gateStatus === 'LOADING' || gateStatus === 'VERIFYING') && (
         <div className="absolute bottom-28 left-4 right-4 flex flex-col gap-1.5 z-10">
           <div
             className="flex items-center gap-2 px-4 py-3 rounded-xl"
