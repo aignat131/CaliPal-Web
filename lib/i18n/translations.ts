@@ -68,6 +68,12 @@ const T: Record<string, { RO: string; EN: string }> = {
   'home.calendar_days':        { RO: 'L,M,M,J,V,S,D', EN: 'M,T,W,T,F,S,S' },
   'home.calendar_trained':     { RO: 'Antrenament efectuat', EN: 'Workout completed' },
   'home.calendar_today':       { RO: 'Azi', EN: 'Today' },
+  // Home feed
+  'home.feed':                 { RO: 'FEED',            EN: 'FEED' },
+  'home.feed_empty':           { RO: 'Niciun post încă. Alătură-te unei comunități!', EN: 'No posts yet. Join a community!' },
+  'home.feed_see_all':         { RO: 'Vezi tot',        EN: 'See all' },
+  'home.feed_from':            { RO: 'din',             EN: 'from' },
+  'home.feed_discover':        { RO: 'Descoperă ce postează comunitățile', EN: 'Discover what communities are posting' },
   // Guest home
   'home.guest_title':          { RO: 'Explorează CaliPal', EN: 'Explore CaliPal' },
   'home.guest_subtitle':       { RO: 'Descoperă comunități, parcuri și antrenamente', EN: 'Discover communities, parks and workouts' },

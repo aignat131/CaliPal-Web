@@ -93,6 +93,9 @@ export interface CommunityPost {
   workoutReps?: number
   workoutExercises?: { name: string; summary: string }[]
   mentionedUserIds?: string[]
+  // Client-side only — populated when displaying posts in the home feed
+  communityId?: string
+  communityName?: string
 }
 
 export interface TrainingExercise {

@@ -19,6 +19,7 @@ import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 import { useT } from '@/lib/context/LanguageContext'
 import { parseTrainingDateTime, formatTrainingDate, compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
+import { HomeFeed } from './_components/HomeFeed'
 
 export default function HomePage() {
   const { user, loading: authLoading, isSuperAdmin } = useAuth()
@@ -286,6 +287,18 @@ export default function HomePage() {
         {/* Daily recommendation */}
         {recommendation && userDoc?.assessmentCompleted !== false && (
           <RecommendationCard recommendation={recommendation} />
+        )}
+
+        {/* Feed */}
+        {user && (
+          <HomeFeed
+            user={user}
+            joinedCommunityIds={userDoc?.joinedCommunityIds ?? []}
+            joinedCommunities={joinedCommunities}
+            isSuperAdmin={isSuperAdmin}
+            myName={displayName}
+            myPhoto={userDoc?.photoUrl || user?.photoURL || null}
+          />
         )}
 
         {/* Challenges section (replaces recent activity) */}
