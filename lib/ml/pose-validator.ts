@@ -138,7 +138,7 @@ export class PoseValidator {
     }
 
     // Hips should be above knees (upright posture, not lying down)
-    if (avgHipY > avgKneeY + 0.05) {
+    if (avgHipY > avgKneeY + 0.12) {
       return { valid: false, reason: 'Stai în picioare pentru genuflexiuni' }
     }
 

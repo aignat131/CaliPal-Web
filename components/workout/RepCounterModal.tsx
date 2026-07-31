@@ -9,7 +9,7 @@ import {
   BALANCED_PULLUP, BALANCED_PUSHUP, BALANCED_SQUAT, EASY_PUSHUP,
 } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
-import { bestElbowAngle, bestKneeAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
+import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
@@ -278,7 +278,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       }
 
     } else {
-      const rawKnee = bestKneeAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE])
+      const rawKnee = squatDepthAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE], lms[MP.LEFT_SHOULDER], lms[MP.RIGHT_SHOULDER])
       const knee = kneeSmootherRef.current.smooth(rawKnee)
       gate.update(lms, knee)
       setGateStatus(gate.gateState)

@@ -87,6 +87,43 @@ export function bestKneeAngle(
   return angleBetween(rightHip, rightKnee, rightAnkle)
 }
 
+/**
+ * Squat depth angle that works from any camera angle.
+ *
+ * Blends the 3D knee angle with a Y-position-based depth metric.
+ * The 3D angle works well from the side but stays ~180° from the front
+ * (hip/knee/ankle vertically aligned, Z-depth unreliable).
+ * The Y-based metric uses the hip-knee vertical gap normalized by body
+ * height, which is reliable from ANY camera angle.
+ *
+ * Returns Math.min(knee3D, yAngle) — whichever shows more bend wins.
+ */
+export function squatDepthAngle(
+  leftHip: Landmark, leftKnee: Landmark, leftAnkle: Landmark,
+  rightHip: Landmark, rightKnee: Landmark, rightAnkle: Landmark,
+  leftShoulder: Landmark, rightShoulder: Landmark,
+): number {
+  const knee3D = bestKneeAngle(leftHip, leftKnee, leftAnkle, rightHip, rightKnee, rightAnkle)
+
+  const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2
+  const avgHipY = (leftHip.y + rightHip.y) / 2
+  const avgKneeY = (leftKnee.y + rightKnee.y) / 2
+  const avgAnkleY = (leftAnkle.y + rightAnkle.y) / 2
+
+  const bodyHeight = avgAnkleY - avgShoulderY
+  if (bodyHeight < 0.01) return knee3D
+
+  // How far apart hip and knee are vertically, normalized by body height
+  // Standing: ~0.30-0.35 (hip well above knee)
+  // Deep squat: ~0.0-0.05 (hip at knee level)
+  const hipKneeGap = (avgKneeY - avgHipY) / bodyHeight
+
+  // Linear map: gap 0.0 → 70°, gap 0.35 → 170°
+  const yAngle = Math.max(60, Math.min(175, 70 + hipKneeGap * (170 - 70) / 0.35))
+
+  return Math.min(knee3D, yAngle)
+}
+
 // MediaPipe BlazePose landmark indices
 export const MP = {
   NOSE: 0,

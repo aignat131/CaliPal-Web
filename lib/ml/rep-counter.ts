@@ -16,6 +16,14 @@ export interface PullupThresholds {
   hangExit: number
   /** Elbow angle BELOW this → rep peak reached */
   peak: number
+  /** Minimum highAngle−lowestAngle to count a rep (default 25) */
+  minRangeRequired?: number
+  /** Minimum ms for the first rep (default 1800) */
+  firstRepMinMs?: number
+  /** Minimum ms for subsequent reps (default 700) */
+  subsequentRepMinMs?: number
+  /** Minimum frames between reps (default 20) */
+  minRepFrames?: number
 }
 
 export interface PushupThresholds {
@@ -41,7 +49,7 @@ export interface SquatThresholds {
 }
 
 export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 148, hangExit: 153, peak: 105 }
-export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 144, hangExit: 149, peak: 112 }
+export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 140, hangExit: 145, peak: 112, firstRepMinMs: 1000, subsequentRepMinMs: 500 }
 export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 145, peak: 120 }
 
 export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 95,  upAngle: 155 }
@@ -75,12 +83,19 @@ export class RepCounter {
   private t: PullupThresholds
   private highAngle: number | null = null
   private lowestAngle: number | null = null
-  private readonly minRangeRequired = 25
+  private minRangeRequired: number
+  private firstRepMinMs: number
+  private subsequentRepMinMs: number
+  private minRepFrames: number
   private repStartMs: number | null = null
   private readonly enforceTiming: boolean
 
   constructor(thresholds: PullupThresholds = STRICT_PULLUP, enforceTiming = true) {
     this.t = thresholds
+    this.minRangeRequired = thresholds.minRangeRequired ?? 25
+    this.firstRepMinMs = thresholds.firstRepMinMs ?? FIRST_REP_MIN_MS
+    this.subsequentRepMinMs = thresholds.subsequentRepMinMs ?? SUBSEQUENT_REP_MIN_MS
+    this.minRepFrames = thresholds.minRepFrames ?? MIN_REP_FRAMES
     this.enforceTiming = enforceTiming
   }
 
@@ -173,12 +188,12 @@ export class RepCounter {
       case 'LOWERING': {
         if (avgElbow >= this.t.hangEnter && this.peakReached) {
           this.confirmBuffer++
-          if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= MIN_REP_FRAMES) {
+          if (this.confirmBuffer >= CONFIRM_FRAMES && this.framesSinceRep >= this.minRepFrames) {
             const rangeOk = this.highAngle !== null && this.lowestAngle !== null
               && (this.highAngle - this.lowestAngle) >= this.minRangeRequired
             let timeOk = true
             if (this.enforceTiming) {
-              const minMs = this.repCount === 0 ? FIRST_REP_MIN_MS : SUBSEQUENT_REP_MIN_MS
+              const minMs = this.repCount === 0 ? this.firstRepMinMs : this.subsequentRepMinMs
               const elapsed = this.repStartMs !== null ? performance.now() - this.repStartMs : Infinity
               timeOk = elapsed >= minMs
             }
@@ -334,7 +349,7 @@ export class SquatCounter {
   private t: SquatThresholds
   private highAngle: number | null = null
   private lowestAngle: number | null = null
-  private readonly minRangeRequired = 30
+  private readonly minRangeRequired = 20
   private repStartMs: number | null = null
   private readonly enforceTiming: boolean
 
