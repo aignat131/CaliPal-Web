@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, doc,
   updateDoc, arrayUnion, increment, serverTimestamp,
@@ -42,7 +41,6 @@ function formatDate(str: string | undefined): string {
 export default function CommunityPage() {
   const { user } = useAuth()
   const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
-  const router = useRouter()
   const t = useT()
   const { showToast } = useToast()
   const { requestPermission } = usePushNotifications(user?.uid)
@@ -59,8 +57,7 @@ export default function CommunityPage() {
   })
   const [favoriteCommunityId, setFavoriteCommunityId] = useState<string | null>(null)
   const [citySearch, setCitySearch] = useState('')
-  const [userDocLoaded, setUserDocLoaded] = useState(false)
-  const redirectedRef = useRef(false)
+
 
   // Members preview popup (for non-members)
   const [previewCommunity, setPreviewCommunity] = useState<CommunityDoc | null>(null)
@@ -96,34 +93,9 @@ export default function CommunityPage() {
       const ids: string[] = snap.data()?.joinedCommunityIds ?? []
       setJoinedIds(new Set(ids))
       setFavoriteCommunityId(snap.data()?.favoriteCommunityId ?? null)
-      setUserDocLoaded(true)
     })
     return unsub
   }, [user])
-
-  // Auto-redirect: only on INITIAL load — never after a join action
-  // If user navigated back from [id] page, sessionStorage flag prevents re-redirect
-  useEffect(() => {
-    if (!userDocLoaded || redirectedRef.current) return
-    redirectedRef.current = true // lock — only runs once ever
-
-    const skip = sessionStorage.getItem('skip_community_redirect')
-    if (skip) { sessionStorage.removeItem('skip_community_redirect'); return }
-
-    if (favoriteCommunityId) {
-      getDoc(doc(db, 'communities', favoriteCommunityId)).then(snap => {
-        if (snap.exists()) router.push(`/community/${favoriteCommunityId}`)
-      })
-      return
-    }
-    if (joinedIds.size === 1) {
-      const singleId = [...joinedIds][0]
-      getDoc(doc(db, 'communities', singleId)).then(snap => {
-        if (snap.exists()) router.push(`/community/${singleId}`)
-      })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userDocLoaded]) // intentionally only on first load
 
   // Load evenimente whenever tab 1 is opened or joinedIds changes
   useEffect(() => {

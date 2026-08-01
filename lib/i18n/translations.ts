@@ -74,6 +74,8 @@ const T: Record<string, { RO: string; EN: string }> = {
   'home.feed_see_all':         { RO: 'Vezi tot',        EN: 'See all' },
   'home.feed_from':            { RO: 'din',             EN: 'from' },
   'home.feed_discover':        { RO: 'Descoperă ce postează comunitățile', EN: 'Discover what communities are posting' },
+  'home.discover':             { RO: 'DESCOPERĂ',      EN: 'DISCOVER' },
+  'home.discover_members':     { RO: '{n} membri',     EN: '{n} members' },
   // Guest home
   'home.guest_title':          { RO: 'Explorează CaliPal', EN: 'Explore CaliPal' },
   'home.guest_subtitle':       { RO: 'Descoperă comunități, parcuri și antrenamente', EN: 'Discover communities, parks and workouts' },

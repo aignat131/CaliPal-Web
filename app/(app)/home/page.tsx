@@ -12,11 +12,9 @@ import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import type {
   UserDoc, CommunityDoc, WeeklyChallenge, UserChallengeProgress,
   PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress,
-  WorkoutDoc,
 } from '@/types'
-import { Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, Play, BookOpen, MessageSquarePlus, Calendar } from 'lucide-react'
+import { Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, MessageSquarePlus, Calendar } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
-import { buildDailyRecommendation, type DailyRecommendation } from '@/lib/ml/recommend'
 import { useT } from '@/lib/context/LanguageContext'
 import { parseTrainingDateTime, formatTrainingDate, compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
 import { HomeFeed } from './_components/HomeFeed'
@@ -33,7 +31,6 @@ export default function HomePage() {
   const [showStreakCalendar, setShowStreakCalendar] = useState(false)
   const [workoutDates, setWorkoutDates] = useState<Set<string>>(new Set())
   const [latestFavTraining, setLatestFavTraining] = useState<PlannedTraining | null>(null)
-  const [recommendation, setRecommendation] = useState<DailyRecommendation | null>(null)
   // Ref for nested community challenge progress subscription (B1-4)
   const unsubCommProgressRef = useRef<(() => void) | null>(null)
 
@@ -58,16 +55,6 @@ export default function HomePage() {
       setWorkoutDates(dates)
     })
   }, [user, showStreakCalendar])
-
-  // Daily recommendation — built from last 7 workouts
-  useEffect(() => {
-    if (!user || !userDoc) return
-    getDocs(query(collection(db, 'users', user.uid, 'workouts'), orderBy('createdAt', 'desc'), limit(7))).then(snap => {
-      const recent = snap.docs.map(d => d.data() as WorkoutDoc)
-      const rec = buildDailyRecommendation(recent, userDoc)
-      setRecommendation(rec)
-    }).catch(() => {})
-  }, [user, userDoc?.uid]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Latest training + community challenge from favorite community
   useEffect(() => {
@@ -153,16 +140,12 @@ export default function HomePage() {
   const displayName = (storedName && storedName !== 'Utilizator')
     ? storedName
     : (user?.displayName || storedName || 'Utilizator')
-  const firstName = displayName.split(' ')[0]
   const streak = userDoc?.currentStreak ?? 0
   const lastWorkoutDate = userDoc?.lastWorkoutDate ?? ''
   const _ld = (msAgo: number) => { const d = new Date(Date.now() - msAgo); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-') }
   const streakIsActive = lastWorkoutDate === _ld(0) || lastWorkoutDate === _ld(86400000)
   const streakJustBroke = lastWorkoutDate === _ld(172800000)
   const showStreak = streak > 0 && (streakIsActive || streakJustBroke)
-
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? t('home.greeting_morning') : hour < 18 ? t('home.greeting_afternoon') : t('home.greeting_evening')
 
   if (!authLoading && !user) return <GuestHomePage />
 
@@ -209,16 +192,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Greeting */}
-        <div className="mb-3">
-          <p className="text-white/50 text-sm">{greeting},</p>
-          {authLoading || (!userDoc && !user?.displayName)
-            ? <div className="h-7 w-32 rounded-lg bg-white/8 animate-pulse" />
-            : <p className="text-2xl font-black text-white leading-tight">{firstName} 👋</p>
-          }
-        </div>
-
-
         {/* Latest training from favorite community */}
         {latestFavTraining && userDoc?.favoriteCommunityId && user && (
           <FavTrainingCard
@@ -230,64 +203,26 @@ export default function HomePage() {
           />
         )}
 
-        {/* Favorite community */}
+        {/* Favorite community — compact strip */}
         {userDoc?.favoriteCommunityId && (() => {
           const fav = joinedCommunities.find(c => c.id === userDoc.favoriteCommunityId)
           if (!fav) return null
           return (
-            <div className="mb-5">
-              <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">{t('home.fav_community')}</p>
-              <Link href={`/community/${fav.id}`}>
-                <div className="rounded-2xl p-4 flex items-center gap-3 border border-yellow-400/20"
-                  style={{ backgroundColor: '#FFB80010' }}>
-                  <div className="relative w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-                    style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>
-                    {fav.imageUrl
-                      ? <Image src={fav.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-xl" />
-                      : <span className="text-xl font-black text-brand-green">{fav.name.charAt(0)}</span>}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="font-bold text-white text-[15px] truncate">{fav.name}</p>
-                      <Star size={12} fill="#FFB800" className="text-yellow-400 flex-shrink-0" />
-                    </div>
-                    <p className="text-xs text-white/40 mt-0.5">{fav.memberCount} {t('common.members')}</p>
-                  </div>
+            <Link href={`/community/${fav.id}`}>
+              <div className="rounded-xl py-2 px-3 flex items-center gap-2 mb-3 border border-white/8"
+                style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                <div className="relative w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
+                  style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>
+                  {fav.imageUrl
+                    ? <Image src={fav.imageUrl} alt="" fill sizes="28px" className="object-cover rounded-lg" />
+                    : <span className="text-xs font-black text-brand-green">{fav.name.charAt(0)}</span>}
                 </div>
-              </Link>
-            </div>
+                <p className="text-sm font-bold text-white truncate flex-1">{fav.name}</p>
+                <Star size={11} fill="#FFB800" className="text-yellow-400 flex-shrink-0" />
+              </div>
+            </Link>
           )
         })()}
-
-        {/* Joined communities */}
-        {joinedCommunities.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-bold text-white/40 tracking-widest">{t('home.my_communities')}</p>
-              <Link href="/community" className="text-xs text-brand-green font-semibold">{t('common.see_all')}</Link>
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {joinedCommunities.slice(0, 6).map(c => (
-                <Link key={c.id} href={`/community/${c.id}`}>
-                  <div className="flex-shrink-0 flex flex-col items-center gap-1.5 w-16">
-                    <div className="relative w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden"
-                      style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)', border: '1px solid rgba(var(--accent-rgb), 0.20)' }}>
-                      {c.imageUrl
-                        ? <Image src={c.imageUrl} alt="" fill sizes="48px" className="object-cover rounded-2xl" />
-                        : <span className="text-lg font-black text-brand-green">{c.name.charAt(0)}</span>}
-                    </div>
-                    <p className="text-[10px] text-white/60 text-center leading-tight line-clamp-2">{c.name}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Daily recommendation */}
-        {recommendation && userDoc?.assessmentCompleted !== false && (
-          <RecommendationCard recommendation={recommendation} />
-        )}
 
         {/* Feed */}
         {user && (
@@ -659,73 +594,6 @@ function StreakCalendar({ streak, workoutDates, onClose }: {
             <div className="w-4 h-4 rounded-full border border-brand-green" />
             <span className="text-xs text-white/50">{t('home.calendar_today')}</span>
           </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Recommendation Card ────────────────────────────────────────────────────────
-
-function RecommendationCard({ recommendation }: { recommendation: DailyRecommendation }) {
-  const t = useT()
-
-  function startRecommendation() {
-    const payload = {
-      name: recommendation.title,
-      exercises: recommendation.exercises.map(e => ({
-        name: e.name,
-        sets: e.suggestedSets,
-        repsPerSet: e.suggestedValue,
-      })),
-    }
-    sessionStorage.setItem('calipal_load_training', JSON.stringify(payload))
-    window.location.href = '/workout'
-  }
-
-  return (
-    <div className="mb-5">
-      <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">{t('home.recommended_today')}</p>
-      <div className="rounded-2xl p-4 border border-brand-green/20" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.03)' }}>
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1 min-w-0 pr-3">
-            <p className="font-black text-white text-[15px] leading-tight">{recommendation.title}</p>
-            <p className="text-xs text-white/45 mt-1 leading-relaxed">{recommendation.rationale}</p>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Clock size={11} className="text-white/35" />
-            <span className="text-xs text-white/40">~{recommendation.estimatedMinutes}min</span>
-          </div>
-        </div>
-
-        {/* Exercise chips */}
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {recommendation.exercises.slice(0, 4).map(ex => (
-            <span key={ex.name} className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.09)', color: 'var(--accent)' }}>
-              {ex.name}
-            </span>
-          ))}
-          {recommendation.exercises.length > 4 && (
-            <span className="text-[11px] text-white/30 py-0.5">{t('home.more_exercises', { n: recommendation.exercises.length - 4 })}</span>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={startRecommendation}
-            className="flex-1 h-9 rounded-xl font-black text-black text-xs flex items-center justify-center gap-1.5"
-            style={{ backgroundColor: 'var(--accent)' }}
-          >
-            <Play size={13} className="fill-black" />
-            {t('home.start')}
-          </button>
-          <Link href="/training/programs">
-            <button className="h-9 px-3 rounded-xl text-xs font-semibold border border-white/15 text-white/60 flex items-center gap-1.5">
-              <BookOpen size={13} />
-              {t('home.programs')}
-            </button>
-          </Link>
         </div>
       </div>
     </div>

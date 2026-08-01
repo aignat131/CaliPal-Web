@@ -90,13 +90,7 @@ export default function CommunityDetailPage() {
   const [isMember, setIsMember] = useState(false)
   const [myRole, setMyRole] = useState<MemberRole>('MEMBER')
   const [myEmailNotifications, setMyEmailNotifications] = useState(true)
-  const [tab, setTab] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem(`comm_detail_tab_${params.id}`)
-      if (saved !== null) return parseInt(saved)
-    }
-    return 1 // default: Antrenamente
-  })
+  const [tab, setTab] = useState(1) // always default: Antrenamente
   const [loading, setLoading] = useState(true)
   const [postText, setPostText] = useState('')
   const [postImage, setPostImage] = useState<File | null>(null)
@@ -341,7 +335,6 @@ export default function CommunityDetailPage() {
   }, [user])
 
   useEffect(() => {
-    sessionStorage.setItem(`comm_detail_tab_${id}`, String(tab))
     if (tab === 2) loadSocialStatus()
   }, [tab, id, loadSocialStatus])
 
@@ -393,7 +386,6 @@ export default function CommunityDetailPage() {
       if (userSnap.data()?.favoriteCommunityId === id) updates.favoriteCommunityId = ''
       batch.update(userRef, updates)
       await batch.commit()
-      sessionStorage.setItem('skip_community_redirect', '1')
       router.push('/community')
     } finally {
       setLeaving(false)
@@ -719,7 +711,7 @@ export default function CommunityDetailPage() {
             {/* Back button */}
             <button
               aria-label="Înapoi"
-              onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }}
+              onClick={() => router.push('/community')}
               className="absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center"
               style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)' }}
             >
@@ -778,7 +770,7 @@ export default function CommunityDetailPage() {
         /* ── Plain text header (no image) ── */
         <div className="px-4 pt-4 pb-3 border-b border-white/8">
           <div className="flex items-center gap-3">
-            <button aria-label="Înapoi" onClick={() => { sessionStorage.setItem('skip_community_redirect', '1'); router.push('/community') }} className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
+            <button aria-label="Înapoi" onClick={() => router.push('/community')} className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
               <ArrowLeft size={18} className="text-white/80" />
             </button>
             <div className="flex-1 min-w-0">
