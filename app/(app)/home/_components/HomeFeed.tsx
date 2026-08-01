@@ -79,7 +79,7 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
         }
 
         // Discovery: fetch recent posts from all communities, filter to photo posts from non-joined
-        let discoveryItems: FeedItem[] = []
+        const discoveryItems: FeedItem[] = []
         try {
           const discSnap = await getDocs(query(
             collectionGroup(db, 'posts'),
