@@ -35,7 +35,6 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
 
   useEffect(() => {
     let cancelled = false
-    const joinedSet = new Set(joinedCommunityIds)
 
     async function fetchFeed() {
       setLoading(true)
@@ -78,13 +77,13 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
           }))
         }
 
-        // Discovery: fetch recent posts from all communities, filter to photo posts from non-joined
+        // Photo highlights: fetch recent posts from all communities, keep only photo posts
         const discoveryItems: FeedItem[] = []
         try {
           const discSnap = await getDocs(query(
             collectionGroup(db, 'posts'),
             orderBy('createdAt', 'desc'),
-            limit(30),
+            limit(40),
           ))
 
           const discPosts = discSnap.docs
@@ -92,7 +91,7 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
               const communityId = d.ref.parent.parent!.id
               return { id: d.id, ...d.data(), communityId } as CommunityPost
             })
-            .filter(p => p.photoUrl && !joinedSet.has(p.communityId!))
+            .filter(p => p.photoUrl)
 
           // Group by community, keep up to 4 photos per community
           const byCommunity = new Map<string, CommunityPost[]>()
@@ -106,13 +105,15 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
           const communityIds = [...byCommunity.keys()].slice(0, 3)
 
           if (communityIds.length > 0) {
-            // Batch-fetch community docs
+            // Use already-loaded community docs for joined communities, fetch the rest
             const commDocs = await Promise.all(
-              communityIds.map(cid =>
-                getDoc(doc(db, 'communities', cid)).then(snap =>
+              communityIds.map(cid => {
+                const existing = communityNameMap.get(cid)
+                if (existing) return Promise.resolve(existing)
+                return getDoc(doc(db, 'communities', cid)).then(snap =>
                   snap.exists() ? { id: snap.id, ...snap.data() } as CommunityDoc : null
                 ).catch(() => null)
-              )
+              })
             )
 
             for (const commDoc of commDocs) {
@@ -128,7 +129,7 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
             }
           }
         } catch {
-          // Discovery fetch failed — continue with followed posts only
+          // Photo highlights fetch failed — continue with followed posts only
         }
 
         // If no joined communities at all, also fetch a plain discovery feed
