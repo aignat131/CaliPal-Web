@@ -9,14 +9,17 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
 import { PostCard } from '@/app/(app)/community/[id]/_components/PostCard'
+import TrainingPhotoCard from '@/components/training/TrainingPhotoCard'
 import { CommunityPhotoPreview } from './CommunityPhotoPreview'
-import type { CommunityPost, CommunityDoc } from '@/types'
+import type { CommunityPost, CommunityDoc, PlannedTraining } from '@/types'
 import type { User } from 'firebase/auth'
 import { Users } from 'lucide-react'
+import { parseTrainingDateTime } from '@/lib/utils/trainingDateTime'
 
 type FeedItem =
-  | { type: 'post'; post: CommunityPost; key: string }
-  | { type: 'discovery'; community: CommunityDoc; photoPosts: CommunityPost[]; key: string }
+  | { type: 'post'; post: CommunityPost; key: string; sortMs: number }
+  | { type: 'training'; training: PlannedTraining; communityId: string; key: string; sortMs: number }
+  | { type: 'discovery'; community: CommunityDoc; photoPosts: CommunityPost[]; key: string; sortMs: number }
 
 export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperAdmin, myName, myPhoto }: {
   user: User
@@ -39,45 +42,85 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
     async function fetchFeed() {
       setLoading(true)
       try {
-        let followedPosts: CommunityPost[] = []
+        const postItems: FeedItem[] = []
+        const trainingItems: FeedItem[] = []
 
         if (joinedCommunityIds.length > 0) {
-          // Fetch from each joined community, merge & sort
           const ids = joinedCommunityIds.slice(0, 10)
+
+          // Fetch posts and trainings with photos in parallel
+          const [postResults, trainingResults] = await Promise.all([
+            // Posts from each joined community
+            Promise.all(
+              ids.map(cid =>
+                getDocs(query(
+                  collection(db, 'communities', cid, 'posts'),
+                  orderBy('createdAt', 'desc'),
+                  limit(5),
+                )).then(snap =>
+                  snap.docs.map(d => ({
+                    id: d.id, ...d.data(), communityId: cid,
+                  } as CommunityPost))
+                ).catch(() => [] as CommunityPost[])
+              )
+            ),
+            // Recent trainings from each joined community (filter for photos client-side)
+            Promise.all(
+              ids.map(cid =>
+                getDocs(query(
+                  collection(db, 'communities', cid, 'trainings'),
+                  orderBy('timeStart', 'desc'),
+                  limit(10),
+                )).then(snap =>
+                  snap.docs
+                    .map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
+                    .filter(tr => tr.photoCount && tr.photoCount > 0)
+                    .slice(0, 3)
+                    .map(training => ({ training, communityId: cid }))
+                ).catch(() => [] as { training: PlannedTraining; communityId: string }[])
+              )
+            ),
+          ])
+
+          // Process posts
           const allPosts: CommunityPost[] = []
-
-          const results = await Promise.all(
-            ids.map(cid =>
-              getDocs(query(
-                collection(db, 'communities', cid, 'posts'),
-                orderBy('createdAt', 'desc'),
-                limit(5),
-              )).then(snap =>
-                snap.docs.map(d => ({
-                  id: d.id,
-                  ...d.data(),
-                  communityId: cid,
-                } as CommunityPost))
-              ).catch(() => [] as CommunityPost[])
-            )
-          )
-
-          results.forEach(batch => allPosts.push(...batch))
-
-          // Sort by createdAt desc, take top 20
+          postResults.forEach(batch => allPosts.push(...batch))
           allPosts.sort((a, b) => {
             const aTime = a.createdAt?.toDate?.()?.getTime() ?? 0
             const bTime = b.createdAt?.toDate?.()?.getTime() ?? 0
             return bTime - aTime
           })
+          for (const p of allPosts.slice(0, 20)) {
+            const sortMs = p.createdAt?.toDate?.()?.getTime() ?? 0
+            postItems.push({
+              type: 'post',
+              post: { ...p, communityName: communityNameMap.get(p.communityId!)?.name ?? '' },
+              key: p.id,
+              sortMs,
+            })
+          }
 
-          followedPosts = allPosts.slice(0, 20).map(p => ({
-            ...p,
-            communityName: communityNameMap.get(p.communityId!)?.name ?? '',
-          }))
+          // Process trainings with photos — filter to past trainings only
+          const now = new Date()
+          for (const batch of trainingResults) {
+            for (const { training: tr, communityId: cid } of batch) {
+              if (tr.deletedAt) continue
+              const start = tr.timeStart ? parseTrainingDateTime(tr.timeStart, tr.date) : null
+              if (!start || start > now) continue
+              const end = tr.timeEnd ? parseTrainingDateTime(tr.timeEnd, tr.date) : null
+              const sortMs = end?.getTime() ?? start.getTime()
+              trainingItems.push({
+                type: 'training',
+                training: tr,
+                communityId: cid,
+                key: `tr-${tr.id}`,
+                sortMs,
+              })
+            }
+          }
         }
 
-        // Photo highlights: fetch recent posts from all communities, keep only photo posts
+        // Photo highlights: fetch recent posts with photos from all communities
         const discoveryItems: FeedItem[] = []
         try {
           const discSnap = await getDocs(query(
@@ -105,7 +148,6 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
           const communityIds = [...byCommunity.keys()].slice(0, 3)
 
           if (communityIds.length > 0) {
-            // Use already-loaded community docs for joined communities, fetch the rest
             const commDocs = await Promise.all(
               communityIds.map(cid => {
                 const existing = communityNameMap.get(cid)
@@ -120,20 +162,23 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
               if (!commDoc) continue
               const photos = byCommunity.get(commDoc.id)
               if (!photos?.length) continue
+              // Use the newest photo post timestamp for sorting
+              const newestMs = photos[0].createdAt?.toDate?.()?.getTime() ?? 0
               discoveryItems.push({
                 type: 'discovery',
                 community: commDoc,
                 photoPosts: photos,
                 key: `disc-${commDoc.id}`,
+                sortMs: newestMs,
               })
             }
           }
         } catch {
-          // Photo highlights fetch failed — continue with followed posts only
+          // Photo highlights fetch failed — continue with other items
         }
 
-        // If no joined communities at all, also fetch a plain discovery feed
-        if (followedPosts.length === 0 && discoveryItems.length === 0) {
+        // If no joined communities at all, fetch a plain discovery feed
+        if (postItems.length === 0 && trainingItems.length === 0 && discoveryItems.length === 0) {
           const snap = await getDocs(query(
             collectionGroup(db, 'posts'),
             orderBy('createdAt', 'desc'),
@@ -155,33 +200,22 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
             )
           )
 
-          followedPosts = allPosts.map(p => ({
-            ...p,
-            communityName: nameMap.get(p.communityId!) ?? '',
-          }))
-        }
-
-        // Build interleaved feed: insert one discovery card after every 5 posts
-        const postItems: FeedItem[] = followedPosts.map(p => ({
-          type: 'post' as const,
-          post: p,
-          key: p.id,
-        }))
-
-        const merged: FeedItem[] = []
-        let discIdx = 0
-        for (let i = 0; i < postItems.length; i++) {
-          merged.push(postItems[i])
-          if ((i + 1) % 5 === 0 && discIdx < discoveryItems.length) {
-            merged.push(discoveryItems[discIdx++])
+          for (const p of allPosts) {
+            const sortMs = p.createdAt?.toDate?.()?.getTime() ?? 0
+            postItems.push({
+              type: 'post',
+              post: { ...p, communityName: nameMap.get(p.communityId!) ?? '' },
+              key: p.id,
+              sortMs,
+            })
           }
         }
-        // Append remaining discovery cards at the end
-        while (discIdx < discoveryItems.length) {
-          merged.push(discoveryItems[discIdx++])
-        }
 
-        if (!cancelled) setFeedItems(merged)
+        // Merge all items chronologically
+        const allItems = [...postItems, ...trainingItems, ...discoveryItems]
+          .sort((a, b) => b.sortMs - a.sortMs)
+
+        if (!cancelled) setFeedItems(allItems)
       } catch {
         // Silently fail — show empty state
       } finally {
@@ -259,6 +293,38 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
                 community={item.community}
                 photoPosts={item.photoPosts}
               />
+            )
+          }
+
+          if (item.type === 'training') {
+            return (
+              <div key={item.key} className="mb-1">
+                {/* Community badge for training */}
+                {(() => {
+                  const comm = communityNameMap.get(item.communityId)
+                  if (!comm) return null
+                  return (
+                    <Link href={`/community/${item.communityId}`}
+                      className="inline-flex items-center gap-1.5 mb-1 px-2 py-0.5 rounded-full active:opacity-70 transition-opacity"
+                      style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.06)' }}>
+                      {comm.imageUrl
+                        ? <Image src={comm.imageUrl} alt="" width={14} height={14} className="rounded-full object-cover" />
+                        : <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center bg-white/10">
+                            <span className="text-[7px] font-black text-white/60">{comm.name.charAt(0)}</span>
+                          </div>}
+                      <span className="text-[10px] font-semibold text-white/50">{comm.name}</span>
+                    </Link>
+                  )
+                })()}
+                <TrainingPhotoCard
+                  training={item.training}
+                  communityId={item.communityId}
+                  myUid={user.uid}
+                  myName={myName}
+                  myPhoto={myPhoto}
+                  isSuperAdmin={isSuperAdmin}
+                />
+              </div>
             )
           }
 
