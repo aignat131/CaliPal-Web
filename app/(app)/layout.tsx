@@ -11,7 +11,7 @@ import { WorkoutProvider, useWorkout } from '@/lib/context/WorkoutContext'
 import { NotificationProvider } from '@/lib/context/NotificationContext'
 import { LanguageProvider } from '@/lib/context/LanguageContext'
 import { ToastProvider } from '@/lib/context/ToastContext'
-import { ChevronRight, Dumbbell, Bell, Users, MessageSquare, UserPlus, Palette } from 'lucide-react'
+import { ChevronRight, Dumbbell, Bell, Users, MessageSquare, UserPlus, Palette, Swords } from 'lucide-react'
 import type { Theme } from '@/lib/hooks/useTheme'
 import { useT } from '@/lib/context/LanguageContext'
 import { ErrorBoundary } from '@/components/layout/ErrorBoundary'
@@ -62,6 +62,37 @@ function WorkoutMiniBar() {
         {isPaused ? t('layout.paused') : t('layout.active_workout')} · {formatDuration(seconds)}
       </span>
       <ChevronRight size={15} className="text-black flex-shrink-0" />
+    </button>
+  )
+}
+
+/** Floating pill shown when a battle is active and the user navigates away */
+function BattleMiniBar() {
+  const pathname = usePathname()
+  const router = useRouter()
+  const t = useT()
+
+  // Check localStorage for active battle
+  const [battleId, setBattleId] = useState<string | null>(null)
+  useEffect(() => {
+    const id = localStorage.getItem('calipal_battle_id')
+    setBattleId(id)
+    // Re-check when path changes
+  }, [pathname])
+
+  if (!battleId || pathname.startsWith('/battle')) return null
+
+  return (
+    <button
+      onClick={() => router.push(`/battle/${battleId}`)}
+      className="fixed bottom-20 md:bottom-6 right-4 z-[200] flex items-center gap-2 px-4 h-10 rounded-full shadow-xl cursor-pointer active:scale-95 transition-transform"
+      style={{ backgroundColor: '#EF4444' }}
+    >
+      <Swords size={14} className="text-white flex-shrink-0" />
+      <span className="text-sm font-bold text-white whitespace-nowrap">
+        {t('battle.title')}
+      </span>
+      <ChevronRight size={14} className="text-white flex-shrink-0" />
     </button>
   )
 }
@@ -352,6 +383,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
       <OfflineBanner />
       <AppNav />
       <WorkoutMiniBar />
+      <BattleMiniBar />
       {/* On mobile: pb-16 for bottom nav. On desktop: ml-16 (icon sidebar) or ml-48 (label sidebar) */}
       <main className="md:pb-0 md:ml-16 lg:ml-48" style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' }}>
         {children}

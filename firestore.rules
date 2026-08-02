@@ -479,6 +479,60 @@ service cloud.firestore {
       allow update, delete: if isSuperAdmin();
     }
 
+    // ── Battle rooms ──────────────────────────────────────────────────────────
+    match /battles/{battleId} {
+      allow read: if isAuth();
+
+      allow create: if isAuth()
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.status == 'LOBBY'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.code is string
+        && request.resource.data.code.size() == 6
+        && request.resource.data.maxPlayers >= 2
+        && request.resource.data.maxPlayers <= 8
+        && request.resource.data.playerCount == 0;
+
+      allow update: if isAuth()
+        && request.auth.uid == resource.data.hostUid
+        && (
+          // LOBBY → COUNTDOWN
+          (resource.data.status == 'LOBBY'
+            && request.resource.data.status == 'COUNTDOWN'
+            && request.resource.data.startAt == request.time)
+          // COUNTDOWN → ACTIVE
+          || (resource.data.status == 'COUNTDOWN'
+            && request.resource.data.status == 'ACTIVE')
+          // ACTIVE → FINISHED
+          || (resource.data.status == 'ACTIVE'
+            && request.resource.data.status == 'FINISHED'
+            && request.resource.data.finishedAt == request.time)
+          // Any → CANCELLED
+          || request.resource.data.status == 'CANCELLED'
+        );
+
+      allow delete: if false;
+
+      match /players/{uid} {
+        allow read: if isAuth();
+        allow create: if isOwner(uid)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.reps == 0
+          && request.resource.data.joinedAt == request.time;
+        allow update: if isOwner(uid)
+          && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['uid', 'joinedAt', 'coinsEarned']);
+        allow delete: if isOwner(uid);
+      }
+    }
+
+    // ── Battle history (under user) ──────────────────────────────────────────
+    match /users/{uid}/battle_history/{battleId} {
+      allow read: if isAuth();
+      allow create: if isOwner(uid);
+      allow update, delete: if false;
+    }
+
     // ── Feedback (user submissions + superadmin replies) ──────────────────────
     match /feedback/{feedbackId} {
       allow read, update, delete: if isSuperAdmin();

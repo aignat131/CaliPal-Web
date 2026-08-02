@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles } from 'lucide-react'
+import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles, Swords } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import FirstTimeHint from '@/components/ui/FirstTimeHint'
@@ -132,6 +132,26 @@ export function WorkoutHomeTab({
               <Camera size={16} className="text-indigo-400 flex-shrink-0" />
             </button>
           )}
+
+          {/* Battle Mode entry */}
+          <Link
+            href="/battle"
+            className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
+            style={{
+              background: 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(249,115,22,0.08))',
+              border: '1px solid rgba(239,68,68,0.25)',
+            }}
+          >
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: 'rgba(239,68,68,0.15)' }}>
+              <Swords size={20} className="text-red-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-white text-sm">{t('battle.title')}</p>
+              <p className="text-[11px] text-white/40 mt-0.5">{t('battle.create_sub')}</p>
+            </div>
+            <ChevronRight size={16} className="text-red-400/60 flex-shrink-0" />
+          </Link>
 
           {/* Quick exercises — single row */}
           {(() => {

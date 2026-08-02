@@ -410,6 +410,8 @@ export type NotificationType =
   | 'PHOTO_DELETED'
   | 'TASK_COMPLETED'
   | 'POST_MENTION'
+  | 'BATTLE_INVITE'
+  | 'BATTLE_RESULT'
 
 export interface AppNotification {
   id: string

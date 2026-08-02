@@ -1,0 +1,249 @@
+'use client'
+
+import { useState } from 'react'
+import { addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { db } from '@/lib/firebase/firestore'
+import { useAuth } from '@/lib/hooks/useAuth'
+import { useMyProfile } from '@/lib/hooks/useMyProfile'
+import { useT } from '@/lib/context/LanguageContext'
+import { X, Clock, Target, Camera, Hand, Shuffle, Minus, Plus } from 'lucide-react'
+import { generateUniqueRoomCode } from '@/lib/battle/room-codes'
+import { DEFAULT_EXERCISE_CATALOGUE } from '@/lib/data/exercise-catalogue'
+import { getExerciseType } from '@/app/(app)/workout/_helpers'
+import { TIME_LIMIT_OPTIONS, TARGET_REP_OPTIONS, MIN_PLAYERS, MAX_PLAYERS_LIMIT } from '@/lib/battle/types'
+import type { BattleGameMode, BattleRepMethod } from '@/lib/battle/types'
+
+interface Props {
+  onClose: () => void
+  onCreated: (battleId: string) => void
+}
+
+export default function CreateBattleSheet({ onClose, onCreated }: Props) {
+  const { user } = useAuth()
+  const { displayName, photoUrl } = useMyProfile()
+  const t = useT()
+
+  const [exercise, setExercise] = useState('')
+  const [gameMode, setGameMode] = useState<BattleGameMode>('TIME_ATTACK')
+  const [timeLimit, setTimeLimit] = useState(60)
+  const [targetReps, setTargetReps] = useState(20)
+  const [repMethod, setRepMethod] = useState<BattleRepMethod>('MIXED')
+  const [maxPlayers, setMaxPlayers] = useState(2)
+  const [creating, setCreating] = useState(false)
+  const [search, setSearch] = useState('')
+
+  const exerciseType = exercise ? getExerciseType(exercise) : null
+  const showCameraExercises = repMethod === 'CAMERA'
+
+  const filteredExercises = DEFAULT_EXERCISE_CATALOGUE.filter(e => {
+    const matchSearch = !search || e.name.toLowerCase().includes(search.toLowerCase())
+    if (showCameraExercises) return matchSearch && getExerciseType(e.name) !== null
+    return matchSearch
+  })
+
+  async function handleCreate() {
+    if (!user || !exercise || creating) return
+    setCreating(true)
+    try {
+      const code = await generateUniqueRoomCode()
+      const now = Timestamp.now()
+      const expiresAt = new Timestamp(now.seconds + 1800, now.nanoseconds)
+
+      const ref = await addDoc(collection(db, 'battles'), {
+        code,
+        hostUid: user.uid,
+        hostName: displayName,
+        hostPhotoUrl: photoUrl,
+        exercise,
+        exerciseType: getExerciseType(exercise),
+        gameMode,
+        timeLimitSeconds: gameMode === 'TIME_ATTACK' ? timeLimit : 180,
+        targetReps: gameMode === 'RACE_TO_TARGET' ? targetReps : null,
+        maxPlayers,
+        repCountMethod: repMethod,
+        status: 'LOBBY',
+        playerCount: 0,
+        startAt: null,
+        finishedAt: null,
+        winnerId: null,
+        createdAt: serverTimestamp(),
+        expiresAt,
+      })
+      onCreated(ref.id)
+    } catch {
+      setCreating(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-t-2xl p-5 animate-[slideUp_0.3s_ease-out]"
+        style={{ backgroundColor: 'var(--app-bg)', border: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-white/90">{t('battle.create')}</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5">
+            <X size={20} className="text-white/50" />
+          </button>
+        </div>
+
+        {/* Exercise picker */}
+        <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.exercise')}</label>
+        {exercise ? (
+          <div className="flex items-center gap-2 mb-4 p-2.5 rounded-xl border border-white/10" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)' }}>
+            <span className="text-sm font-medium text-white/90 flex-1">{exercise}</span>
+            {exerciseType && <Camera size={14} className="text-green-400" />}
+            <button onClick={() => setExercise('')} className="text-xs text-white/40 hover:text-white/60">✕</button>
+          </div>
+        ) : (
+          <>
+            <input
+              type="text"
+              placeholder="Caută exercițiu…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full h-8 px-2.5 mb-2 rounded-lg border border-white/10 bg-white/5 text-sm text-white/85 placeholder:text-white/30 focus:border-[var(--accent)] outline-none"
+            />
+            <div className="max-h-36 overflow-y-auto mb-4 space-y-0.5 rounded-xl border border-white/6 p-1" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              {filteredExercises.map(e => (
+                <button
+                  key={e.name}
+                  onClick={() => { setExercise(e.name); setSearch('') }}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/5 flex items-center gap-2 transition-colors"
+                >
+                  <span className="flex-1">{e.name}</span>
+                  {getExerciseType(e.name) && <Camera size={12} className="text-green-400/60" />}
+                </button>
+              ))}
+              {filteredExercises.length === 0 && (
+                <p className="text-xs text-white/30 text-center py-3">Niciun rezultat</p>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Game Mode */}
+        <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.game_mode')}</label>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {(['TIME_ATTACK', 'RACE_TO_TARGET'] as BattleGameMode[]).map(mode => (
+            <button
+              key={mode}
+              onClick={() => setGameMode(mode)}
+              className={`p-3 rounded-xl text-sm font-medium flex items-center gap-2 transition-all border ${
+                gameMode === mode
+                  ? 'border-[var(--accent)] text-white/90'
+                  : 'border-white/8 text-white/50 hover:border-white/15'
+              }`}
+              style={gameMode === mode ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : { backgroundColor: 'rgba(255,255,255,0.03)' }}
+            >
+              {mode === 'TIME_ATTACK' ? <Clock size={16} /> : <Target size={16} />}
+              {mode === 'TIME_ATTACK' ? t('battle.time_attack') : t('battle.race_target')}
+            </button>
+          ))}
+        </div>
+
+        {/* Time limit (TIME_ATTACK) or Target reps (RACE_TO_TARGET) */}
+        {gameMode === 'TIME_ATTACK' ? (
+          <>
+            <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.time_limit')}</label>
+            <div className="flex gap-1.5 mb-4 flex-wrap">
+              {TIME_LIMIT_OPTIONS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setTimeLimit(s)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                    timeLimit === s
+                      ? 'border-[var(--accent)] text-white/90'
+                      : 'border-white/8 text-white/50 hover:border-white/15'
+                  }`}
+                  style={timeLimit === s ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : {}}
+                >
+                  {s}s
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.target_reps')}</label>
+            <div className="flex gap-1.5 mb-4 flex-wrap">
+              {TARGET_REP_OPTIONS.map(r => (
+                <button
+                  key={r}
+                  onClick={() => setTargetReps(r)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                    targetReps === r
+                      ? 'border-[var(--accent)] text-white/90'
+                      : 'border-white/8 text-white/50 hover:border-white/15'
+                  }`}
+                  style={targetReps === r ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : {}}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Rep counting method */}
+        <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.rep_method')}</label>
+        <div className="grid grid-cols-3 gap-1.5 mb-4">
+          {([
+            { val: 'CAMERA' as BattleRepMethod, icon: Camera, label: t('battle.camera') },
+            { val: 'MANUAL' as BattleRepMethod, icon: Hand, label: t('battle.manual') },
+            { val: 'MIXED' as BattleRepMethod, icon: Shuffle, label: t('battle.mixed') },
+          ]).map(({ val, icon: Icon, label }) => (
+            <button
+              key={val}
+              onClick={() => setRepMethod(val)}
+              className={`p-2.5 rounded-xl text-xs font-medium flex flex-col items-center gap-1.5 transition-all border ${
+                repMethod === val
+                  ? 'border-[var(--accent)] text-white/90'
+                  : 'border-white/8 text-white/50 hover:border-white/15'
+              }`}
+              style={repMethod === val ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : { backgroundColor: 'rgba(255,255,255,0.03)' }}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Max Players */}
+        <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.max_players')}</label>
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={() => setMaxPlayers(p => Math.max(MIN_PLAYERS, p - 1))}
+            className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/5 disabled:opacity-30"
+            disabled={maxPlayers <= MIN_PLAYERS}
+          >
+            <Minus size={16} />
+          </button>
+          <span className="text-lg font-bold text-white/90 w-8 text-center">{maxPlayers}</span>
+          <button
+            onClick={() => setMaxPlayers(p => Math.min(MAX_PLAYERS_LIMIT, p + 1))}
+            className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/5 disabled:opacity-30"
+            disabled={maxPlayers >= MAX_PLAYERS_LIMIT}
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+
+        {/* Create button */}
+        <button
+          onClick={handleCreate}
+          disabled={!exercise || creating}
+          className="w-full h-11 rounded-xl font-semibold text-black transition-all active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none"
+          style={{ backgroundColor: 'var(--accent)' }}
+        >
+          {creating ? (
+            <span className="inline-block w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+          ) : t('battle.create_btn')}
+        </button>
+      </div>
+    </div>
+  )
+}

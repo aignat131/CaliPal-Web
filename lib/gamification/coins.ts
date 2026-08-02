@@ -20,6 +20,11 @@ export type CoinTask =
   | 'SKILL_UNLOCKED'
   | 'SKILLS_5'
   | 'SKILLS_10'
+  | 'FIRST_BATTLE'
+  | 'BATTLE_PARTICIPATION'
+  | 'BATTLES_10'
+  | 'BATTLE_WIN'
+  | 'BATTLE_PODIUM'
 
 const COIN_AMOUNTS: Record<CoinTask, number> = {
   FIRST_WORKOUT: 20,
@@ -37,6 +42,11 @@ const COIN_AMOUNTS: Record<CoinTask, number> = {
   SKILL_UNLOCKED: 0, // varies by skill
   SKILLS_5: 30,
   SKILLS_10: 75,
+  FIRST_BATTLE: 20,
+  BATTLE_PARTICIPATION: 5,
+  BATTLES_10: 30,
+  BATTLE_WIN: 15,
+  BATTLE_PODIUM: 10,
 }
 
 const TASK_NOTIF_LABELS: Partial<Record<CoinTask, string>> = {
@@ -52,6 +62,8 @@ const TASK_NOTIF_LABELS: Partial<Record<CoinTask, string>> = {
   WORKOUTS_100: '100 de antrenamente totale!',
   SKILLS_5: '5 skill-uri deblocate!',
   SKILLS_10: '10 skill-uri deblocate!',
+  FIRST_BATTLE: 'Prima luptă completată!',
+  BATTLES_10: '10 lupte completate!',
 }
 
 /** Award coins for a task. One-time tasks are guarded by a `coin_tasks/{uid}_{task}` doc. */
@@ -64,6 +76,7 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
     'COMPLETE_ASSESSMENT', 'JOIN_COMMUNITY', 'ADD_FRIEND',
     'WORKOUTS_10', 'WORKOUTS_50', 'WORKOUTS_100',
     'SKILLS_5', 'SKILLS_10',
+    'FIRST_BATTLE', 'BATTLES_10',
   ]
 
   if (oneTimeTasks.includes(task)) {
@@ -76,10 +89,10 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
       return true
     })
     if (!awarded) return 0
-  } else if (task === 'COMPLETE_WORKOUT') {
-    // Daily guard — only award workout coins once per day
+  } else if (task === 'COMPLETE_WORKOUT' || task === 'BATTLE_PARTICIPATION') {
+    // Daily guard — only award once per day
     const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-    const dailyRef = doc(db, 'coin_tasks', `${uid}_COMPLETE_WORKOUT_${today}`)
+    const dailyRef = doc(db, 'coin_tasks', `${uid}_${task}_${today}`)
     const snap = await getDoc(dailyRef)
     if (snap.exists()) return 0
     await setDoc(dailyRef, { uid, task, awardedAt: serverTimestamp() })
@@ -140,5 +153,13 @@ export async function checkSkillMilestones(uid: string, totalSkills: number) {
   const promises: Promise<unknown>[] = []
   if (totalSkills >= 5) promises.push(awardCoins(uid, 'SKILLS_5'))
   if (totalSkills >= 10) promises.push(awardCoins(uid, 'SKILLS_10'))
+  await Promise.all(promises)
+}
+
+/** Check and award milestone coins after a battle completes. */
+export async function checkBattleMilestones(uid: string, totalBattles: number) {
+  const promises: Promise<unknown>[] = []
+  if (totalBattles === 1) promises.push(awardCoins(uid, 'FIRST_BATTLE'))
+  if (totalBattles >= 10) promises.push(awardCoins(uid, 'BATTLES_10'))
   await Promise.all(promises)
 }

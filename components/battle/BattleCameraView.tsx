@@ -1,0 +1,230 @@
+'use client'
+
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { FlipHorizontal2, VideoOff } from 'lucide-react'
+import {
+  RepCounter, STATE_COLORS,
+  PushupCounter, SquatCounter,
+  BALANCED_PULLUP, EASY_PUSHUP, BALANCED_SQUAT,
+} from '@/lib/ml/rep-counter'
+import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
+import type { Landmark } from '@/lib/ml/pose-math'
+import { PoseValidator } from '@/lib/ml/pose-validator'
+import { PositionGate } from '@/lib/ml/position-gate'
+import { drawSkeleton, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
+import type { ExerciseType } from '@/lib/ml/form-coach'
+import { useBattleAudio } from '@/lib/battle/useBattleAudio'
+
+void POSE_CONNECTIONS
+
+const POSE_MODEL_URL =
+  'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task'
+
+interface Props {
+  exerciseType: ExerciseType
+  onRepCounted: (newCount: number) => void
+}
+
+/**
+ * Camera-based ML rep counter for battle mode.
+ * Simplified from RepCounterModal — no confirm/cancel, no form coaching.
+ * Reps stream live to parent via onRepCounted.
+ */
+export default function BattleCameraView({ exerciseType, onRepCounted }: Props) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const animRef = useRef<number | null>(null)
+  const detectorRef = useRef<{ detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks: Landmark[][] }; close?: () => void } | null>(null)
+
+  const repCounterRef = useRef(new RepCounter(BALANCED_PULLUP))
+  const pushupCounterRef = useRef(new PushupCounter(EASY_PUSHUP))
+  const squatCounterRef = useRef(new SquatCounter(BALANCED_SQUAT))
+  const poseValidatorRef = useRef(new PoseValidator())
+  const positionGateRef = useRef(new PositionGate(exerciseType))
+  const elbowSmootherRef = useRef(new AngleSmoother(0.3))
+  const kneeSmootherRef = useRef(new AngleSmoother(0.3))
+
+  const repCountRef = useRef(0)
+  const lastHapticRef = useRef(0)
+  const { playRepBeep, vibrate } = useBattleAudio()
+
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('user')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [repCount, setRepCount] = useState(0)
+
+  const stopCamera = useCallback(() => {
+    if (animRef.current) cancelAnimationFrame(animRef.current)
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+    detectorRef.current?.close?.()
+    detectorRef.current = null
+    streamRef.current = null
+  }, [])
+
+  const startCamera = useCallback(async (facing: 'environment' | 'user') => {
+    if (animRef.current) cancelAnimationFrame(animRef.current)
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+    elbowSmootherRef.current.reset()
+    kneeSmootherRef.current.reset()
+    setError('')
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } },
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
+
+      if (!detectorRef.current) {
+        const vision = await import('@mediapipe/tasks-vision')
+        const { PoseLandmarker, FilesetResolver } = vision
+        const filesetResolver = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
+        )
+        const poseLandmarker = await PoseLandmarker.createFromOptions(filesetResolver, {
+          baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: 'GPU' },
+          runningMode: 'VIDEO',
+          numPoses: 1,
+        })
+        detectorRef.current = poseLandmarker
+      }
+
+      setLoading(false)
+      positionGateRef.current.initialize()
+
+      let lastTime = -1
+      function detect(time: number) {
+        if (!videoRef.current || !canvasRef.current) return
+        const video = videoRef.current
+        const canvas = canvasRef.current
+        const ctx = canvas.getContext('2d')!
+
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        ctx.drawImage(video, 0, 0)
+
+        if (time !== lastTime && video.readyState >= 2) {
+          lastTime = time
+          const result = detectorRef.current!.detectForVideo(video, time)
+          if (result.landmarks.length > 0) {
+            processFrame(result.landmarks[0], ctx, canvas.width, canvas.height)
+          } else {
+            positionGateRef.current.tick()
+          }
+        }
+        animRef.current = requestAnimationFrame(detect)
+      }
+      animRef.current = requestAnimationFrame(detect)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Camera error')
+      setLoading(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function processFrame(lms: Landmark[], ctx: CanvasRenderingContext2D, w: number, h: number) {
+    const poseCheck = poseValidatorRef.current.validate(lms, exerciseType)
+    let newRepCount = repCountRef.current
+    const gate = positionGateRef.current
+
+    if (exerciseType === 'pullup') {
+      const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
+      const elbow = elbowSmootherRef.current.smooth(rawElbow)
+      gate.update(lms, elbow)
+      if (poseCheck.valid && gate.isOpen) {
+        const cs = repCounterRef.current.update(elbow)
+        newRepCount = cs.repCount
+        drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state] ?? '#1ED75F')
+      } else {
+        drawSkeleton(ctx, lms, w, h, '#6B7280')
+      }
+    } else if (exerciseType === 'pushup') {
+      const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
+      const elbow = elbowSmootherRef.current.smooth(rawElbow)
+      gate.update(lms, elbow)
+      if (poseCheck.valid && gate.isOpen) {
+        const cs = pushupCounterRef.current.update(elbow)
+        newRepCount = cs.repCount
+        drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state as keyof typeof STATE_COLORS] ?? '#1ED75F')
+      } else {
+        drawSkeleton(ctx, lms, w, h, '#6B7280')
+      }
+    } else if (exerciseType === 'squat') {
+      const rawKnee = squatDepthAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE], lms[MP.LEFT_SHOULDER], lms[MP.RIGHT_SHOULDER])
+      const knee = kneeSmootherRef.current.smooth(rawKnee)
+      gate.update(lms, knee)
+      if (poseCheck.valid && gate.isOpen) {
+        const cs = squatCounterRef.current.update(knee)
+        newRepCount = cs.repCount
+        drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state as keyof typeof STATE_COLORS] ?? '#1ED75F')
+      } else {
+        drawSkeleton(ctx, lms, w, h, '#6B7280')
+      }
+    }
+
+    if (newRepCount > repCountRef.current) {
+      repCountRef.current = newRepCount
+      setRepCount(newRepCount)
+      onRepCounted(newRepCount)
+
+      const now = Date.now()
+      if (now - lastHapticRef.current > 300) {
+        playRepBeep()
+        vibrate(15)
+        lastHapticRef.current = now
+      }
+    }
+  }
+
+  useEffect(() => {
+    startCamera('user')
+    return () => stopCamera()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function handleFlip() {
+    const next = facingMode === 'user' ? 'environment' : 'user'
+    setFacingMode(next)
+    startCamera(next)
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-8">
+        <VideoOff size={32} className="text-red-400/60" />
+        <p className="text-sm text-white/50">{error}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
+      {loading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-white/30 border-t-[var(--accent)] rounded-full animate-spin" />
+        </div>
+      )}
+
+      <video ref={videoRef} className="hidden" playsInline muted />
+      <canvas ref={canvasRef} className="w-full h-auto" style={{ maxHeight: '40vh' }} />
+
+      {/* Flip camera button */}
+      <button
+        onClick={handleFlip}
+        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 flex items-center justify-center backdrop-blur-sm"
+      >
+        <FlipHorizontal2 size={16} className="text-white/70" />
+      </button>
+
+      {/* Rep count overlay */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm px-4 py-1.5 rounded-full">
+        <span className="text-2xl font-black text-white">{repCount}</span>
+      </div>
+    </div>
+  )
+}

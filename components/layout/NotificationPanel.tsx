@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { markAllRead, deleteNotification } from '@/lib/firebase/notifications'
 import { useNotifications } from '@/lib/context/NotificationContext'
 import type { AppNotification } from '@/types'
-import { X, Bell, MessageSquare, UserPlus, UserCheck, Dumbbell, MapPin, Trash2, Users, Star, AtSign } from 'lucide-react'
+import { X, Bell, MessageSquare, UserPlus, UserCheck, Dumbbell, MapPin, Trash2, Users, Star, AtSign, Swords, Trophy } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
 
 function timeAgo(ts: { toDate?: () => Date } | null | undefined, nowLabel: string, daySuffix: string): string {
@@ -36,6 +36,8 @@ function notifIcon(type: AppNotification['type']) {
     case 'OFFICIAL_TRAINING_POSTED': return <Dumbbell size={16} className="text-brand-green" />
     case 'TASK_COMPLETED': return <Star size={16} className="text-yellow-400" />
     case 'POST_MENTION': return <AtSign size={16} className="text-brand-green" />
+    case 'BATTLE_INVITE': return <Swords size={16} className="text-brand-green" />
+    case 'BATTLE_RESULT': return <Trophy size={16} className="text-yellow-400" />
     default: return <Bell size={16} className="text-white/50" />
   }
 }
@@ -57,6 +59,8 @@ function notifRoute(notif: AppNotification): string | null {
     case 'COMMUNITY_REQUEST_APPROVED': return notif.relatedId ? `/community/${notif.relatedId}` : '/map'
     case 'COMMUNITY_REQUEST_REJECTED': return '/map'
     case 'COMMUNITY_DELETED': return '/map'
+    case 'BATTLE_INVITE': return notif.relatedId ? `/battle/${notif.relatedId}` : '/battle'
+    case 'BATTLE_RESULT': return notif.relatedId ? `/battle/${notif.relatedId}` : '/battle'
     default: return null
   }
 }
