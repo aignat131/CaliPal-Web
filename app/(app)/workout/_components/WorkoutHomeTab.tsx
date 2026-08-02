@@ -12,7 +12,7 @@ import { ChallengeCard } from './ChallengeCard'
 import { WorkoutHistory } from './WorkoutHistory'
 import { formatDate, formatDuration, getExerciseType } from '../_helpers'
 
-const EXERCISE_ICONS: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
+const EXERCISE_ICONS: Record<string, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
   'Flotări': PushUpIcon,
   'Tracțiuni': PullUpIcon,
   'Squaturi': SquatIcon,
