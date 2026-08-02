@@ -46,6 +46,10 @@ export interface SquatThresholds {
   downAngle: number
   /** Knee angle ABOVE this → standing */
   upAngle: number
+  /** Minimum ms for the first rep (default 1800) */
+  firstRepMinMs?: number
+  /** Minimum ms for subsequent reps (default 700) */
+  subsequentRepMinMs?: number
 }
 
 export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 148, hangExit: 153, peak: 105 }
@@ -57,9 +61,9 @@ export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 130 
 export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 125, minRangeRequired: 12, firstRepMinMs: 500, subsequentRepMinMs: 300, minRepFrames: 10 }
 export const PUSHUP_THRESHOLDS: PushupThresholds = BALANCED_PUSHUP
 
-export const STRICT_SQUAT:   SquatThresholds = { downAngle: 90,  upAngle: 155 }
-export const BALANCED_SQUAT: SquatThresholds = { downAngle: 100, upAngle: 150 }
-export const EASY_SQUAT:     SquatThresholds = { downAngle: 110, upAngle: 145 }
+export const STRICT_SQUAT:   SquatThresholds = { downAngle: 90,  upAngle: 155, firstRepMinMs: 1200 }
+export const BALANCED_SQUAT: SquatThresholds = { downAngle: 100, upAngle: 150, firstRepMinMs: 1000, subsequentRepMinMs: 500 }
+export const EASY_SQUAT:     SquatThresholds = { downAngle: 110, upAngle: 145, firstRepMinMs: 800,  subsequentRepMinMs: 400 }
 
 // ── Pull-up Counter ───────────────────────────────────────────────────────────
 
@@ -352,10 +356,14 @@ export class SquatCounter {
   private readonly minRangeRequired = 20
   private repStartMs: number | null = null
   private readonly enforceTiming: boolean
+  private firstRepMinMs: number
+  private subsequentRepMinMs: number
 
   constructor(thresholds: SquatThresholds = STRICT_SQUAT, enforceTiming = true) {
     this.t = thresholds
     this.enforceTiming = enforceTiming
+    this.firstRepMinMs = thresholds.firstRepMinMs ?? FIRST_REP_MIN_MS
+    this.subsequentRepMinMs = thresholds.subsequentRepMinMs ?? SUBSEQUENT_REP_MIN_MS
   }
 
   reset() {
@@ -396,7 +404,7 @@ export class SquatCounter {
               && (this.highAngle - this.lowestAngle) >= this.minRangeRequired
             let timeOk = true
             if (this.enforceTiming) {
-              const minMs = this.repCount === 0 ? FIRST_REP_MIN_MS : SUBSEQUENT_REP_MIN_MS
+              const minMs = this.repCount === 0 ? this.firstRepMinMs : this.subsequentRepMinMs
               const elapsed = this.repStartMs !== null ? performance.now() - this.repStartMs : Infinity
               timeOk = elapsed >= minMs
             }
