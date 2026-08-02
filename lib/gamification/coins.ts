@@ -1,5 +1,5 @@
 import {
-  doc, updateDoc, increment, serverTimestamp, runTransaction,
+  doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, runTransaction,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { createNotification } from '@/lib/firebase/notifications'
@@ -76,6 +76,14 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
       return true
     })
     if (!awarded) return 0
+  } else if (task === 'COMPLETE_WORKOUT') {
+    // Daily guard — only award workout coins once per day
+    const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+    const dailyRef = doc(db, 'coin_tasks', `${uid}_COMPLETE_WORKOUT_${today}`)
+    const snap = await getDoc(dailyRef)
+    if (snap.exists()) return 0
+    await setDoc(dailyRef, { uid, task, awardedAt: serverTimestamp() })
+    await updateDoc(doc(db, 'users', uid), { coins: increment(coins) })
   } else {
     await updateDoc(doc(db, 'users', uid), { coins: increment(coins) })
   }

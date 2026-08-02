@@ -675,7 +675,7 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {trainingHistory.slice(0, 10).map(tr => (
+                  {trainingHistory.slice(0, 3).map(tr => (
                     <Link key={`${tr.communityId}-${tr.id}`} href={`/training/${tr.communityId}/${tr.id}`}>
                       <div className="flex items-start gap-3 py-2.5 px-3 rounded-xl cursor-pointer hover:bg-white/5 transition-colors"
                         style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -712,9 +712,9 @@ export default function ProfilePage() {
                       </div>
                     </Link>
                   ))}
-                  {trainingHistory.length > 10 && (
+                  {trainingHistory.length > 3 && (
                     <p className="text-[10px] text-white/25 text-center mt-1">
-                      +{trainingHistory.length - 10} {trainingHistory.length - 10 === 1 ? 'antrenament' : 'antrenamente'}
+                      +{trainingHistory.length - 3} {trainingHistory.length - 3 === 1 ? 'antrenament' : 'antrenamente'}
                     </p>
                   )}
                 </div>

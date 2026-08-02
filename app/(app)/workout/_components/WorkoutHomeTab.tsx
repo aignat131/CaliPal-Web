@@ -13,13 +13,13 @@ import { formatDate, formatDuration, getExerciseType } from '../_helpers'
 
 const DEFAULT_QUICK_EXERCISES: { name: string; emoji: string }[] = [
   { name: 'Flotări',    emoji: '💪' },
-  { name: 'Tracțiuni',  emoji: '🏋️' },
+  { name: 'Tracțiuni',  emoji: '🦾' },
   { name: 'Squaturi',   emoji: '🦵' },
 ]
 
 const EXERCISE_EMOJI: Record<string, string> = {
   'flotări': '💪', 'flotari': '💪', 'push-up': '💪', 'pushup': '💪', 'diamond': '💎', 'pike': '🔺',
-  'tracțiuni': '🏋️', 'tractiuni': '🏋️', 'chin-up': '🏋️', 'chinup': '🏋️', 'australian': '🏋️',
+  'tracțiuni': '🦾', 'tractiuni': '🦾', 'chin-up': '🦾', 'chinup': '🦾', 'australian': '🦾',
   'squaturi': '🦵', 'squat': '🦵',
 }
 
@@ -104,90 +104,6 @@ export function WorkoutHomeTab({
             )}
           </div>
 
-          {/* Quick exercises */}
-          {(() => {
-            const favorites = profile?.favoriteExercises ?? []
-            const cameraFavorites = favorites
-              .filter(name => getExerciseType(name) !== null)
-              .map(name => ({ name, emoji: getEmojiForExercise(name) }))
-            const quickExercises = cameraFavorites.length > 0
-              ? cameraFavorites.slice(0, 4)
-              : DEFAULT_QUICK_EXERCISES
-            const useTriangle = cameraFavorites.length === 0 && quickExercises.length === 3
-
-            if (useTriangle) {
-              return (
-                <div className="mb-5">
-                  <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2.5">EXERCIȚII RAPIDE</p>
-                  <div className="flex flex-col items-center gap-2.5">
-                    {/* Top exercise */}
-                    <div className="flex justify-center">
-                      {(() => {
-                        const ex = quickExercises[0]
-                        const exType = getExerciseType(ex.name)
-                        if (!exType) return null
-                        return (
-                          <button
-                            onClick={() => onQuickExercise(ex.name, exType)}
-                            className="w-28 rounded-2xl py-3 flex flex-col items-center gap-1 active:scale-[0.97] transition-transform"
-                            style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
-                          >
-                            <span className="text-2xl">{ex.emoji}</span>
-                            <span className="font-bold text-white text-xs">{ex.name}</span>
-                            <Camera size={12} className="text-brand-green" />
-                          </button>
-                        )
-                      })()}
-                    </div>
-                    {/* Bottom two exercises */}
-                    <div className="flex justify-center gap-3">
-                      {quickExercises.slice(1).map(ex => {
-                        const exType = getExerciseType(ex.name)
-                        if (!exType) return null
-                        return (
-                          <button
-                            key={ex.name}
-                            onClick={() => onQuickExercise(ex.name, exType)}
-                            className="w-28 rounded-2xl py-3 flex flex-col items-center gap-1 active:scale-[0.97] transition-transform"
-                            style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
-                          >
-                            <span className="text-2xl">{ex.emoji}</span>
-                            <span className="font-bold text-white text-xs">{ex.name}</span>
-                            <Camera size={12} className="text-brand-green" />
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )
-            }
-
-            return (
-              <div className="mb-5">
-                <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2.5">EXERCIȚII RAPIDE</p>
-                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                  {quickExercises.map(ex => {
-                    const exType = getExerciseType(ex.name)
-                    if (!exType) return null
-                    return (
-                      <button
-                        key={ex.name}
-                        onClick={() => onQuickExercise(ex.name, exType)}
-                        className="flex-shrink-0 rounded-2xl px-3 py-2 flex items-center gap-2 active:scale-[0.97] transition-transform"
-                        style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
-                      >
-                        <span className="text-base">{ex.emoji}</span>
-                        <span className="font-bold text-white text-xs whitespace-nowrap">{ex.name}</span>
-                        <Camera size={12} className="text-brand-green ml-0.5" />
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })()}
-
           {/* Auto-detect counter */}
           {onAutoCount && (
             <button
@@ -209,6 +125,41 @@ export function WorkoutHomeTab({
               <Camera size={16} className="text-indigo-400 flex-shrink-0" />
             </button>
           )}
+
+          {/* Quick exercises — single row */}
+          {(() => {
+            const favorites = profile?.favoriteExercises ?? []
+            const cameraFavorites = favorites
+              .filter(name => getExerciseType(name) !== null)
+              .map(name => ({ name, emoji: getEmojiForExercise(name) }))
+            const quickExercises = cameraFavorites.length > 0
+              ? cameraFavorites.slice(0, 4)
+              : DEFAULT_QUICK_EXERCISES
+
+            return (
+              <div className="mb-5">
+                <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2.5">EXERCIȚII RAPIDE</p>
+                <div className="flex gap-2">
+                  {quickExercises.map(ex => {
+                    const exType = getExerciseType(ex.name)
+                    if (!exType) return null
+                    return (
+                      <button
+                        key={ex.name}
+                        onClick={() => onQuickExercise(ex.name, exType)}
+                        className="flex-1 rounded-2xl py-3 flex flex-col items-center gap-1 active:scale-[0.97] transition-transform"
+                        style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
+                      >
+                        <span className="text-2xl">{ex.emoji}</span>
+                        <span className="font-bold text-white text-xs">{ex.name}</span>
+                        <Camera size={12} className="text-brand-green" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Last workout + AI Analysis — side by side */}
           <div className="grid grid-cols-2 gap-2 mb-4">
