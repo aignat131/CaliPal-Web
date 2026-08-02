@@ -1,4 +1,4 @@
-import { angleBetween, MP } from './pose-math'
+import { angleBetween, angleBetween2D, MP } from './pose-math'
 import type { Landmark } from './pose-math'
 import type { RepState, PushupState, SquatState } from './rep-counter'
 
@@ -103,10 +103,10 @@ export class FormCoach {
     const lS = landmarks[MP.LEFT_SHOULDER]
     const rS = landmarks[MP.RIGHT_SHOULDER]
 
-    const avgKneeAngle = (angleBetween(lH, lK, lA) + angleBetween(rH, rK, rA)) / 2
+    const avgKneeAngle = (angleBetween2D(lH, lK, lA) + angleBetween2D(rH, rK, rA)) / 2
 
     // Rule 1: insufficient depth — knee angle too open at bottom position
-    if (state === 'DOWN' && avgKneeAngle > 110) {
+    if (state === 'DOWN' && avgKneeAngle > 100) {
       cues.push({ id: 'sq-depth', message: 'Coboară mai mult', severity: 'warning' })
     }
 

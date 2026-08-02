@@ -24,6 +24,23 @@ export function angleBetween(a: Landmark, b: Landmark, c: Landmark): number {
 }
 
 /**
+ * Calculates the angle (in degrees) at point B using only X and Y coordinates.
+ * Ignores Z-depth to avoid noise from front-facing cameras.
+ */
+export function angleBetween2D(a: Landmark, b: Landmark, c: Landmark): number {
+  const ba = { x: a.x - b.x, y: a.y - b.y }
+  const bc = { x: c.x - b.x, y: c.y - b.y }
+
+  const dot = ba.x * bc.x + ba.y * bc.y
+  const magBA = Math.sqrt(ba.x ** 2 + ba.y ** 2)
+  const magBC = Math.sqrt(bc.x ** 2 + bc.y ** 2)
+
+  if (magBA === 0 || magBC === 0) return 0
+  const cosAngle = Math.max(-1, Math.min(1, dot / (magBA * magBC)))
+  return (Math.acos(cosAngle) * 180) / Math.PI
+}
+
+/**
  * Calculates the vertical reach: how high the wrist is above the hip (positive = above).
  * Returns the Y-axis difference, normalized by torso height.
  * Port of PoseMathUtils.verticalReach()
@@ -90,28 +107,33 @@ export function bestKneeAngle(
 /**
  * Squat depth angle that works from any camera angle.
  *
- * Blends the 3D knee angle with a Y-position-based depth metric.
- * The 3D angle works well from the side but stays ~180° from the front
- * (hip/knee/ankle vertically aligned, Z-depth unreliable).
+ * Blends a 2D knee angle (Z-depth ignored to avoid front-camera noise)
+ * with a Y-position-based depth metric.
+ * The 2D angle works well from the side; from the front it stays ~180°
+ * (hip/knee/ankle vertically aligned) so the Y-based metric takes over.
  * The Y-based metric uses the hip-knee vertical gap normalized by body
  * height, which is reliable from ANY camera angle.
  *
- * Returns Math.min(knee3D, yAngle) — whichever shows more bend wins.
+ * Returns Math.min(knee2D, yAngle) — whichever shows more bend wins.
  */
 export function squatDepthAngle(
   leftHip: Landmark, leftKnee: Landmark, leftAnkle: Landmark,
   rightHip: Landmark, rightKnee: Landmark, rightAnkle: Landmark,
   leftShoulder: Landmark, rightShoulder: Landmark,
 ): number {
-  const knee3D = bestKneeAngle(leftHip, leftKnee, leftAnkle, rightHip, rightKnee, rightAnkle)
+  // Use 2D knee angle (ignoring Z-depth noise from front-facing cameras)
+  const leftVis  = Math.min(leftHip.visibility ?? 0, leftKnee.visibility ?? 0, leftAnkle.visibility ?? 0)
+  const rightVis = Math.min(rightHip.visibility ?? 0, rightKnee.visibility ?? 0, rightAnkle.visibility ?? 0)
+  const knee2D = leftVis >= rightVis
+    ? angleBetween2D(leftHip, leftKnee, leftAnkle)
+    : angleBetween2D(rightHip, rightKnee, rightAnkle)
 
   const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2
   const avgHipY = (leftHip.y + rightHip.y) / 2
   const avgKneeY = (leftKnee.y + rightKnee.y) / 2
-  const avgAnkleY = (leftAnkle.y + rightAnkle.y) / 2
 
-  const bodyHeight = avgAnkleY - avgShoulderY
-  if (bodyHeight < 0.01) return knee3D
+  const bodyHeight = ((leftAnkle.y + rightAnkle.y) / 2) - avgShoulderY
+  if (bodyHeight < 0.01) return knee2D
 
   // How far apart hip and knee are vertically, normalized by body height
   // Standing: ~0.30-0.35 (hip well above knee)
@@ -121,7 +143,7 @@ export function squatDepthAngle(
   // Linear map: gap 0.0 → 70°, gap 0.35 → 170°
   const yAngle = Math.max(60, Math.min(175, 70 + hipKneeGap * (170 - 70) / 0.35))
 
-  return Math.min(knee3D, yAngle)
+  return Math.min(knee2D, yAngle)
 }
 
 // MediaPipe BlazePose landmark indices

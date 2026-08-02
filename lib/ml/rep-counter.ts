@@ -57,9 +57,9 @@ export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 130 
 export const EASY_PUSHUP:     PushupThresholds = { downAngle: 115, upAngle: 125, minRangeRequired: 12, firstRepMinMs: 500, subsequentRepMinMs: 300, minRepFrames: 10 }
 export const PUSHUP_THRESHOLDS: PushupThresholds = BALANCED_PUSHUP
 
-export const STRICT_SQUAT:   SquatThresholds = { downAngle: 100, upAngle: 160 }
-export const BALANCED_SQUAT: SquatThresholds = { downAngle: 110, upAngle: 150 }
-export const EASY_SQUAT:     SquatThresholds = { downAngle: 115, upAngle: 145 }
+export const STRICT_SQUAT:   SquatThresholds = { downAngle: 90,  upAngle: 155 }
+export const BALANCED_SQUAT: SquatThresholds = { downAngle: 100, upAngle: 150 }
+export const EASY_SQUAT:     SquatThresholds = { downAngle: 110, upAngle: 145 }
 
 // ── Pull-up Counter ───────────────────────────────────────────────────────────
 

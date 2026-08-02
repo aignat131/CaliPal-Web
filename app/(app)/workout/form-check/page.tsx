@@ -9,7 +9,7 @@ import {
   SquatCounter, SQUAT_STATE_LABELS,
 } from '@/lib/ml/rep-counter'
 import { preprocessFrameBuffer, preprocessPushupFrameBuffer } from '@/lib/ml/pose-preprocessor'
-import { avgElbowAngle, avgKneeAngle, MP } from '@/lib/ml/pose-math'
+import { avgElbowAngle, squatDepthAngle, MP } from '@/lib/ml/pose-math'
 import { classifyForm, loadModel, FORM_LABELS, FORM_COLORS, getModelStatus } from '@/lib/ml/pullup-classifier'
 import { classifyPushupForm, loadPushupModel, PUSHUP_FORM_LABELS, PUSHUP_FORM_COLORS, getPushupModelStatus } from '@/lib/ml/pushup-classifier'
 import type { PushupFormLabel } from '@/lib/ml/pushup-classifier'
@@ -236,9 +236,10 @@ export default function FormCheckPage() {
               if (frameBufferRef.current.length > 150) frameBufferRef.current.shift()
             } else {
               drawSkeleton(ctx, lms, canvas.width, canvas.height, '#3B82F6')
-              const knee = avgKneeAngle(
+              const knee = squatDepthAngle(
                 lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE],
-                lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE]
+                lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE],
+                lms[MP.LEFT_SHOULDER], lms[MP.RIGHT_SHOULDER],
               )
               const counterState = squatCounterRef.current.update(knee)
               if (counterState.repCount > lastHapticRepRef.current) {
@@ -368,9 +369,10 @@ export default function FormCheckPage() {
 
           // Rep counting
           const angle = exerciseType === 'squat'
-            ? avgKneeAngle(
+            ? squatDepthAngle(
                 lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE],
-                lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE]
+                lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE],
+                lms[MP.LEFT_SHOULDER], lms[MP.RIGHT_SHOULDER],
               )
             : avgElbowAngle(
                 lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST],
