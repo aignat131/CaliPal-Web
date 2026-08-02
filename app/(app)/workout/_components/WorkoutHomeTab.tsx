@@ -7,9 +7,16 @@ import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import FirstTimeHint from '@/components/ui/FirstTimeHint'
 import { useT } from '@/lib/context/LanguageContext'
+import { PushUpIcon, PullUpIcon, SquatIcon } from '@/components/icons'
 import { ChallengeCard } from './ChallengeCard'
 import { WorkoutHistory } from './WorkoutHistory'
 import { formatDate, formatDuration, getExerciseType } from '../_helpers'
+
+const EXERCISE_ICONS: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
+  'Flotări': PushUpIcon,
+  'Tracțiuni': PullUpIcon,
+  'Squaturi': SquatIcon,
+}
 
 const DEFAULT_QUICK_EXERCISES: { name: string; emoji: string }[] = [
   { name: 'Flotări',    emoji: '💪' },
@@ -143,6 +150,7 @@ export function WorkoutHomeTab({
                   {quickExercises.map(ex => {
                     const exType = getExerciseType(ex.name)
                     if (!exType) return null
+                    const IconComponent = EXERCISE_ICONS[ex.name]
                     return (
                       <button
                         key={ex.name}
@@ -150,7 +158,10 @@ export function WorkoutHomeTab({
                         className="flex-1 rounded-2xl py-3 flex flex-col items-center gap-1 active:scale-[0.97] transition-transform"
                         style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
                       >
-                        <span className="text-2xl">{ex.emoji}</span>
+                        {IconComponent
+                          ? <IconComponent width={32} height={32} />
+                          : <span className="text-2xl">{ex.emoji}</span>
+                        }
                         <span className="font-bold text-white text-xs">{ex.name}</span>
                         <Camera size={12} className="text-brand-green" />
                       </button>
