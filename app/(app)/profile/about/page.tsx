@@ -39,6 +39,43 @@ export default function AboutPage() {
           <p className="text-sm text-white/70 leading-relaxed">{t('about.desc_text')}</p>
         </div>
 
+        {/* Credits & Attributions */}
+        <div className="rounded-2xl p-4 mt-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <p className="text-xs font-bold text-white/40 tracking-widest mb-3">CREDITE</p>
+          <div className="flex flex-col gap-2.5">
+            <CreditRow
+              label="Exercise icons"
+              author="gravisio"
+              source="Flaticon"
+              href="https://www.flaticon.com/free-icons/barbell"
+            />
+            <CreditRow
+              label="UI icons"
+              author="Lucide"
+              source="MIT License"
+              href="https://lucide.dev"
+            />
+            <CreditRow
+              label="Pose detection"
+              author="Google"
+              source="MediaPipe"
+              href="https://ai.google.dev/edge/mediapipe/solutions/guide"
+            />
+            <CreditRow
+              label="ML runtime"
+              author="Google"
+              source="TensorFlow.js"
+              href="https://www.tensorflow.org/js"
+            />
+            <CreditRow
+              label="Map tiles"
+              author="CARTO & OpenStreetMap"
+              source="OSM ODbL"
+              href="https://www.openstreetmap.org/copyright"
+            />
+          </div>
+        </div>
+
         <p className="text-center text-xs text-white/25 mt-6">
           {t('about.copyright', { year: new Date().getFullYear() })}
         </p>
@@ -54,5 +91,17 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
       <span className="flex-1 text-sm text-white">{label}</span>
       <span className="text-xs text-white/40 text-right">{value}</span>
     </div>
+  )
+}
+
+function CreditRow({ label, author, source, href }: { label: string; author: string; source: string; href: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between py-1.5 group">
+      <div>
+        <p className="text-sm text-white/70 group-hover:text-white transition-colors">{label}</p>
+        <p className="text-[11px] text-white/35">{author}</p>
+      </div>
+      <span className="text-[10px] text-white/25 bg-white/5 px-2 py-0.5 rounded-md">{source}</span>
+    </a>
   )
 }
