@@ -23,14 +23,16 @@ const POSE_MODEL_URL =
 interface Props {
   exerciseType: ExerciseType
   onRepCounted: (newCount: number) => void
+  onCameraReady?: () => void
+  /** Overlay content (bars, timer) rendered on top of the camera */
+  children?: React.ReactNode
 }
 
 /**
- * Camera-based ML rep counter for battle mode.
- * Simplified from RepCounterModal — no confirm/cancel, no form coaching.
- * Reps stream live to parent via onRepCounted.
+ * Full-screen camera-based ML rep counter for battle mode.
+ * Same detection logic as RepCounterModal.
  */
-export default function BattleCameraView({ exerciseType, onRepCounted }: Props) {
+export default function BattleCameraView({ exerciseType, onRepCounted, onCameraReady, children }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -47,6 +49,7 @@ export default function BattleCameraView({ exerciseType, onRepCounted }: Props) 
 
   const repCountRef = useRef(0)
   const lastHapticRef = useRef(0)
+  const cameraReadyFiredRef = useRef(false)
   const { playRepBeep, vibrate } = useBattleAudio()
 
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('user')
@@ -96,6 +99,12 @@ export default function BattleCameraView({ exerciseType, onRepCounted }: Props) 
 
       setLoading(false)
       positionGateRef.current.initialize()
+
+      // Signal camera is ready
+      if (!cameraReadyFiredRef.current && onCameraReady) {
+        cameraReadyFiredRef.current = true
+        onCameraReady()
+      }
 
       let lastTime = -1
       function detect(time: number) {
@@ -195,36 +204,57 @@ export default function BattleCameraView({ exerciseType, onRepCounted }: Props) 
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 py-8">
+      <div className="fixed inset-0 z-[55] flex flex-col items-center justify-center gap-3 bg-black">
         <VideoOff size={32} className="text-red-400/60" />
         <p className="text-sm text-white/50">{error}</p>
       </div>
     )
   }
 
+  const mirrorStyle = facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined
+
   return (
-    <div className="relative rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
+    <div className="fixed inset-0 z-[55] bg-black">
+      {/* Loading overlay */}
       {loading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-white/30 border-t-[var(--accent)] rounded-full animate-spin" />
+        <div className="absolute inset-0 z-20 bg-black/70 flex flex-col items-center justify-center gap-3">
+          <div className="w-8 h-8 border-2 border-white/30 border-t-[var(--accent)] rounded-full animate-spin" />
+          <p className="text-white/60 text-sm">Se inițializează camera...</p>
         </div>
       )}
 
+      {/* Video (hidden, used as source) */}
       <video ref={videoRef} className="hidden" playsInline muted />
-      <canvas ref={canvasRef} className="w-full h-auto" style={{ maxHeight: '40vh' }} />
+
+      {/* Canvas — full-screen camera feed with skeleton */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        style={mirrorStyle}
+      />
+
+      {/* Overlay content (bars, timer, etc.) */}
+      {children}
 
       {/* Flip camera button */}
       <button
         onClick={handleFlip}
-        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 flex items-center justify-center backdrop-blur-sm"
+        className="absolute top-4 right-4 z-30 w-9 h-9 rounded-full bg-black/40 border border-white/20 flex items-center justify-center backdrop-blur-sm"
       >
-        <FlipHorizontal2 size={16} className="text-white/70" />
+        <FlipHorizontal2 size={16} className="text-white/80" />
       </button>
 
-      {/* Rep count overlay */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm px-4 py-1.5 rounded-full">
-        <span className="text-2xl font-black text-white">{repCount}</span>
-      </div>
+      {/* Rep count — large centered */}
+      {!loading && (
+        <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center z-10 pointer-events-none">
+          <span
+            className="text-7xl font-black text-white tabular-nums"
+            style={{ textShadow: '0 2px 20px rgba(0,0,0,0.9)' }}
+          >
+            {repCount}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

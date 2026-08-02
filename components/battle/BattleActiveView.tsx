@@ -26,14 +26,17 @@ interface Props {
   onRepIncrement: (newCount: number) => void
   onFinish: (winnerId?: string) => void
   currentUid: string
+  cameraReady: boolean
+  onCameraReady: () => void
 }
 
 export default function BattleActiveView({
   battle, players, sortedPlayers, myPlayer, isHost,
   localReps, onRepIncrement, onFinish, currentUid,
+  cameraReady, onCameraReady,
 }: Props) {
   const { timeRemaining, isExpired } = useBattleTimer(
-    battle.status, battle.startAt, battle.timeLimitSeconds,
+    battle.status, battle.startAt, battle.timeLimitSeconds, cameraReady,
   )
   const { playFinish, vibrate } = useBattleAudio()
 
@@ -68,46 +71,50 @@ export default function BattleActiveView({
   const opponent = players.find(p => p.uid !== currentUid)
 
   return (
-    <div className="flex flex-col h-screen" style={{ maxHeight: '100dvh' }}>
-      {/* Progress visualization */}
-      {is2Player && me && opponent ? (
-        <TugOfWarBar player1={me} player2={opponent} currentUid={currentUid} />
-      ) : (
-        <MultiPlayerBars
-          sortedPlayers={sortedPlayers}
-          currentUid={currentUid}
-          targetReps={battle.targetReps}
-        />
-      )}
-
-      {/* Timer */}
-      <div className="flex items-center justify-center gap-2 py-3">
-        {battle.gameMode === 'TIME_ATTACK' ? (
-          <>
-            <Clock size={20} className={timeRemaining <= 10 ? 'text-red-400' : 'text-white/50'} />
-            <span className={`text-3xl font-black font-mono ${
-              timeRemaining <= 10 ? 'text-red-400' : 'text-white/90'
-            }`}>
-              {formatTime(timeRemaining)}
-            </span>
-          </>
+    <BattleCameraView
+      exerciseType={battle.exerciseType as ExerciseType}
+      onRepCounted={handleCameraRep}
+      onCameraReady={onCameraReady}
+    >
+      {/* Progress visualization — overlaid on camera */}
+      <div className="absolute top-0 left-0 right-0 z-10">
+        {is2Player && me && opponent ? (
+          <TugOfWarBar player1={me} player2={opponent} currentUid={currentUid} />
         ) : (
-          <>
-            <Target size={20} style={{ color: 'var(--accent)' }} />
-            <span className="text-3xl font-black font-mono text-white/90">
-              {localReps} / {battle.targetReps}
-            </span>
-          </>
+          <div className="pt-2" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)' }}>
+            <MultiPlayerBars
+              sortedPlayers={sortedPlayers}
+              currentUid={currentUid}
+              targetReps={battle.targetReps}
+            />
+          </div>
         )}
-      </div>
 
-      {/* Rep counting area — always camera */}
-      <div className="flex-1 flex items-center justify-center px-4 pb-24 md:pb-8">
-        <BattleCameraView
-          exerciseType={battle.exerciseType as ExerciseType}
-          onRepCounted={handleCameraRep}
-        />
+        {/* Timer */}
+        <div className="flex items-center justify-center gap-2 py-2">
+          {battle.gameMode === 'TIME_ATTACK' ? (
+            <>
+              <Clock size={18} className={timeRemaining <= 10 ? 'text-red-400' : 'text-white/60'} />
+              <span
+                className={`text-2xl font-black font-mono ${timeRemaining <= 10 ? 'text-red-400' : 'text-white/90'}`}
+                style={{ textShadow: '0 2px 10px rgba(0,0,0,0.8)' }}
+              >
+                {cameraReady ? formatTime(timeRemaining) : '--:--'}
+              </span>
+            </>
+          ) : (
+            <>
+              <Target size={18} style={{ color: 'var(--accent)' }} />
+              <span
+                className="text-2xl font-black font-mono text-white/90"
+                style={{ textShadow: '0 2px 10px rgba(0,0,0,0.8)' }}
+              >
+                {localReps} / {battle.targetReps}
+              </span>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </BattleCameraView>
   )
 }

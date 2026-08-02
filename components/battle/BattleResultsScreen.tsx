@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Trophy, Camera, RotateCcw, Home } from 'lucide-react'
+import { Trophy, RotateCcw, Home } from 'lucide-react'
 import { addDoc, collection, serverTimestamp, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
@@ -11,7 +11,6 @@ import { PLAYER_COLORS } from '@/lib/battle/types'
 import type { BattleDoc, BattlePlayerDoc } from '@/lib/battle/types'
 
 const MEDALS = ['🥇', '🥈', '🥉']
-const PLACE_LABELS = ['1st', '2nd', '3rd']
 
 interface Props {
   battle: BattleDoc
@@ -61,7 +60,6 @@ export default function BattleResultsScreen({
         placement,
         playerCount: sortedPlayers.length,
         coinsEarned: totalCoins,
-        verified: myPlayer!.repMethod === 'CAMERA',
         playedAt: serverTimestamp(),
       })
 
@@ -74,15 +72,19 @@ export default function BattleResultsScreen({
     processResults().catch(() => {})
   }, [myPlayer, sortedPlayers, currentUid, battle, onMarkFinished, playFinish])
 
-  const myPlacement = sortedPlayers.findIndex(p => p.uid === currentUid) + 1
   const myCoins = myPlayer?.coinsEarned ?? 0
+
+  // Detect draw: top 2+ players have same reps
+  const isDraw = sortedPlayers.length >= 2 && sortedPlayers[0].reps === sortedPlayers[1].reps
 
   return (
     <div className="max-w-md mx-auto px-4 py-8 animate-[fadeInUp_0.3s_ease-out]">
       {/* Header */}
       <div className="text-center mb-8">
         <Trophy size={40} style={{ color: 'var(--accent)' }} className="mx-auto mb-3" />
-        <h1 className="text-2xl font-black text-white/90">{t('battle.results')}</h1>
+        <h1 className="text-2xl font-black text-white/90">
+          {isDraw ? t('battle.draw') : t('battle.results')}
+        </h1>
         <p className="text-sm text-white/45 mt-1">{battle.exercise}</p>
       </div>
 
@@ -140,14 +142,7 @@ export default function BattleResultsScreen({
                   </span>
                   {isMe && <span className="text-xs text-white/40">(tu)</span>}
                 </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-xs text-white/50">{player.reps} {t('battle.reps')}</span>
-                  {player.repMethod === 'CAMERA' && (
-                    <span className="flex items-center gap-0.5 text-xs text-green-400/70">
-                      <Camera size={10} /> {t('battle.verified')}
-                    </span>
-                  )}
-                </div>
+                <span className="text-xs text-white/50 mt-0.5">{player.reps} {t('battle.reps')}</span>
               </div>
 
               {/* Rep count large */}

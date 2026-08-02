@@ -928,6 +928,14 @@ const T: Record<string, { RO: string; EN: string }> = {
   'battle.invite_sent':     { RO: 'Invitație trimisă!',  EN: 'Invite sent!' },
   'battle.tap_to_count':    { RO: 'Apasă pentru a număra', EN: 'Tap to count' },
   'battle.go':              { RO: 'START!',               EN: 'GO!' },
+  'battle.public':          { RO: 'Publică',              EN: 'Public' },
+  'battle.private':         { RO: 'Privată',              EN: 'Private' },
+  'battle.public_desc':     { RO: 'Oricine poate intra',  EN: 'Anyone can join' },
+  'battle.private_desc':    { RO: 'Doar cu cod',          EN: 'Code only' },
+  'battle.live_battles':    { RO: 'Lupte Live',           EN: 'Live Battles' },
+  'battle.no_live':         { RO: 'Nicio luptă disponibilă', EN: 'No battles available' },
+  'battle.draw':            { RO: 'Egalitate!',           EN: 'Draw!' },
+  'battle.players':         { RO: 'jucători',             EN: 'players' },
 
   // ── Shared fallbacks ─────────────────────────────────────────────────────────
   'common.user_fallback': { RO: 'Utilizator',       EN: 'User' },

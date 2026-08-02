@@ -20,8 +20,8 @@ export default function TugOfWarBar({ player1, player2, currentUid }: Props) {
   const rightColor = PLAYER_COLORS[1] // blue
 
   return (
-    <div className="w-full px-4 pt-3 pb-2">
-      <div className="relative w-full h-14 rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+    <div className="w-full px-4 pt-3 pb-2" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)' }}>
+      <div className="relative w-full h-14 rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
         {/* Left side (Player 1) */}
         <div
           className="absolute inset-y-0 left-0 flex items-center px-3 gap-2 transition-[width] duration-300 ease-out"

@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useT } from '@/lib/context/LanguageContext'
-import { X, Clock, Target, Minus, Plus } from 'lucide-react'
+import { X, Clock, Target, Minus, Plus, Globe, Lock } from 'lucide-react'
 import { generateUniqueRoomCode } from '@/lib/battle/room-codes'
 import { getExerciseType } from '@/app/(app)/workout/_helpers'
 import { TIME_LIMIT_OPTIONS, TARGET_REP_OPTIONS, MIN_PLAYERS, MAX_PLAYERS_LIMIT } from '@/lib/battle/types'
@@ -34,6 +34,7 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
   const [timeLimit, setTimeLimit] = useState(60)
   const [targetReps, setTargetReps] = useState(20)
   const [maxPlayers, setMaxPlayers] = useState(2)
+  const [isPublic, setIsPublic] = useState(true)
   const [creating, setCreating] = useState(false)
 
   async function handleCreate() {
@@ -56,6 +57,7 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
         targetReps: gameMode === 'RACE_TO_TARGET' ? targetReps : null,
         maxPlayers,
         repCountMethod: 'CAMERA',
+        isPublic,
         status: 'LOBBY',
         playerCount: 0,
         startAt: null,
@@ -169,6 +171,36 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
             </div>
           </>
         )}
+
+        {/* Public / Private toggle */}
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <button
+            onClick={() => setIsPublic(true)}
+            className={`p-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all border ${
+              isPublic ? 'border-[var(--accent)] text-white/90' : 'border-white/8 text-white/50 hover:border-white/15'
+            }`}
+            style={isPublic ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : { backgroundColor: 'rgba(255,255,255,0.03)' }}
+          >
+            <Globe size={16} />
+            <div className="text-left">
+              <div className="text-xs font-bold">{t('battle.public')}</div>
+              <div className="text-[10px] opacity-60">{t('battle.public_desc')}</div>
+            </div>
+          </button>
+          <button
+            onClick={() => setIsPublic(false)}
+            className={`p-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-all border ${
+              !isPublic ? 'border-[var(--accent)] text-white/90' : 'border-white/8 text-white/50 hover:border-white/15'
+            }`}
+            style={!isPublic ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : { backgroundColor: 'rgba(255,255,255,0.03)' }}
+          >
+            <Lock size={16} />
+            <div className="text-left">
+              <div className="text-xs font-bold">{t('battle.private')}</div>
+              <div className="text-[10px] opacity-60">{t('battle.private_desc')}</div>
+            </div>
+          </button>
+        </div>
 
         {/* Max Players */}
         <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.max_players')}</label>

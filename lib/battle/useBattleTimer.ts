@@ -13,18 +13,27 @@ interface UseBattleTimerReturn {
 
 /**
  * Manages the battle timer synced to Firestore serverTimestamp.
- * Same drift-proof approach as WorkoutContext.
+ * Timer only starts counting when cameraReady is true.
  */
 export function useBattleTimer(
   status: string | undefined,
   startAt: Timestamp | null,
   timeLimitSeconds: number,
+  cameraReady = true,
 ): UseBattleTimerReturn {
   const [elapsed, setElapsed] = useState(0)
   const [countdownNumber, setCountdownNumber] = useState<number | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const cameraReadyAtRef = useRef<number | null>(null)
 
   const battleStartMs = startAt ? startAt.toMillis() + COUNTDOWN_DURATION_MS : 0
+
+  // Track when camera became ready
+  useEffect(() => {
+    if (cameraReady && !cameraReadyAtRef.current) {
+      cameraReadyAtRef.current = Date.now()
+    }
+  }, [cameraReady])
 
   // Countdown phase (3-2-1-GO)
   useEffect(() => {
@@ -49,26 +58,31 @@ export function useBattleTimer(
     return () => clearInterval(id)
   }, [status, startAt])
 
-  // Active phase timer
+  // Active phase timer — only counts when camera is ready
   useEffect(() => {
-    if (status !== 'ACTIVE' || !battleStartMs) {
+    if (status !== 'ACTIVE' || !battleStartMs || !cameraReady) {
       if (intervalRef.current) clearInterval(intervalRef.current)
       return
     }
 
+    // Timer starts from when camera became ready, not from battle start
+    const effectiveStart = cameraReadyAtRef.current
+      ? Math.max(battleStartMs, cameraReadyAtRef.current)
+      : battleStartMs
+
     function tick() {
       const now = Date.now()
-      const elapsedSec = Math.floor((now - battleStartMs) / 1000)
+      const elapsedSec = Math.floor((now - effectiveStart) / 1000)
       setElapsed(Math.max(0, elapsedSec))
     }
 
     tick()
     intervalRef.current = setInterval(tick, 200)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [status, battleStartMs])
+  }, [status, battleStartMs, cameraReady])
 
   const timeRemaining = Math.max(0, timeLimitSeconds - elapsed)
-  const isExpired = status === 'ACTIVE' && timeRemaining <= 0
+  const isExpired = status === 'ACTIVE' && cameraReady && timeRemaining <= 0
 
   return { timeRemaining, elapsed, isExpired, countdownNumber }
 }

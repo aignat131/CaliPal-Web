@@ -119,14 +119,14 @@ export default function BattleLobby({
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 h-11 rounded-xl border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/5 transition-all"
+            className="flex-1 h-9 rounded-xl border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/5 transition-all"
           >
             {t('battle.cancel')}
           </button>
           <button
             onClick={onStart}
             disabled={!canStart}
-            className="flex-[2] h-11 rounded-xl font-bold text-black transition-all active:scale-[0.97] disabled:opacity-30 disabled:pointer-events-none"
+            className="flex-[2] h-9 rounded-xl font-bold text-sm text-black transition-all active:scale-[0.97] disabled:opacity-30 disabled:pointer-events-none"
             style={{ backgroundColor: 'var(--accent)' }}
           >
             {t('battle.start')}

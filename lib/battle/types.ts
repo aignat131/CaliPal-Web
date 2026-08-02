@@ -22,6 +22,7 @@ export interface BattleDoc {
   targetReps: number | null           // only for RACE_TO_TARGET
   maxPlayers: number                  // 2–8
   repCountMethod: BattleRepMethod
+  isPublic: boolean                   // true = visible in public lobby
 
   // State
   status: BattleStatus
@@ -70,7 +71,6 @@ export interface UserBattleHistory {
   placement: number
   playerCount: number
   coinsEarned: number
-  verified: boolean                   // true if repMethod was CAMERA
   playedAt: Timestamp
 }
 

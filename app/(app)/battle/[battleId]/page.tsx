@@ -32,6 +32,7 @@ export default function BattleRoomPage() {
 
   const [screen, setScreen] = useState<Screen>('loading')
   const [localReps, setLocalReps] = useState(0)
+  const [cameraReady, setCameraReady] = useState(false)
 
   // ── Determine screen from battle status ───────────────────────────────────
   useEffect(() => {
@@ -72,6 +73,10 @@ export default function BattleRoomPage() {
     incrementReps(newCount)
   }, [incrementReps])
 
+  const handleCameraReady = useCallback(() => {
+    setCameraReady(true)
+  }, [])
+
   // ── Handle leave/cancel ───────────────────────────────────────────────────
   const handleLeave = useCallback(async () => {
     await leaveBattle()
@@ -81,6 +86,9 @@ export default function BattleRoomPage() {
   const handleCancel = useCallback(async () => {
     await cancelBattle()
   }, [cancelBattle])
+
+  // Suppress unused
+  void winner
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (screen === 'loading') {
@@ -141,17 +149,10 @@ export default function BattleRoomPage() {
     )
   }
 
-  if (screen === 'countdown') {
+  // Countdown + Active both render the camera (pre-loading during countdown)
+  if (screen === 'countdown' || screen === 'active') {
     return (
-      <div className="min-h-screen pb-20 md:pb-0 md:ml-16 lg:ml-48">
-        <BattleCountdown startAt={battle.startAt!} />
-      </div>
-    )
-  }
-
-  if (screen === 'active') {
-    return (
-      <div className="min-h-screen pb-20 md:pb-0 md:ml-16 lg:ml-48">
+      <>
         <BattleActiveView
           battle={battle}
           players={players}
@@ -162,8 +163,14 @@ export default function BattleRoomPage() {
           onRepIncrement={handleRepIncrement}
           onFinish={finishBattle}
           currentUid={user?.uid ?? ''}
+          cameraReady={cameraReady}
+          onCameraReady={handleCameraReady}
         />
-      </div>
+        {/* Countdown overlay on top of camera */}
+        {screen === 'countdown' && (
+          <BattleCountdown startAt={battle.startAt!} />
+        )}
+      </>
     )
   }
 

@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useT } from '@/lib/context/LanguageContext'
-import { Swords, Plus, Hash, ChevronLeft, Trophy, Clock, Target } from 'lucide-react'
+import { Swords, Plus, Hash, ChevronLeft, ChevronRight, Clock, Target, Users, History } from 'lucide-react'
 import { getRecoveredBattleId } from '@/lib/battle/useBattle'
+import type { BattleDoc } from '@/lib/battle/types'
 import type { UserBattleHistory } from '@/lib/battle/types'
 import CreateBattleSheet from '@/components/battle/CreateBattleSheet'
 import JoinBattleSheet from '@/components/battle/JoinBattleSheet'
@@ -18,6 +19,9 @@ export default function BattlePage() {
   const t = useT()
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [liveBattles, setLiveBattles] = useState<(BattleDoc & { id: string })[]>([])
+  const [liveLoading, setLiveLoading] = useState(true)
   const [history, setHistory] = useState<(UserBattleHistory & { id: string })[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
 
@@ -26,6 +30,22 @@ export default function BattlePage() {
     const recovered = getRecoveredBattleId()
     if (recovered) router.replace(`/battle/${recovered}`)
   }, [router])
+
+  // Load live public battles
+  useEffect(() => {
+    const q = query(
+      collection(db, 'battles'),
+      where('isPublic', '==', true),
+      where('status', '==', 'LOBBY'),
+      orderBy('createdAt', 'desc'),
+      limit(20),
+    )
+    const unsub = onSnapshot(q, (snap) => {
+      setLiveBattles(snap.docs.map(d => ({ id: d.id, ...d.data() } as BattleDoc & { id: string })))
+      setLiveLoading(false)
+    })
+    return unsub
+  }, [])
 
   // Load battle history
   useEffect(() => {
@@ -61,80 +81,125 @@ export default function BattlePage() {
             <ChevronLeft size={24} style={{ color: 'var(--accent)' }} />
           </button>
           <Swords size={24} style={{ color: 'var(--accent)' }} />
-          <h1 className="text-xl font-bold text-white/90">{t('battle.title')}</h1>
+          <h1 className="text-xl font-bold text-white/90 flex-1">{t('battle.title')}</h1>
+          {/* History button */}
+          <button
+            onClick={() => setShowHistory(h => !h)}
+            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+          >
+            <History size={20} className="text-white/50" />
+          </button>
         </div>
 
-        {/* Create Battle CTA */}
-        <button
-          onClick={() => setShowCreate(true)}
-          className="w-full mb-3 p-4 rounded-2xl flex items-center gap-4 transition-all active:scale-[0.98]"
-          style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.12)', border: '1px solid rgba(var(--accent-rgb), 0.2)' }}
-        >
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--accent)' }}>
-            <Plus size={24} className="text-black" />
-          </div>
-          <div className="text-left">
-            <div className="font-semibold text-white/90">{t('battle.create')}</div>
-            <div className="text-sm text-white/50">{t('battle.create_sub')}</div>
-          </div>
-        </button>
+        {/* Create & Join CTAs — side by side */}
+        <div className="grid grid-cols-2 gap-2 mb-6">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="p-3.5 rounded-2xl flex flex-col items-center gap-2 transition-all active:scale-[0.97]"
+            style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.12)', border: '1px solid rgba(var(--accent-rgb), 0.2)' }}
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--accent)' }}>
+              <Plus size={20} className="text-black" />
+            </div>
+            <span className="font-semibold text-white/90 text-sm">{t('battle.create')}</span>
+          </button>
+          <button
+            onClick={() => setShowJoin(true)}
+            className="p-3.5 rounded-2xl flex flex-col items-center gap-2 border border-white/10 hover:border-white/20 transition-all active:scale-[0.97]"
+            style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10">
+              <Hash size={20} className="text-white/70" />
+            </div>
+            <span className="font-semibold text-white/90 text-sm">{t('battle.join')}</span>
+          </button>
+        </div>
 
-        {/* Join with Code CTA */}
-        <button
-          onClick={() => setShowJoin(true)}
-          className="w-full mb-8 p-4 rounded-2xl flex items-center gap-4 border border-white/10 hover:border-white/20 transition-all active:scale-[0.98]"
-          style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
-        >
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-white/10">
-            <Hash size={24} className="text-white/70" />
+        {/* History panel (toggled) */}
+        {showHistory && (
+          <div className="mb-6">
+            <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">{t('battle.history')}</h2>
+            {historyLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => <div key={i} className="h-14 rounded-xl skeleton" />)}
+              </div>
+            ) : history.length === 0 ? (
+              <p className="text-sm text-white/40 text-center py-6">{t('battle.no_history')}</p>
+            ) : (
+              <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                {history.map(h => (
+                  <div
+                    key={h.id}
+                    className="flex items-center gap-3 p-2.5 rounded-xl border border-white/6"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+                  >
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{
+                      backgroundColor: h.placement === 1 ? 'rgba(var(--accent-rgb), 0.15)' : 'rgba(255,255,255,0.06)',
+                    }}>
+                      <span className="text-sm font-bold" style={{ color: h.placement === 1 ? 'var(--accent)' : 'rgba(255,255,255,0.4)' }}>
+                        #{h.placement}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-white/85 truncate">{h.exercise}</div>
+                      <div className="flex items-center gap-2 text-xs text-white/45">
+                        <span>{h.reps} {t('battle.reps')}</span>
+                        <span>·</span>
+                        <span>{h.playerCount} {t('battle.players')}</span>
+                      </div>
+                    </div>
+                    {h.coinsEarned > 0 && (
+                      <span className="text-xs font-semibold text-amber-400">+{h.coinsEarned}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="text-left">
-            <div className="font-semibold text-white/90">{t('battle.join')}</div>
-            <div className="text-sm text-white/50">{t('battle.join_sub')}</div>
-          </div>
-        </button>
+        )}
 
-        {/* Battle History */}
-        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">{t('battle.history')}</h2>
-        {historyLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-16 rounded-xl skeleton" />
-            ))}
+        {/* Live Public Battles */}
+        <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          {t('battle.live_battles')}
+        </h2>
+        {liveLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl skeleton" />)}
           </div>
-        ) : history.length === 0 ? (
-          <p className="text-sm text-white/40 text-center py-8">{t('battle.no_history')}</p>
+        ) : liveBattles.length === 0 ? (
+          <div className="text-center py-12">
+            <Swords size={36} className="text-white/10 mx-auto mb-3" />
+            <p className="text-sm text-white/40">{t('battle.no_live')}</p>
+            <p className="text-xs text-white/25 mt-1">{t('battle.create_sub')}</p>
+          </div>
         ) : (
           <div className="space-y-2">
-            {history.map(h => (
-              <div
-                key={h.id}
-                className="flex items-center gap-3 p-3 rounded-xl border border-white/6"
+            {liveBattles.map(b => (
+              <button
+                key={b.id}
+                onClick={() => router.push(`/battle/${b.id}`)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border border-white/8 hover:border-white/15 transition-all active:scale-[0.98] text-left"
                 style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
               >
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{
-                  backgroundColor: h.placement === 1 ? 'rgba(var(--accent-rgb), 0.15)' : 'rgba(255,255,255,0.06)',
-                }}>
-                  {h.placement <= 3 ? (
-                    <Trophy size={18} style={{ color: h.placement === 1 ? 'var(--accent)' : h.placement === 2 ? '#C0C0C0' : '#CD7F32' }} />
-                  ) : (
-                    <span className="text-sm font-bold text-white/50">#{h.placement}</span>
-                  )}
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.1)' }}>
+                  <Swords size={18} style={{ color: 'var(--accent)' }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white/85 truncate">{h.exercise}</div>
+                  <div className="text-sm font-semibold text-white/85 truncate">{b.exercise}</div>
                   <div className="flex items-center gap-2 text-xs text-white/45">
-                    {h.gameMode === 'TIME_ATTACK' ? <Clock size={12} /> : <Target size={12} />}
-                    <span>{h.reps} {t('battle.reps')}</span>
+                    {b.gameMode === 'TIME_ATTACK' ? <Clock size={11} /> : <Target size={11} />}
+                    <span>{b.gameMode === 'TIME_ATTACK' ? `${b.timeLimitSeconds}s` : `${b.targetReps} rep`}</span>
                     <span>·</span>
-                    <span>{h.playerCount} jucători</span>
-                    {h.verified && <span className="text-green-400">✓</span>}
+                    <Users size={11} />
+                    <span>{b.playerCount}/{b.maxPlayers}</span>
                   </div>
                 </div>
-                {h.coinsEarned > 0 && (
-                  <span className="text-xs font-semibold text-amber-400">+{h.coinsEarned} 🪙</span>
-                )}
-              </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-white/40">{b.hostName}</span>
+                  <ChevronRight size={14} className="text-white/20" />
+                </div>
+              </button>
             ))}
           </div>
         )}
