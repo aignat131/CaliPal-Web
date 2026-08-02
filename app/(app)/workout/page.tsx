@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge, GripType, RepSession } from '@/types'
+import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge, GripType, RepSession, UnifiedRepSession } from '@/types'
 import { checkWorkoutMilestones, checkStreakMilestones, awardCoins } from '@/lib/gamification/coins'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
@@ -16,6 +16,8 @@ import { DEFAULT_EXERCISE_CATALOGUE, getCategory, type CatalogueEntry } from '@/
 import { localDate, totalRepsInWorkout, formatDuration, getExerciseType, norm } from './_helpers'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import RepCounterModal, { REP_SESSION_KEY } from '@/components/workout/RepCounterModal'
+import UnifiedRepCounterModal, { UNIFIED_SESSION_KEY } from '@/components/workout/UnifiedRepCounterModal'
+import type { UnifiedResult } from '@/components/workout/UnifiedRepCounterModal'
 import { WorkoutHomeTab } from './_components/WorkoutHomeTab'
 import { ActiveWorkoutView } from './_components/ActiveWorkoutView'
 import { PostWorkoutDetails } from './_components/PostWorkoutDetails'
@@ -24,7 +26,7 @@ import { QuickRepCounterView } from './_components/QuickRepCounterView'
 
 const AUTH_REDIRECT_KEY = 'calipal_auth_redirect'
 
-type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount'
+type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount' | 'autocount'
 
 const PENDING_WORKOUT_KEY = 'calipal_pending_workout'
 
@@ -87,6 +89,22 @@ export default function WorkoutPage() {
       }
       if (session.repCount > 0) setRecoveredSession(session)
     } catch { localStorage.removeItem(REP_SESSION_KEY) }
+  }, [])
+
+  // Crash recovery — unified rep counter session
+  const [recoveredUnifiedSession, setRecoveredUnifiedSession] = useState<UnifiedRepSession | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(UNIFIED_SESSION_KEY)
+      if (!raw) return
+      const session = JSON.parse(raw) as UnifiedRepSession
+      if (Date.now() - session.savedAt > 60 * 60 * 1000) {
+        localStorage.removeItem(UNIFIED_SESSION_KEY)
+        return
+      }
+      if (session.exercises.length > 0) setRecoveredUnifiedSession(session)
+    } catch { localStorage.removeItem(UNIFIED_SESSION_KEY) }
   }, [])
 
   // Crash recovery — pending workout (user exited on postdetails/summary screen)
@@ -326,6 +344,33 @@ export default function WorkoutPage() {
     setQuickExercise(null)
     setShowQuickPostSet(false)
     setQuickSets([])
+  }
+
+  // ── Auto-detect (unified) counter flow ────────────────────────────────────
+
+  function startAutoCount() {
+    setScreen('autocount')
+  }
+
+  function handleAutoCountConfirm(result: UnifiedResult) {
+    const workoutExercises: WorkoutExercise[] = result.exercises.map(ex => ({
+      name: ex.name,
+      category: getCategory(ex.name, catalogue),
+      sets: [{ reps: ex.reps, recorded: true, ...(result.durationSeconds > 0 && { durationSeconds: result.durationSeconds }) }],
+    }))
+    const startedAtMs = Date.now() - result.durationSeconds * 1000
+    setCapturedExercises(workoutExercises)
+    setCapturedSeconds(result.durationSeconds)
+    setWorkoutStartedAt(startedAtMs)
+    setCapturedCircuits([])
+    try {
+      const pending: PendingWorkoutData = {
+        exercises: workoutExercises, seconds: result.durationSeconds,
+        circuits: [], startedAt: startedAtMs, savedAt: Date.now(),
+      }
+      localStorage.setItem(PENDING_WORKOUT_KEY, JSON.stringify(pending))
+    } catch { /* */ }
+    setScreen('postdetails')
   }
 
   function captureWorkout() {
@@ -605,6 +650,13 @@ export default function WorkoutPage() {
         />
       )}
 
+      {screen === 'autocount' && (
+        <UnifiedRepCounterModal
+          onConfirm={handleAutoCountConfirm}
+          onCancel={() => setScreen('home')}
+        />
+      )}
+
       {screen === 'home' && (
         <WorkoutHomeTab
           tab={tab}
@@ -621,6 +673,7 @@ export default function WorkoutPage() {
             await deleteDoc(doc(db, 'users', user.uid, 'workouts', wid))
           }}
           onQuickExercise={handleQuickExercise}
+          onAutoCount={startAutoCount}
           isActive={isActive}
           lastExerciseName={exercises.length > 0 ? exercises[exercises.length - 1].name : null}
           onQuickRecord={handleQuickRecord}
@@ -789,6 +842,65 @@ export default function WorkoutPage() {
                 onClick={() => {
                   setRecoveredSession(null)
                   localStorage.removeItem(REP_SESSION_KEY)
+                }}
+                className="w-full py-3 text-sm font-semibold text-red-400 active:opacity-70 transition-opacity"
+              >
+                Renunță
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crash recovery — unified auto-detect session */}
+      {recoveredUnifiedSession && !recoveredSession && !recoveredPending && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-5 z-[100]">
+          <div className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-indigo-500/15 flex items-center justify-center">
+                <span className="text-lg">📹</span>
+              </div>
+              <div>
+                <p className="font-black text-white text-base">Sesiune recuperată</p>
+                <p className="text-xs text-white/40 mt-0.5">Numărare automată întreruptă</p>
+              </div>
+            </div>
+            <div className="rounded-2xl px-4 py-3 mb-5" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+              {recoveredUnifiedSession.exercises.map((ex, i) => (
+                <div key={i} className="flex items-center justify-between py-1">
+                  <span className="text-sm text-white/60">{ex.name}</span>
+                  <span className="text-sm font-bold text-white">{ex.reps} rep</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  const dur = recoveredUnifiedSession.firstRepTimestamp && recoveredUnifiedSession.lastRepTimestamp
+                    ? Math.max(0, Math.round((recoveredUnifiedSession.lastRepTimestamp - recoveredUnifiedSession.firstRepTimestamp) / 1000))
+                    : 0
+                  const workoutExercises: WorkoutExercise[] = recoveredUnifiedSession.exercises.map(ex => ({
+                    name: ex.name,
+                    category: getCategory(ex.name, catalogue),
+                    sets: [{ reps: ex.reps, recorded: true, ...(dur > 0 && { durationSeconds: dur }) }],
+                  }))
+                  const startedAtMs = Date.now() - dur * 1000
+                  setCapturedExercises(workoutExercises)
+                  setCapturedSeconds(dur)
+                  setWorkoutStartedAt(startedAtMs)
+                  setCapturedCircuits([])
+                  setRecoveredUnifiedSession(null)
+                  localStorage.removeItem(UNIFIED_SESSION_KEY)
+                  setScreen('postdetails')
+                }}
+                className="w-full h-13 rounded-2xl bg-brand-green text-black font-black text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+              >
+                Recuperează {recoveredUnifiedSession.exercises.reduce((s, e) => s + e.reps, 0)} repetări
+              </button>
+              <button
+                onClick={() => {
+                  setRecoveredUnifiedSession(null)
+                  localStorage.removeItem(UNIFIED_SESSION_KEY)
                 }}
                 className="w-full py-3 text-sm font-semibold text-red-400 active:opacity-70 transition-opacity"
               >

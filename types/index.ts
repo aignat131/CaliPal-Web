@@ -258,6 +258,15 @@ export interface RepSession {
   savedAt: number
 }
 
+// ── Unified Rep Session (crash recovery for auto-detect counter) ────────────
+
+export interface UnifiedRepSession {
+  exercises: { type: 'pullup' | 'pushup' | 'squat'; name: string; reps: number }[]
+  firstRepTimestamp: number | null
+  lastRepTimestamp: number | null
+  savedAt: number
+}
+
 // ── Challenge ─────────────────────────────────────────────────────────────────
 
 export interface WeeklyChallenge {

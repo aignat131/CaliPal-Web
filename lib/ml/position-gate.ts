@@ -50,7 +50,7 @@ const models = new Map<ExerciseType, tf.LayersModel>()
 const loading = new Set<ExerciseType>()
 const errors = new Map<ExerciseType, string | null>()
 
-async function loadPositionModel(type: ExerciseType): Promise<boolean> {
+export async function loadPositionModel(type: ExerciseType): Promise<boolean> {
   if (models.has(type)) return true
   if (loading.has(type)) return false
   loading.add(type)
@@ -142,7 +142,7 @@ export function extractPositionFeatures(lms: Landmark[]): Float32Array | null {
 
 // ── Inference ───────────────────────────────────────────────────────────────
 
-async function classifyPosition(type: ExerciseType, lms: Landmark[]): Promise<number | null> {
+export async function classifyPosition(type: ExerciseType, lms: Landmark[]): Promise<number | null> {
   let m = models.get(type)
   if (!m) {
     const ok = await loadPositionModel(type)

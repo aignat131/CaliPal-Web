@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Play, Zap, BookOpen, ChevronRight, Camera, Clock } from 'lucide-react'
+import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import FirstTimeHint from '@/components/ui/FirstTimeHint'
@@ -43,6 +43,7 @@ export function WorkoutHomeTab({
   onCountReps,
   onDeleteWorkout,
   onQuickExercise,
+  onAutoCount,
   isActive,
   lastExerciseName,
   onQuickRecord,
@@ -58,6 +59,7 @@ export function WorkoutHomeTab({
   onCountReps: () => void
   onDeleteWorkout: (id: string) => Promise<void>
   onQuickExercise: (name: string, type: ExerciseType) => void
+  onAutoCount?: () => void
   isActive?: boolean
   lastExerciseName?: string | null
   onQuickRecord?: (name: string, type: ExerciseType) => void
@@ -185,6 +187,28 @@ export function WorkoutHomeTab({
               </div>
             )
           })()}
+
+          {/* Auto-detect counter */}
+          {onAutoCount && (
+            <button
+              onClick={onAutoCount}
+              className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
+              style={{
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(30,215,95,0.08))',
+                border: '1px solid rgba(99,102,241,0.25)',
+              }}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'rgba(99,102,241,0.15)' }}>
+                <Sparkles size={20} className="text-indigo-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-white text-sm">Numără automat</p>
+                <p className="text-[11px] text-white/40 mt-0.5">Detectează exercițiul automat cu AI</p>
+              </div>
+              <Camera size={16} className="text-indigo-400 flex-shrink-0" />
+            </button>
+          )}
 
           {/* Last workout + AI Analysis — side by side */}
           <div className="grid grid-cols-2 gap-2 mb-4">
