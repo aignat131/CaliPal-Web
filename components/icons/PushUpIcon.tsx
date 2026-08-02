@@ -1,3 +1,7 @@
+/**
+ * Push-up exercise icon — based on Tabler Icons "stretching" (MIT license)
+ * https://github.com/tabler/tabler-icons
+ */
 import type { SVGProps } from 'react'
 
 export function PushUpIcon(props: SVGProps<SVGSVGElement>) {
@@ -6,53 +10,19 @@ export function PushUpIcon(props: SVGProps<SVGSVGElement>) {
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 64 64"
       fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
       width={24}
       height={24}
       {...props}
     >
-      {/* Ground line */}
-      <path
-        d="M8 54h48"
-        stroke="#4B5563"
-        strokeWidth={3}
-        strokeLinecap="round"
-      />
-      {/* Head */}
-      <circle cx={14} cy={30} r={5} fill="#1ED75F" />
-      {/* Torso — angled plank body */}
-      <path
-        d="M19 32l30 6"
-        stroke="#1ED75F"
-        strokeWidth={4}
-        strokeLinecap="round"
-      />
-      {/* Arms — bent at elbows pushing up */}
-      <path
-        d="M22 34l-4 12M22 34l6 10"
-        stroke="#A3E635"
-        strokeWidth={3.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Legs — extended back */}
-      <path
-        d="M49 38l4 14M49 38l-5 14"
-        stroke="#A3E635"
-        strokeWidth={3.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Hands on ground */}
-      <circle cx={18} cy={46} r={2} fill="#A3E635" />
-      <circle cx={28} cy={44} r={2} fill="#A3E635" />
-      {/* Down arrow indicator */}
-      <path
-        d="M38 14v8M34 18l4 4 4-4"
-        stroke="#1ED75F"
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <g transform="scale(2.6667) translate(0 0)">
+        <path d="M15 5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+        <path d="M5 20l5 -.5l1 -2" />
+        <path d="M18 20v-5h-5.5l2.5 -6.5l-5.5 1l1.5 2" />
+      </g>
     </svg>
   )
 }
