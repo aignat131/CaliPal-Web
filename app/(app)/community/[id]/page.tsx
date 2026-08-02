@@ -386,7 +386,7 @@ export default function CommunityDetailPage() {
       if (userSnap.data()?.favoriteCommunityId === id) updates.favoriteCommunityId = ''
       batch.update(userRef, updates)
       await batch.commit()
-      router.push('/community')
+      router.push('/community?browse')
     } finally {
       setLeaving(false)
       setShowCommunityMenu(false)
@@ -579,7 +579,7 @@ export default function CommunityDetailPage() {
       <p className="text-4xl mb-4">🏚️</p>
       <p className="text-base font-bold text-white mb-1">{t('comm_detail.not_found_title')}</p>
       <p className="text-sm text-white/50 mb-6">{t('comm_detail.not_found_text')}</p>
-      <button onClick={() => router.replace('/community')}
+      <button onClick={() => router.replace('/community?browse')}
         className="h-11 px-6 rounded-2xl bg-brand-green text-black text-sm font-bold">
         {t('comm_detail.back')}
       </button>
@@ -711,7 +711,7 @@ export default function CommunityDetailPage() {
             {/* Back button */}
             <button
               aria-label="Înapoi"
-              onClick={() => router.push('/community')}
+              onClick={() => router.push('/community?browse')}
               className="absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center"
               style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)' }}
             >
@@ -770,7 +770,7 @@ export default function CommunityDetailPage() {
         /* ── Plain text header (no image) ── */
         <div className="px-4 pt-4 pb-3 border-b border-white/8">
           <div className="flex items-center gap-3">
-            <button aria-label="Înapoi" onClick={() => router.push('/community')} className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
+            <button aria-label="Înapoi" onClick={() => router.push('/community?browse')} className="w-10 h-10 rounded-full bg-white/8 flex items-center justify-center flex-shrink-0">
               <ArrowLeft size={18} className="text-white/80" />
             </button>
             <div className="flex-1 min-w-0">

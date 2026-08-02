@@ -371,10 +371,10 @@ export class SquatCounter {
     switch (this.state) {
       case 'IDLE':
       case 'UP':
-        // Track highest angle while standing — used as range start
+        // Always track highest angle while standing — used as range start
+        if (this.highAngle === null || avgKnee > this.highAngle) this.highAngle = avgKnee
         if (avgKnee > this.t.upAngle) {
           this.state = 'UP'; this.confirmBuffer = 0
-          if (this.highAngle === null || avgKnee > this.highAngle) this.highAngle = avgKnee
         }
         else if (avgKnee < this.t.downAngle) {
           this.confirmBuffer++

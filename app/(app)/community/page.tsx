@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   collection, query, orderBy, onSnapshot, doc,
   updateDoc, arrayUnion, increment, serverTimestamp,
@@ -44,6 +45,10 @@ export default function CommunityPage() {
   const t = useT()
   const { showToast } = useToast()
   const { requestPermission } = usePushNotifications(user?.uid)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const browsing = searchParams.get('browse') !== null
+  const redirectedRef = useRef(false)
   const [communities, setCommunities] = useState<CommunityDoc[]>([])
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -92,10 +97,16 @@ export default function CommunityPage() {
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
       const ids: string[] = snap.data()?.joinedCommunityIds ?? []
       setJoinedIds(new Set(ids))
-      setFavoriteCommunityId(snap.data()?.favoriteCommunityId ?? null)
+      const favId = snap.data()?.favoriteCommunityId || null
+      setFavoriteCommunityId(favId)
+      // Auto-navigate to favourite community on tab entry
+      if (favId && !browsing && !redirectedRef.current) {
+        redirectedRef.current = true
+        router.replace(`/community/${favId}`)
+      }
     })
     return unsub
-  }, [user])
+  }, [user, browsing, router])
 
   // Load evenimente whenever tab 1 is opened or joinedIds changes
   useEffect(() => {
