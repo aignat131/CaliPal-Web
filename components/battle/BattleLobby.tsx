@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Share2, Camera, Hand, UserPlus } from 'lucide-react'
+import { Copy, Share2, UserPlus } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
 import { useToast } from '@/lib/context/ToastContext'
 import type { BattleDoc, BattlePlayerDoc } from '@/lib/battle/types'
@@ -15,7 +15,6 @@ interface Props {
   isHost: boolean
   readyCount: number
   onToggleReady: () => void
-  onSetRepMethod: (method: 'CAMERA' | 'MANUAL') => void
   onStart: () => void
   onCancel: () => void
   onLeave: () => void
@@ -24,7 +23,7 @@ interface Props {
 
 export default function BattleLobby({
   battle, players, myPlayer, isHost, readyCount,
-  onToggleReady, onSetRepMethod, onStart, onCancel, onLeave, currentUid,
+  onToggleReady, onStart, onCancel, onLeave, currentUid,
 }: Props) {
   const t = useT()
   const { showToast } = useToast()
@@ -75,6 +74,7 @@ export default function BattleLobby({
             key={p.uid}
             player={p}
             isCurrentUser={p.uid === currentUid}
+            onToggleReady={p.uid === currentUid ? onToggleReady : undefined}
           />
         ))}
         {Array.from({ length: emptySlots }).map((_, i) => (
@@ -90,29 +90,6 @@ export default function BattleLobby({
           </div>
         ))}
       </div>
-
-      {/* Rep method toggle (if MIXED mode) */}
-      {battle.repCountMethod === 'MIXED' && myPlayer && (
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-xs text-white/50 flex-1">{t('battle.rep_method')}:</span>
-          <button
-            onClick={() => onSetRepMethod('CAMERA')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all ${
-              myPlayer.repMethod === 'CAMERA' ? 'border-green-400/40 text-green-400 bg-green-400/10' : 'border-white/8 text-white/40'
-            }`}
-          >
-            <Camera size={12} /> {t('battle.camera')}
-          </button>
-          <button
-            onClick={() => onSetRepMethod('MANUAL')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all ${
-              myPlayer.repMethod === 'MANUAL' ? 'border-blue-400/40 text-blue-400 bg-blue-400/10' : 'border-white/8 text-white/40'
-            }`}
-          >
-            <Hand size={12} /> {t('battle.manual')}
-          </button>
-        </div>
-      )}
 
       {/* Invite Friends */}
       <button

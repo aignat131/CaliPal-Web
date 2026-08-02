@@ -111,7 +111,7 @@ export function useBattle(battleId: string) {
         displayName,
         photoUrl,
         isReady: false,
-        repMethod: 'MANUAL',
+        repMethod: 'CAMERA',
         joinedAt: serverTimestamp(),
         reps: 0,
         lastRepAt: null,
@@ -130,13 +130,6 @@ export function useBattle(battleId: string) {
       isReady: !myPlayer.isReady,
     })
   }, [user, myPlayer, battleId])
-
-  const setRepMethod = useCallback(async (method: 'CAMERA' | 'MANUAL') => {
-    if (!user) return
-    await updateDoc(doc(db, 'battles', battleId, 'players', user.uid), {
-      repMethod: method,
-    })
-  }, [user, battleId])
 
   const startBattle = useCallback(async () => {
     if (!isHost) return
@@ -206,7 +199,6 @@ export function useBattle(battleId: string) {
 
     joinBattle,
     toggleReady,
-    setRepMethod,
     startBattle,
     activateBattle,
     finishBattle,

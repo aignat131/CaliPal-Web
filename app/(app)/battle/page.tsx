@@ -57,7 +57,7 @@ export default function BattlePage() {
       <div className="max-w-2xl mx-auto px-4 py-4">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => router.back()} className="p-1 rounded-lg hover:bg-white/5 transition-colors">
+          <button onClick={() => router.push('/workout')} className="p-1 rounded-lg hover:bg-white/5 transition-colors">
             <ChevronLeft size={24} style={{ color: 'var(--accent)' }} />
           </button>
           <Swords size={24} style={{ color: 'var(--accent)' }} />

@@ -21,10 +21,8 @@ export type CoinTask =
   | 'SKILLS_5'
   | 'SKILLS_10'
   | 'FIRST_BATTLE'
-  | 'BATTLE_PARTICIPATION'
   | 'BATTLES_10'
   | 'BATTLE_WIN'
-  | 'BATTLE_PODIUM'
 
 const COIN_AMOUNTS: Record<CoinTask, number> = {
   FIRST_WORKOUT: 20,
@@ -43,10 +41,8 @@ const COIN_AMOUNTS: Record<CoinTask, number> = {
   SKILLS_5: 30,
   SKILLS_10: 75,
   FIRST_BATTLE: 20,
-  BATTLE_PARTICIPATION: 5,
   BATTLES_10: 30,
   BATTLE_WIN: 15,
-  BATTLE_PODIUM: 10,
 }
 
 const TASK_NOTIF_LABELS: Partial<Record<CoinTask, string>> = {
@@ -89,7 +85,7 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
       return true
     })
     if (!awarded) return 0
-  } else if (task === 'COMPLETE_WORKOUT' || task === 'BATTLE_PARTICIPATION') {
+  } else if (task === 'COMPLETE_WORKOUT' || task === 'BATTLE_WIN') {
     // Daily guard — only award once per day
     const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
     const dailyRef = doc(db, 'coin_tasks', `${uid}_${task}_${today}`)

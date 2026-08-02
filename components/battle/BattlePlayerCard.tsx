@@ -1,7 +1,6 @@
 'use client'
 
-import { Check, Camera, Hand, WifiOff } from 'lucide-react'
-import { useT } from '@/lib/context/LanguageContext'
+import { Check, Camera, WifiOff } from 'lucide-react'
 import type { BattlePlayerDoc } from '@/lib/battle/types'
 
 interface Props {
@@ -9,10 +8,10 @@ interface Props {
   isCurrentUser?: boolean
   showReadyState?: boolean
   colorIndex?: number
+  onToggleReady?: () => void
 }
 
-export default function BattlePlayerCard({ player, isCurrentUser, showReadyState = true, colorIndex }: Props) {
-  const t = useT()
+export default function BattlePlayerCard({ player, isCurrentUser, showReadyState = true, onToggleReady }: Props) {
 
   return (
     <div
@@ -45,20 +44,27 @@ export default function BattlePlayerCard({ player, isCurrentUser, showReadyState
         <WifiOff size={14} className="text-red-400/60 flex-shrink-0" />
       )}
 
-      {/* Rep method */}
-      {player.repMethod === 'CAMERA' ? (
-        <Camera size={14} className="text-green-400/60 flex-shrink-0" />
-      ) : (
-        <Hand size={14} className="text-white/30 flex-shrink-0" />
-      )}
+      {/* Camera badge */}
+      <Camera size={14} className="text-green-400/60 flex-shrink-0" />
 
       {/* Ready state */}
       {showReadyState && (
-        <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${
-          player.isReady ? 'bg-green-500/20' : 'bg-white/5 border border-white/10'
-        }`}>
-          {player.isReady && <Check size={14} className="text-green-400" />}
-        </div>
+        onToggleReady ? (
+          <button
+            onClick={onToggleReady}
+            className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 transition-all active:scale-90 ${
+              player.isReady ? 'bg-green-500/20' : 'bg-white/5 border border-white/10 hover:border-white/20'
+            }`}
+          >
+            {player.isReady && <Check size={14} className="text-green-400" />}
+          </button>
+        ) : (
+          <div className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${
+            player.isReady ? 'bg-green-500/20' : 'bg-white/5 border border-white/10'
+          }`}>
+            {player.isReady && <Check size={14} className="text-green-400" />}
+          </div>
+        )
       )}
     </div>
   )

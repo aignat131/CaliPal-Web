@@ -4,11 +4,10 @@ import { useEffect, useCallback } from 'react'
 import { Clock, Target } from 'lucide-react'
 import { useBattleTimer } from '@/lib/battle/useBattleTimer'
 import { useBattleAudio } from '@/lib/battle/useBattleAudio'
-import type { BattleDoc, BattlePlayerDoc, BattleExerciseType } from '@/lib/battle/types'
+import type { BattleDoc, BattlePlayerDoc } from '@/lib/battle/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import TugOfWarBar from './TugOfWarBar'
 import MultiPlayerBars from './MultiPlayerBars'
-import ManualRepButton from './ManualRepButton'
 import BattleCameraView from './BattleCameraView'
 
 function formatTime(seconds: number): string {
@@ -39,7 +38,6 @@ export default function BattleActiveView({
   const { playFinish, vibrate } = useBattleAudio()
 
   const is2Player = players.length === 2
-  const isCameraMode = myPlayer?.repMethod === 'CAMERA' && battle.exerciseType
 
   // ── Time Attack: host finishes when timer expires ─────────────────────────
   useEffect(() => {
@@ -103,20 +101,12 @@ export default function BattleActiveView({
         )}
       </div>
 
-      {/* Rep counting area */}
+      {/* Rep counting area — always camera */}
       <div className="flex-1 flex items-center justify-center px-4 pb-24 md:pb-8">
-        {isCameraMode ? (
-          <BattleCameraView
-            exerciseType={battle.exerciseType as ExerciseType}
-            onRepCounted={handleCameraRep}
-          />
-        ) : (
-          <ManualRepButton
-            reps={localReps}
-            exerciseType={battle.exerciseType as BattleExerciseType | null}
-            onIncrement={onRepIncrement}
-          />
-        )}
+        <BattleCameraView
+          exerciseType={battle.exerciseType as ExerciseType}
+          onRepCounted={handleCameraRep}
+        />
       </div>
     </div>
   )

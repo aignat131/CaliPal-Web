@@ -4,7 +4,7 @@ import type { Timestamp } from 'firebase/firestore'
 
 export type BattleGameMode = 'TIME_ATTACK' | 'RACE_TO_TARGET'
 export type BattleStatus = 'LOBBY' | 'COUNTDOWN' | 'ACTIVE' | 'FINISHED' | 'CANCELLED'
-export type BattleRepMethod = 'CAMERA' | 'MANUAL' | 'MIXED'
+export type BattleRepMethod = 'CAMERA'
 export type BattleExerciseType = 'pullup' | 'pushup' | 'squat'
 
 export interface BattleDoc {
@@ -16,7 +16,7 @@ export interface BattleDoc {
 
   // Settings (immutable after creation)
   exercise: string                    // exercise name from catalogue
-  exerciseType: BattleExerciseType | null  // null = manual-only exercise
+  exerciseType: BattleExerciseType         // always set (camera-only)
   gameMode: BattleGameMode
   timeLimitSeconds: number            // 30 | 60 | 90 | 120 | 180
   targetReps: number | null           // only for RACE_TO_TARGET
@@ -36,7 +36,7 @@ export interface BattleDoc {
 
 // ── Battle Player ────────────────────────────────────────────────────────────
 
-export type PlayerRepMethod = 'CAMERA' | 'MANUAL'
+export type PlayerRepMethod = 'CAMERA'
 
 export interface BattlePlayerDoc {
   uid: string

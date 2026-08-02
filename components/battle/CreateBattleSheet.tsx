@@ -6,12 +6,12 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useT } from '@/lib/context/LanguageContext'
-import { X, Clock, Target, Camera, Hand, Shuffle, Minus, Plus } from 'lucide-react'
+import { X, Clock, Target, Minus, Plus } from 'lucide-react'
 import { generateUniqueRoomCode } from '@/lib/battle/room-codes'
-import { DEFAULT_EXERCISE_CATALOGUE } from '@/lib/data/exercise-catalogue'
 import { getExerciseType } from '@/app/(app)/workout/_helpers'
 import { TIME_LIMIT_OPTIONS, TARGET_REP_OPTIONS, MIN_PLAYERS, MAX_PLAYERS_LIMIT } from '@/lib/battle/types'
-import type { BattleGameMode, BattleRepMethod } from '@/lib/battle/types'
+import type { BattleGameMode } from '@/lib/battle/types'
+import { PushUpIcon, PullUpIcon, SquatIcon } from '@/components/icons'
 
 interface Props {
   onClose: () => void
@@ -23,23 +23,18 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
   const { displayName, photoUrl } = useMyProfile()
   const t = useT()
 
+  const CAMERA_EXERCISES = [
+    { name: 'Flotări', Icon: PushUpIcon },
+    { name: 'Tracțiuni', Icon: PullUpIcon },
+    { name: 'Squaturi', Icon: SquatIcon },
+  ] as const
+
   const [exercise, setExercise] = useState('')
   const [gameMode, setGameMode] = useState<BattleGameMode>('TIME_ATTACK')
   const [timeLimit, setTimeLimit] = useState(60)
   const [targetReps, setTargetReps] = useState(20)
-  const [repMethod, setRepMethod] = useState<BattleRepMethod>('MIXED')
   const [maxPlayers, setMaxPlayers] = useState(2)
   const [creating, setCreating] = useState(false)
-  const [search, setSearch] = useState('')
-
-  const exerciseType = exercise ? getExerciseType(exercise) : null
-  const showCameraExercises = repMethod === 'CAMERA'
-
-  const filteredExercises = DEFAULT_EXERCISE_CATALOGUE.filter(e => {
-    const matchSearch = !search || e.name.toLowerCase().includes(search.toLowerCase())
-    if (showCameraExercises) return matchSearch && getExerciseType(e.name) !== null
-    return matchSearch
-  })
 
   async function handleCreate() {
     if (!user || !exercise || creating) return
@@ -60,7 +55,7 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
         timeLimitSeconds: gameMode === 'TIME_ATTACK' ? timeLimit : 180,
         targetReps: gameMode === 'RACE_TO_TARGET' ? targetReps : null,
         maxPlayers,
-        repCountMethod: repMethod,
+        repCountMethod: 'CAMERA',
         status: 'LOBBY',
         playerCount: 0,
         startAt: null,
@@ -90,40 +85,27 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
           </button>
         </div>
 
-        {/* Exercise picker */}
+        {/* Exercise picker — 3 camera exercises */}
         <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.exercise')}</label>
-        {exercise ? (
-          <div className="flex items-center gap-2 mb-4 p-2.5 rounded-xl border border-white/10" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)' }}>
-            <span className="text-sm font-medium text-white/90 flex-1">{exercise}</span>
-            {exerciseType && <Camera size={14} className="text-green-400" />}
-            <button onClick={() => setExercise('')} className="text-xs text-white/40 hover:text-white/60">✕</button>
-          </div>
-        ) : (
-          <>
-            <input
-              type="text"
-              placeholder="Caută exercițiu…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full h-8 px-2.5 mb-2 rounded-lg border border-white/10 bg-white/5 text-sm text-white/85 placeholder:text-white/30 focus:border-[var(--accent)] outline-none"
-            />
-            <div className="max-h-36 overflow-y-auto mb-4 space-y-0.5 rounded-xl border border-white/6 p-1" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
-              {filteredExercises.map(e => (
-                <button
-                  key={e.name}
-                  onClick={() => { setExercise(e.name); setSearch('') }}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-white/5 flex items-center gap-2 transition-colors"
-                >
-                  <span className="flex-1">{e.name}</span>
-                  {getExerciseType(e.name) && <Camera size={12} className="text-green-400/60" />}
-                </button>
-              ))}
-              {filteredExercises.length === 0 && (
-                <p className="text-xs text-white/30 text-center py-3">Niciun rezultat</p>
-              )}
-            </div>
-          </>
-        )}
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {CAMERA_EXERCISES.map(({ name, Icon }) => (
+            <button
+              key={name}
+              onClick={() => setExercise(name)}
+              className={`p-4 rounded-2xl flex flex-col items-center gap-2.5 transition-all border ${
+                exercise === name
+                  ? 'border-[var(--accent)] shadow-[0_0_12px_rgba(var(--accent-rgb),0.15)]'
+                  : 'border-white/8 hover:border-white/15'
+              }`}
+              style={{
+                backgroundColor: exercise === name ? 'rgba(var(--accent-rgb), 0.1)' : 'rgba(255,255,255,0.03)',
+              }}
+            >
+              <Icon width={40} height={40} />
+              <span className={`text-xs font-bold ${exercise === name ? 'text-white' : 'text-white/60'}`}>{name}</span>
+            </button>
+          ))}
+        </div>
 
         {/* Game Mode */}
         <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.game_mode')}</label>
@@ -187,30 +169,6 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
             </div>
           </>
         )}
-
-        {/* Rep counting method */}
-        <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.rep_method')}</label>
-        <div className="grid grid-cols-3 gap-1.5 mb-4">
-          {([
-            { val: 'CAMERA' as BattleRepMethod, icon: Camera, label: t('battle.camera') },
-            { val: 'MANUAL' as BattleRepMethod, icon: Hand, label: t('battle.manual') },
-            { val: 'MIXED' as BattleRepMethod, icon: Shuffle, label: t('battle.mixed') },
-          ]).map(({ val, icon: Icon, label }) => (
-            <button
-              key={val}
-              onClick={() => setRepMethod(val)}
-              className={`p-2.5 rounded-xl text-xs font-medium flex flex-col items-center gap-1.5 transition-all border ${
-                repMethod === val
-                  ? 'border-[var(--accent)] text-white/90'
-                  : 'border-white/8 text-white/50 hover:border-white/15'
-              }`}
-              style={repMethod === val ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : { backgroundColor: 'rgba(255,255,255,0.03)' }}
-            >
-              <Icon size={16} />
-              {label}
-            </button>
-          ))}
-        </div>
 
         {/* Max Players */}
         <label className="block text-sm font-medium text-white/60 mb-2">{t('battle.max_players')}</label>

@@ -40,17 +40,10 @@ export default function BattleResultsScreen({
       const placement = sortedPlayers.findIndex(p => p.uid === currentUid) + 1
       let totalCoins = 0
 
-      // Award participation coins (daily)
-      const partCoins = await awardCoins(currentUid, 'BATTLE_PARTICIPATION')
-      totalCoins += partCoins
-
-      // Award placement coins
+      // Award coins only to the winner (daily-guarded)
       if (placement === 1) {
-        const winCoins = await awardCoins(currentUid, 'BATTLE_WIN', 15)
+        const winCoins = await awardCoins(currentUid, 'BATTLE_WIN')
         totalCoins += winCoins
-      } else if (placement <= 3) {
-        const podiumCoins = await awardCoins(currentUid, 'BATTLE_PODIUM', 10)
-        totalCoins += podiumCoins
       }
 
       // Check milestones

@@ -25,7 +25,7 @@ export default function BattleRoomPage() {
   const {
     battle, players, myPlayer, isHost, loading, error,
     sortedPlayers, winner, readyCount,
-    joinBattle, toggleReady, setRepMethod,
+    joinBattle, toggleReady,
     startBattle, activateBattle, finishBattle, cancelBattle, leaveBattle,
     incrementReps, markFinished,
   } = useBattle(battleId)
@@ -132,7 +132,6 @@ export default function BattleRoomPage() {
           isHost={isHost}
           readyCount={readyCount}
           onToggleReady={toggleReady}
-          onSetRepMethod={setRepMethod}
           onStart={startBattle}
           onCancel={handleCancel}
           onLeave={handleLeave}
