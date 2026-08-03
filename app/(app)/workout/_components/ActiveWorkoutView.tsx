@@ -512,7 +512,7 @@ export function ActiveWorkoutView({
               onClick={() => { setShowCircuitSheet(true); setCircuitSelected(new Set()); setCircuitRounds(4) }}
               className="w-full h-11 rounded-2xl border border-dashed border-brand-green/25 text-sm text-brand-green/60 flex items-center justify-center gap-2 mb-3 hover:border-brand-green/50 hover:text-brand-green transition-colors"
             >
-              <Layers size={15} /> Crează circuit
+              <Layers size={15} /> Creează circuit
             </button>
           )}
 
@@ -1225,7 +1225,7 @@ export function ActiveWorkoutView({
               <div className="w-10 h-1 rounded-full bg-white/20" />
             </div>
             <div className="flex items-center justify-between px-5 py-3 border-b border-white/8 flex-shrink-0">
-              <p className="text-base font-black text-white">Crează circuit</p>
+              <p className="text-base font-black text-white">Creează circuit</p>
               <button onClick={() => setShowCircuitSheet(false)}
                 className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
                 <X size={14} className="text-white/60" />
@@ -1280,7 +1280,7 @@ export function ActiveWorkoutView({
                 disabled={circuitSelected.size < 2}
                 className="w-full h-12 rounded-2xl bg-brand-green text-black text-sm font-black disabled:opacity-40"
               >
-                Crează circuit ({circuitSelected.size} exerciții)
+                Creează circuit ({circuitSelected.size} exerciții)
               </button>
             </div>
           </div>

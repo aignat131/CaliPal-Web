@@ -42,6 +42,13 @@ next-env.d.ts
 
 # firebase functions build output
 functions/lib
+functions/node_modules
 
-.vercel
-.env*
+# ML training artifacts
+training/models/*.h5
+*.h5
+public/models/*_tmp_saved/
+
+# firebase emulator logs
+firestore-debug.log
+ui-debug.log
