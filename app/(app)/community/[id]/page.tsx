@@ -368,6 +368,8 @@ export default function CommunityDetailPage() {
       await batch.commit()
       awardCoins(user.uid, 'JOIN_COMMUNITY').catch(() => {})
       setShowJoinNotif(true)
+    } catch {
+      showToast('Eroare la alăturare. Încearcă din nou.', 'error')
     } finally {
       setJoining(false)
     }
