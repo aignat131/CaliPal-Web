@@ -10,11 +10,11 @@ const SUBSEQUENT_REP_MIN_MS = 700
 // ── Threshold config types & presets ─────────────────────────────────────────
 
 export interface PullupThresholds {
-  /** Elbow angle ABOVE this → enter HANGING state */
+  /** Elbow angle ABOVE this → enter HANGING state (arms extended, ~150-160°) */
   hangEnter: number
-  /** Must drop BELOW this to leave HANGING (start pulling) */
+  /** Elbow angle BELOW this → leave HANGING / start pulling (must be < hangEnter for hysteresis) */
   hangExit: number
-  /** Elbow angle BELOW this → rep peak reached */
+  /** Elbow angle BELOW this → rep peak reached (arms fully bent, ~75-100°) */
   peak: number
   /** Minimum highAngle−lowestAngle to count a rep (default 25) */
   minRangeRequired?: number
@@ -52,9 +52,9 @@ export interface SquatThresholds {
   subsequentRepMinMs?: number
 }
 
-export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 148, hangExit: 153, peak: 105 }
-export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 140, hangExit: 145, peak: 112, firstRepMinMs: 1000, subsequentRepMinMs: 500 }
-export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 145, peak: 120 }
+export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 155, hangExit: 130, peak: 75, minRangeRequired: 50, firstRepMinMs: 1500, subsequentRepMinMs: 700 }
+export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 150, hangExit: 125, peak: 85, minRangeRequired: 40, firstRepMinMs: 1200, subsequentRepMinMs: 600 }
+export const EASY_PULLUP:     PullupThresholds = { hangEnter: 145, hangExit: 120, peak: 100, minRangeRequired: 30, firstRepMinMs: 1000, subsequentRepMinMs: 500 }
 
 export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 95,  upAngle: 155 }
 export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 130 }
@@ -135,7 +135,7 @@ export class RepCounter {
             this.peakReached = false
           }
         } else if (this.state === 'HANGING' && avgElbow < this.t.hangExit) {
-          // Started pulling up
+          // Arms bent enough — started pulling up
           this.confirmBuffer++
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'PULLING'
@@ -145,7 +145,8 @@ export class RepCounter {
           }
         } else {
           this.confirmBuffer = 0
-          if (this.state === 'IDLE') this.state = 'HANGING'
+          // Stay in current state — do NOT auto-transition IDLE→HANGING
+          // HANGING is only entered when arms are extended (avgElbow >= hangEnter)
         }
         break
       }

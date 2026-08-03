@@ -13,12 +13,14 @@ import type { UserDoc } from '@/types'
 export function useMyProfile() {
   const { user } = useAuth()
   const [profile, setProfile] = useState<UserDoc | null>(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
 
   useEffect(() => {
-    if (!user) return
+    if (!user) { setProfileLoaded(false); return }
     const unsub = onSnapshot(doc(db, 'users', user.uid), snap => {
       if (snap.exists()) setProfile({ uid: snap.id, ...snap.data() } as UserDoc)
-    }, () => { /* token refresh or offline — keep last known profile */ })
+      setProfileLoaded(true)
+    }, () => { setProfileLoaded(true) /* token refresh or offline — keep last known profile */ })
     return unsub
   }, [user])
 
@@ -34,5 +36,7 @@ export function useMyProfile() {
     displayName,
     photoUrl: profile?.photoUrl || user?.photoURL || '',
     profile,
+    /** true once the Firestore profile has been fetched at least once */
+    profileLoaded,
   }
 }

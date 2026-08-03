@@ -20,7 +20,7 @@ interface Props {
 
 export default function CreateBattleSheet({ onClose, onCreated }: Props) {
   const { user } = useAuth()
-  const { displayName, photoUrl } = useMyProfile()
+  const { displayName, photoUrl, profileLoaded } = useMyProfile()
   const t = useT()
 
   const CAMERA_EXERCISES = [
@@ -38,7 +38,7 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
   const [creating, setCreating] = useState(false)
 
   async function handleCreate() {
-    if (!user || !exercise || creating) return
+    if (!user || !exercise || creating || !profileLoaded) return
     setCreating(true)
     try {
       const code = await generateUniqueRoomCode()
@@ -225,7 +225,7 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
         {/* Create button */}
         <button
           onClick={handleCreate}
-          disabled={!exercise || creating}
+          disabled={!exercise || creating || !profileLoaded}
           className="w-full h-11 rounded-xl font-semibold text-black transition-all active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none"
           style={{ backgroundColor: 'var(--accent)' }}
         >

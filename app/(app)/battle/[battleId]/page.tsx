@@ -19,7 +19,7 @@ export default function BattleRoomPage() {
   const battleId = params.battleId as string
   const router = useRouter()
   const { user } = useAuth()
-  const { displayName, photoUrl } = useMyProfile()
+  const { displayName, photoUrl, profileLoaded } = useMyProfile()
   const t = useT()
 
   const {
@@ -50,13 +50,13 @@ export default function BattleRoomPage() {
 
   // ── Auto-join if not already a player ─────────────────────────────────────
   useEffect(() => {
-    if (!user || !battle || loading) return
+    if (!user || !battle || loading || !profileLoaded) return
     if (battle.status !== 'LOBBY') return
     if (myPlayer) return // already joined
     if (players.length >= battle.maxPlayers) return // full
 
     joinBattle(displayName, photoUrl)
-  }, [user, battle, myPlayer, players.length, loading, displayName, photoUrl, joinBattle])
+  }, [user, battle, myPlayer, players.length, loading, profileLoaded, displayName, photoUrl, joinBattle])
 
   // ── Countdown → Active transition (host only) ────────────────────────────
   useEffect(() => {

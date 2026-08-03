@@ -50,13 +50,13 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
 
           // Fetch posts and trainings with photos in parallel
           const [postResults, trainingResults] = await Promise.all([
-            // Posts from each joined community
+            // Posts from each joined community (match community page limit)
             Promise.all(
               ids.map(cid =>
                 getDocs(query(
                   collection(db, 'communities', cid, 'posts'),
                   orderBy('createdAt', 'desc'),
-                  limit(5),
+                  limit(30),
                 )).then(snap =>
                   snap.docs.map(d => ({
                     id: d.id, ...d.data(), communityId: cid,
@@ -90,7 +90,7 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
             const bTime = b.createdAt?.toDate?.()?.getTime() ?? 0
             return bTime - aTime
           })
-          for (const p of allPosts.slice(0, 20)) {
+          for (const p of allPosts) {
             const sortMs = p.createdAt?.toDate?.()?.getTime() ?? 0
             postItems.push({
               type: 'post',
