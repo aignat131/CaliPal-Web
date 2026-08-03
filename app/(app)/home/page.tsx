@@ -18,6 +18,7 @@ import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { useT } from '@/lib/context/LanguageContext'
 import { parseTrainingDateTime, formatTrainingDate, compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
 import { HomeFeed } from './_components/HomeFeed'
+import { PushupLeaderboard } from './_components/PushupLeaderboard'
 
 export default function HomePage() {
   const { user, loading: authLoading, isSuperAdmin } = useAuth()
@@ -223,6 +224,9 @@ export default function HomePage() {
             </Link>
           )
         })()}
+
+        {/* Push-up Leaderboard */}
+        {user && <PushupLeaderboard user={user} />}
 
         {/* Feed */}
         {user && (

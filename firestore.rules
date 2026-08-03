@@ -266,6 +266,24 @@ service cloud.firestore {
       }
     }
 
+    // ── Weekly Leaderboard ─────────────────────────────────────────────────────
+    match /weekly_leaderboard/{weekId} {
+      allow read: if isAuth();
+      allow write: if false;
+
+      match /entries/{uid} {
+        allow read: if isAuth();
+        allow create: if isOwner(uid)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.totalPushupReps is number
+          && request.resource.data.totalPushupReps > 0;
+        allow update: if isOwner(uid)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.totalPushupReps >= resource.data.totalPushupReps;
+        allow delete: if false;
+      }
+    }
+
     // ── Direct messages ───────────────────────────────────────────────────────
     match /conversations/{conversationId} {
       function isParticipant() {

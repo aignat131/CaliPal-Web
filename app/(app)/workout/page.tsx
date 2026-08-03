@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge, GripType, RepSession, UnifiedRepSession } from '@/types'
 import { checkWorkoutMilestones, checkStreakMilestones, awardCoins } from '@/lib/gamification/coins'
+import { updateWeeklyPushupLeaderboard } from '@/lib/gamification/leaderboard'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
 import { DEFAULT_EXERCISE_CATALOGUE, getCategory, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
@@ -501,6 +502,22 @@ export default function WorkoutPage() {
       // Award milestone coins for workout count and streak
       await checkWorkoutMilestones(user.uid, _newTotal)
       await checkStreakMilestones(user.uid, newStreak)
+
+      // Update weekly push-up leaderboard
+      const pushupReps = finalExercises.reduce((sum, ex) => {
+        if (getExerciseType(ex.name) === 'pushup') {
+          return sum + ex.sets.reduce((s, set) => s + (set.reps ?? 0), 0)
+        }
+        return sum
+      }, 0)
+      if (pushupReps > 0) {
+        updateWeeklyPushupLeaderboard(
+          user.uid,
+          profile?.displayName ?? user.displayName ?? '',
+          profile?.photoUrl ?? user.photoURL ?? '',
+          pushupReps,
+        ).catch(() => {})
+      }
 
       if (challenge) {
         const exerciseReps: Record<string, number> = {}

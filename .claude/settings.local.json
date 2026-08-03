@@ -66,7 +66,20 @@
       "Bash(firebase --version)",
       "Bash(git -C /e/Web_Apps/CaliPal-Web log --all --oneline --grep=\"training\\\\|delete\")",
       "Bash(git add:*)",
-      "Bash(git commit -m 'Add totalTrainings counter, fix email notif permissions, update Firestore rules:*)"
+      "Bash(git commit -m 'Add totalTrainings counter, fix email notif permissions, update Firestore rules:*)",
+      "Bash(npx vercel:*)",
+      "Bash(python3:*)",
+      "Read(//tmp/**)",
+      "Bash(du -sh \"E:\\\\Web_Apps\\\\CaliPal-Web\"/*)",
+      "Bash(file:*)",
+      "Bash(cp push-up.png public/icons/exercises/push-up.png)",
+      "Bash(cp pull-up.png public/icons/exercises/pull-up.png)",
+      "Bash(mv \"pushup_position_model.h5\" \"training/models/pushup_position_v1.h5\")",
+      "Bash(mv \"pushup_position_model \\(2\\).h5\" \"training/models/pushup_position_v2.h5\")",
+      "Bash(mv \"pushup_position_model \\(3\\).h5\" \"training/models/pushup_position_v3.h5\")",
+      "Bash(mv PushUpNN.ipynb training/pushup_position_training.ipynb)",
+      "Bash(mv convert_models.py training/scripts/convert_tflite_to_tfjs.py)",
+      "Bash(mv inspect_model.py training/scripts/inspect_model.py)"
     ]
   }
 }

@@ -19,6 +19,7 @@ import type { UserDoc, WorkoutDoc, PlannedTraining } from '@/types'
 import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag, Calendar, MapPin } from 'lucide-react'
 import { useToast } from '@/lib/context/ToastContext'
 import { useT } from '@/lib/context/LanguageContext'
+import { ExerciseStatsTab } from './_components/ExerciseStatsTab'
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -363,7 +364,7 @@ export default function ProfilePage() {
     ? { label: '⭐ Master Coach', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.13)' }
     : LEVEL_BADGE[assessmentLevel ?? 'beginner'] ?? LEVEL_BADGE.beginner
 
-  const tabs = [t('profile.tab_progress'), t('profile.tab_tasks')]
+  const tabs = [t('profile.tab_progress'), t('profile.tab_stats'), t('profile.tab_tasks')]
 
   const derivedCompleted = getDerivedCompleted()
 
@@ -729,8 +730,11 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* ── Stats tab ── */}
+        {tab === 1 && user && <ExerciseStatsTab uid={user.uid} />}
+
         {/* ── Tasks tab ── */}
-        {tab === 1 && (
+        {tab === 2 && (
           <div className="flex flex-col gap-2">
             <p className="text-xs text-white/35 mb-2">{t('profile.tasks_desc')}</p>
             {COIN_TASKS.map(task => {

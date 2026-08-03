@@ -491,3 +491,11 @@ export interface ParkRequest {
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   createdAt: Timestamp | null
 }
+
+export interface LeaderboardEntry {
+  uid: string
+  displayName: string
+  photoUrl: string
+  totalPushupReps: number
+  updatedAt: Timestamp | null
+}
