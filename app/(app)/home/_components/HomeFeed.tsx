@@ -45,51 +45,53 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
         const postItems: FeedItem[] = []
         const trainingItems: FeedItem[] = []
 
-        if (joinedCommunityIds.length > 0) {
-          const ids = joinedCommunityIds.slice(0, 10)
-
-          // Fetch posts and trainings with photos in parallel
-          const [postResults, trainingResults] = await Promise.all([
-            // Posts from each joined community (match community page limit)
-            Promise.all(
-              ids.map(cid =>
-                getDocs(query(
-                  collection(db, 'communities', cid, 'posts'),
-                  orderBy('createdAt', 'desc'),
-                  limit(30),
-                )).then(snap =>
-                  snap.docs.map(d => ({
-                    id: d.id, ...d.data(), communityId: cid,
-                  } as CommunityPost))
-                ).catch(() => [] as CommunityPost[])
+        // Fetch posts from ALL communities and trainings from joined communities in parallel
+        const [allPostsSnap, trainingResults] = await Promise.all([
+          // Posts from all communities via collection group query
+          getDocs(query(
+            collectionGroup(db, 'posts'),
+            orderBy('createdAt', 'desc'),
+            limit(30),
+          )).catch(() => null),
+          // Recent trainings from each joined community (filter for photos client-side)
+          joinedCommunityIds.length > 0
+            ? Promise.all(
+                joinedCommunityIds.slice(0, 10).map(cid =>
+                  getDocs(query(
+                    collection(db, 'communities', cid, 'trainings'),
+                    orderBy('timeStart', 'desc'),
+                    limit(10),
+                  )).then(snap =>
+                    snap.docs
+                      .map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
+                      .filter(tr => tr.photoCount && tr.photoCount > 0)
+                      .slice(0, 3)
+                      .map(training => ({ training, communityId: cid }))
+                  ).catch(() => [] as { training: PlannedTraining; communityId: string }[])
+                )
               )
-            ),
-            // Recent trainings from each joined community (filter for photos client-side)
-            Promise.all(
-              ids.map(cid =>
-                getDocs(query(
-                  collection(db, 'communities', cid, 'trainings'),
-                  orderBy('timeStart', 'desc'),
-                  limit(10),
-                )).then(snap =>
-                  snap.docs
-                    .map(d => ({ id: d.id, ...d.data() }) as PlannedTraining)
-                    .filter(tr => tr.photoCount && tr.photoCount > 0)
-                    .slice(0, 3)
-                    .map(training => ({ training, communityId: cid }))
-                ).catch(() => [] as { training: PlannedTraining; communityId: string }[])
-              )
-            ),
-          ])
+            : Promise.resolve([] as { training: PlannedTraining; communityId: string }[][]),
+        ])
 
-          // Process posts
-          const allPosts: CommunityPost[] = []
-          postResults.forEach(batch => allPosts.push(...batch))
-          allPosts.sort((a, b) => {
-            const aTime = a.createdAt?.toDate?.()?.getTime() ?? 0
-            const bTime = b.createdAt?.toDate?.()?.getTime() ?? 0
-            return bTime - aTime
+        // Process posts — resolve community names
+        if (allPostsSnap) {
+          const allPosts = allPostsSnap.docs.map(d => {
+            const communityId = d.ref.parent.parent!.id
+            return { id: d.id, ...d.data(), communityId } as CommunityPost
           })
+
+          // Collect unknown community IDs and fetch their names
+          const unknownIds = [...new Set(allPosts.map(p => p.communityId!).filter(cid => !communityNameMap.has(cid)))]
+          if (unknownIds.length > 0) {
+            await Promise.all(
+              unknownIds.map(cid =>
+                getDoc(doc(db, 'communities', cid)).then(snap => {
+                  if (snap.exists()) communityNameMap.set(cid, { id: snap.id, ...snap.data() } as CommunityDoc)
+                }).catch(() => {})
+              )
+            )
+          }
+
           for (const p of allPosts) {
             const sortMs = p.createdAt?.toDate?.()?.getTime() ?? 0
             postItems.push({
@@ -99,8 +101,10 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
               sortMs,
             })
           }
+        }
 
-          // Process trainings with photos — filter to past trainings only
+        // Process trainings with photos — filter to past trainings only
+        if (trainingResults.length > 0) {
           const now = new Date()
           for (const batch of trainingResults) {
             for (const { training: tr, communityId: cid } of batch) {
@@ -120,21 +124,17 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
           }
         }
 
-        // Photo highlights: fetch recent posts with photos from all communities
+        // Photo highlights: reuse already-fetched posts to build discovery cards
         const discoveryItems: FeedItem[] = []
         try {
-          const discSnap = await getDocs(query(
-            collectionGroup(db, 'posts'),
-            orderBy('createdAt', 'desc'),
-            limit(40),
-          ))
-
-          const discPosts = discSnap.docs
-            .map(d => {
-              const communityId = d.ref.parent.parent!.id
-              return { id: d.id, ...d.data(), communityId } as CommunityPost
-            })
-            .filter(p => p.photoUrl)
+          const discPosts = allPostsSnap
+            ? allPostsSnap.docs
+                .map(d => {
+                  const communityId = d.ref.parent.parent!.id
+                  return { id: d.id, ...d.data(), communityId } as CommunityPost
+                })
+                .filter(p => p.photoUrl)
+            : []
 
           // Group by community, keep up to 4 photos per community
           const byCommunity = new Map<string, CommunityPost[]>()
@@ -175,40 +175,6 @@ export function HomeFeed({ user, joinedCommunityIds, joinedCommunities, isSuperA
           }
         } catch {
           // Photo highlights fetch failed — continue with other items
-        }
-
-        // If no joined communities at all, fetch a plain discovery feed
-        if (postItems.length === 0 && trainingItems.length === 0 && discoveryItems.length === 0) {
-          const snap = await getDocs(query(
-            collectionGroup(db, 'posts'),
-            orderBy('createdAt', 'desc'),
-            limit(15),
-          ))
-
-          const allPosts = snap.docs.map(d => {
-            const communityId = d.ref.parent.parent!.id
-            return { id: d.id, ...d.data(), communityId } as CommunityPost
-          })
-
-          const uniqueIds = [...new Set(allPosts.map(p => p.communityId!))]
-          const nameMap = new Map<string, string>()
-          await Promise.all(
-            uniqueIds.map(cid =>
-              getDoc(doc(db, 'communities', cid)).then(snap => {
-                if (snap.exists()) nameMap.set(cid, (snap.data() as CommunityDoc).name)
-              }).catch(() => {})
-            )
-          )
-
-          for (const p of allPosts) {
-            const sortMs = p.createdAt?.toDate?.()?.getTime() ?? 0
-            postItems.push({
-              type: 'post',
-              post: { ...p, communityName: nameMap.get(p.communityId!) ?? '' },
-              key: p.id,
-              sortMs,
-            })
-          }
         }
 
         // Merge all items chronologically

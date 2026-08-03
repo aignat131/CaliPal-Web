@@ -38,6 +38,9 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return
   if (SKIP_CACHE_DOMAINS.some(d => url.hostname === d || url.hostname.endsWith('.' + d))) return
 
+  // Skip Next.js internal requests — these must always hit the server
+  if (url.pathname.startsWith('/_next/')) return
+
   // Static assets: network-first, fall back to cache for offline support
   if (url.pathname.match(/\.(js|css|woff2?|png|svg|ico|json)$/)) {
     event.respondWith(
