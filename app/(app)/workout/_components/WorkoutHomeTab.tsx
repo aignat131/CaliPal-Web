@@ -51,6 +51,7 @@ export function WorkoutHomeTab({
   onDeleteWorkout,
   onQuickExercise,
   onAutoCount,
+  onSpidermanChallenge,
   isActive,
   lastExerciseName,
   onQuickRecord,
@@ -67,6 +68,7 @@ export function WorkoutHomeTab({
   onDeleteWorkout: (id: string) => Promise<void>
   onQuickExercise: (name: string, type: ExerciseType) => void
   onAutoCount?: () => void
+  onSpidermanChallenge?: () => void
   isActive?: boolean
   lastExerciseName?: string | null
   onQuickRecord?: (name: string, type: ExerciseType) => void
@@ -152,6 +154,28 @@ export function WorkoutHomeTab({
             </div>
             <ChevronRight size={16} className="text-red-400/60 flex-shrink-0" />
           </Link>
+
+          {/* Spiderman Challenge */}
+          {onSpidermanChallenge && (
+            <button
+              onClick={onSpidermanChallenge}
+              className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
+              style={{
+                background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(239,68,68,0.08))',
+                border: '1px solid rgba(139,92,246,0.25)',
+              }}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'rgba(139,92,246,0.15)' }}>
+                <span className="text-xl">🕷️</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-white text-sm">{t('spiderman.title')}</p>
+                <p className="text-[11px] text-white/40 mt-0.5">{t('spiderman.subtitle')}</p>
+              </div>
+              <ChevronRight size={16} className="text-purple-400/60 flex-shrink-0" />
+            </button>
+          )}
 
           {/* Quick exercises — single row */}
           {(() => {

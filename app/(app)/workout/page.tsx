@@ -24,10 +24,12 @@ import { ActiveWorkoutView } from './_components/ActiveWorkoutView'
 import { PostWorkoutDetails } from './_components/PostWorkoutDetails'
 import { WorkoutSummaryCard } from './_components/WorkoutSummaryCard'
 import { QuickRepCounterView } from './_components/QuickRepCounterView'
+import { SpidermanChallenge } from './_components/SpidermanChallenge'
+import type { SpidermanResult } from './_components/SpidermanChallenge'
 
 const AUTH_REDIRECT_KEY = 'calipal_auth_redirect'
 
-type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount' | 'autocount'
+type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount' | 'autocount' | 'spiderman'
 
 const PENDING_WORKOUT_KEY = 'calipal_pending_workout'
 
@@ -419,6 +421,25 @@ export default function WorkoutPage() {
     setScreen('postdetails')
   }
 
+  function handleSpidermanComplete(result: SpidermanResult) {
+    const capturedStartedAt = Date.now() - result.durationSeconds * 1000
+    setCapturedExercises(result.exercises)
+    setCapturedSeconds(result.durationSeconds)
+    setCapturedCircuits([])
+    setWorkoutStartedAt(capturedStartedAt)
+    try {
+      const pending: PendingWorkoutData = {
+        exercises: result.exercises,
+        seconds: result.durationSeconds,
+        circuits: [],
+        startedAt: capturedStartedAt,
+        savedAt: Date.now(),
+      }
+      localStorage.setItem(PENDING_WORKOUT_KEY, JSON.stringify(pending))
+    } catch { /* quota exceeded */ }
+    setScreen('postdetails')
+  }
+
   async function saveWorkout(photoFile: File | null, description: string) {
     if (!user) {
       // Guest user — prompt to create account; pending data is already in localStorage
@@ -674,6 +695,13 @@ export default function WorkoutPage() {
         />
       )}
 
+      {screen === 'spiderman' && (
+        <SpidermanChallenge
+          onComplete={handleSpidermanComplete}
+          onCancel={() => setScreen('home')}
+        />
+      )}
+
       {screen === 'home' && (
         <WorkoutHomeTab
           tab={tab}
@@ -691,6 +719,7 @@ export default function WorkoutPage() {
           }}
           onQuickExercise={handleQuickExercise}
           onAutoCount={startAutoCount}
+          onSpidermanChallenge={() => setScreen('spiderman')}
           isActive={isActive}
           lastExerciseName={exercises.length > 0 ? exercises[exercises.length - 1].name : null}
           onQuickRecord={handleQuickRecord}
