@@ -36,6 +36,7 @@ export default function CreateEventSheet({ onClose, onCreated }: Props) {
   const [exercises, setExercises] = useState<EventExerciseConfig[]>([...DEFAULT_EXERCISES])
   const [scheduledAt, setScheduledAt] = useState('')
   const [durationMinutes, setDurationMinutes] = useState<number | null>(20)
+  const [customDuration, setCustomDuration] = useState(false)
   const [maxParticipants, setMaxParticipants] = useState(DEFAULT_MAX_PARTICIPANTS)
   const [isPublic, setIsPublic] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -238,31 +239,63 @@ export default function CreateEventSheet({ onClose, onCreated }: Props) {
         <label className="block text-sm font-medium text-white/60 mb-2">{t('event.duration')}</label>
         <div className="flex gap-1.5 mb-4 flex-wrap">
           <button
-            onClick={() => setDurationMinutes(null)}
+            onClick={() => { setDurationMinutes(null); setCustomDuration(false) }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
-              durationMinutes === null
+              durationMinutes === null && !customDuration
                 ? 'border-amber-400/50 text-white/90'
                 : 'border-white/8 text-white/50 hover:border-white/15'
             }`}
-            style={durationMinutes === null ? { backgroundColor: 'rgba(251,191,36,0.1)' } : {}}
+            style={durationMinutes === null && !customDuration ? { backgroundColor: 'rgba(251,191,36,0.1)' } : {}}
           >
             {t('event.no_limit')}
           </button>
           {DURATION_OPTIONS.map(d => (
             <button
               key={d}
-              onClick={() => setDurationMinutes(d)}
+              onClick={() => { setDurationMinutes(d); setCustomDuration(false) }}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
-                durationMinutes === d
+                durationMinutes === d && !customDuration
                   ? 'border-amber-400/50 text-white/90'
                   : 'border-white/8 text-white/50 hover:border-white/15'
               }`}
-              style={durationMinutes === d ? { backgroundColor: 'rgba(251,191,36,0.1)' } : {}}
+              style={durationMinutes === d && !customDuration ? { backgroundColor: 'rgba(251,191,36,0.1)' } : {}}
             >
               {d} {t('event.minutes')}
             </button>
           ))}
+          <button
+            onClick={() => {
+              setCustomDuration(true)
+              if (!durationMinutes || DURATION_OPTIONS.includes(durationMinutes as typeof DURATION_OPTIONS[number])) {
+                setDurationMinutes(25)
+              }
+            }}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+              customDuration
+                ? 'border-amber-400/50 text-white/90'
+                : 'border-white/8 text-white/50 hover:border-white/15'
+            }`}
+            style={customDuration ? { backgroundColor: 'rgba(251,191,36,0.1)' } : {}}
+          >
+            {t('event.custom')}
+          </button>
         </div>
+        {customDuration && (
+          <div className="flex items-center gap-3 mb-4">
+            <input
+              type="number"
+              min={1}
+              max={180}
+              value={durationMinutes ?? ''}
+              onChange={e => {
+                const v = parseInt(e.target.value, 10)
+                setDurationMinutes(isNaN(v) ? null : Math.min(180, Math.max(1, v)))
+              }}
+              className="w-20 h-10 px-3 rounded-xl border border-white/15 bg-white/5 text-sm text-white/90 text-center focus:border-amber-400/50 outline-none"
+            />
+            <span className="text-sm text-white/50">{t('event.minutes')}</span>
+          </div>
+        )}
 
         {/* Max participants */}
         <label className="block text-sm font-medium text-white/60 mb-2">{t('event.max_participants')}</label>

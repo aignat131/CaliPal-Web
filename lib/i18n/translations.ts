@@ -977,6 +977,7 @@ const T: Record<string, { RO: string; EN: string }> = {
   'event.schedule':         { RO: 'Programează',           EN: 'Schedule' },
   'event.duration':         { RO: 'Durată',                EN: 'Duration' },
   'event.no_limit':         { RO: 'Fără limită',           EN: 'No limit' },
+  'event.custom':           { RO: 'Personalizat',          EN: 'Custom' },
   'event.max_participants': { RO: 'Participanți max',      EN: 'Max participants' },
   'event.create_btn':       { RO: 'Creează',               EN: 'Create' },
   'event.room_code':        { RO: 'Cod Eveniment',         EN: 'Event Code' },

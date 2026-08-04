@@ -18,7 +18,6 @@ import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { useT } from '@/lib/context/LanguageContext'
 import { parseTrainingDateTime, formatTrainingDate, compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
 import { HomeFeed } from './_components/HomeFeed'
-import { PushupLeaderboard } from './_components/PushupLeaderboard'
 
 export default function HomePage() {
   const { user, loading: authLoading, isSuperAdmin } = useAuth()
@@ -32,7 +31,6 @@ export default function HomePage() {
   const [showStreakCalendar, setShowStreakCalendar] = useState(false)
   const [workoutDates, setWorkoutDates] = useState<Set<string>>(new Set())
   const [latestFavTraining, setLatestFavTraining] = useState<PlannedTraining | null>(null)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
   // Ref for nested community challenge progress subscription (B1-4)
   const unsubCommProgressRef = useRef<(() => void) | null>(null)
 
@@ -226,30 +224,7 @@ export default function HomePage() {
           )
         })()}
 
-        {/* Push-up Leaderboard — toggle */}
-        {user && (
-          <div className="mb-4">
-            <button
-              onClick={() => setShowLeaderboard(prev => !prev)}
-              className="flex items-center gap-2 w-full rounded-xl py-2.5 px-3"
-              style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-            >
-              <Trophy size={14} className="text-yellow-400" />
-              <span className="text-[11px] font-bold text-white/40 tracking-widest flex-1 text-left">
-                {t('home.leaderboard_title')}
-              </span>
-              <ChevronRight
-                size={14}
-                className={`text-white/30 transition-transform duration-200 ${showLeaderboard ? 'rotate-90' : ''}`}
-              />
-            </button>
-            {showLeaderboard && (
-              <div className="mt-2">
-                <PushupLeaderboard user={user} />
-              </div>
-            )}
-          </div>
-        )}
+        {/* Push-up Leaderboard — temporarily hidden */}
 
         {/* Feed */}
         {user && (
