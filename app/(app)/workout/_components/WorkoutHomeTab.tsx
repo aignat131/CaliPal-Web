@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles, Swords } from 'lucide-react'
+import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles, Swords, Trophy } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import FirstTimeHint from '@/components/ui/FirstTimeHint'
@@ -114,6 +114,45 @@ export function WorkoutHomeTab({
             )}
           </div>
 
+          {/* Quick exercises — single row */}
+          {(() => {
+            const favorites = profile?.favoriteExercises ?? []
+            const cameraFavorites = favorites
+              .filter(name => getExerciseType(name) !== null)
+              .map(name => ({ name, emoji: getEmojiForExercise(name) }))
+            const quickExercises = cameraFavorites.length > 0
+              ? cameraFavorites.slice(0, 4)
+              : DEFAULT_QUICK_EXERCISES
+
+            return (
+              <div className="mb-5">
+                <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2.5">EXERCIȚII RAPIDE</p>
+                <div className="flex gap-2">
+                  {quickExercises.map(ex => {
+                    const exType = getExerciseType(ex.name)
+                    if (!exType) return null
+                    const IconComponent = EXERCISE_ICONS[ex.name]
+                    return (
+                      <button
+                        key={ex.name}
+                        onClick={() => onQuickExercise(ex.name, exType)}
+                        className="flex-1 rounded-2xl py-3 flex flex-col items-center gap-1 active:scale-[0.97] transition-transform"
+                        style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
+                      >
+                        {IconComponent
+                          ? <IconComponent width={32} height={32} />
+                          : <span className="text-2xl">{ex.emoji}</span>
+                        }
+                        <span className="font-bold text-white text-xs">{ex.name}</span>
+                        <Camera size={12} className="text-brand-green" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Auto-detect counter */}
           {onAutoCount && (
             <button
@@ -156,6 +195,26 @@ export function WorkoutHomeTab({
             <ChevronRight size={16} className="text-red-400/60 flex-shrink-0" />
           </Link>
 
+          {/* Event Mode entry */}
+          <Link
+            href="/event"
+            className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
+            style={{
+              background: 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.08))',
+              border: '1px solid rgba(251,191,36,0.25)',
+            }}
+          >
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: 'rgba(251,191,36,0.15)' }}>
+              <Trophy size={20} className="text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-white text-sm">{t('event.title')}</p>
+              <p className="text-[11px] text-white/40 mt-0.5">{t('event.subtitle')}</p>
+            </div>
+            <ChevronRight size={16} className="text-amber-400/60 flex-shrink-0" />
+          </Link>
+
           {/* Spiderman Challenge */}
           {onSpidermanChallenge && (
             <button
@@ -177,45 +236,6 @@ export function WorkoutHomeTab({
               <ChevronRight size={16} className="text-purple-400/60 flex-shrink-0" />
             </button>
           )}
-
-          {/* Quick exercises — single row */}
-          {(() => {
-            const favorites = profile?.favoriteExercises ?? []
-            const cameraFavorites = favorites
-              .filter(name => getExerciseType(name) !== null)
-              .map(name => ({ name, emoji: getEmojiForExercise(name) }))
-            const quickExercises = cameraFavorites.length > 0
-              ? cameraFavorites.slice(0, 4)
-              : DEFAULT_QUICK_EXERCISES
-
-            return (
-              <div className="mb-5">
-                <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2.5">EXERCIȚII RAPIDE</p>
-                <div className="flex gap-2">
-                  {quickExercises.map(ex => {
-                    const exType = getExerciseType(ex.name)
-                    if (!exType) return null
-                    const IconComponent = EXERCISE_ICONS[ex.name]
-                    return (
-                      <button
-                        key={ex.name}
-                        onClick={() => onQuickExercise(ex.name, exType)}
-                        className="flex-1 rounded-2xl py-3 flex flex-col items-center gap-1 active:scale-[0.97] transition-transform"
-                        style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
-                      >
-                        {IconComponent
-                          ? <IconComponent width={32} height={32} />
-                          : <span className="text-2xl">{ex.emoji}</span>
-                        }
-                        <span className="font-bold text-white text-xs">{ex.name}</span>
-                        <Camera size={12} className="text-brand-green" />
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })()}
 
           {/* Last workout + AI Analysis — side by side */}
           <div className="grid grid-cols-2 gap-2 mb-4">

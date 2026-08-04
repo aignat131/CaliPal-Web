@@ -412,6 +412,8 @@ export type NotificationType =
   | 'POST_MENTION'
   | 'BATTLE_INVITE'
   | 'BATTLE_RESULT'
+  | 'EVENT_INVITE'
+  | 'EVENT_RESULT'
 
 export interface AppNotification {
   id: string

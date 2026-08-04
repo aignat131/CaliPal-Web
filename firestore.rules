@@ -551,6 +551,66 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Event rooms ──────────────────────────────────────────────────────────
+    match /events/{eventId} {
+      allow read: if isAuth();
+
+      allow create: if isAuth()
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.status == 'LOBBY'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.code is string
+        && request.resource.data.code.size() == 6
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.maxParticipants >= 2
+        && request.resource.data.maxParticipants <= 50
+        && request.resource.data.participantCount == 0;
+
+      allow update: if isAuth()
+        && (
+          // Host status transitions
+          (request.auth.uid == resource.data.hostUid && (
+            // LOBBY → COUNTDOWN
+            (resource.data.status == 'LOBBY'
+              && request.resource.data.status == 'COUNTDOWN'
+              && request.resource.data.startedAt == request.time)
+            // COUNTDOWN → ACTIVE
+            || (resource.data.status == 'COUNTDOWN'
+              && request.resource.data.status == 'ACTIVE')
+            // ACTIVE → FINISHED
+            || (resource.data.status == 'ACTIVE'
+              && request.resource.data.status == 'FINISHED'
+              && request.resource.data.finishedAt == request.time)
+            // Any → CANCELLED
+            || request.resource.data.status == 'CANCELLED'
+          ))
+          // Any auth user can update participantCount (join/leave)
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantCount'])
+        );
+
+      allow delete: if false;
+
+      match /participants/{uid} {
+        allow read: if isAuth();
+        allow create: if isOwner(uid)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.totalPoints == 0
+          && request.resource.data.joinedAt == request.time;
+        allow update: if isOwner(uid)
+          && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['uid', 'joinedAt']);
+        allow delete: if isOwner(uid);
+      }
+    }
+
+    // ── Event history (under user) ──────────────────────────────────────────
+    match /users/{uid}/event_history/{eventId} {
+      allow read: if isAuth();
+      allow create: if isOwner(uid);
+      allow update, delete: if false;
+    }
+
     // ── Feedback (user submissions + superadmin replies) ──────────────────────
     match /feedback/{feedbackId} {
       allow read, update, delete: if isSuperAdmin();

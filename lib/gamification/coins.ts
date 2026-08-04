@@ -23,6 +23,9 @@ export type CoinTask =
   | 'FIRST_BATTLE'
   | 'BATTLES_10'
   | 'BATTLE_WIN'
+  | 'FIRST_EVENT'
+  | 'EVENTS_10'
+  | 'EVENT_WIN'
 
 const COIN_AMOUNTS: Record<CoinTask, number> = {
   FIRST_WORKOUT: 20,
@@ -43,6 +46,9 @@ const COIN_AMOUNTS: Record<CoinTask, number> = {
   FIRST_BATTLE: 20,
   BATTLES_10: 30,
   BATTLE_WIN: 15,
+  FIRST_EVENT: 25,
+  EVENTS_10: 50,
+  EVENT_WIN: 20,
 }
 
 const TASK_NOTIF_LABELS: Partial<Record<CoinTask, string>> = {
@@ -60,6 +66,8 @@ const TASK_NOTIF_LABELS: Partial<Record<CoinTask, string>> = {
   SKILLS_10: '10 skill-uri deblocate!',
   FIRST_BATTLE: 'Prima luptă completată!',
   BATTLES_10: '10 lupte completate!',
+  FIRST_EVENT: 'Primul eveniment completat!',
+  EVENTS_10: '10 evenimente completate!',
 }
 
 /** Award coins for a task. One-time tasks are guarded by a `coin_tasks/{uid}_{task}` doc. */
@@ -73,6 +81,7 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
     'WORKOUTS_10', 'WORKOUTS_50', 'WORKOUTS_100',
     'SKILLS_5', 'SKILLS_10',
     'FIRST_BATTLE', 'BATTLES_10',
+    'FIRST_EVENT', 'EVENTS_10',
   ]
 
   if (oneTimeTasks.includes(task)) {
@@ -85,7 +94,7 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
       return true
     })
     if (!awarded) return 0
-  } else if (task === 'COMPLETE_WORKOUT' || task === 'BATTLE_WIN') {
+  } else if (task === 'COMPLETE_WORKOUT' || task === 'BATTLE_WIN' || task === 'EVENT_WIN') {
     // Daily guard — only award once per day
     const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
     const dailyRef = doc(db, 'coin_tasks', `${uid}_${task}_${today}`)
@@ -157,5 +166,13 @@ export async function checkBattleMilestones(uid: string, totalBattles: number) {
   const promises: Promise<unknown>[] = []
   if (totalBattles === 1) promises.push(awardCoins(uid, 'FIRST_BATTLE'))
   if (totalBattles >= 10) promises.push(awardCoins(uid, 'BATTLES_10'))
+  await Promise.all(promises)
+}
+
+/** Check and award milestone coins after an event completes. */
+export async function checkEventMilestones(uid: string, totalEvents: number) {
+  const promises: Promise<unknown>[] = []
+  if (totalEvents === 1) promises.push(awardCoins(uid, 'FIRST_EVENT'))
+  if (totalEvents >= 10) promises.push(awardCoins(uid, 'EVENTS_10'))
   await Promise.all(promises)
 }

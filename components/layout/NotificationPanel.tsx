@@ -38,6 +38,8 @@ function notifIcon(type: AppNotification['type']) {
     case 'POST_MENTION': return <AtSign size={16} className="text-brand-green" />
     case 'BATTLE_INVITE': return <Swords size={16} className="text-brand-green" />
     case 'BATTLE_RESULT': return <Trophy size={16} className="text-yellow-400" />
+    case 'EVENT_INVITE': return <Trophy size={16} className="text-amber-400" />
+    case 'EVENT_RESULT': return <Trophy size={16} className="text-amber-400" />
     default: return <Bell size={16} className="text-white/50" />
   }
 }
@@ -61,6 +63,8 @@ function notifRoute(notif: AppNotification): string | null {
     case 'COMMUNITY_DELETED': return '/map'
     case 'BATTLE_INVITE': return notif.relatedId ? `/battle/${notif.relatedId}` : '/battle'
     case 'BATTLE_RESULT': return notif.relatedId ? `/battle/${notif.relatedId}` : '/battle'
+    case 'EVENT_INVITE': return notif.relatedId ? `/event/${notif.relatedId}` : '/event'
+    case 'EVENT_RESULT': return notif.relatedId ? `/event/${notif.relatedId}` : '/event'
     default: return null
   }
 }
