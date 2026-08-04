@@ -145,7 +145,8 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
   const stopCamera = useCallback(() => {
     if (animRef.current) cancelAnimationFrame(animRef.current)
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
-    detectorRef.current?.close?.()
+    if (videoRef.current) videoRef.current.srcObject = null
+    try { detectorRef.current?.close?.() } catch { /* */ }
     detectorRef.current = null
     streamRef.current = null
   }, [])
@@ -196,7 +197,8 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
 
         if (time !== lastTime && video.readyState >= 2) {
           lastTime = time
-          const result = detectorRef.current!.detectForVideo(video, time)
+          if (!detectorRef.current) return
+          const result = detectorRef.current.detectForVideo(video, time)
           if (result.landmarks.length > 0) {
             processFrame(result.landmarks[0], ctx, canvas.width, canvas.height)
           }
@@ -205,7 +207,9 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
       }
       animRef.current = requestAnimationFrame(detect)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Eroare cameră')
+      const msg = e instanceof Error ? e.message : ''
+      const name = e instanceof DOMException ? e.name : ''
+      setError(name === 'NotAllowedError' ? 'Permite accesul la cameră pentru a continua' : msg || 'Eroare cameră')
       setLoading(false)
       setCameraLoading(false)
     }

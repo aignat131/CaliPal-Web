@@ -105,6 +105,9 @@ export default function FormCheckPage() {
   const stopCamera = useCallback(() => {
     if (animRef.current) cancelAnimationFrame(animRef.current)
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
+    if (videoRef.current) videoRef.current.srcObject = null
+    try { (detectorRef.current as { close?: () => void })?.close?.() } catch { /* */ }
+    detectorRef.current = null
     streamRef.current = null
     setStatus('idle')
   }, [])
@@ -174,7 +177,7 @@ export default function FormCheckPage() {
 
         ctx.drawImage(video, 0, 0)
 
-        if (time !== lastTime && video.readyState >= 2) {
+        if (time !== lastTime && video.readyState >= 2 && detectorRef.current) {
           lastTime = time
           const result = (detectorRef.current as { detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks: Landmark[][] } }).detectForVideo(video, time)
 

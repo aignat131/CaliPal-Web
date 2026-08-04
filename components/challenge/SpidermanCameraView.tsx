@@ -92,7 +92,8 @@ export default function SpidermanCameraView({
   const stopCamera = useCallback(() => {
     if (animRef.current) cancelAnimationFrame(animRef.current)
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
-    detectorRef.current?.close?.()
+    if (videoRef.current) videoRef.current.srcObject = null
+    try { detectorRef.current?.close?.() } catch { /* */ }
     detectorRef.current = null
     streamRef.current = null
   }, [])
@@ -141,7 +142,8 @@ export default function SpidermanCameraView({
 
         if (time !== lastTime && video.readyState >= 2) {
           lastTime = time
-          const result = detectorRef.current!.detectForVideo(video, time)
+          if (!detectorRef.current) return
+          const result = detectorRef.current.detectForVideo(video, time)
           if (result.landmarks.length > 0) {
             processFrame(result.landmarks[0], ctx, canvas.width, canvas.height)
           } else {

@@ -97,6 +97,8 @@ export class ExerciseDetector {
           squat: squat ?? 0,
         }
         this.processClassification()
+      }).catch(() => {
+        this.pendingInference = false
       })
     }
 

@@ -594,8 +594,10 @@ service cloud.firestore {
             // Any → CANCELLED
             || request.resource.data.status == 'CANCELLED'
           ))
-          // Any auth user can update participantCount (join/leave)
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantCount'])
+          // Authenticated users can increment/decrement participantCount by 1 (join/leave)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantCount'])
+            && (request.resource.data.participantCount == resource.data.participantCount + 1
+              || request.resource.data.participantCount == resource.data.participantCount - 1))
         );
 
       allow delete: if false;
@@ -615,7 +617,7 @@ service cloud.firestore {
 
     // ── Event history (under user) ──────────────────────────────────────────
     match /users/{uid}/event_history/{eventId} {
-      allow read: if isAuth();
+      allow read: if isOwner(uid);
       allow create: if isOwner(uid);
       allow update, delete: if false;
     }
