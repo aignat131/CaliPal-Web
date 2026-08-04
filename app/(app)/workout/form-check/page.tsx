@@ -9,7 +9,7 @@ import {
   SquatCounter, SQUAT_STATE_LABELS,
 } from '@/lib/ml/rep-counter'
 import { preprocessFrameBuffer, preprocessPushupFrameBuffer } from '@/lib/ml/pose-preprocessor'
-import { avgElbowAngle, squatDepthAngle, MP } from '@/lib/ml/pose-math'
+import { avgElbowAngle, squatDepthAngle, MP, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import { classifyForm, loadModel, FORM_LABELS, FORM_COLORS, getModelStatus } from '@/lib/ml/pullup-classifier'
 import { classifyPushupForm, loadPushupModel, PUSHUP_FORM_LABELS, PUSHUP_FORM_COLORS, getPushupModelStatus } from '@/lib/ml/pushup-classifier'
 import type { PushupFormLabel } from '@/lib/ml/pushup-classifier'
@@ -201,7 +201,8 @@ export default function FormCheckPage() {
                 lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST],
                 lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST]
               )
-              const counterState = repCounterRef.current.update(elbow)
+              const bodyMetrics = extractBodyRiseMetrics(lms)
+              const counterState = repCounterRef.current.update(elbow, bodyMetrics)
               if (counterState.repCount > lastHapticRepRef.current) {
                 lastHapticRepRef.current = counterState.repCount
                 navigator.vibrate?.(30)
@@ -212,7 +213,7 @@ export default function FormCheckPage() {
               setPrimaryAngle(Math.round(elbow))
               setStateLabel(STATE_LABELS[counterState.state])
               setStateColor(STATE_COLORS[counterState.state])
-              setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', counterState.state))
+              setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', counterState.state, counterState.bodyRiseRejected))
               frameBufferRef.current.push(lms)
               if (frameBufferRef.current.length > 150) frameBufferRef.current.shift()
             } else if (exerciseType === 'pushup') {

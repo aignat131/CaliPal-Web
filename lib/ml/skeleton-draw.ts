@@ -16,6 +16,29 @@ export const POSE_CONNECTIONS: [number, number][] = [
   [MP.RIGHT_KNEE, MP.RIGHT_ANKLE],
 ]
 
+/**
+ * Draws a dashed horizontal line at the estimated pull-up bar position.
+ */
+export function drawBarLine(
+  ctx: CanvasRenderingContext2D,
+  barY: number,
+  w: number,
+  h: number,
+  color: string,
+) {
+  const y = barY * h
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.lineWidth = 2
+  ctx.setLineDash([8, 6])
+  ctx.globalAlpha = 0.5
+  ctx.beginPath()
+  ctx.moveTo(0, y)
+  ctx.lineTo(w, y)
+  ctx.stroke()
+  ctx.restore()
+}
+
 export function drawSkeleton(
   ctx: CanvasRenderingContext2D,
   landmarks: Landmark[],

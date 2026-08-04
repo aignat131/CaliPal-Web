@@ -2,6 +2,8 @@
  * Pull-up rep counter — port of RepetitionCounter.kt
  */
 
+import type { BodyRiseMetrics } from './pose-math'
+
 const CONFIRM_FRAMES = 3
 const MIN_REP_FRAMES = 20
 const FIRST_REP_MIN_MS = 1800
@@ -24,6 +26,10 @@ export interface PullupThresholds {
   subsequentRepMinMs?: number
   /** Minimum frames between reps (default 20) */
   minRepFrames?: number
+  /** Minimum normalized shoulder rise (fraction of torso height) to count a rep (default 0.25) */
+  minBodyRise?: number
+  /** Minimum normalized hip rise (fraction of torso height) to count a rep (default 0.15) */
+  minHipRise?: number
 }
 
 export interface PushupThresholds {
@@ -52,9 +58,9 @@ export interface SquatThresholds {
   subsequentRepMinMs?: number
 }
 
-export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 155, hangExit: 130, peak: 75, minRangeRequired: 50, firstRepMinMs: 1500, subsequentRepMinMs: 700 }
-export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 150, hangExit: 125, peak: 85, minRangeRequired: 40, firstRepMinMs: 1200, subsequentRepMinMs: 600 }
-export const EASY_PULLUP:     PullupThresholds = { hangEnter: 145, hangExit: 120, peak: 100, minRangeRequired: 30, firstRepMinMs: 1000, subsequentRepMinMs: 500 }
+export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 155, hangExit: 130, peak: 75, minRangeRequired: 50, firstRepMinMs: 1500, subsequentRepMinMs: 700, minBodyRise: 0.35, minHipRise: 0.25 }
+export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 145, hangExit: 125, peak: 85, minRangeRequired: 40, firstRepMinMs: 1200, subsequentRepMinMs: 600, minBodyRise: 0.25, minHipRise: 0.15 }
+export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 120, peak: 100, minRangeRequired: 30, firstRepMinMs: 1000, subsequentRepMinMs: 500, minBodyRise: 0.15, minHipRise: 0.08 }
 
 export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 95,  upAngle: 155 }
 export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 130 }
@@ -76,6 +82,10 @@ export interface RepCounterState {
   currentAngle: number
   /** Frames since last completed rep */
   framesSinceRep: number
+  /** Estimated bar Y position (wrist Y when hanging), or null if not yet established */
+  barY: number | null
+  /** Whether the last potential rep was rejected due to insufficient body rise */
+  bodyRiseRejected: boolean
 }
 
 export class RepCounter {
@@ -94,12 +104,27 @@ export class RepCounter {
   private repStartMs: number | null = null
   private readonly enforceTiming: boolean
 
+  // Body rise tracking
+  private minBodyRise: number
+  private minHipRise: number
+  private hangShoulderY: number | null = null
+  private hangHipY: number | null = null
+  private bestShoulderY: number | null = null
+  private bestHipY: number | null = null
+  private bodyRiseRejected = false
+
+  // Bar detection
+  private barYSamples: number[] = []
+  private barY: number | null = null
+
   constructor(thresholds: PullupThresholds = STRICT_PULLUP, enforceTiming = true) {
     this.t = thresholds
     this.minRangeRequired = thresholds.minRangeRequired ?? 25
     this.firstRepMinMs = thresholds.firstRepMinMs ?? FIRST_REP_MIN_MS
     this.subsequentRepMinMs = thresholds.subsequentRepMinMs ?? SUBSEQUENT_REP_MIN_MS
     this.minRepFrames = thresholds.minRepFrames ?? MIN_REP_FRAMES
+    this.minBodyRise = thresholds.minBodyRise ?? 0.25
+    this.minHipRise = thresholds.minHipRise ?? 0.15
     this.enforceTiming = enforceTiming
   }
 
@@ -112,13 +137,23 @@ export class RepCounter {
     this.highAngle = null
     this.lowestAngle = null
     this.repStartMs = null
+    this.hangShoulderY = null
+    this.hangHipY = null
+    this.bestShoulderY = null
+    this.bestHipY = null
+    this.bodyRiseRejected = false
+    this.barYSamples = []
+    this.barY = null
   }
 
   private snapshot(): RepCounterState {
-    return { repCount: this.repCount, state: this.state, currentAngle: NaN, framesSinceRep: this.framesSinceRep }
+    return {
+      repCount: this.repCount, state: this.state, currentAngle: NaN,
+      framesSinceRep: this.framesSinceRep, barY: this.barY, bodyRiseRejected: this.bodyRiseRejected,
+    }
   }
 
-  update(avgElbow: number): RepCounterState {
+  update(avgElbow: number, bodyMetrics?: BodyRiseMetrics | null): RepCounterState {
     if (!isFinite(avgElbow)) return this.snapshot()
     this.framesSinceRep++
 
@@ -133,6 +168,14 @@ export class RepCounter {
             this.state = 'HANGING'
             this.confirmBuffer = 0
             this.peakReached = false
+            this.bodyRiseRejected = false
+            // Capture body baseline for rise tracking
+            if (bodyMetrics) {
+              this.hangShoulderY = bodyMetrics.shoulderMidY
+              this.hangHipY = bodyMetrics.hipMidY
+              this.bestShoulderY = null
+              this.bestHipY = null
+            }
           }
         } else if (this.state === 'HANGING' && avgElbow < this.t.hangExit) {
           // Arms bent enough — started pulling up
@@ -148,10 +191,29 @@ export class RepCounter {
           // Stay in current state — do NOT auto-transition IDLE→HANGING
           // HANGING is only entered when arms are extended (avgElbow >= hangEnter)
         }
+
+        // While in HANGING, keep updating baseline and bar position
+        if (this.state === 'HANGING' && bodyMetrics) {
+          this.hangShoulderY = bodyMetrics.shoulderMidY
+          this.hangHipY = bodyMetrics.hipMidY
+          this.barYSamples.push(bodyMetrics.wristMidY)
+          if (this.barYSamples.length > 10) this.barYSamples.shift()
+          this.barY = this.barYSamples.reduce((a, b) => a + b, 0) / this.barYSamples.length
+        }
         break
       }
 
       case 'PULLING': {
+        // Track body rise during pull
+        if (bodyMetrics) {
+          if (this.bestShoulderY === null || bodyMetrics.shoulderMidY < this.bestShoulderY) {
+            this.bestShoulderY = bodyMetrics.shoulderMidY
+          }
+          if (this.bestHipY === null || bodyMetrics.hipMidY < this.bestHipY) {
+            this.bestHipY = bodyMetrics.hipMidY
+          }
+        }
+
         if (avgElbow <= this.t.peak) {
           this.confirmBuffer++
           // Track deepest angle even while confirming peak
@@ -178,6 +240,17 @@ export class RepCounter {
       case 'PEAK': {
         // Track deepest angle during peak hold
         if (this.lowestAngle === null || avgElbow < this.lowestAngle) this.lowestAngle = avgElbow
+
+        // Track body rise during peak hold
+        if (bodyMetrics) {
+          if (this.bestShoulderY === null || bodyMetrics.shoulderMidY < this.bestShoulderY) {
+            this.bestShoulderY = bodyMetrics.shoulderMidY
+          }
+          if (this.bestHipY === null || bodyMetrics.hipMidY < this.bestHipY) {
+            this.bestHipY = bodyMetrics.hipMidY
+          }
+        }
+
         if (avgElbow > this.t.peak) {
           this.confirmBuffer++
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
@@ -202,7 +275,22 @@ export class RepCounter {
               const elapsed = this.repStartMs !== null ? performance.now() - this.repStartMs : Infinity
               timeOk = elapsed >= minMs
             }
-            if (rangeOk && timeOk) this.repCount++
+
+            // Body rise check — shoulders and hips must have risen
+            let bodyRiseOk = true
+            if (this.minBodyRise > 0 && this.hangShoulderY !== null && this.bestShoulderY !== null) {
+              const torsoH = bodyMetrics?.torsoHeight ?? 0.15
+              if (torsoH > 0.01) {
+                const shoulderRise = (this.hangShoulderY - this.bestShoulderY) / torsoH
+                const hipRise = (this.hangHipY !== null && this.bestHipY !== null)
+                  ? (this.hangHipY - this.bestHipY) / torsoH
+                  : shoulderRise
+                bodyRiseOk = shoulderRise >= this.minBodyRise && hipRise >= this.minHipRise
+              }
+            }
+            this.bodyRiseRejected = rangeOk && timeOk && !bodyRiseOk
+
+            if (rangeOk && timeOk && bodyRiseOk) this.repCount++
             this.state = 'HANGING'
             this.confirmBuffer = 0
             this.framesSinceRep = 0
@@ -210,6 +298,13 @@ export class RepCounter {
             this.highAngle = avgElbow
             this.lowestAngle = null
             this.repStartMs = null
+            // Reset body rise for next rep
+            if (bodyMetrics) {
+              this.hangShoulderY = bodyMetrics.shoulderMidY
+              this.hangHipY = bodyMetrics.hipMidY
+            }
+            this.bestShoulderY = null
+            this.bestHipY = null
           }
         } else {
           this.confirmBuffer = 0
@@ -223,6 +318,8 @@ export class RepCounter {
       state: this.state,
       currentAngle: avgElbow,
       framesSinceRep: this.framesSinceRep,
+      barY: this.barY,
+      bodyRiseRejected: this.bodyRiseRejected,
     }
   }
 }

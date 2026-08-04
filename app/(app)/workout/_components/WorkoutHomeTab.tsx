@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles, Swords } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
@@ -167,7 +168,7 @@ export function WorkoutHomeTab({
             >
               <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: 'rgba(139,92,246,0.15)' }}>
-                <span className="text-xl">🕷️</span>
+                <Image src="/icons/marvel.png" alt="Spiderman" width={28} height={28} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-black text-white text-sm">{t('spiderman.title')}</p>

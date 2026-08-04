@@ -7,7 +7,7 @@ import {
   PushupCounter, SquatCounter,
   BALANCED_PULLUP, EASY_PUSHUP, BALANCED_SQUAT,
 } from '@/lib/ml/rep-counter'
-import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
+import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { PoseValidator } from '@/lib/ml/pose-validator'
 import { PositionGate } from '@/lib/ml/position-gate'
@@ -146,7 +146,8 @@ export default function BattleCameraView({ exerciseType, onRepCounted, onCameraR
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
       gate.update(lms, elbow)
       if (poseCheck.valid && gate.isOpen) {
-        const cs = repCounterRef.current.update(elbow)
+        const bodyMetrics = extractBodyRiseMetrics(lms)
+        const cs = repCounterRef.current.update(elbow, bodyMetrics)
         newRepCount = cs.repCount
         drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state] ?? '#1ED75F')
       } else {

@@ -146,6 +146,34 @@ export function squatDepthAngle(
   return Math.min(knee2D, yAngle)
 }
 
+// ── Body rise metrics (pull-up body-movement verification) ──────────────────
+
+/** Vertical body-position snapshot for pull-up body-rise verification */
+export interface BodyRiseMetrics {
+  /** Midpoint Y of left+right shoulders (0 = top, 1 = bottom in MediaPipe coords) */
+  shoulderMidY: number
+  /** Midpoint Y of left+right hips */
+  hipMidY: number
+  /** Torso height: abs(shoulderMidY − hipMidY). Used for normalization. */
+  torsoHeight: number
+  /** Midpoint Y of left+right wrists (for bar detection) */
+  wristMidY: number
+}
+
+/**
+ * Extracts body-rise metrics from full landmarks.
+ * Returns null if torso height is degenerate (< 0.01).
+ */
+export function extractBodyRiseMetrics(landmarks: Landmark[]): BodyRiseMetrics | null {
+  if (landmarks.length < 29) return null
+  const shoulderMidY = (landmarks[MP.LEFT_SHOULDER].y + landmarks[MP.RIGHT_SHOULDER].y) / 2
+  const hipMidY = (landmarks[MP.LEFT_HIP].y + landmarks[MP.RIGHT_HIP].y) / 2
+  const torsoHeight = Math.abs(shoulderMidY - hipMidY)
+  if (torsoHeight < 0.01) return null
+  const wristMidY = (landmarks[MP.LEFT_WRIST].y + landmarks[MP.RIGHT_WRIST].y) / 2
+  return { shoulderMidY, hipMidY, torsoHeight, wristMidY }
+}
+
 // MediaPipe BlazePose landmark indices
 export const MP = {
   NOSE: 0,

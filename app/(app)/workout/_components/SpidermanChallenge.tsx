@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import Image from 'next/image'
 import { X, CheckCircle } from 'lucide-react'
 import SpidermanCameraView from '@/components/challenge/SpidermanCameraView'
 import { useBattleAudio } from '@/lib/battle/useBattleAudio'
@@ -245,7 +246,7 @@ export function SpidermanChallenge({ onComplete, onCancel }: Props) {
 
           {/* Round counter */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 border border-white/15">
-            <span className="text-sm">🕷️</span>
+            <Image src="/icons/marvel.png" alt="Spiderman" width={18} height={18} className="inline-block" />
             <span className="text-sm font-black text-white tabular-nums">
               {t('spiderman.round')} {completedRounds + 1}
             </span>
@@ -324,7 +325,7 @@ export function SpidermanChallenge({ onComplete, onCancel }: Props) {
               {countdownNum > 0 ? countdownNum : 'GO!'}
             </span>
             <div className="mt-6 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/10">
-              <span className="text-lg">🕷️</span>
+              <Image src="/icons/marvel.png" alt="Spiderman" width={24} height={24} />
               <span className="text-sm font-bold text-white/70">Spiderman Challenge</span>
             </div>
           </div>
@@ -359,7 +360,7 @@ export function SpidermanChallenge({ onComplete, onCancel }: Props) {
             {(exerciseIndexRef.current + 1) % 3 === 0 && (
               <div className="mt-4 px-4 py-2 rounded-xl bg-purple-500/20 border border-purple-400/30">
                 <span className="text-sm font-bold text-purple-300">
-                  🕷️ {t('spiderman.round')} {completedRounds + 2}
+                  <Image src="/icons/marvel.png" alt="Spiderman" width={16} height={16} className="inline-block mr-1" />{t('spiderman.round')} {completedRounds + 2}
                 </span>
               </div>
             )}
@@ -396,7 +397,7 @@ export function SpidermanChallenge({ onComplete, onCancel }: Props) {
             <div className="bg-[var(--app-surface)] rounded-2xl p-6 mx-4 max-w-sm w-full border border-white/10">
               {/* Header */}
               <div className="text-center mb-5">
-                <span className="text-4xl">🕷️</span>
+                <Image src="/icons/marvel.png" alt="Spiderman" width={48} height={48} />
                 <h2 className="text-xl font-black text-white mt-2">{t('spiderman.time_up')}</h2>
               </div>
 

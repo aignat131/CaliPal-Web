@@ -9,11 +9,11 @@ import {
   BALANCED_PULLUP, EASY_PUSHUP, BALANCED_SQUAT,
 } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
-import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother } from '@/lib/ml/pose-math'
+import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
-import { drawSkeleton, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
+import { drawSkeleton, drawBarLine, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
 import { PoseValidator } from '@/lib/ml/pose-validator'
 import { ExerciseDetector } from '@/lib/ml/exercise-detector'
 import type { DetectorState } from '@/lib/ml/exercise-detector'
@@ -294,13 +294,15 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
     let repInProgress = false
 
     if (active === 'pullup') {
-      const cs = pullupCounterRef.current.update(elbow)
+      const bodyMetrics = extractBodyRiseMetrics(lms)
+      const cs = pullupCounterRef.current.update(elbow, bodyMetrics)
       newRepCount = cs.repCount
       repInProgress = cs.state !== 'IDLE' && cs.state !== 'HANGING'
       drawSkeleton(ctx, lms, w, h, EXERCISE_META.pullup.skeletonColor)
+      if (cs.barY !== null) drawBarLine(ctx, cs.barY, w, h, EXERCISE_META.pullup.skeletonColor)
       setStateLabel(STATE_LABELS[cs.state])
       setStateColor(STATE_COLORS[cs.state])
-      setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state))
+      setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state, cs.bodyRiseRejected))
     } else if (active === 'pushup') {
       const cs = pushupCounterRef.current.update(elbow)
       newRepCount = cs.repCount

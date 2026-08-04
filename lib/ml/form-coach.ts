@@ -30,17 +30,18 @@ export class FormCoach {
   getFormCues(
     landmarks: Landmark[],
     exerciseType: ExerciseType,
-    repState: RepState | PushupState | SquatState
+    repState: RepState | PushupState | SquatState,
+    bodyRiseRejected?: boolean,
   ): FormCue[] {
     if (!landmarks || landmarks.length < 29) return []
     switch (exerciseType) {
-      case 'pullup': return this._pullupCues(landmarks, repState as RepState)
+      case 'pullup': return this._pullupCues(landmarks, repState as RepState, bodyRiseRejected)
       case 'pushup': return this._pushupCues(landmarks)
       case 'squat':  return this._squatCues(landmarks, repState as SquatState)
     }
   }
 
-  private _pullupCues(landmarks: Landmark[], state: RepState): FormCue[] {
+  private _pullupCues(landmarks: Landmark[], state: RepState, bodyRiseRejected?: boolean): FormCue[] {
     const cues: FormCue[] = []
 
     const lS = landmarks[MP.LEFT_SHOULDER]
@@ -80,6 +81,11 @@ export class FormCoach {
     // Rule 4: didn't pull high enough — elbow still too open at peak
     if (state === 'PEAK' && avgElbow > 115) {
       cues.push({ id: 'pu-peak', message: 'Urcă mai sus', severity: 'error' })
+    }
+
+    // Rule 5: body didn't rise enough (arm-only movement)
+    if (bodyRiseRejected) {
+      cues.push({ id: 'pu-rise', message: 'Ridică tot corpul — nu doar brațele', severity: 'error' })
     }
 
     return cues

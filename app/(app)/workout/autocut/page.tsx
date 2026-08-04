@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Video, Square, Scissors, Download } from 'lucide-react'
 import { RepCounter, STATE_LABELS, STATE_COLORS } from '@/lib/ml/rep-counter'
-import { avgElbowAngle, MP } from '@/lib/ml/pose-math'
+import { avgElbowAngle, MP, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import type { RepState } from '@/lib/ml/rep-counter'
 
@@ -124,7 +124,8 @@ export default function AutoCutPage() {
               lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST],
               lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST]
             )
-            const counterState = repCounterRef.current.update(elbow)
+            const bodyMetrics = extractBodyRiseMetrics(lms)
+            const counterState = repCounterRef.current.update(elbow, bodyMetrics)
 
             // New rep completed
             if (counterState.repCount > lastRepCountRef.current) {
