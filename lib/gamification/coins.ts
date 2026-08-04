@@ -26,6 +26,7 @@ export type CoinTask =
   | 'FIRST_EVENT'
   | 'EVENTS_10'
   | 'EVENT_WIN'
+  | 'COMPLETE_PROGRAM'
 
 const COIN_AMOUNTS: Record<CoinTask, number> = {
   FIRST_WORKOUT: 20,
@@ -49,6 +50,7 @@ const COIN_AMOUNTS: Record<CoinTask, number> = {
   FIRST_EVENT: 25,
   EVENTS_10: 50,
   EVENT_WIN: 20,
+  COMPLETE_PROGRAM: 100,
 }
 
 const TASK_NOTIF_LABELS: Partial<Record<CoinTask, string>> = {
@@ -68,10 +70,14 @@ const TASK_NOTIF_LABELS: Partial<Record<CoinTask, string>> = {
   BATTLES_10: '10 lupte completate!',
   FIRST_EVENT: 'Primul eveniment completat!',
   EVENTS_10: '10 evenimente completate!',
+  COMPLETE_PROGRAM: 'Program de antrenament completat!',
 }
 
-/** Award coins for a task. One-time tasks are guarded by a `coin_tasks/{uid}_{task}` doc. */
-export async function awardCoins(uid: string, task: CoinTask, amount?: number): Promise<number> {
+/**
+ * Award coins for a task. One-time tasks are guarded by a `coin_tasks/{uid}_{task}` doc.
+ * Pass `guardSuffix` for per-instance guards (e.g. per-program completion).
+ */
+export async function awardCoins(uid: string, task: CoinTask, amount?: number, guardSuffix?: string): Promise<number> {
   const coins = amount ?? COIN_AMOUNTS[task]
   if (coins <= 0) return 0
 
@@ -84,8 +90,9 @@ export async function awardCoins(uid: string, task: CoinTask, amount?: number): 
     'FIRST_EVENT', 'EVENTS_10',
   ]
 
-  if (oneTimeTasks.includes(task)) {
-    const guardRef = doc(db, 'coin_tasks', `${uid}_${task}`)
+  if (oneTimeTasks.includes(task) || guardSuffix) {
+    const guardKey = guardSuffix ? `${uid}_${task}_${guardSuffix}` : `${uid}_${task}`
+    const guardRef = doc(db, 'coin_tasks', guardKey)
     const awarded = await runTransaction(db, async (tx) => {
       const snap = await tx.get(guardRef)
       if (snap.exists()) return false

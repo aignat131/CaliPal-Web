@@ -46,7 +46,7 @@ service cloud.firestore {
         || (isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalTrainings']))
         // Allow owner to increment coins, totalWorkouts, currentStreak, lastWorkoutDate (gamification)
         || (isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['coins', 'totalWorkouts', 'currentStreak', 'lastWorkoutDate']))
+            .hasOnly(['coins', 'totalWorkouts', 'currentStreak', 'lastWorkoutDate', 'activeProgramId', 'completedPrograms']))
         // Allow owner to update cosmetic fields (shop purchases — coins decrement + cosmetic)
         || (isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['coins', 'nameColor', 'emojiBadge', 'titleBadge', 'profileFrame', 'proTitle', 'customNickname']));
@@ -64,6 +64,10 @@ service cloud.firestore {
       }
       match /community_challenge_progress/{challengeId} {
         allow read, write: if isOwner(uid);
+      }
+      match /program_enrollments/{enrollmentId} {
+        allow read: if isAuth();
+        allow write: if isOwner(uid);
       }
       // Friends subcollection — only owner can add friends; either side can unfriend
       match /friends/{friendId} {

@@ -1031,6 +1031,22 @@ const T: Record<string, { RO: string; EN: string }> = {
   'event.public_event':      { RO: 'Eveniment Public',      EN: 'Public Event' },
   'event.public_event_desc': { RO: 'Oricine poate vedea și intra', EN: 'Anyone can view and join' },
 
+  // ── Program Enrollment ───────────────────────────────────────────────────────
+  'program.enroll':          { RO: 'Înscrie-te',            EN: 'Enroll' },
+  'program.enrolled':        { RO: 'Înscris',               EN: 'Enrolled' },
+  'program.continue':        { RO: 'Continuă',              EN: 'Continue' },
+  'program.completed':       { RO: 'Completat',             EN: 'Completed' },
+  'program.progress':        { RO: '{done}/{total} zile',   EN: '{done}/{total} days' },
+  'program.swap':            { RO: 'Schimbă exercițiul',    EN: 'Swap exercise' },
+  'program.alternatives':    { RO: 'Alternative din aceeași categorie', EN: 'Alternatives from same category' },
+  'program.day_done':        { RO: 'Zi completată',         EN: 'Day completed' },
+  'program.restart':         { RO: 'Reia programul',        EN: 'Restart program' },
+  'program.abandon':         { RO: 'Abandonează',           EN: 'Abandon' },
+  'program.congrats':        { RO: 'Felicitări! Ai terminat programul!', EN: 'Congratulations! You completed the program!' },
+  'program.enrolled_other':  { RO: 'Înscris în alt program', EN: 'Enrolled in another program' },
+  'program.redo':            { RO: 'Refă antrenamentul',    EN: 'Redo workout' },
+  'program.reset_swap':      { RO: 'Resetare',              EN: 'Reset' },
+
   // ── Shared fallbacks ─────────────────────────────────────────────────────────
   'common.user_fallback': { RO: 'Utilizator',       EN: 'User' },
   'common.n_sets':        { RO: '{n} serii',         EN: '{n} sets' },

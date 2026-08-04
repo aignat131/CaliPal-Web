@@ -8,8 +8,9 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge, GripType, RepSession, UnifiedRepSession } from '@/types'
+import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge, GripType, RepSession, UnifiedRepSession, ProgramRef } from '@/types'
 import { checkWorkoutMilestones, checkStreakMilestones, awardCoins } from '@/lib/gamification/coins'
+import { useProgramEnrollment } from '@/lib/hooks/useProgramEnrollment'
 import { updateWeeklyPushupLeaderboard } from '@/lib/gamification/leaderboard'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useWorkout } from '@/lib/context/WorkoutContext'
@@ -77,6 +78,8 @@ export default function WorkoutPage() {
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
   const [challengeProgress, setChallengeProgress] = useState<UserChallengeProgress | null>(null)
   const [showAuthPrompt, setShowAuthPrompt] = useState(false)
+  const [programRefState, setProgramRefState] = useState<ProgramRef | null>(null)
+  const { markDayComplete } = useProgramEnrollment()
 
   // Crash recovery — rep counter session
   const [recoveredSession, setRecoveredSession] = useState<RepSession | null>(null)
@@ -163,11 +166,15 @@ export default function WorkoutPage() {
     if (!saved) return
     sessionStorage.removeItem('calipal_load_training')
     try {
-      const { exercises: exs } = JSON.parse(saved) as {
+      const parsed = JSON.parse(saved) as {
         name: string
         exercises: { name: string; sets: number; repsPerSet: number }[]
+        programId?: string
+        week?: number
+        day?: number
+        programSource?: 'hardcoded' | 'firestore'
       }
-      const mapped: WorkoutExercise[] = exs
+      const mapped: WorkoutExercise[] = parsed.exercises
         .filter(e => e.name.trim())
         .map(e => ({
           name: e.name,
@@ -175,6 +182,9 @@ export default function WorkoutPage() {
           sets: Array.from({ length: e.sets }, () => ({ reps: e.repsPerSet })),
           fromProgram: true,
         }))
+      if (parsed.programId && parsed.week && parsed.day && parsed.programSource) {
+        setProgramRefState({ programId: parsed.programId, week: parsed.week, day: parsed.day, programSource: parsed.programSource })
+      }
       if (mapped.length > 0) { ctxStart(mapped); setScreen('active') }
     } catch { /* ignore malformed data */ }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -485,10 +495,11 @@ export default function WorkoutPage() {
       }))
 
     try {
-      await addDoc(collection(db, 'users', user.uid, 'workouts'), {
+      const workoutRef = await addDoc(collection(db, 'users', user.uid, 'workouts'), {
         userId: user.uid,
         exercises: serializedExercises,
         ...(serializedCircuits.length > 0 && { circuits: serializedCircuits }),
+        ...(programRefState && { programRef: programRefState }),
         durationSeconds: finalSeconds,
         totalReps,
         coinsEarned: 0,
@@ -498,6 +509,12 @@ export default function WorkoutPage() {
 
       // Workout saved successfully — clear pending data
       localStorage.removeItem(PENDING_WORKOUT_KEY)
+
+      // Mark program day as complete if this workout came from a training program
+      if (programRefState) {
+        markDayComplete(programRefState.programId, programRefState.week, programRefState.day, workoutRef.id).catch(() => {})
+        setProgramRefState(null)
+      }
 
       // Award 10 coins for completing a workout
       const completeCoins = await awardCoins(user.uid, 'COMPLETE_WORKOUT')

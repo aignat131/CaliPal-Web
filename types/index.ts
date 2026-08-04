@@ -38,6 +38,8 @@ export interface UserDoc {
   nameColor?: string           // hex color
   titleBadge?: string          // 'BEAST_MODE' | 'IRON_WILL' | 'CHAMPION'
   emojiBadge?: string          // emoji string
+  activeProgramId?: string     // currently enrolled program
+  completedPrograms?: number   // count of completed programs
 }
 
 export interface CommunityDoc {
@@ -227,6 +229,13 @@ export interface WorkoutExercise {
   grip?: GripType         // pull exercise grip: pronat (default), supinat, neutru
 }
 
+export interface ProgramRef {
+  programId: string
+  week: number
+  day: number
+  programSource: 'hardcoded' | 'firestore'
+}
+
 export interface WorkoutDoc {
   id: string
   userId: string
@@ -236,6 +245,7 @@ export interface WorkoutDoc {
   totalReps: number
   coinsEarned: number
   note: string
+  programRef?: ProgramRef
   createdAt: Timestamp | null
 }
 
@@ -506,6 +516,29 @@ export interface LeaderboardEntry {
   photoUrl: string
   totalPushupReps: number
   updatedAt: Timestamp | null
+}
+
+// ── Program Enrollment & Progress ────────────────────────────────────────────
+
+export interface DayCompletion {
+  completedAt: string   // ISO date
+  workoutId: string     // linked workout doc ID
+}
+
+export interface ProgramEnrollment {
+  programId: string
+  programSource: 'hardcoded' | 'firestore'
+  programName: string
+  status: 'active' | 'completed' | 'abandoned'
+  enrolledAt: Timestamp | null
+  completedAt: Timestamp | null
+  currentWeek: number
+  currentDay: number
+  totalWeeks: number
+  totalDays: number
+  completedDays: number
+  dayProgress: Record<string, DayCompletion>
+  exerciseSwaps: Record<string, string>
 }
 
 // ── Firestore-backed Training Programs ───────────────────────────────────────

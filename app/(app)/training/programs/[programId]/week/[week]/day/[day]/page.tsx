@@ -3,12 +3,14 @@
 import { use, useEffect, useState } from 'react'
 import { notFound, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Play, Clock } from 'lucide-react'
+import { ArrowLeft, Play, Clock, ArrowLeftRight, Check, RotateCcw } from 'lucide-react'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
-import { getProgramById, type ProgramDay } from '@/lib/data/training-programs'
-import type { FirestoreTrainingProgram } from '@/types'
+import { getProgramById, type ProgramDay, type ProgramExercise } from '@/lib/data/training-programs'
+import { useProgramEnrollment } from '@/lib/hooks/useProgramEnrollment'
 import ExerciseCard from '@/components/exercise/ExerciseCard'
+import ExerciseSwapSheet from '@/components/program/ExerciseSwapSheet'
+import type { FirestoreTrainingProgram } from '@/types'
 
 export default function TrainingDayPage({
   params,
@@ -26,6 +28,10 @@ export default function TrainingDayPage({
   const [firestoreProgram, setFirestoreProgram] = useState<FirestoreTrainingProgram | null>(null)
   const [loading, setLoading] = useState(!hardcoded)
   const [notFoundState, setNotFoundState] = useState(false)
+  const [swapIndex, setSwapIndex] = useState<number | null>(null)
+
+  const { getEnrollment, updateSwap, removeSwap } = useProgramEnrollment()
+  const enrollment = getEnrollment(programId)
 
   useEffect(() => {
     if (hardcoded) return
@@ -65,13 +71,32 @@ export default function TrainingDayPage({
   const dayData: ProgramDay = weekData.days[dayNum - 1]
   if (!dayData) notFound()
 
-  const totalSets = dayData.exercises.reduce((s, e) => s + e.sets, 0)
-  const estimatedMinutes = Math.round(totalSets * 2.5 + dayData.exercises.length * 1)
+  // Apply exercise swaps from enrollment
+  const effectiveExercises: ProgramExercise[] = dayData.exercises.map((ex, i) => {
+    const swapKey = `w${weekNum}_d${dayNum}_e${i}`
+    const swappedName = enrollment?.exerciseSwaps?.[swapKey]
+    if (swappedName) {
+      return { ...ex, name: swappedName, notes: `Înlocuiește: ${ex.name}` }
+    }
+    return ex
+  })
+
+  const totalSets = effectiveExercises.reduce((s, e) => s + e.sets, 0)
+  const estimatedMinutes = Math.round(totalSets * 2.5 + effectiveExercises.length * 1)
+
+  const dayKey = `w${weekNum}_d${dayNum}`
+  const isDayCompleted = !!enrollment?.dayProgress[dayKey]
+  const isEnrolled = enrollment?.status === 'active' || enrollment?.status === 'completed'
+  const programSource = hardcoded ? 'hardcoded' as const : 'firestore' as const
 
   function startTraining() {
     const payload = {
       name: dayData.dayLabel,
-      exercises: dayData.exercises.map(e => ({
+      programId,
+      week: weekNum,
+      day: dayNum,
+      programSource,
+      exercises: effectiveExercises.map(e => ({
         name: e.name,
         sets: e.sets,
         repsPerSet: e.repsPerSet,
@@ -80,6 +105,22 @@ export default function TrainingDayPage({
     sessionStorage.setItem('calipal_load_training', JSON.stringify(payload))
     router.push('/workout')
   }
+
+  function handleSwap(exerciseIndex: number, newName: string) {
+    if (enrollment) {
+      updateSwap(programId, weekNum, dayNum, exerciseIndex, newName)
+    }
+    setSwapIndex(null)
+  }
+
+  function handleResetSwap(exerciseIndex: number) {
+    if (enrollment) {
+      removeSwap(programId, weekNum, dayNum, exerciseIndex)
+    }
+    setSwapIndex(null)
+  }
+
+  const swapExercise = swapIndex !== null ? dayData.exercises[swapIndex] : null
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -97,13 +138,19 @@ export default function TrainingDayPage({
             <p className="text-xs text-white/40">{weekData.weekLabel}</p>
             <h1 className="text-base font-black text-white leading-tight">{dayData.dayLabel}</h1>
           </div>
+          {isDayCompleted && (
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-green/15 border border-brand-green/25">
+              <Check size={12} className="text-brand-green" />
+              <span className="text-[10px] font-bold text-brand-green">Completat</span>
+            </div>
+          )}
         </div>
 
         {/* Stats */}
         <div className="rounded-2xl p-4 mb-5 flex gap-6 border border-white/8"
           style={{ backgroundColor: 'var(--app-surface)' }}>
           <div className="text-center">
-            <p className="text-xl font-black text-white">{dayData.exercises.length}</p>
+            <p className="text-xl font-black text-white">{effectiveExercises.length}</p>
             <p className="text-xs text-white/40">Exerciții</p>
           </div>
           <div className="text-center">
@@ -122,17 +169,33 @@ export default function TrainingDayPage({
         {/* Exercise list */}
         <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">EXERCIȚII</p>
         <div className="flex flex-col gap-2 mb-6">
-          {dayData.exercises.map((ex, i) => (
-            <ExerciseCard
-              key={i}
-              index={i + 1}
-              name={ex.name}
-              sets={ex.sets}
-              repsPerSet={ex.repsPerSet}
-              metric={ex.metric}
-              notes={ex.notes}
-            />
-          ))}
+          {effectiveExercises.map((ex, i) => {
+            const isSwapped = !!enrollment?.exerciseSwaps?.[`w${weekNum}_d${dayNum}_e${i}`]
+            return (
+              <div key={i} className="relative">
+                <ExerciseCard
+                  index={i + 1}
+                  name={ex.name}
+                  sets={ex.sets}
+                  repsPerSet={ex.repsPerSet}
+                  metric={ex.metric}
+                  notes={ex.notes}
+                />
+                {/* Swap button — only shown when enrolled */}
+                {isEnrolled && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); setSwapIndex(i) }}
+                    className={`absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                      isSwapped ? 'bg-brand-green/15 text-brand-green' : 'bg-white/5 text-white/25 hover:text-white/50'
+                    }`}
+                    title="Schimbă exercițiul"
+                  >
+                    <ArrowLeftRight size={13} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         {/* CTA */}
@@ -141,14 +204,36 @@ export default function TrainingDayPage({
           className="w-full h-14 rounded-2xl font-black text-black flex items-center justify-center gap-3 text-base"
           style={{ backgroundColor: 'var(--accent)' }}
         >
-          <Play size={20} className="fill-black" />
-          Începe antrenamentul
+          {isDayCompleted ? (
+            <>
+              <RotateCcw size={20} />
+              Refă antrenamentul
+            </>
+          ) : (
+            <>
+              <Play size={20} className="fill-black" />
+              Începe antrenamentul
+            </>
+          )}
         </button>
         <p className="text-[11px] text-white/30 text-center mt-2">
           Exercițiile se vor încărca automat în tracker
         </p>
 
       </div>
+
+      {/* Exercise Swap Sheet */}
+      {swapIndex !== null && swapExercise && (
+        <ExerciseSwapSheet
+          open
+          onClose={() => setSwapIndex(null)}
+          exerciseName={swapExercise.name}
+          currentName={effectiveExercises[swapIndex].name}
+          onSwap={(newName) => handleSwap(swapIndex, newName)}
+          onReset={() => handleResetSwap(swapIndex)}
+          isSwapped={effectiveExercises[swapIndex].name !== swapExercise.name}
+        />
+      )}
     </div>
   )
 }

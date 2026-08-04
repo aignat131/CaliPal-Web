@@ -1,13 +1,28 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, Clock, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Clock, ChevronRight, Check } from 'lucide-react'
 import { ALL_PROGRAMS, LEVEL_LABELS, type TrainingProgram } from '@/lib/data/training-programs'
 import { useFirestorePrograms } from '@/lib/hooks/useFirestorePrograms'
-import type { FirestoreTrainingProgram } from '@/types'
+import { useProgramEnrollment } from '@/lib/hooks/useProgramEnrollment'
+import type { FirestoreTrainingProgram, ProgramEnrollment } from '@/types'
 
 export default function ProgramsPage() {
   const { programs: firestorePrograms, loading } = useFirestorePrograms()
+  const { activeEnrollment, getEnrollment, loading: enrollLoading } = useProgramEnrollment()
+
+  // Sort enrolled program to top within each section
+  const sortedFirestore = [...firestorePrograms].sort((a, b) => {
+    const aEnrolled = getEnrollment(a.id)?.status === 'active' ? -1 : 0
+    const bEnrolled = getEnrollment(b.id)?.status === 'active' ? -1 : 0
+    return aEnrolled - bEnrolled
+  })
+
+  const sortedHardcoded = [...ALL_PROGRAMS].sort((a, b) => {
+    const aEnrolled = getEnrollment(a.id)?.status === 'active' ? -1 : 0
+    const bEnrolled = getEnrollment(b.id)?.status === 'active' ? -1 : 0
+    return aEnrolled - bEnrolled
+  })
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -34,12 +49,14 @@ export default function ProgramsPage() {
               <div key={i} className="h-28 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--app-surface)' }} />
             ))}
           </div>
-        ) : firestorePrograms.length > 0 ? (
+        ) : sortedFirestore.length > 0 ? (
           <>
             <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3 px-1">PROGRAME CUSTOM</p>
             <div className="flex flex-col gap-4 mb-6">
-              {firestorePrograms.map(program => (
-                <FirestoreProgramCard key={program.id} program={program} />
+              {sortedFirestore.map(program => (
+                <ProgramCardWrapper key={program.id} id={program.id} enrollment={enrollLoading ? null : getEnrollment(program.id)}>
+                  <FirestoreProgramCard program={program} />
+                </ProgramCardWrapper>
               ))}
             </div>
           </>
@@ -48,12 +65,53 @@ export default function ProgramsPage() {
         {/* Built-in programs */}
         <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3 px-1">PROGRAME INTEGRATE</p>
         <div className="flex flex-col gap-4">
-          {ALL_PROGRAMS.map(program => (
-            <ProgramCard key={program.id} program={program} />
+          {sortedHardcoded.map(program => (
+            <ProgramCardWrapper key={program.id} id={program.id} enrollment={enrollLoading ? null : getEnrollment(program.id)}>
+              <ProgramCard program={program} />
+            </ProgramCardWrapper>
           ))}
         </div>
 
       </div>
+    </div>
+  )
+}
+
+function ProgramCardWrapper({ id, enrollment, children }: { id: string; enrollment: ProgramEnrollment | null; children: React.ReactNode }) {
+  const isActive = enrollment?.status === 'active'
+  const isCompleted = enrollment?.status === 'completed'
+  const progressPct = enrollment && enrollment.totalDays > 0
+    ? Math.round((enrollment.completedDays / enrollment.totalDays) * 100) : 0
+
+  return (
+    <div className="relative">
+      {children}
+      {/* Enrollment badge + progress overlay */}
+      {(isActive || isCompleted) && (
+        <div className="absolute top-0 right-0 mt-3 mr-4 flex items-center gap-1.5">
+          {isActive && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/15 text-brand-green border border-brand-green/25">
+              Înscris · {progressPct}%
+            </span>
+          )}
+          {isCompleted && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/15 text-brand-green border border-brand-green/25 flex items-center gap-1">
+              <Check size={10} /> Completat
+            </span>
+          )}
+        </div>
+      )}
+      {/* Progress bar under card */}
+      {isActive && enrollment.completedDays > 0 && (
+        <div className="px-4 pb-3 -mt-1" style={{ position: 'relative', zIndex: 1 }}>
+          <div className="h-1 rounded-full bg-white/8 overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${progressPct}%`, backgroundColor: 'var(--accent)' }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
