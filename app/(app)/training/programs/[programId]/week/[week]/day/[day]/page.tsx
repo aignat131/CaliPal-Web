@@ -1,10 +1,13 @@
 'use client'
 
-import { use } from 'react'
+import { use, useEffect, useState } from 'react'
 import { notFound, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Play, Clock } from 'lucide-react'
-import { getProgramById } from '@/lib/data/training-programs'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase/firestore'
+import { getProgramById, type ProgramDay } from '@/lib/data/training-programs'
+import type { FirestoreTrainingProgram } from '@/types'
 import ExerciseCard from '@/components/exercise/ExerciseCard'
 
 export default function TrainingDayPage({
@@ -14,16 +17,52 @@ export default function TrainingDayPage({
 }) {
   const { programId, week, day } = use(params)
   const router = useRouter()
+  const weekNum = parseInt(week, 10)
+  const dayNum = parseInt(day, 10)
 
-  const program = getProgramById(programId)
-  if (!program) notFound()
+  // Try hardcoded first
+  const hardcoded = getProgramById(programId)
 
-  const weekNum  = parseInt(week, 10)
-  const dayNum   = parseInt(day, 10)
+  const [firestoreProgram, setFirestoreProgram] = useState<FirestoreTrainingProgram | null>(null)
+  const [loading, setLoading] = useState(!hardcoded)
+  const [notFoundState, setNotFoundState] = useState(false)
+
+  useEffect(() => {
+    if (hardcoded) return
+    getDoc(doc(db, 'training_programs', programId)).then(snap => {
+      if (snap.exists()) {
+        setFirestoreProgram({ id: snap.id, ...snap.data() } as FirestoreTrainingProgram)
+      } else {
+        setNotFoundState(true)
+      }
+      setLoading(false)
+    }).catch(() => {
+      setNotFoundState(true)
+      setLoading(false)
+    })
+  }, [programId, hardcoded])
+
+  if (notFoundState) notFound()
+
+  const program = hardcoded ?? firestoreProgram
+
+  if (loading || !program) {
+    return (
+      <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+        <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
+          <div className="h-10 w-48 rounded-xl animate-pulse mb-5" style={{ backgroundColor: 'var(--app-surface)' }} />
+          <div className="h-24 rounded-2xl animate-pulse mb-5" style={{ backgroundColor: 'var(--app-surface)' }} />
+          <div className="h-20 rounded-2xl animate-pulse mb-2" style={{ backgroundColor: 'var(--app-surface)' }} />
+          <div className="h-20 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--app-surface)' }} />
+        </div>
+      </div>
+    )
+  }
+
   const weekData = program.weeks.find(w => w.weekNumber === weekNum)
   if (!weekData) notFound()
 
-  const dayData = weekData.days[dayNum - 1]
+  const dayData: ProgramDay = weekData.days[dayNum - 1]
   if (!dayData) notFound()
 
   const totalSets = dayData.exercises.reduce((s, e) => s + e.sets, 0)

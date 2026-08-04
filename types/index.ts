@@ -1,4 +1,5 @@
 import type { Timestamp } from 'firebase/firestore'
+import type { ProgramWeek } from '@/lib/data/training-programs'
 
 export type LocationSharingMode = 'OFF' | 'FRIENDS_ONLY' | 'EVERYWHERE' | 'TRAINING_ONLY'
 
@@ -504,5 +505,22 @@ export interface LeaderboardEntry {
   displayName: string
   photoUrl: string
   totalPushupReps: number
+  updatedAt: Timestamp | null
+}
+
+// ── Firestore-backed Training Programs ───────────────────────────────────────
+
+export interface FirestoreTrainingProgram {
+  id: string
+  name: string
+  description: string
+  level: 'beginner' | 'intermediate' | 'advanced'
+  durationWeeks: number
+  focusEmoji: string
+  focusLabel: string
+  published: boolean
+  order: number
+  weeks: ProgramWeek[]
+  createdAt: Timestamp | null
   updatedAt: Timestamp | null
 }

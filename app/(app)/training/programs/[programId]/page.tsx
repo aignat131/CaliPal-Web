@@ -1,15 +1,56 @@
 'use client'
 
-import { use } from 'react'
+import { use, useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, ChevronRight, Dumbbell } from 'lucide-react'
-import { getProgramById, LEVEL_LABELS, type ProgramDay } from '@/lib/data/training-programs'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase/firestore'
+import { getProgramById, LEVEL_LABELS, type TrainingProgram, type ProgramDay } from '@/lib/data/training-programs'
+import type { FirestoreTrainingProgram } from '@/types'
 
 export default function ProgramDetailPage({ params }: { params: Promise<{ programId: string }> }) {
   const { programId } = use(params)
-  const program = getProgramById(programId)
-  if (!program) notFound()
+
+  // Try hardcoded first (instant)
+  const hardcoded = getProgramById(programId)
+
+  const [firestoreProgram, setFirestoreProgram] = useState<FirestoreTrainingProgram | null>(null)
+  const [loading, setLoading] = useState(!hardcoded)
+  const [notFoundState, setNotFoundState] = useState(false)
+
+  useEffect(() => {
+    if (hardcoded) return // no need to fetch
+    getDoc(doc(db, 'training_programs', programId)).then(snap => {
+      if (snap.exists()) {
+        setFirestoreProgram({ id: snap.id, ...snap.data() } as FirestoreTrainingProgram)
+      } else {
+        setNotFoundState(true)
+      }
+      setLoading(false)
+    }).catch(() => {
+      setNotFoundState(true)
+      setLoading(false)
+    })
+  }, [programId, hardcoded])
+
+  if (notFoundState) notFound()
+
+  // Use hardcoded or firestore program
+  const program: TrainingProgram | FirestoreTrainingProgram | null = hardcoded ?? firestoreProgram
+
+  if (loading || !program) {
+    return (
+      <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
+        <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
+          <div className="h-10 w-48 rounded-xl animate-pulse mb-5" style={{ backgroundColor: 'var(--app-surface)' }} />
+          <div className="h-32 rounded-2xl animate-pulse mb-5" style={{ backgroundColor: 'var(--app-surface)' }} />
+          <div className="h-16 rounded-xl animate-pulse mb-2" style={{ backgroundColor: 'var(--app-surface)' }} />
+          <div className="h-16 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--app-surface)' }} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>

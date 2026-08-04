@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { ArrowLeft, MapPin, Trophy, Users, BadgeCheck, Dumbbell, MessageSquare, Shield } from 'lucide-react'
+import { ArrowLeft, MapPin, Trophy, Users, BadgeCheck, Dumbbell, MessageSquare, Shield, BookOpen } from 'lucide-react'
 import { auth } from '@/lib/firebase/auth'
 
 import { ParksTab } from './_components/ParksTab'
@@ -14,8 +14,9 @@ import { VerificationsTab } from './_components/VerificationsTab'
 import { ExercisesTab } from './_components/ExercisesTab'
 import { FeedbackTab } from './_components/FeedbackTab'
 import { TrainingsBackupTab } from './_components/TrainingsBackupTab'
+import { ProgramsTab } from './_components/ProgramsTab'
 
-type AdminTab = 'parks' | 'challenges' | 'communities' | 'park_requests' | 'verifications' | 'exercises' | 'feedback' | 'trainings'
+type AdminTab = 'parks' | 'challenges' | 'communities' | 'park_requests' | 'verifications' | 'exercises' | 'feedback' | 'trainings' | 'programs'
 
 export default function AdminPage() {
   const { user, isSuperAdmin } = useAuth()
@@ -82,6 +83,7 @@ export default function AdminPage() {
             ['exercises', 'Exerciții', <Dumbbell key="ex" size={12} />],
             ['feedback', 'Feedback', <MessageSquare key="fb" size={12} />],
             ['trainings', 'Antrenamente', <Shield key="tr" size={12} />],
+            ['programs', 'Programe', <BookOpen key="pg" size={12} />],
           ] as [AdminTab, string, React.ReactNode][]).map(([t, label, icon]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`h-8 px-3 rounded-full text-[11px] font-bold flex items-center gap-1 transition-colors ${
@@ -109,6 +111,7 @@ export default function AdminPage() {
         {tab === 'exercises' && <ExercisesTab />}
         {tab === 'feedback' && <FeedbackTab />}
         {tab === 'trainings' && <TrainingsBackupTab />}
+        {tab === 'programs' && <ProgramsTab />}
       </div>
     </div>
   )

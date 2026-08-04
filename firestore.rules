@@ -441,6 +441,12 @@ service cloud.firestore {
       }
     }
 
+    // ── Training programs (SuperAdmin-managed) ─────────────────────────────
+    match /training_programs/{programId} {
+      allow read: if isAuth();
+      allow write: if isSuperAdmin();
+    }
+
     // ── Exercise catalogue ────────────────────────────────────────────────────
     match /exercise_catalogue/{exerciseId} {
       allow read: if true;
