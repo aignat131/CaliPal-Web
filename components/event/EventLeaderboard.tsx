@@ -50,7 +50,10 @@ export default function EventLeaderboard({ sortedParticipants, currentUid }: Pro
             {/* Name + bar */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="text-xs font-medium text-white/75 truncate">{participant.displayName}</span>
+                <span className="text-xs font-medium truncate" style={{ color: participant.nameColor ?? 'rgba(255,255,255,0.75)' }}>
+                  {participant.emojiBadge && <span className="mr-0.5">{participant.emojiBadge}</span>}
+                  {participant.displayName}
+                </span>
                 {!participant.isConnected && <WifiOff size={10} className="text-red-400/60 flex-shrink-0" />}
               </div>
               <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: `${color}15` }}>

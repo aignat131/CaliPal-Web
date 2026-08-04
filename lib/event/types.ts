@@ -24,6 +24,7 @@ export interface EventDoc {
   scheduledAt: Timestamp | null         // optional scheduled start
   durationMinutes: number | null        // null = open-ended (host ends manually)
   maxParticipants: number               // default 20
+  isPublic: boolean                     // publicly visible & joinable without code
 
   // State
   status: EventStatus
@@ -48,6 +49,12 @@ export interface EventParticipantDoc {
   totalPoints: number                   // sum(reps[ex] × pointsPerRep[ex])
   lastRepAt: Timestamp | null
   isConnected: boolean
+
+  // Cosmetics (denormalized from user profile)
+  nameColor?: string
+  emojiBadge?: string
+  titleBadge?: string
+  profileFrame?: string
 
   // Results
   placement: number | null

@@ -112,7 +112,11 @@ export function useEvent(eventId: string) {
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
-  const joinEvent = useCallback(async (displayName: string, photoUrl: string) => {
+  const joinEvent = useCallback(async (
+    displayName: string,
+    photoUrl: string,
+    cosmetics?: { nameColor?: string; emojiBadge?: string; titleBadge?: string; profileFrame?: string },
+  ) => {
     if (!user) return
     const participantRef = doc(db, 'events', eventId, 'participants', user.uid)
     await import('firebase/firestore').then(({ setDoc }) =>
@@ -127,6 +131,10 @@ export function useEvent(eventId: string) {
         isConnected: true,
         placement: null,
         coinsEarned: 0,
+        ...(cosmetics?.nameColor ? { nameColor: cosmetics.nameColor } : {}),
+        ...(cosmetics?.emojiBadge ? { emojiBadge: cosmetics.emojiBadge } : {}),
+        ...(cosmetics?.titleBadge ? { titleBadge: cosmetics.titleBadge } : {}),
+        ...(cosmetics?.profileFrame ? { profileFrame: cosmetics.profileFrame } : {}),
       }),
     )
     await updateDoc(doc(db, 'events', eventId), { participantCount: increment(1) })

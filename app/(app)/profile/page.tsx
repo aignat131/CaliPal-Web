@@ -124,11 +124,61 @@ const COIN_TASKS = [
   { id: 'SKILLS_10',            coins: 75,  icon: '🌟' },
 ]
 
-const SHOP_ITEMS = [
-  { id: 'EARLY_BADGE',        price: 100, icon: '⭐', name: 'Early Supporter', desc: 'Badge exclusiv pe profil pentru suporterii timpurii.' },
-  { id: 'PRO_TITLE',          price: 150, icon: '🎯', name: 'Titlu Pro',        desc: 'Schimbă eticheta "Membru" cu "🎯 Pro" în comunitățile tale.' },
-  { id: 'POWER_PACK',         price: 200, icon: '⚡', name: 'Power Pack',       desc: 'Deblochează o provocare bonus zilnică exclusivă.' },
+type ShopCategory = 'badges' | 'titles' | 'customization'
+
+interface ShopItem {
+  id: string
+  category: ShopCategory
+  price: number
+  icon: string
+  name: string
+  desc: string
+  userDocField?: string
+  userDocValue?: string
+}
+
+const SHOP_ITEMS: ShopItem[] = [
+  // Badges
+  { id: 'EARLY_BADGE',      category: 'badges', price: 100, icon: '⭐', name: 'Early Supporter', desc: 'Badge exclusiv pe profil pentru suporterii timpurii.' },
+  { id: 'FIRE_BADGE',       category: 'badges', price: 120, icon: '🔥', name: 'Fire Badge',      desc: 'Badge de foc pe profil.' },
+  { id: 'DIAMOND_BADGE',    category: 'badges', price: 200, icon: '💎', name: 'Diamond Badge',   desc: 'Badge de diamant premium pe profil.' },
+  // Titles
+  { id: 'PRO_TITLE',        category: 'titles', price: 150, icon: '🎯', name: 'Titlu Pro',       desc: 'Schimbă eticheta "Membru" cu "🎯 Pro" în comunitățile tale.', userDocField: 'titleBadge', userDocValue: 'PRO' },
+  { id: 'BEAST_MODE_TITLE', category: 'titles', price: 200, icon: '💪', name: 'Beast Mode',      desc: 'Titlul "💪 Beast Mode" pe profil și în clasament.', userDocField: 'titleBadge', userDocValue: 'BEAST_MODE' },
+  { id: 'IRON_WILL_TITLE',  category: 'titles', price: 250, icon: '🛡️', name: 'Iron Will',       desc: 'Titlul "🛡️ Iron Will" pe profil și în clasament.', userDocField: 'titleBadge', userDocValue: 'IRON_WILL' },
+  { id: 'CHAMPION_TITLE',   category: 'titles', price: 300, icon: '🏆', name: 'Champion',        desc: 'Titlul "🏆 Champion" pe profil și în clasament.', userDocField: 'titleBadge', userDocValue: 'CHAMPION' },
+  // Customization
+  { id: 'GOLD_FRAME',       category: 'customization', price: 150, icon: '🟡', name: 'Gold Frame',    desc: 'Cadru auriu pe avatarul tău.', userDocField: 'profileFrame', userDocValue: 'GOLD' },
+  { id: 'FIRE_FRAME',       category: 'customization', price: 250, icon: '🔥', name: 'Fire Frame',    desc: 'Cadru cu efect de foc pe avatar.', userDocField: 'profileFrame', userDocValue: 'FIRE' },
+  { id: 'GLOW_FRAME',       category: 'customization', price: 300, icon: '✨', name: 'Glow Frame',    desc: 'Cadru strălucitor animat pe avatar.', userDocField: 'profileFrame', userDocValue: 'GLOW' },
+  { id: 'COLOR_GREEN',      category: 'customization', price: 100, icon: '🟢', name: 'Nume Verde',    desc: 'Numele tău în verde în clasament.', userDocField: 'nameColor', userDocValue: '#1ED75F' },
+  { id: 'COLOR_GOLD',       category: 'customization', price: 120, icon: '🟡', name: 'Nume Auriu',    desc: 'Numele tău în auriu în clasament.', userDocField: 'nameColor', userDocValue: '#FFB800' },
+  { id: 'COLOR_PURPLE',     category: 'customization', price: 120, icon: '🟣', name: 'Nume Violet',   desc: 'Numele tău în violet în clasament.', userDocField: 'nameColor', userDocValue: '#A855F7' },
+  { id: 'EMOJI_CROWN',      category: 'customization', price: 80,  icon: '👑', name: 'Emoji Coroană', desc: 'Emoji 👑 lângă numele tău.', userDocField: 'emojiBadge', userDocValue: '👑' },
+  { id: 'EMOJI_FIRE',       category: 'customization', price: 80,  icon: '🔥', name: 'Emoji Foc',     desc: 'Emoji 🔥 lângă numele tău.', userDocField: 'emojiBadge', userDocValue: '🔥' },
+  { id: 'EMOJI_STAR',       category: 'customization', price: 80,  icon: '⭐', name: 'Emoji Stea',    desc: 'Emoji ⭐ lângă numele tău.', userDocField: 'emojiBadge', userDocValue: '⭐' },
+  { id: 'POWER_PACK',       category: 'customization', price: 200, icon: '⚡', name: 'Power Pack',    desc: 'Deblochează o provocare bonus zilnică exclusivă.' },
+  { id: 'CUSTOM_NICKNAME',  category: 'customization', price: 100, icon: '✏️', name: 'Nickname',      desc: 'Alege un nickname personalizat pentru evenimente.' },
 ]
+
+const SHOP_CATEGORY_LABELS: Record<ShopCategory, string> = {
+  badges: 'Badge-uri',
+  titles: 'Titluri',
+  customization: 'Personalizare',
+}
+
+const FRAME_STYLES: Record<string, { border: string; shadow?: string; animate?: boolean }> = {
+  GOLD: { border: '3px solid #FFB800' },
+  FIRE: { border: '3px solid #F97316', shadow: '0 0 12px rgba(249,115,22,0.4)' },
+  GLOW: { border: '3px solid #A855F7', shadow: '0 0 16px rgba(168,85,247,0.5)', animate: true },
+}
+
+const TITLE_LABELS: Record<string, string> = {
+  PRO: '🎯 Pro',
+  BEAST_MODE: '💪 Beast Mode',
+  IRON_WILL: '🛡️ Iron Will',
+  CHAMPION: '🏆 Champion',
+}
 
 export default function ProfilePage() {
   const { user, isSuperAdmin } = useAuth()
@@ -262,6 +312,8 @@ export default function ProfilePage() {
 
   async function handlePurchase(itemId: string, price: number) {
     if (!user) return
+    const item = SHOP_ITEMS.find(i => i.id === itemId)
+    if (!item) return
     try {
       await runTransaction(db, async txn => {
         const userRef = doc(db, 'users', user.uid)
@@ -271,7 +323,13 @@ export default function ProfilePage() {
         const purchaseRef = doc(db, 'users', user.uid, 'purchases', itemId)
         const purchaseSnap = await txn.get(purchaseRef)
         if (purchaseSnap.exists()) throw new Error('already-purchased')
-        txn.update(userRef, { coins: increment(-price), ...(itemId === 'PRO_TITLE' ? { proTitle: true } : {}) })
+        const extraFields: Record<string, unknown> = {}
+        if (item.userDocField && item.userDocValue) {
+          extraFields[item.userDocField] = item.userDocValue
+        }
+        // Legacy compat: PRO_TITLE also sets proTitle boolean
+        if (itemId === 'PRO_TITLE') extraFields.proTitle = true
+        txn.update(userRef, { coins: increment(-price), ...extraFields })
         txn.set(purchaseRef, { itemId, purchasedAt: serverTimestamp() })
       })
       showToast('Achiziție reușită! 🎉')
@@ -409,31 +467,42 @@ export default function ProfilePage() {
                 <ChevronRight size={14} className="text-white/50 rotate-90" />
               </button>
             </div>
-            <div className="flex flex-col gap-2">
-              {SHOP_ITEMS.map(item => {
-                const owned = purchases.has(item.id)
-                const canAfford = (profile?.coins ?? 0) >= item.price
+            <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
+              {(['badges', 'titles', 'customization'] as ShopCategory[]).map(cat => {
+                const items = SHOP_ITEMS.filter(i => i.category === cat)
+                if (items.length === 0) return null
                 return (
-                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl border"
-                    style={{ backgroundColor: owned ? 'rgba(var(--accent-rgb), 0.03)' : 'var(--app-bg)', borderColor: owned ? 'rgba(var(--accent-rgb), 0.19)' : 'rgba(255,255,255,0.08)' }}>
-                    <span className="text-2xl flex-shrink-0">{item.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white">{item.name}</p>
-                      <p className="text-xs text-white/40 leading-snug mt-0.5">{item.desc}</p>
+                  <div key={cat}>
+                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">{SHOP_CATEGORY_LABELS[cat]}</p>
+                    <div className="flex flex-col gap-2">
+                      {items.map(item => {
+                        const owned = purchases.has(item.id)
+                        const canAfford = (profile?.coins ?? 0) >= item.price
+                        return (
+                          <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl border"
+                            style={{ backgroundColor: owned ? 'rgba(var(--accent-rgb), 0.03)' : 'var(--app-bg)', borderColor: owned ? 'rgba(var(--accent-rgb), 0.19)' : 'rgba(255,255,255,0.08)' }}>
+                            <span className="text-2xl flex-shrink-0">{item.icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-white">{item.name}</p>
+                              <p className="text-xs text-white/40 leading-snug mt-0.5">{item.desc}</p>
+                            </div>
+                            {owned
+                              ? <span className="text-xs font-bold text-brand-green flex-shrink-0">✓ Activ</span>
+                              : (
+                                <button
+                                  onClick={() => handlePurchase(item.id, item.price)}
+                                  disabled={!canAfford}
+                                  className="h-8 px-3 rounded-xl text-xs font-bold flex-shrink-0 transition-colors disabled:opacity-40"
+                                  style={{ backgroundColor: canAfford ? 'var(--accent)' : 'rgba(255,255,255,0.08)', color: canAfford ? '#000' : 'rgba(255,255,255,0.4)' }}
+                                >
+                                  🪙 {item.price}
+                                </button>
+                              )
+                            }
+                          </div>
+                        )
+                      })}
                     </div>
-                    {owned
-                      ? <span className="text-xs font-bold text-brand-green flex-shrink-0">✓ Activ</span>
-                      : (
-                        <button
-                          onClick={() => handlePurchase(item.id, item.price)}
-                          disabled={!canAfford}
-                          className="h-8 px-3 rounded-xl text-xs font-bold flex-shrink-0 transition-colors disabled:opacity-40"
-                          style={{ backgroundColor: canAfford ? 'var(--accent)' : 'rgba(255,255,255,0.08)', color: canAfford ? '#000' : 'rgba(255,255,255,0.4)' }}
-                        >
-                          🪙 {item.price}
-                        </button>
-                      )
-                    }
                   </div>
                 )
               })}
@@ -487,8 +556,15 @@ export default function ProfilePage() {
         <div className="flex items-center gap-4 mb-4">
           <div className="relative">
             <Link href="/profile/edit">
-              <div className="relative w-20 h-20 rounded-full overflow-hidden flex items-center justify-center cursor-pointer"
-                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.20)' }}>
+              <div
+                className={`relative w-20 h-20 rounded-full overflow-hidden flex items-center justify-center cursor-pointer${profile?.profileFrame && FRAME_STYLES[profile.profileFrame]?.animate ? ' animate-pulse-glow' : ''}`}
+                style={{
+                  backgroundColor: 'rgba(var(--accent-rgb), 0.20)',
+                  ...(profile?.profileFrame && FRAME_STYLES[profile.profileFrame] ? {
+                    border: FRAME_STYLES[profile.profileFrame].border,
+                    boxShadow: FRAME_STYLES[profile.profileFrame].shadow,
+                  } : {}),
+                }}>
                 {photoUrl
                   ? <Image src={photoUrl} alt={displayName} fill sizes="80px" className="object-cover" />
                   : <span className="text-3xl font-black text-brand-green">{initial}</span>}
@@ -523,12 +599,27 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             {!profile && !user?.displayName
               ? <div className="h-6 w-28 rounded-lg bg-white/8 animate-pulse" />
-              : <span className="text-[17px] font-black text-white">{displayName}</span>
+              : (
+                <span className="text-[17px] font-black" style={{ color: profile?.nameColor ?? '#ffffff' }}>
+                  {profile?.emojiBadge && <span className="mr-1">{profile.emojiBadge}</span>}
+                  {displayName}
+                </span>
+              )
             }
             <span className="px-2 py-0.5 rounded-md text-[11px] font-medium"
               style={{ backgroundColor: badge.bg, color: badge.color }}>
               {badge.label}
             </span>
+            {profile?.titleBadge && TITLE_LABELS[profile.titleBadge] && (
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                style={{
+                  backgroundColor: theme === 'light' ? '#f0e6ff' : '#A855F722',
+                  color: theme === 'light' ? '#7c3aed' : '#A855F7',
+                  border: `1px solid ${theme === 'light' ? '#d4b5ff' : '#A855F740'}`,
+                }}>
+                {TITLE_LABELS[profile.titleBadge]}
+              </span>
+            )}
             {purchases.has('EARLY_BADGE') && (
               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
                 style={{
@@ -537,6 +628,26 @@ export default function ProfilePage() {
                   border: `1px solid ${theme === 'light' ? '#e6d49a' : '#FFB80040'}`,
                 }}>
                 ⭐ Early Supporter
+              </span>
+            )}
+            {purchases.has('FIRE_BADGE') && (
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                style={{
+                  backgroundColor: theme === 'light' ? '#fff0e6' : '#F9731622',
+                  color: theme === 'light' ? '#c2410c' : '#F97316',
+                  border: `1px solid ${theme === 'light' ? '#fbd5b5' : '#F9731640'}`,
+                }}>
+                🔥 Fire
+              </span>
+            )}
+            {purchases.has('DIAMOND_BADGE') && (
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                style={{
+                  backgroundColor: theme === 'light' ? '#e6f4ff' : '#3B82F622',
+                  color: theme === 'light' ? '#1d4ed8' : '#60A5FA',
+                  border: `1px solid ${theme === 'light' ? '#93c5fd' : '#3B82F640'}`,
+                }}>
+                💎 Diamond
               </span>
             )}
             {isSuperAdmin && (

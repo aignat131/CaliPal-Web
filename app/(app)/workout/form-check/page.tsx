@@ -157,21 +157,8 @@ export default function FormCheckPage() {
         await videoRef.current.play()
       }
 
-      const vision = await import('@mediapipe/tasks-vision')
-      const { PoseLandmarker, FilesetResolver } = vision
-
-      const filesetResolver = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-      )
-      const poseLandmarker = await PoseLandmarker.createFromOptions(filesetResolver, {
-        baseOptions: {
-          modelAssetPath: POSE_MODEL_URL,
-          delegate: 'GPU',
-        },
-        runningMode: 'VIDEO',
-        numPoses: 1,
-      })
-      detectorRef.current = poseLandmarker
+      const { createPoseLandmarker } = await import('@/lib/ml/create-pose-landmarker')
+      detectorRef.current = await createPoseLandmarker(POSE_MODEL_URL)
 
       setStatus('running')
 
@@ -189,7 +176,7 @@ export default function FormCheckPage() {
 
         if (time !== lastTime && video.readyState >= 2) {
           lastTime = time
-          const result = (poseLandmarker as { detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks: Landmark[][] } }).detectForVideo(video, time)
+          const result = (detectorRef.current as { detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks: Landmark[][] } }).detectForVideo(video, time)
 
           if (result.landmarks.length > 0) {
             const lms = result.landmarks[0]
@@ -296,17 +283,8 @@ export default function FormCheckPage() {
 
     try {
       // A. Init IMAGE-mode PoseLandmarker
-      const vision = await import('@mediapipe/tasks-vision')
-      const { PoseLandmarker, FilesetResolver } = vision
-
-      const filesetResolver = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-      )
-      const poseLandmarker = await PoseLandmarker.createFromOptions(filesetResolver, {
-        baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: 'GPU' },
-        runningMode: 'IMAGE',
-        numPoses: 1,
-      })
+      const { createPoseLandmarker } = await import('@/lib/ml/create-pose-landmarker')
+      const poseLandmarker = await createPoseLandmarker(POSE_MODEL_URL, 'IMAGE')
 
       // Load classifiers concurrently
       const [pullupOk, pushupOk] = await Promise.all([loadModel(), loadPushupModel()])

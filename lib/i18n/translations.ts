@@ -1011,6 +1011,8 @@ const T: Record<string, { RO: string; EN: string }> = {
   'event.active_events':    { RO: 'Evenimente Active',     EN: 'Active Events' },
   'event.no_events':        { RO: 'Niciun eveniment',      EN: 'No events' },
   'event.qr_code':          { RO: 'Cod QR',                EN: 'QR Code' },
+  'event.qr_scan_hint':     { RO: 'Scanează pentru a intra în eveniment', EN: 'Scan to join the event' },
+  'event.hide_qr':          { RO: 'Ascunde QR',            EN: 'Hide QR' },
   'event.go':               { RO: 'START!',                EN: 'GO!' },
   'event.participants':     { RO: 'participanți',          EN: 'participants' },
   'event.minutes':          { RO: 'min',                   EN: 'min' },
@@ -1020,6 +1022,13 @@ const T: Record<string, { RO: string; EN: string }> = {
   'event.place_3':          { RO: 'Locul 3',               EN: '3rd Place' },
   'event.scheduled_for':    { RO: 'Programat pentru',      EN: 'Scheduled for' },
   'event.open_ended':       { RO: 'Fără limită de timp',   EN: 'Open-ended' },
+  'event.record':            { RO: 'Înregistrează',         EN: 'Record' },
+  'event.full_recording':    { RO: 'Înregistrare Completă', EN: 'Full Recording' },
+  'event.spectator_mode':    { RO: 'Mod spectator',         EN: 'Spectator mode' },
+  'event.login_to_join':     { RO: 'Conectează-te pentru a participa', EN: 'Log in to participate' },
+  'event.login_to_create':   { RO: 'Conectează-te pentru a crea evenimente', EN: 'Log in to create events' },
+  'event.public_event':      { RO: 'Eveniment Public',      EN: 'Public Event' },
+  'event.public_event_desc': { RO: 'Oricine poate vedea și intra', EN: 'Anyone can view and join' },
 
   // ── Shared fallbacks ─────────────────────────────────────────────────────────
   'common.user_fallback': { RO: 'Utilizator',       EN: 'User' },

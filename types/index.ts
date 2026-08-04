@@ -32,6 +32,11 @@ export interface UserDoc {
   pushNotifFriends?: boolean
   proTitle?: boolean
   totalTrainings?: number
+  customNickname?: string
+  profileFrame?: string        // 'GOLD' | 'FIRE' | 'GLOW'
+  nameColor?: string           // hex color
+  titleBadge?: string          // 'BEAST_MODE' | 'IRON_WILL' | 'CHAMPION'
+  emojiBadge?: string          // emoji string
 }
 
 export interface CommunityDoc {

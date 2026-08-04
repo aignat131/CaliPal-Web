@@ -116,17 +116,8 @@ export default function SpidermanCameraView({
       }
 
       if (!detectorRef.current) {
-        const vision = await import('@mediapipe/tasks-vision')
-        const { PoseLandmarker, FilesetResolver } = vision
-        const filesetResolver = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
-        )
-        const poseLandmarker = await PoseLandmarker.createFromOptions(filesetResolver, {
-          baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: 'GPU' },
-          runningMode: 'VIDEO',
-          numPoses: 1,
-        })
-        detectorRef.current = poseLandmarker
+        const { createPoseLandmarker } = await import('@/lib/ml/create-pose-landmarker')
+        detectorRef.current = await createPoseLandmarker(POSE_MODEL_URL)
       }
 
       setLoading(false)

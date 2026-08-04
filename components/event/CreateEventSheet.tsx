@@ -20,9 +20,10 @@ interface Props {
   onCreated: (eventId: string) => void
 }
 
+// Only exercises with camera support (pushup/pullup/squat detection)
 const EXERCISE_CATALOG = [
-  'Flotări', 'Tracțiuni', 'Squaturi', 'Dips', 'Burpees',
-  'Genuflexiuni', 'Diamond Push-ups', 'Pike Push-ups', 'Chin-ups', 'Australian Pull-ups',
+  'Flotări', 'Tracțiuni', 'Squaturi',
+  'Diamond Push-ups', 'Pike Push-ups', 'Chin-ups', 'Australian Pull-ups',
 ]
 
 export default function CreateEventSheet({ onClose, onCreated }: Props) {
@@ -36,6 +37,7 @@ export default function CreateEventSheet({ onClose, onCreated }: Props) {
   const [scheduledAt, setScheduledAt] = useState('')
   const [durationMinutes, setDurationMinutes] = useState<number | null>(20)
   const [maxParticipants, setMaxParticipants] = useState(DEFAULT_MAX_PARTICIPANTS)
+  const [isPublic, setIsPublic] = useState(false)
   const [creating, setCreating] = useState(false)
   const [showAddExercise, setShowAddExercise] = useState(false)
 
@@ -79,6 +81,7 @@ export default function CreateEventSheet({ onClose, onCreated }: Props) {
         scheduledAt: scheduledAt ? Timestamp.fromDate(new Date(scheduledAt)) : null,
         durationMinutes,
         maxParticipants,
+        isPublic,
         status: 'LOBBY',
         participantCount: 0,
         startedAt: null,
@@ -132,6 +135,28 @@ export default function CreateEventSheet({ onClose, onCreated }: Props) {
           rows={2}
           className="w-full px-4 py-2.5 mb-4 rounded-xl border border-white/15 bg-white/5 text-sm text-white/90 placeholder:text-white/25 focus:border-amber-400/50 outline-none resize-none"
         />
+
+        {/* Public toggle */}
+        <div
+          className="flex items-center justify-between mb-4 p-3 rounded-xl border border-white/8"
+          style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+        >
+          <div>
+            <p className="text-sm font-medium text-white/80">{t('event.public_event')}</p>
+            <p className="text-xs text-white/40">{t('event.public_event_desc')}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsPublic(p => !p)}
+            className="w-11 h-6 rounded-full transition-colors flex-shrink-0 relative"
+            style={{ backgroundColor: isPublic ? 'var(--accent)' : 'rgba(255,255,255,0.15)' }}
+          >
+            <div
+              className="w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all"
+              style={{ left: isPublic ? '22px' : '2px' }}
+            />
+          </button>
+        </div>
 
         {/* Exercises with point values */}
         <label className="block text-sm font-medium text-white/60 mb-2">{t('event.exercises')}</label>

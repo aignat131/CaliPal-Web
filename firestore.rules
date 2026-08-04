@@ -46,7 +46,10 @@ service cloud.firestore {
         || (isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalTrainings']))
         // Allow owner to increment coins, totalWorkouts, currentStreak, lastWorkoutDate (gamification)
         || (isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['coins', 'totalWorkouts', 'currentStreak', 'lastWorkoutDate']));
+            .hasOnly(['coins', 'totalWorkouts', 'currentStreak', 'lastWorkoutDate']))
+        // Allow owner to update cosmetic fields (shop purchases — coins decrement + cosmetic)
+        || (isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['coins', 'nameColor', 'emojiBadge', 'titleBadge', 'profileFrame', 'proTitle', 'customNickname']));
 
       match /workouts/{workoutId} {
         allow read: if isAuth();
@@ -553,7 +556,7 @@ service cloud.firestore {
 
     // ── Event rooms ──────────────────────────────────────────────────────────
     match /events/{eventId} {
-      allow read: if isAuth();
+      allow read: if isAuth() || resource.data.isPublic == true;
 
       allow create: if isAuth()
         && request.resource.data.hostUid == request.auth.uid
@@ -592,7 +595,7 @@ service cloud.firestore {
       allow delete: if false;
 
       match /participants/{uid} {
-        allow read: if isAuth();
+        allow read: if isAuth() || get(/databases/$(database)/documents/events/$(eventId)).data.isPublic == true;
         allow create: if isOwner(uid)
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.totalPoints == 0

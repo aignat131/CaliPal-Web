@@ -19,7 +19,7 @@ export default function EventRoomPage() {
   const eventId = params.eventId as string
   const router = useRouter()
   const { user } = useAuth()
-  const { displayName, photoUrl, profileLoaded } = useMyProfile()
+  const { displayName, photoUrl, profile, profileLoaded } = useMyProfile()
   const t = useT()
 
   const {
@@ -31,6 +31,8 @@ export default function EventRoomPage() {
   } = useEvent(eventId)
 
   const [screen, setScreen] = useState<Screen>('loading')
+
+  const isSpectator = !user || !myParticipant
 
   // ── Determine screen from event status ───────────────────────────────────
   useEffect(() => {
@@ -53,8 +55,13 @@ export default function EventRoomPage() {
     if (myParticipant) return
     if (participants.length >= event.maxParticipants) return
 
-    joinEvent(displayName, photoUrl)
-  }, [user, event, myParticipant, participants.length, loading, profileLoaded, displayName, photoUrl, joinEvent])
+    joinEvent(displayName, photoUrl, {
+      nameColor: profile?.nameColor,
+      emojiBadge: profile?.emojiBadge,
+      titleBadge: profile?.titleBadge,
+      profileFrame: profile?.profileFrame,
+    })
+  }, [user, event, myParticipant, participants.length, loading, profileLoaded, displayName, photoUrl, profile, joinEvent])
 
   // ── Countdown → Active transition (host only) ────────────────────────────
   useEffect(() => {
@@ -120,17 +127,17 @@ export default function EventRoomPage() {
   }
 
   if (screen === 'lobby') {
-    if (!user) return null
     return (
       <div className="min-h-screen pb-20 md:pb-0 md:ml-16 lg:ml-48">
         <EventLobby
           event={event}
           participants={participants}
           isHost={isHost}
+          isSpectator={isSpectator}
           onStart={startEvent}
           onCancel={handleCancel}
           onLeave={handleLeave}
-          currentUid={user.uid}
+          currentUid={user?.uid ?? ''}
         />
       </div>
     )
@@ -148,6 +155,7 @@ export default function EventRoomPage() {
           sortedParticipants={sortedParticipants}
           myParticipant={myParticipant}
           isHost={isHost}
+          isSpectator={isSpectator}
           currentUid={user?.uid ?? ''}
           onIncrementReps={incrementExerciseReps}
           onFinish={handleFinish}

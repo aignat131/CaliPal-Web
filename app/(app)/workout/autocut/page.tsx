@@ -76,20 +76,8 @@ export default function AutoCutPage() {
       }
 
       // MediaPipe
-      const vision = await import('@mediapipe/tasks-vision')
-      const { PoseLandmarker, FilesetResolver } = vision
-      const filesetResolver = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-      )
-      const poseLandmarker = await PoseLandmarker.createFromOptions(filesetResolver, {
-        baseOptions: {
-          modelAssetPath: '/models/pose_landmarker_lite.task',
-          delegate: 'GPU',
-        },
-        runningMode: 'VIDEO',
-        numPoses: 1,
-      })
-      detectorRef.current = poseLandmarker
+      const { createPoseLandmarker } = await import('@/lib/ml/create-pose-landmarker')
+      detectorRef.current = await createPoseLandmarker('/models/pose_landmarker_lite.task')
 
       // MediaRecorder
       const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' })
@@ -116,7 +104,7 @@ export default function AutoCutPage() {
 
         if (time !== lastTime && video.readyState >= 2) {
           lastTime = time
-          const result = (poseLandmarker as { detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks: Landmark[][] } }).detectForVideo(video, time)
+          const result = (detectorRef.current as { detectForVideo: (v: HTMLVideoElement, t: number) => { landmarks: Landmark[][] } }).detectForVideo(video, time)
 
           if (result.landmarks.length > 0) {
             const lms = result.landmarks[0]

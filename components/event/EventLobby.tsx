@@ -12,6 +12,7 @@ interface Props {
   event: EventDoc
   participants: EventParticipantDoc[]
   isHost: boolean
+  isSpectator?: boolean
   onStart: () => void
   onCancel: () => void
   onLeave: () => void
@@ -19,7 +20,7 @@ interface Props {
 }
 
 export default function EventLobby({
-  event, participants, isHost,
+  event, participants, isHost, isSpectator,
   onStart, onCancel, onLeave, currentUid,
 }: Props) {
   const t = useT()
@@ -69,16 +70,26 @@ export default function EventLobby({
 
       {/* QR Code toggle */}
       <div className="text-center mb-4">
-        <button
-          onClick={() => setShowQR(q => !q)}
-          className="text-xs font-medium text-amber-400/70 hover:text-amber-400 transition-colors"
-        >
-          {showQR ? '▲ ' : '▼ '}{t('event.qr_code')}
-        </button>
-        {showQR && (
-          <div className="mt-3 inline-block p-4 rounded-2xl bg-white">
-            <QRCodeSVG value={`${typeof window !== 'undefined' ? window.location.origin : ''}/event/${event.id}`} size={160} />
-          </div>
+        {showQR ? (
+          <>
+            <div className="inline-block p-4 rounded-2xl bg-white mb-2">
+              <QRCodeSVG value={`${typeof window !== 'undefined' ? window.location.origin : ''}/event/${event.id}`} size={160} />
+            </div>
+            <p className="text-xs text-white/50 mb-1">{t('event.qr_scan_hint')}</p>
+            <button
+              onClick={() => setShowQR(false)}
+              className="text-xs font-medium text-amber-400/70 hover:text-amber-400 transition-colors"
+            >
+              ▲ {t('event.hide_qr')}
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => setShowQR(true)}
+            className="text-xs font-medium text-amber-400/70 hover:text-amber-400 transition-colors"
+          >
+            ▼ {t('event.qr_code')}
+          </button>
         )}
       </div>
 
@@ -158,44 +169,54 @@ export default function EventLobby({
         )}
       </div>
 
-      {/* Invite Friends */}
-      <button
-        onClick={() => setShowInvite(true)}
-        className="w-full mb-3 h-10 rounded-xl border border-white/10 text-sm font-medium text-white/70 hover:bg-white/5 transition-all flex items-center justify-center gap-2"
-      >
-        <UserPlus size={16} />
-        {t('event.invite_friends')}
-      </button>
-
-      {/* Start / Cancel / Leave */}
-      {isHost ? (
-        <div className="flex gap-2">
-          <button
-            onClick={onCancel}
-            className="flex-1 h-9 rounded-xl border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/5 transition-all"
-          >
-            {t('event.cancel')}
-          </button>
-          <button
-            onClick={onStart}
-            disabled={!canStart}
-            className="flex-[2] h-9 rounded-xl font-bold text-sm text-black transition-all active:scale-[0.97] disabled:opacity-30 disabled:pointer-events-none"
-            style={{ backgroundColor: 'var(--accent)' }}
-          >
-            {t('event.start')}
-          </button>
+      {/* Spectator banner */}
+      {isSpectator ? (
+        <div className="text-center py-4 rounded-2xl border border-white/8 mb-3" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+          <p className="text-sm text-white/50">{t('event.spectator_mode')}</p>
+          <p className="text-xs text-white/30 mt-1">{t('event.login_to_join')}</p>
         </div>
       ) : (
-        <button
-          onClick={onLeave}
-          className="w-full h-11 rounded-xl border border-white/10 text-sm font-medium text-white/50 hover:bg-white/5 transition-all"
-        >
-          {t('event.leave')}
-        </button>
-      )}
+        <>
+          {/* Invite Friends */}
+          <button
+            onClick={() => setShowInvite(true)}
+            className="w-full mb-3 h-10 rounded-xl border border-white/10 text-sm font-medium text-white/70 hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+          >
+            <UserPlus size={16} />
+            {t('event.invite_friends')}
+          </button>
 
-      {!canStart && participants.length < 2 && (
-        <p className="text-xs text-white/30 text-center mt-3">{t('event.waiting')}</p>
+          {/* Start / Cancel / Leave */}
+          {isHost ? (
+            <div className="flex gap-2">
+              <button
+                onClick={onCancel}
+                className="flex-1 h-9 rounded-xl border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-500/5 transition-all"
+              >
+                {t('event.cancel')}
+              </button>
+              <button
+                onClick={onStart}
+                disabled={!canStart}
+                className="flex-[2] h-9 rounded-xl font-bold text-sm text-black transition-all active:scale-[0.97] disabled:opacity-30 disabled:pointer-events-none"
+                style={{ backgroundColor: 'var(--accent)' }}
+              >
+                {t('event.start')}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onLeave}
+              className="w-full h-11 rounded-xl border border-white/10 text-sm font-medium text-white/50 hover:bg-white/5 transition-all"
+            >
+              {t('event.leave')}
+            </button>
+          )}
+
+          {!canStart && participants.length < 2 && (
+            <p className="text-xs text-white/30 text-center mt-3">{t('event.waiting')}</p>
+          )}
+        </>
       )}
 
       {showInvite && (

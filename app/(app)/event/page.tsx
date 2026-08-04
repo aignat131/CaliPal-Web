@@ -6,7 +6,7 @@ import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/f
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useT } from '@/lib/context/LanguageContext'
-import { Trophy, Plus, Hash, ChevronLeft, ChevronRight, Clock, Users, History } from 'lucide-react'
+import { Trophy, Plus, Hash, ChevronLeft, ChevronRight, Clock, Users, History, Globe } from 'lucide-react'
 import { getRecoveredEventId } from '@/lib/event/useEvent'
 import type { EventDoc } from '@/lib/event/types'
 import type { UserEventHistory } from '@/lib/event/types'
@@ -32,11 +32,14 @@ export default function EventPage() {
     if (recovered) router.replace(`/event/${recovered}`)
   }, [router])
 
-  // Load upcoming events (LOBBY)
+  // Load upcoming events (LOBBY) — guests see only public events
   useEffect(() => {
+    const constraints = user
+      ? [where('status', '==', 'LOBBY')]
+      : [where('status', '==', 'LOBBY'), where('isPublic', '==', true)]
     const q = query(
       collection(db, 'events'),
-      where('status', '==', 'LOBBY'),
+      ...constraints,
       orderBy('createdAt', 'desc'),
       limit(20),
     )
@@ -45,13 +48,16 @@ export default function EventPage() {
       setEventsLoading(false)
     })
     return unsub
-  }, [])
+  }, [user])
 
-  // Load active events
+  // Load active events — guests see only public events
   useEffect(() => {
+    const constraints = user
+      ? [where('status', '==', 'ACTIVE')]
+      : [where('status', '==', 'ACTIVE'), where('isPublic', '==', true)]
     const q = query(
       collection(db, 'events'),
-      where('status', '==', 'ACTIVE'),
+      ...constraints,
       orderBy('createdAt', 'desc'),
       limit(20),
     )
@@ -59,7 +65,7 @@ export default function EventPage() {
       setActiveEvents(snap.docs.map(d => ({ id: d.id, ...d.data() } as EventDoc & { id: string })))
     })
     return unsub
-  }, [])
+  }, [user])
 
   // Load event history
   useEffect(() => {
@@ -96,40 +102,48 @@ export default function EventPage() {
           </button>
           <Trophy size={24} className="text-amber-400" />
           <h1 className="text-xl font-bold text-white/90 flex-1">{t('event.title')}</h1>
-          <button
-            onClick={() => setShowHistory(h => !h)}
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
-          >
-            <History size={20} className="text-white/50" />
-          </button>
+          {user && (
+            <button
+              onClick={() => setShowHistory(h => !h)}
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+            >
+              <History size={20} className="text-white/50" />
+            </button>
+          )}
         </div>
 
-        {/* Create & Join CTAs */}
-        <div className="grid grid-cols-2 gap-2 mb-6">
-          <button
-            onClick={() => setShowCreate(true)}
-            className="p-3.5 rounded-2xl flex flex-col items-center gap-2 transition-all active:scale-[0.97]"
-            style={{ backgroundColor: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.2)' }}
-          >
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-400">
-              <Plus size={20} className="text-black" />
-            </div>
-            <span className="font-semibold text-white/90 text-sm">{t('event.create')}</span>
-          </button>
-          <button
-            onClick={() => setShowJoin(true)}
-            className="p-3.5 rounded-2xl flex flex-col items-center gap-2 border border-white/10 hover:border-white/20 transition-all active:scale-[0.97]"
-            style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
-          >
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10">
-              <Hash size={20} className="text-white/70" />
-            </div>
-            <span className="font-semibold text-white/90 text-sm">{t('event.join')}</span>
-          </button>
-        </div>
+        {/* Create & Join CTAs — logged in only */}
+        {user ? (
+          <div className="grid grid-cols-2 gap-2 mb-6">
+            <button
+              onClick={() => setShowCreate(true)}
+              className="p-3.5 rounded-2xl flex flex-col items-center gap-2 transition-all active:scale-[0.97]"
+              style={{ backgroundColor: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.2)' }}
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-400">
+                <Plus size={20} className="text-black" />
+              </div>
+              <span className="font-semibold text-white/90 text-sm">{t('event.create')}</span>
+            </button>
+            <button
+              onClick={() => setShowJoin(true)}
+              className="p-3.5 rounded-2xl flex flex-col items-center gap-2 border border-white/10 hover:border-white/20 transition-all active:scale-[0.97]"
+              style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10">
+                <Hash size={20} className="text-white/70" />
+              </div>
+              <span className="font-semibold text-white/90 text-sm">{t('event.join')}</span>
+            </button>
+          </div>
+        ) : (
+          <div className="text-center mb-6 py-4 rounded-2xl border border-white/8" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+            <p className="text-sm text-white/50">{t('event.login_to_create')}</p>
+          </div>
+        )}
 
-        {/* History panel (toggled) */}
-        {showHistory && (
+        {/* History panel (toggled) — logged in only */}
+        {user && showHistory && (
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">{t('event.history')}</h2>
             {historyLoading ? (
@@ -190,7 +204,10 @@ export default function EventPage() {
                     <Trophy size={18} className="text-amber-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white/85 truncate">{e.name}</div>
+                    <div className="text-sm font-semibold text-white/85 truncate flex items-center gap-1.5">
+                      {e.name}
+                      {e.isPublic && <Globe size={12} className="text-white/30 flex-shrink-0" />}
+                    </div>
                     <div className="flex items-center gap-2 text-xs text-white/45">
                       <Users size={11} />
                       <span>{e.participantCount}/{e.maxParticipants}</span>
@@ -238,7 +255,10 @@ export default function EventPage() {
                   <Trophy size={18} className="text-amber-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-white/85 truncate">{e.name}</div>
+                  <div className="text-sm font-semibold text-white/85 truncate flex items-center gap-1.5">
+                    {e.name}
+                    {e.isPublic && <Globe size={12} className="text-white/30 flex-shrink-0" />}
+                  </div>
                   <div className="flex items-center gap-2 text-xs text-white/45">
                     <Users size={11} />
                     <span>{e.participantCount}/{e.maxParticipants}</span>
