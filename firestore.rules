@@ -546,14 +546,28 @@ service cloud.firestore {
 
       match /players/{uid} {
         allow read: if isAuth();
-        allow create: if isOwner(uid)
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.reps == 0
-          && request.resource.data.joinedAt == request.time;
-        allow update: if isOwner(uid)
-          && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['uid', 'joinedAt', 'coinsEarned']);
-        allow delete: if isOwner(uid);
+        allow create: if (isOwner(uid)
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.reps == 0
+            && request.resource.data.joinedAt == request.time)
+          // Host can create bot players
+          || (isAuth()
+            && request.auth.uid == get(/databases/$(database)/documents/battles/$(battleId)).data.hostUid
+            && uid.matches('^bot_.*')
+            && request.resource.data.uid == uid
+            && request.resource.data.reps == 0);
+        allow update: if (isOwner(uid)
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['uid', 'joinedAt', 'coinsEarned']))
+          // Host can update bot players (rep simulation)
+          || (isAuth()
+            && request.auth.uid == get(/databases/$(database)/documents/battles/$(battleId)).data.hostUid
+            && uid.matches('^bot_.*'));
+        allow delete: if isOwner(uid)
+          // Host can delete bot players
+          || (isAuth()
+            && request.auth.uid == get(/databases/$(database)/documents/battles/$(battleId)).data.hostUid
+            && uid.matches('^bot_.*'));
       }
     }
 
@@ -608,14 +622,28 @@ service cloud.firestore {
 
       match /participants/{uid} {
         allow read: if isAuth() || get(/databases/$(database)/documents/events/$(eventId)).data.isPublic == true;
-        allow create: if isOwner(uid)
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.totalPoints == 0
-          && request.resource.data.joinedAt == request.time;
-        allow update: if isOwner(uid)
-          && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['uid', 'joinedAt']);
-        allow delete: if isOwner(uid);
+        allow create: if (isOwner(uid)
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.totalPoints == 0
+            && request.resource.data.joinedAt == request.time)
+          // Host can create bot participants
+          || (isAuth()
+            && request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.hostUid
+            && uid.matches('^bot_.*')
+            && request.resource.data.uid == uid
+            && request.resource.data.totalPoints == 0);
+        allow update: if (isOwner(uid)
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['uid', 'joinedAt']))
+          // Host can update bot participants (rep simulation)
+          || (isAuth()
+            && request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.hostUid
+            && uid.matches('^bot_.*'));
+        allow delete: if isOwner(uid)
+          // Host can delete bot participants
+          || (isAuth()
+            && request.auth.uid == get(/databases/$(database)/documents/events/$(eventId)).data.hostUid
+            && uid.matches('^bot_.*'));
       }
     }
 

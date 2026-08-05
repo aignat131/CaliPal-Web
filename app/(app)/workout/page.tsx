@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   collection, query, orderBy, limit, onSnapshot,
   addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, getDocs, deleteDoc, setDoc, runTransaction,
@@ -13,6 +14,7 @@ import { checkWorkoutMilestones, checkStreakMilestones, awardCoins } from '@/lib
 import { useProgramEnrollment } from '@/lib/hooks/useProgramEnrollment'
 import { updateWeeklyPushupLeaderboard } from '@/lib/gamification/leaderboard'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
+import { useT } from '@/lib/context/LanguageContext'
 import { useWorkout } from '@/lib/context/WorkoutContext'
 import { DEFAULT_EXERCISE_CATALOGUE, getCategory, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 import { localDate, totalRepsInWorkout, formatDuration, getExerciseType, norm } from './_helpers'
@@ -26,7 +28,7 @@ import { PostWorkoutDetails } from './_components/PostWorkoutDetails'
 import { WorkoutSummaryCard } from './_components/WorkoutSummaryCard'
 import { QuickRepCounterView } from './_components/QuickRepCounterView'
 import { SpidermanChallenge } from './_components/SpidermanChallenge'
-import type { SpidermanResult } from './_components/SpidermanChallenge'
+import type { SpidermanResult, SpidermanMode } from './_components/SpidermanChallenge'
 
 const AUTH_REDIRECT_KEY = 'calipal_auth_redirect'
 
@@ -45,6 +47,7 @@ interface PendingWorkoutData {
 export default function WorkoutPage() {
   const { user } = useAuth()
   const { profile } = useMyProfile()
+  const t = useT()
   const [tab, setTab] = useState(0)
 
   const {
@@ -72,6 +75,10 @@ export default function WorkoutPage() {
   const [quickExercise, setQuickExercise] = useState<{ name: string; type: ExerciseType } | null>(null)
   const [quickSets, setQuickSets] = useState<WorkoutExercise[]>([])
   const [showQuickPostSet, setShowQuickPostSet] = useState(false)
+
+  // Spiderman mode selection
+  const [showSpidermanPicker, setShowSpidermanPicker] = useState(false)
+  const [spidermanMode, setSpidermanMode] = useState<SpidermanMode>('amrap')
 
   const [history, setHistory] = useState<WorkoutDoc[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
@@ -714,9 +721,81 @@ export default function WorkoutPage() {
 
       {screen === 'spiderman' && (
         <SpidermanChallenge
+          mode={spidermanMode}
           onComplete={handleSpidermanComplete}
           onCancel={() => setScreen('home')}
         />
+      )}
+
+      {/* Spiderman mode picker */}
+      {showSpidermanPicker && (
+        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-[55]">
+          <div
+            className="w-full max-w-md rounded-t-3xl p-6 pb-10 animate-slide-up"
+            style={{ backgroundColor: 'var(--app-surface)' }}
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <Image src="/icons/marvel.png" alt="Spiderman" width={32} height={32} />
+              <div>
+                <p className="font-black text-white text-base">{t('spiderman.title')}</p>
+                <p className="text-xs text-white/40">{t('spiderman.choose_mode')}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 mb-4">
+              {/* AMRAP mode */}
+              <button
+                onClick={() => {
+                  setSpidermanMode('amrap')
+                  setShowSpidermanPicker(false)
+                  setScreen('spiderman')
+                }}
+                className="w-full rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(239,68,68,0.08))',
+                  border: '1px solid rgba(139,92,246,0.25)',
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">&#x23F1;&#xFE0F;</span>
+                  <div>
+                    <p className="font-black text-white text-sm">{t('spiderman.mode_amrap')}</p>
+                    <p className="text-[11px] text-white/40 mt-0.5">{t('spiderman.mode_amrap_desc')}</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Timer mode */}
+              <button
+                onClick={() => {
+                  setSpidermanMode('timer')
+                  setShowSpidermanPicker(false)
+                  setScreen('spiderman')
+                }}
+                className="w-full rounded-2xl p-4 text-left active:scale-[0.98] transition-transform"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(34,197,94,0.12), rgba(59,130,246,0.08))',
+                  border: '1px solid rgba(34,197,94,0.25)',
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">&#x267E;&#xFE0F;</span>
+                  <div>
+                    <p className="font-black text-white text-sm">{t('spiderman.mode_timer')}</p>
+                    <p className="text-[11px] text-white/40 mt-0.5">{t('spiderman.mode_timer_desc')}</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowSpidermanPicker(false)}
+              className="w-full py-3 text-sm font-semibold text-white/40 active:opacity-70 transition-opacity"
+            >
+              {t('spiderman.quit_no')}
+            </button>
+          </div>
+        </div>
       )}
 
       {screen === 'home' && (
@@ -736,7 +815,7 @@ export default function WorkoutPage() {
           }}
           onQuickExercise={handleQuickExercise}
           onAutoCount={startAutoCount}
-          onSpidermanChallenge={() => setScreen('spiderman')}
+          onSpidermanChallenge={() => setShowSpidermanPicker(true)}
           isActive={isActive}
           lastExerciseName={exercises.length > 0 ? exercises[exercises.length - 1].name : null}
           onQuickRecord={handleQuickRecord}

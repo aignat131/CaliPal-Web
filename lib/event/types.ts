@@ -1,4 +1,5 @@
 import type { Timestamp } from 'firebase/firestore'
+import type { BotDifficulty } from '@/lib/bots/bot-behavior'
 
 // ── Event Room ──────────────────────────────────────────────────────────────
 
@@ -31,6 +32,10 @@ export interface EventDoc {
   participantCount: number
   startedAt: Timestamp | null
   finishedAt: Timestamp | null
+
+  // Bots
+  botCount?: number
+  botDifficulty?: BotDifficulty
 
   createdAt: Timestamp
   expiresAt: Timestamp                  // createdAt + 24h

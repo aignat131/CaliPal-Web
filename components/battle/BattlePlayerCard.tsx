@@ -1,7 +1,8 @@
 'use client'
 
-import { Check, Camera, WifiOff } from 'lucide-react'
+import { Check, Camera, WifiOff, Bot } from 'lucide-react'
 import type { BattlePlayerDoc } from '@/lib/battle/types'
+import { isBotUid } from '@/lib/bots/bot-profiles'
 
 interface Props {
   player: BattlePlayerDoc
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function BattlePlayerCard({ player, isCurrentUser, showReadyState = true, onToggleReady }: Props) {
+  const isBot = isBotUid(player.uid)
 
   return (
     <div
@@ -44,8 +46,14 @@ export default function BattlePlayerCard({ player, isCurrentUser, showReadyState
         <WifiOff size={14} className="text-red-400/60 flex-shrink-0" />
       )}
 
-      {/* Camera badge */}
-      <Camera size={14} className="text-green-400/60 flex-shrink-0" />
+      {/* Camera / Bot badge */}
+      {isBot ? (
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/15 text-[10px] font-bold text-purple-400 flex-shrink-0">
+          <Bot size={12} />BOT
+        </span>
+      ) : (
+        <Camera size={14} className="text-green-400/60 flex-shrink-0" />
+      )}
 
       {/* Ready state */}
       {showReadyState && (

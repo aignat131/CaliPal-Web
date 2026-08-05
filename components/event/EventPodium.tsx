@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Trophy, Home } from 'lucide-react'
+import { Trophy, Home, Bot } from 'lucide-react'
 import { addDoc, collection, serverTimestamp, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
@@ -9,6 +9,7 @@ import { awardCoins, checkEventMilestones } from '@/lib/gamification/coins'
 import { PLAYER_COLORS } from '@/lib/battle/types'
 import { EVENT_PLACEMENT_COINS, EVENT_PARTICIPATION_COINS } from '@/lib/event/types'
 import type { EventDoc, EventParticipantDoc } from '@/lib/event/types'
+import { isBotUid } from '@/lib/bots/bot-profiles'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
@@ -199,6 +200,11 @@ export default function EventPodium({
                     {participant.displayName}
                   </span>
                   {isMe && <span className="text-xs text-white/40">(tu)</span>}
+                  {isBotUid(participant.uid) && (
+                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-purple-500/15 text-[9px] font-bold text-purple-400">
+                      <Bot size={10} />BOT
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                   {event.exercises.map(ex => (

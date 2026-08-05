@@ -11,6 +11,8 @@ import { generateUniqueRoomCode } from '@/lib/battle/room-codes'
 import { getExerciseType } from '@/app/(app)/workout/_helpers'
 import { TIME_LIMIT_OPTIONS, TARGET_REP_OPTIONS, MIN_PLAYERS, MAX_PLAYERS_LIMIT } from '@/lib/battle/types'
 import type { BattleGameMode } from '@/lib/battle/types'
+import type { BotDifficulty } from '@/lib/bots/bot-behavior'
+import { addBotsToBattle } from '@/lib/bots/useBattleBots'
 import { PushUpIcon, PullUpIcon, SquatIcon } from '@/components/icons'
 
 interface Props {
@@ -35,6 +37,9 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
   const [targetReps, setTargetReps] = useState(20)
   const [maxPlayers, setMaxPlayers] = useState(2)
   const [isPublic, setIsPublic] = useState(true)
+  const [addBots, setAddBots] = useState(false)
+  const [botCount, setBotCount] = useState(1)
+  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('MEDIUM')
   const [creating, setCreating] = useState(false)
 
   async function handleCreate() {
@@ -65,7 +70,14 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
         winnerId: null,
         createdAt: serverTimestamp(),
         expiresAt,
+        ...(addBots && { botCount, botDifficulty }),
       })
+
+      // Add bots to lobby after battle is created
+      if (addBots && botCount > 0) {
+        addBotsToBattle(ref.id, botCount, botDifficulty).catch(() => {})
+      }
+
       onCreated(ref.id)
     } catch {
       setCreating(false)
@@ -220,6 +232,68 @@ export default function CreateBattleSheet({ onClose, onCreated }: Props) {
           >
             <Plus size={16} />
           </button>
+        </div>
+
+        {/* Add Bots */}
+        <div className="mb-4">
+          <button
+            onClick={() => setAddBots(v => !v)}
+            className={`w-full p-3 rounded-xl text-sm font-medium flex items-center justify-between transition-all border ${
+              addBots ? 'border-[var(--accent)] text-white/90' : 'border-white/8 text-white/50 hover:border-white/15'
+            }`}
+            style={addBots ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : { backgroundColor: 'rgba(255,255,255,0.03)' }}
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-base">🤖</span>
+              {t('bot.add')}
+            </span>
+            <div className={`w-9 h-5 rounded-full transition-colors flex items-center ${addBots ? 'bg-[var(--accent)] justify-end' : 'bg-white/15 justify-start'}`}>
+              <div className="w-4 h-4 rounded-full bg-white mx-0.5" />
+            </div>
+          </button>
+
+          {addBots && (
+            <div className="mt-3 pl-1">
+              {/* Bot count */}
+              <label className="block text-sm font-medium text-white/60 mb-2">{t('bot.count')}</label>
+              <div className="flex items-center gap-3 mb-3">
+                <button
+                  onClick={() => setBotCount(c => Math.max(1, c - 1))}
+                  className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/5 disabled:opacity-30"
+                  disabled={botCount <= 1}
+                >
+                  <Minus size={16} />
+                </button>
+                <span className="text-lg font-bold text-white/90 w-8 text-center">{botCount}</span>
+                <button
+                  onClick={() => setBotCount(c => Math.min(maxPlayers - 1, c + 1))}
+                  className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/5 disabled:opacity-30"
+                  disabled={botCount >= maxPlayers - 1}
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+
+              {/* Bot difficulty */}
+              <label className="block text-sm font-medium text-white/60 mb-2">{t('bot.difficulty')}</label>
+              <div className="flex gap-1.5">
+                {(['EASY', 'MEDIUM', 'HARD'] as BotDifficulty[]).map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setBotDifficulty(d)}
+                    className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                      botDifficulty === d
+                        ? 'border-[var(--accent)] text-white/90'
+                        : 'border-white/8 text-white/50 hover:border-white/15'
+                    }`}
+                    style={botDifficulty === d ? { backgroundColor: 'rgba(var(--accent-rgb), 0.1)' } : {}}
+                  >
+                    {t(`bot.${d.toLowerCase()}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Create button */}

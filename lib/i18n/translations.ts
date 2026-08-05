@@ -339,6 +339,14 @@ const T: Record<string, { RO: string; EN: string }> = {
   'spiderman.quit_title':    { RO: 'Abandonezi provocarea?', EN: 'Quit challenge?' },
   'spiderman.quit_yes':      { RO: 'Da, renunță',           EN: 'Yes, quit' },
   'spiderman.quit_no':       { RO: 'Continuă',              EN: 'Continue' },
+  'spiderman.mode_amrap':    { RO: 'AMRAP 20 min',          EN: 'AMRAP 20 min' },
+  'spiderman.mode_amrap_desc': { RO: 'Cât mai multe runde în 20 de minute', EN: 'As many rounds as possible in 20 minutes' },
+  'spiderman.mode_timer':    { RO: 'Cronometru',            EN: 'Timer' },
+  'spiderman.mode_timer_desc': { RO: 'Fă runde până obosești, oprește când vrei', EN: 'Do rounds until you\'re tired, stop when you want' },
+  'spiderman.choose_mode':   { RO: 'Alege modul',           EN: 'Choose mode' },
+  'spiderman.finish_btn':    { RO: 'Termină',               EN: 'Finish' },
+  'spiderman.well_done':     { RO: 'Bravo!',                EN: 'Well done!' },
+  'spiderman.elapsed':       { RO: 'Timp',                  EN: 'Time' },
   'workout.last_section':   { RO: 'ULTIMUL ANTRENAMENT', EN: 'LAST WORKOUT' },
   'workout.exercises_count':{ RO: '{n} exerciții',      EN: '{n} exercises' },
   'workout.no_exercises':   { RO: 'Niciun exercițiu adăugat.', EN: 'No exercises added.' },
@@ -962,6 +970,14 @@ const T: Record<string, { RO: string; EN: string }> = {
   'battle.no_live':         { RO: 'Nicio luptă disponibilă', EN: 'No battles available' },
   'battle.draw':            { RO: 'Egalitate!',           EN: 'Draw!' },
   'battle.players':         { RO: 'jucători',             EN: 'players' },
+
+  // ── Bots ──────────────────────────────────────────────────────────────────────
+  'bot.add':               { RO: 'Adaugă Boți',           EN: 'Add Bots' },
+  'bot.count':             { RO: 'Număr boți',            EN: 'Bot Count' },
+  'bot.difficulty':        { RO: 'Dificultate',           EN: 'Difficulty' },
+  'bot.easy':              { RO: 'Ușor',                  EN: 'Easy' },
+  'bot.medium':            { RO: 'Mediu',                 EN: 'Medium' },
+  'bot.hard':              { RO: 'Greu',                  EN: 'Hard' },
 
   // ── Event Mode ───────────────────────────────────────────────────────────────
   'event.title':            { RO: 'Mod Eveniment',         EN: 'Event Mode' },

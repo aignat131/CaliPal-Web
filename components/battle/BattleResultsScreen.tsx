@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Trophy, RotateCcw, Home } from 'lucide-react'
+import { Trophy, RotateCcw, Home, Bot } from 'lucide-react'
 import { addDoc, collection, serverTimestamp, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
@@ -9,6 +9,7 @@ import { useBattleAudio } from '@/lib/battle/useBattleAudio'
 import { awardCoins, checkBattleMilestones } from '@/lib/gamification/coins'
 import { PLAYER_COLORS } from '@/lib/battle/types'
 import type { BattleDoc, BattlePlayerDoc } from '@/lib/battle/types'
+import { isBotUid } from '@/lib/bots/bot-profiles'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
@@ -141,6 +142,11 @@ export default function BattleResultsScreen({
                     {player.displayName}
                   </span>
                   {isMe && <span className="text-xs text-white/40">(tu)</span>}
+                  {isBotUid(player.uid) && (
+                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-purple-500/15 text-[9px] font-bold text-purple-400">
+                      <Bot size={10} />BOT
+                    </span>
+                  )}
                 </div>
                 <span className="text-xs text-white/50 mt-0.5">{player.reps} {t('battle.reps')}</span>
               </div>

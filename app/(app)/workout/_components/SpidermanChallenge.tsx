@@ -19,6 +19,8 @@ const CHALLENGE_DURATION = 20 * 60 // 20 minutes in seconds
 const COUNTDOWN_SECONDS = 3
 const TRANSITION_MS = 1800
 
+export type SpidermanMode = 'amrap' | 'timer'
+
 export interface SpidermanResult {
   completedRounds: number
   partialExerciseIndex: number // how far into the partial round (0-2)
@@ -28,6 +30,7 @@ export interface SpidermanResult {
 }
 
 interface Props {
+  mode: SpidermanMode
   onComplete: (result: SpidermanResult) => void
   onCancel: () => void
 }
@@ -40,7 +43,7 @@ function formatTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-export function SpidermanChallenge({ onComplete, onCancel }: Props) {
+export function SpidermanChallenge({ mode, onComplete, onCancel }: Props) {
   const t = useT()
   const { playTick, playGo, playFinish, vibrate } = useBattleAudio()
 
@@ -55,7 +58,9 @@ export function SpidermanChallenge({ onComplete, onCancel }: Props) {
   const [resetKey, setResetKey] = useState(0)
 
   // Timer
+  const isTimerMode = mode === 'timer'
   const [timeRemaining, setTimeRemaining] = useState(CHALLENGE_DURATION)
+  const [elapsed, setElapsed] = useState(0)
   const startTimeRef = useRef<number | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -104,19 +109,24 @@ export function SpidermanChallenge({ onComplete, onCancel }: Props) {
     }
 
     timerRef.current = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTimeRef.current!) / 1000)
-      const remaining = Math.max(0, CHALLENGE_DURATION - elapsed)
-      setTimeRemaining(remaining)
+      const elapsedSec = Math.floor((Date.now() - startTimeRef.current!) / 1000)
 
-      if (remaining <= 0) {
-        setPhase('finished')
-        playFinish()
-        vibrate([200, 100, 200, 100, 400])
+      if (isTimerMode) {
+        setElapsed(elapsedSec)
+      } else {
+        const remaining = Math.max(0, CHALLENGE_DURATION - elapsedSec)
+        setTimeRemaining(remaining)
+
+        if (remaining <= 0) {
+          setPhase('finished')
+          playFinish()
+          vibrate([200, 100, 200, 100, 400])
+        }
       }
     }, 250) // update frequently for smooth display
 
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [phase, playFinish, vibrate])
+  }, [phase, isTimerMode, playFinish, vibrate])
 
   // ── Exercise transition ────────────────────────────────────────────────────
   const triggerTransition = useCallback(() => {
@@ -184,13 +194,24 @@ export function SpidermanChallenge({ onComplete, onCancel }: Props) {
       })
     }
 
+    const durationSeconds = isTimerMode
+      ? elapsed
+      : CHALLENGE_DURATION - timeRemaining
+
     return {
       completedRounds: completedRoundsRef.current,
       partialExerciseIndex: exerciseIndexRef.current,
       totalReps: { ...totalRepsRef.current },
-      durationSeconds: CHALLENGE_DURATION - timeRemaining,
+      durationSeconds,
       exercises,
     }
+  }
+
+  // ── Manual finish (timer mode) ──────────────────────────────────────────────
+  function handleFinish() {
+    setPhase('finished')
+    playFinish()
+    vibrate([200, 100, 200, 100, 400])
   }
 
   // ── Quit confirmation ──────────────────────────────────────────────────────
@@ -237,10 +258,10 @@ export function SpidermanChallenge({ onComplete, onCancel }: Props) {
           {/* Timer */}
           <div className="flex flex-col items-center">
             <span
-              className={`text-2xl font-black tabular-nums ${timeRemaining <= 60 ? 'text-red-400' : 'text-white'}`}
+              className={`text-2xl font-black tabular-nums ${!isTimerMode && timeRemaining <= 60 ? 'text-red-400' : 'text-white'}`}
               style={{ textShadow: '0 2px 10px rgba(0,0,0,0.8)' }}
             >
-              {formatTime(timeRemaining)}
+              {formatTime(isTimerMode ? elapsed : timeRemaining)}
             </span>
           </div>
 
@@ -299,8 +320,18 @@ export function SpidermanChallenge({ onComplete, onCancel }: Props) {
 
         {/* ── Rep counter (bottom) ── */}
         {phase === 'active' && (
-          <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center z-10 pointer-events-none">
-            <div className="flex items-baseline gap-1">
+          <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center z-10">
+            {/* Finish button — timer mode only */}
+            {isTimerMode && (
+              <button
+                onClick={handleFinish}
+                className="mb-4 px-8 py-3 rounded-2xl font-black text-sm text-white active:scale-95 transition-transform"
+                style={{ backgroundColor: 'rgba(239,68,68,0.7)', border: '1px solid rgba(239,68,68,0.5)' }}
+              >
+                {t('spiderman.finish_btn')}
+              </button>
+            )}
+            <div className="flex items-baseline gap-1 pointer-events-none">
               <span
                 className="text-7xl font-black text-white tabular-nums"
                 style={{ textShadow: '0 2px 20px rgba(0,0,0,0.9)' }}
@@ -398,8 +429,18 @@ export function SpidermanChallenge({ onComplete, onCancel }: Props) {
               {/* Header */}
               <div className="text-center mb-5">
                 <Image src="/icons/marvel.png" alt="Spiderman" width={48} height={48} />
-                <h2 className="text-xl font-black text-white mt-2">{t('spiderman.time_up')}</h2>
+                <h2 className="text-xl font-black text-white mt-2">
+                  {isTimerMode ? t('spiderman.well_done') : t('spiderman.time_up')}
+                </h2>
               </div>
+
+              {/* Elapsed time (timer mode) */}
+              {isTimerMode && (
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl mb-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                  <span className="text-sm font-semibold text-white/50">{t('spiderman.elapsed')}</span>
+                  <span className="text-lg font-black text-white tabular-nums">{formatTime(elapsed)}</span>
+                </div>
+              )}
 
               {/* Rounds */}
               <div className="text-center mb-5">

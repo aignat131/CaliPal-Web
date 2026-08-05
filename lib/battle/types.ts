@@ -2,6 +2,8 @@ import type { Timestamp } from 'firebase/firestore'
 
 // ── Battle Room ──────────────────────────────────────────────────────────────
 
+import type { BotDifficulty } from '@/lib/bots/bot-behavior'
+
 export type BattleGameMode = 'TIME_ATTACK' | 'RACE_TO_TARGET'
 export type BattleStatus = 'LOBBY' | 'COUNTDOWN' | 'ACTIVE' | 'FINISHED' | 'CANCELLED'
 export type BattleRepMethod = 'CAMERA'
@@ -30,6 +32,10 @@ export interface BattleDoc {
   startAt: Timestamp | null           // set when host starts countdown
   finishedAt: Timestamp | null
   winnerId: string | null             // uid of winner (RACE_TO_TARGET early finish)
+
+  // Bots
+  botCount?: number
+  botDifficulty?: BotDifficulty
 
   createdAt: Timestamp
   expiresAt: Timestamp                // createdAt + 30 min

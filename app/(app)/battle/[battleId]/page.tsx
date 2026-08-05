@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useT } from '@/lib/context/LanguageContext'
 import { useBattle } from '@/lib/battle/useBattle'
+import { useBattleBots } from '@/lib/bots/useBattleBots'
 import { COUNTDOWN_DURATION_MS } from '@/lib/battle/types'
 import BattleLobby from '@/components/battle/BattleLobby'
 import BattleCountdown from '@/components/battle/BattleCountdown'
@@ -29,6 +30,9 @@ export default function BattleRoomPage() {
     startBattle, activateBattle, finishBattle, cancelBattle, leaveBattle,
     incrementReps, markFinished,
   } = useBattle(battleId)
+
+  // Bot simulation (only active on host's browser when battle is ACTIVE)
+  useBattleBots(battleId, battle, isHost, players)
 
   const [screen, setScreen] = useState<Screen>('loading')
   const [localReps, setLocalReps] = useState(0)

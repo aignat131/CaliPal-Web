@@ -1,8 +1,9 @@
 'use client'
 
 import { PLAYER_COLORS } from '@/lib/battle/types'
-import { WifiOff } from 'lucide-react'
+import { WifiOff, Bot } from 'lucide-react'
 import type { EventParticipantDoc } from '@/lib/event/types'
+import { isBotUid } from '@/lib/bots/bot-profiles'
 import { useT } from '@/lib/context/LanguageContext'
 
 interface Props {
@@ -54,6 +55,11 @@ export default function EventLeaderboard({ sortedParticipants, currentUid }: Pro
                   {participant.emojiBadge && <span className="mr-0.5">{participant.emojiBadge}</span>}
                   {participant.displayName}
                 </span>
+                {isBotUid(participant.uid) && (
+                  <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-purple-500/15 text-[8px] font-bold text-purple-400 flex-shrink-0">
+                    <Bot size={8} />BOT
+                  </span>
+                )}
                 {!participant.isConnected && <WifiOff size={10} className="text-red-400/60 flex-shrink-0" />}
               </div>
               <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: `${color}15` }}>

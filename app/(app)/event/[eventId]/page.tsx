@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useT } from '@/lib/context/LanguageContext'
 import { useEvent } from '@/lib/event/useEvent'
+import { useEventBots } from '@/lib/bots/useEventBots'
 import { COUNTDOWN_DURATION_MS } from '@/lib/event/types'
 import EventLobby from '@/components/event/EventLobby'
 import EventCountdown from '@/components/event/EventCountdown'
@@ -29,6 +30,9 @@ export default function EventRoomPage() {
     startEvent, activateEvent, finishEvent, cancelEvent, leaveEvent,
     incrementExerciseReps, markFinished,
   } = useEvent(eventId)
+
+  // Bot simulation (only active on host's browser when event is ACTIVE)
+  useEventBots(eventId, event, isHost, participants)
 
   const [screen, setScreen] = useState<Screen>('loading')
 
