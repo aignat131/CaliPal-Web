@@ -79,7 +79,9 @@
       "Bash(mv \"pushup_position_model \\(3\\).h5\" \"training/models/pushup_position_v3.h5\")",
       "Bash(mv PushUpNN.ipynb training/pushup_position_training.ipynb)",
       "Bash(mv convert_models.py training/scripts/convert_tflite_to_tfjs.py)",
-      "Bash(mv inspect_model.py training/scripts/inspect_model.py)"
+      "Bash(mv inspect_model.py training/scripts/inspect_model.py)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)"
     ]
   }
 }
