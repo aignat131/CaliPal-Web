@@ -9,17 +9,18 @@ import { auth } from '@/lib/firebase/auth'
 import { db } from '@/lib/firebase/firestore'
 import {
   collection, query, orderBy, limit, where, onSnapshot, doc,
-  runTransaction, increment, serverTimestamp, getDocs, getDoc,
+  runTransaction, increment, serverTimestamp, getDocs, getDoc, updateDoc,
 } from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { SkeletonProfile } from '@/components/ui/SkeletonLoaders'
-import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
+
 import type { UserDoc, WorkoutDoc, PlannedTraining } from '@/types'
 import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag, Calendar, MapPin } from 'lucide-react'
 import { useToast } from '@/lib/context/ToastContext'
 import { useT } from '@/lib/context/LanguageContext'
 import { ExerciseStatsTab } from './_components/ExerciseStatsTab'
+import ShopModal, { FRAME_STYLES, TITLE_LABELS, SHOP_ITEMS } from './_components/ShopModal'
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -124,62 +125,6 @@ const COIN_TASKS = [
   { id: 'SKILLS_10',            coins: 75,  icon: '🌟' },
 ]
 
-type ShopCategory = 'badges' | 'titles' | 'customization'
-
-interface ShopItem {
-  id: string
-  category: ShopCategory
-  price: number
-  icon: string
-  name: string
-  desc: string
-  userDocField?: string
-  userDocValue?: string
-}
-
-const SHOP_ITEMS: ShopItem[] = [
-  // Badges
-  { id: 'EARLY_BADGE',      category: 'badges', price: 100, icon: '⭐', name: 'Early Supporter', desc: 'Badge exclusiv pe profil pentru suporterii timpurii.' },
-  { id: 'FIRE_BADGE',       category: 'badges', price: 120, icon: '🔥', name: 'Fire Badge',      desc: 'Badge de foc pe profil.' },
-  { id: 'DIAMOND_BADGE',    category: 'badges', price: 200, icon: '💎', name: 'Diamond Badge',   desc: 'Badge de diamant premium pe profil.' },
-  // Titles
-  { id: 'PRO_TITLE',        category: 'titles', price: 150, icon: '🎯', name: 'Titlu Pro',       desc: 'Schimbă eticheta "Membru" cu "🎯 Pro" în comunitățile tale.', userDocField: 'titleBadge', userDocValue: 'PRO' },
-  { id: 'BEAST_MODE_TITLE', category: 'titles', price: 200, icon: '💪', name: 'Beast Mode',      desc: 'Titlul "💪 Beast Mode" pe profil și în clasament.', userDocField: 'titleBadge', userDocValue: 'BEAST_MODE' },
-  { id: 'IRON_WILL_TITLE',  category: 'titles', price: 250, icon: '🛡️', name: 'Iron Will',       desc: 'Titlul "🛡️ Iron Will" pe profil și în clasament.', userDocField: 'titleBadge', userDocValue: 'IRON_WILL' },
-  { id: 'CHAMPION_TITLE',   category: 'titles', price: 300, icon: '🏆', name: 'Champion',        desc: 'Titlul "🏆 Champion" pe profil și în clasament.', userDocField: 'titleBadge', userDocValue: 'CHAMPION' },
-  // Customization
-  { id: 'GOLD_FRAME',       category: 'customization', price: 150, icon: '🟡', name: 'Gold Frame',    desc: 'Cadru auriu pe avatarul tău.', userDocField: 'profileFrame', userDocValue: 'GOLD' },
-  { id: 'FIRE_FRAME',       category: 'customization', price: 250, icon: '🔥', name: 'Fire Frame',    desc: 'Cadru cu efect de foc pe avatar.', userDocField: 'profileFrame', userDocValue: 'FIRE' },
-  { id: 'GLOW_FRAME',       category: 'customization', price: 300, icon: '✨', name: 'Glow Frame',    desc: 'Cadru strălucitor animat pe avatar.', userDocField: 'profileFrame', userDocValue: 'GLOW' },
-  { id: 'COLOR_GREEN',      category: 'customization', price: 100, icon: '🟢', name: 'Nume Verde',    desc: 'Numele tău în verde în clasament.', userDocField: 'nameColor', userDocValue: '#1ED75F' },
-  { id: 'COLOR_GOLD',       category: 'customization', price: 120, icon: '🟡', name: 'Nume Auriu',    desc: 'Numele tău în auriu în clasament.', userDocField: 'nameColor', userDocValue: '#FFB800' },
-  { id: 'COLOR_PURPLE',     category: 'customization', price: 120, icon: '🟣', name: 'Nume Violet',   desc: 'Numele tău în violet în clasament.', userDocField: 'nameColor', userDocValue: '#A855F7' },
-  { id: 'EMOJI_CROWN',      category: 'customization', price: 80,  icon: '👑', name: 'Emoji Coroană', desc: 'Emoji 👑 lângă numele tău.', userDocField: 'emojiBadge', userDocValue: '👑' },
-  { id: 'EMOJI_FIRE',       category: 'customization', price: 80,  icon: '🔥', name: 'Emoji Foc',     desc: 'Emoji 🔥 lângă numele tău.', userDocField: 'emojiBadge', userDocValue: '🔥' },
-  { id: 'EMOJI_STAR',       category: 'customization', price: 80,  icon: '⭐', name: 'Emoji Stea',    desc: 'Emoji ⭐ lângă numele tău.', userDocField: 'emojiBadge', userDocValue: '⭐' },
-  { id: 'POWER_PACK',       category: 'customization', price: 200, icon: '⚡', name: 'Power Pack',    desc: 'Deblochează o provocare bonus zilnică exclusivă.' },
-  { id: 'CUSTOM_NICKNAME',  category: 'customization', price: 100, icon: '✏️', name: 'Nickname',      desc: 'Alege un nickname personalizat pentru evenimente.' },
-]
-
-const SHOP_CATEGORY_LABELS: Record<ShopCategory, string> = {
-  badges: 'Badge-uri',
-  titles: 'Titluri',
-  customization: 'Personalizare',
-}
-
-const FRAME_STYLES: Record<string, { border: string; shadow?: string; animate?: boolean }> = {
-  GOLD: { border: '3px solid #FFB800' },
-  FIRE: { border: '3px solid #F97316', shadow: '0 0 12px rgba(249,115,22,0.4)' },
-  GLOW: { border: '3px solid #A855F7', shadow: '0 0 16px rgba(168,85,247,0.5)', animate: true },
-}
-
-const TITLE_LABELS: Record<string, string> = {
-  PRO: '🎯 Pro',
-  BEAST_MODE: '💪 Beast Mode',
-  IRON_WILL: '🛡️ Iron Will',
-  CHAMPION: '🏆 Champion',
-}
-
 export default function ProfilePage() {
   const { user, isSuperAdmin } = useAuth()
   const { theme } = useTheme()
@@ -197,8 +142,6 @@ export default function ProfilePage() {
   const [taskDoneToast, setTaskDoneToast] = useState<{ id: string; icon: string } | null>(null)
   const prevCompletedRef = useRef<Set<string>>(new Set())
   const prevDerivedRef = useRef<Set<string>>(new Set())
-  const shopPanelRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(shopPanelRef, showShop)
   const initializedRef = useRef(false)
   const coinTasksReadyRef = useRef(false)
 
@@ -454,62 +397,13 @@ export default function ProfilePage() {
       )}
       {/* Shop modal */}
       {showShop && (
-        <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/70" onClick={() => setShowShop(false)}>
-          <div ref={shopPanelRef} className="w-full max-w-sm rounded-t-3xl p-5 pb-8"
-            style={{ backgroundColor: 'var(--app-surface)' }}
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <ShoppingBag size={17} className="text-brand-green" />
-                <p className="font-black text-white text-sm">Magazin · {profile?.coins ?? 0} 🪙</p>
-              </div>
-              <button onClick={() => setShowShop(false)} className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center">
-                <ChevronRight size={14} className="text-white/50 rotate-90" />
-              </button>
-            </div>
-            <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
-              {(['badges', 'titles', 'customization'] as ShopCategory[]).map(cat => {
-                const items = SHOP_ITEMS.filter(i => i.category === cat)
-                if (items.length === 0) return null
-                return (
-                  <div key={cat}>
-                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">{SHOP_CATEGORY_LABELS[cat]}</p>
-                    <div className="flex flex-col gap-2">
-                      {items.map(item => {
-                        const owned = purchases.has(item.id)
-                        const canAfford = (profile?.coins ?? 0) >= item.price
-                        return (
-                          <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl border"
-                            style={{ backgroundColor: owned ? 'rgba(var(--accent-rgb), 0.03)' : 'var(--app-bg)', borderColor: owned ? 'rgba(var(--accent-rgb), 0.19)' : 'rgba(255,255,255,0.08)' }}>
-                            <span className="text-2xl flex-shrink-0">{item.icon}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-white">{item.name}</p>
-                              <p className="text-xs text-white/40 leading-snug mt-0.5">{item.desc}</p>
-                            </div>
-                            {owned
-                              ? <span className="text-xs font-bold text-brand-green flex-shrink-0">✓ Activ</span>
-                              : (
-                                <button
-                                  onClick={() => handlePurchase(item.id, item.price)}
-                                  disabled={!canAfford}
-                                  className="h-8 px-3 rounded-xl text-xs font-bold flex-shrink-0 transition-colors disabled:opacity-40"
-                                  style={{ backgroundColor: canAfford ? 'var(--accent)' : 'rgba(255,255,255,0.08)', color: canAfford ? '#000' : 'rgba(255,255,255,0.4)' }}
-                                >
-                                  🪙 {item.price}
-                                </button>
-                              )
-                            }
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <p className="text-xs text-white/25 text-center mt-4">Atinge 🪙 de pe profil pentru a deschide magazinul oricând.</p>
-          </div>
-        </div>
+        <ShopModal
+          onClose={() => setShowShop(false)}
+          profile={profile}
+          purchases={purchases}
+          uid={user!.uid}
+          onPurchase={handlePurchase}
+        />
       )}
 
       {/* Logout dialog */}
@@ -664,6 +558,20 @@ export default function ProfilePage() {
           <p className="text-sm text-white/50">{email}</p>
           {profile?.bio && <p className="text-sm text-white/80 mt-1 leading-relaxed">{profile.bio}</p>}
         </div>
+
+        {/* Shop button */}
+        <button
+          onClick={() => setShowShop(true)}
+          className="w-full h-10 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm mb-4"
+          style={{
+            backgroundColor: 'rgba(var(--accent-rgb), 0.10)',
+            color: 'var(--accent)',
+            border: '1px solid rgba(var(--accent-rgb), 0.22)',
+          }}
+        >
+          <ShoppingBag size={15} />
+          {t('shop.title')} · {profile?.coins ?? 0} {'\u{1FA99}'}
+        </button>
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 mb-4 tab-bar">
@@ -842,7 +750,20 @@ export default function ProfilePage() {
         )}
 
         {/* ── Stats tab ── */}
-        {tab === 1 && user && <ExerciseStatsTab uid={user.uid} />}
+        {tab === 1 && user && (
+          <ExerciseStatsTab
+            uid={user.uid}
+            pinnedExercises={profile?.pinnedExercises ?? []}
+            onTogglePin={async (name: string) => {
+              if (!user || !profile) return
+              const current = profile.pinnedExercises ?? []
+              const updated = current.includes(name)
+                ? current.filter(n => n !== name)
+                : [...current, name]
+              await updateDoc(doc(db, 'users', user.uid), { pinnedExercises: updated })
+            }}
+          />
+        )}
 
         {/* ── Tasks tab ── */}
         {tab === 2 && (

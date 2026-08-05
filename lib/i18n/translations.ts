@@ -105,6 +105,8 @@ const T: Record<string, { RO: string; EN: string }> = {
   'profile.stats_pr':           { RO: 'Record personal', EN: 'Personal record' },
   'profile.stats_trend':        { RO: 'Ultimele 8 săptămâni', EN: 'Last 8 weeks' },
   'profile.stats_empty':        { RO: 'Nicio statistică disponibilă. Începe un antrenament!', EN: 'No stats available yet. Start a workout!' },
+  'profile.stats_show_all':     { RO: 'Arată toate',       EN: 'Show all' },
+  'profile.stats_show_less':    { RO: 'Arată mai puțin',   EN: 'Show less' },
   'profile.recent_workouts':    { RO: 'Antrenamente recente', EN: 'Recent workouts' },
   'profile.no_workouts':        { RO: 'Niciun antrenament încă. Hai la muncă! 💪', EN: 'No workouts yet. Let\'s get to work! 💪' },
   'profile.start_first':        { RO: 'Începe primul antrenament', EN: 'Start first workout' },
@@ -1084,6 +1086,18 @@ const T: Record<string, { RO: string; EN: string }> = {
   'program.myPrograms':      { RO: 'PROGRAMELE MELE',       EN: 'MY PROGRAMS' },
   'program.createNew':       { RO: 'Creează program',       EN: 'Create program' },
   'program.noPrograms':      { RO: 'Niciun program creat.', EN: 'No programs created.' },
+
+  // ── Shop ───────────────────────────────────────────────────────────────────
+  'shop.title':          { RO: 'Magazin',           EN: 'Shop' },
+  'shop.preview':        { RO: 'Previzualizare',    EN: 'Preview' },
+  'shop.yourProfile':    { RO: 'Profilul tău',      EN: 'Your profile' },
+  'shop.equip':          { RO: 'Echipează',         EN: 'Equip' },
+  'shop.active':         { RO: '✓ Activ',           EN: '✓ Active' },
+  'shop.unequip':        { RO: 'Dezechipează',      EN: 'Unequip' },
+  'shop.owned':          { RO: '✓ Deținut',         EN: '✓ Owned' },
+  'shop.badges':         { RO: 'Badge-uri',         EN: 'Badges' },
+  'shop.titles':         { RO: 'Titluri',           EN: 'Titles' },
+  'shop.customization':  { RO: 'Personalizare',     EN: 'Customization' },
 
   // ── Shared fallbacks ─────────────────────────────────────────────────────────
   'common.user_fallback': { RO: 'Utilizator',       EN: 'User' },
