@@ -6,10 +6,11 @@ import {
   RepCounter, STATE_LABELS, STATE_COLORS,
   PushupCounter, PUSHUP_STATE_LABELS,
   SquatCounter, SQUAT_STATE_LABELS,
+  PistolSquatCounter,
   BALANCED_PULLUP, BALANCED_PUSHUP, BALANCED_SQUAT, EASY_PUSHUP,
 } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
-import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
+import { bestElbowAngle, squatDepthAngle, perLegSquatData, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
@@ -35,6 +36,8 @@ interface Props {
 }
 
 export default function RepCounterModal({ exerciseType, exerciseName, onConfirm, onCancel }: Props) {
+  const isPistol = exerciseName.toLowerCase().includes('pistol')
+
   const videoRef   = useRef<HTMLVideoElement>(null)
   const canvasRef  = useRef<HTMLCanvasElement>(null)
   const streamRef  = useRef<MediaStream | null>(null)
@@ -45,13 +48,17 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const repCounterRef    = useRef(new RepCounter(BALANCED_PULLUP))
   const pushupCounterRef = useRef(new PushupCounter(EASY_PUSHUP))
   const squatCounterRef  = useRef(new SquatCounter(BALANCED_SQUAT))
+  const pistolCounterRef = useRef(new PistolSquatCounter(BALANCED_SQUAT))
   const formCoachRef     = useRef(new FormCoach())
   const poseValidatorRef = useRef(new PoseValidator())
   const positionGateRef  = useRef(new PositionGate(exerciseType))
 
   // Angle smoothers — one per joint type
-  const elbowSmootherRef = useRef(new AngleSmoother(0.3))
-  const kneeSmootherRef  = useRef(new AngleSmoother(0.3))
+  const elbowSmootherRef    = useRef(new AngleSmoother(0.3))
+  const kneeSmootherRef     = useRef(new AngleSmoother(0.3))
+  // Pistol mode: separate smoothers per leg (independent signals)
+  const leftKneeSmootherRef  = useRef(new AngleSmoother(0.3))
+  const rightKneeSmootherRef = useRef(new AngleSmoother(0.3))
 
   // Rep timing — track first and last rep timestamps
   const firstRepTimestampRef = useRef<number | null>(null)
@@ -72,6 +79,11 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const [strictMode, setStrictMode]     = useState(false)
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState('')
+
+  // Pistol squat per-leg state
+  const [pistolLeg, setPistolLeg] = useState<'left' | 'right' | null>(null)
+  const [pistolLeft, setPistolLeft] = useState(0)
+  const [pistolRight, setPistolRight] = useState(0)
 
   // Use refs so the rAF loop always reads latest values without closure staleness
   const repCountRef = useRef(0)
@@ -275,18 +287,35 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       }
 
     } else {
+      // Position gate still uses the blended squat angle
       const rawKnee = squatDepthAngle(lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE], lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE], lms[MP.LEFT_SHOULDER], lms[MP.RIGHT_SHOULDER])
       const knee = kneeSmootherRef.current.smooth(rawKnee)
       gate.update(lms, knee)
       setGateStatus(gate.gateState)
 
       if (poseCheck.valid && gate.isOpen) {
-        const cs = squatCounterRef.current.update(knee)
-        newRepCount = cs.repCount
-        drawSkeleton(ctx, lms, w, h, '#3B82F6')
-        setStateLabel(SQUAT_STATE_LABELS[cs.state])
-        setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
-        setFormCues(formCoachRef.current.getFormCues(lms, 'squat', cs.state))
+        if (isPistol) {
+          // Pistol squat: per-leg angles + ankle Y for leg detection
+          const leg = perLegSquatData(lms)
+          const lk = leftKneeSmootherRef.current.smooth(leg.leftKneeAngle)
+          const rk = rightKneeSmootherRef.current.smooth(leg.rightKneeAngle)
+          const cs = pistolCounterRef.current.update(lk, rk, leg.leftAnkleY, leg.rightAnkleY)
+          newRepCount = cs.repCount
+          setPistolLeg(cs.activeLeg)
+          setPistolLeft(cs.leftReps)
+          setPistolRight(cs.rightReps)
+          drawSkeleton(ctx, lms, w, h, '#3B82F6')
+          setStateLabel(SQUAT_STATE_LABELS[cs.state])
+          setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
+          setFormCues(formCoachRef.current.getFormCues(lms, 'squat', cs.state))
+        } else {
+          const cs = squatCounterRef.current.update(knee)
+          newRepCount = cs.repCount
+          drawSkeleton(ctx, lms, w, h, '#3B82F6')
+          setStateLabel(SQUAT_STATE_LABELS[cs.state])
+          setStateColor(cs.state === 'UP' ? '#1ED75F' : cs.state === 'DOWN' ? '#F59E0B' : '#6B7280')
+          setFormCues(formCoachRef.current.getFormCues(lms, 'squat', cs.state))
+        }
       } else if (!poseCheck.valid) {
         drawSkeleton(ctx, lms, w, h, '#6B7280')
       } else {
@@ -408,6 +437,20 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
             {repCount}
           </span>
           <span className="text-xs font-bold text-white/60 tracking-widest mt-0.5">REPETĂRI</span>
+          {/* Pistol squat per-leg breakdown */}
+          {isPistol && (
+            <div className="flex items-center gap-3 mt-1.5">
+              <span className={`text-sm font-bold tabular-nums ${pistolLeg === 'left' ? 'text-blue-400' : 'text-white/50'}`}
+                style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}>
+                S: {pistolLeft}
+              </span>
+              <span className="text-white/30 text-xs">|</span>
+              <span className={`text-sm font-bold tabular-nums ${pistolLeg === 'right' ? 'text-blue-400' : 'text-white/50'}`}
+                style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8)' }}>
+                D: {pistolRight}
+              </span>
+            </div>
+          )}
           <div className="mt-2 px-3 py-1 rounded-full"
             style={{ backgroundColor: `${stateColor}33`, border: `1px solid ${stateColor}66` }}>
             <span className="text-xs font-bold" style={{ color: stateColor }}>{stateLabel}</span>

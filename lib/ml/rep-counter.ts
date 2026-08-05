@@ -533,3 +533,69 @@ export class SquatCounter {
 export const SQUAT_STATE_LABELS: Record<SquatState, string> = {
   IDLE: 'Pregătire...', UP: 'Sus ↑', DOWN: 'Jos ✓',
 }
+
+// ── Pistol Squat Counter ─────────────────────────────────────────────────────
+
+export interface PistolSquatState {
+  repCount: number
+  leftReps: number
+  rightReps: number
+  activeLeg: 'left' | 'right' | null
+  state: SquatState
+}
+
+export class PistolSquatCounter {
+  private inner: SquatCounter
+  private leftReps = 0
+  private rightReps = 0
+  private activeLeg: 'left' | 'right' | null = null
+  private lastInnerCount = 0
+
+  /** Minimum ankle Y difference (normalized coords) to detect a raised leg */
+  private static readonly ANKLE_ASYMMETRY = 0.08
+
+  constructor(thresholds: SquatThresholds = BALANCED_SQUAT, enforceTiming = true) {
+    this.inner = new SquatCounter(thresholds, enforceTiming)
+  }
+
+  reset() {
+    this.inner.reset()
+    this.leftReps = 0
+    this.rightReps = 0
+    this.activeLeg = null
+    this.lastInnerCount = 0
+  }
+
+  update(
+    leftKneeAngle: number, rightKneeAngle: number,
+    leftAnkleY: number, rightAnkleY: number,
+  ): PistolSquatState {
+    // Determine which leg is on the ground (higher Y = lower in frame = on the floor)
+    const asymmetry = Math.abs(leftAnkleY - rightAnkleY)
+    if (asymmetry >= PistolSquatCounter.ANKLE_ASYMMETRY) {
+      this.activeLeg = leftAnkleY > rightAnkleY ? 'left' : 'right'
+    }
+
+    // Feed the grounded leg's knee angle to the squat state machine
+    const angle = this.activeLeg === 'left' ? leftKneeAngle
+      : this.activeLeg === 'right' ? rightKneeAngle
+      : Math.min(leftKneeAngle, rightKneeAngle)
+
+    const result = this.inner.update(angle)
+
+    // Attribute new reps to the active leg
+    if (result.repCount > this.lastInnerCount && this.activeLeg) {
+      if (this.activeLeg === 'left') this.leftReps++
+      else this.rightReps++
+    }
+    this.lastInnerCount = result.repCount
+
+    return {
+      repCount: result.repCount,
+      leftReps: this.leftReps,
+      rightReps: this.rightReps,
+      activeLeg: this.activeLeg,
+      state: result.state,
+    }
+  }
+}

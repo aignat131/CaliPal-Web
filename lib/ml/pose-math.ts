@@ -146,6 +146,26 @@ export function squatDepthAngle(
   return Math.min(knee2D, yAngle)
 }
 
+// ── Per-leg data (pistol squat support) ──────────────────────────────────────
+
+/** Per-leg knee angles and ankle positions for pistol squat detection */
+export interface PerLegData {
+  leftKneeAngle: number
+  rightKneeAngle: number
+  leftAnkleY: number
+  rightAnkleY: number
+}
+
+/** Returns individual knee angles (2D) and ankle Y positions for each leg. */
+export function perLegSquatData(landmarks: Landmark[]): PerLegData {
+  return {
+    leftKneeAngle: angleBetween2D(landmarks[MP.LEFT_HIP], landmarks[MP.LEFT_KNEE], landmarks[MP.LEFT_ANKLE]),
+    rightKneeAngle: angleBetween2D(landmarks[MP.RIGHT_HIP], landmarks[MP.RIGHT_KNEE], landmarks[MP.RIGHT_ANKLE]),
+    leftAnkleY: landmarks[MP.LEFT_ANKLE].y,
+    rightAnkleY: landmarks[MP.RIGHT_ANKLE].y,
+  }
+}
+
 // ── Body rise metrics (pull-up body-movement verification) ──────────────────
 
 /** Vertical body-position snapshot for pull-up body-rise verification */
