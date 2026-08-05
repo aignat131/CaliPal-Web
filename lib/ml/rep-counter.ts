@@ -58,9 +58,9 @@ export interface SquatThresholds {
   subsequentRepMinMs?: number
 }
 
-export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 155, hangExit: 130, peak: 75, minRangeRequired: 50, firstRepMinMs: 1500, subsequentRepMinMs: 700, minBodyRise: 0.35, minHipRise: 0.25 }
-export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 145, hangExit: 125, peak: 85, minRangeRequired: 40, firstRepMinMs: 1200, subsequentRepMinMs: 600, minBodyRise: 0.25, minHipRise: 0.15 }
-export const EASY_PULLUP:     PullupThresholds = { hangEnter: 140, hangExit: 120, peak: 100, minRangeRequired: 30, firstRepMinMs: 1000, subsequentRepMinMs: 500, minBodyRise: 0.15, minHipRise: 0.08 }
+export const STRICT_PULLUP:   PullupThresholds = { hangEnter: 150, hangExit: 142, peak: 80, minRangeRequired: 40, firstRepMinMs: 1500, subsequentRepMinMs: 700, minBodyRise: 0.28, minHipRise: 0.18 }
+export const BALANCED_PULLUP: PullupThresholds = { hangEnter: 140, hangExit: 135, peak: 95, minRangeRequired: 30, firstRepMinMs: 1000, subsequentRepMinMs: 600, minBodyRise: 0.18, minHipRise: 0.10 }
+export const EASY_PULLUP:     PullupThresholds = { hangEnter: 135, hangExit: 128, peak: 105, minRangeRequired: 22, firstRepMinMs: 800, subsequentRepMinMs: 500, minBodyRise: 0.10, minHipRise: 0.05 }
 
 export const STRICT_PUSHUP:   PushupThresholds = { downAngle: 95,  upAngle: 155 }
 export const BALANCED_PUSHUP: PushupThresholds = { downAngle: 105, upAngle: 130 }
@@ -117,6 +117,9 @@ export class RepCounter {
   private barYSamples: number[] = []
   private barY: number | null = null
 
+  // Abort buffer — separate from confirmBuffer to guard PULLING→HANGING fallback
+  private abortBuffer = 0
+
   constructor(thresholds: PullupThresholds = STRICT_PULLUP, enforceTiming = true) {
     this.t = thresholds
     this.minRangeRequired = thresholds.minRangeRequired ?? 25
@@ -144,6 +147,7 @@ export class RepCounter {
     this.bodyRiseRejected = false
     this.barYSamples = []
     this.barY = null
+    this.abortBuffer = 0
   }
 
   private snapshot(): RepCounterState {
@@ -216,6 +220,7 @@ export class RepCounter {
 
         if (avgElbow <= this.t.peak) {
           this.confirmBuffer++
+          this.abortBuffer = 0
           // Track deepest angle even while confirming peak
           if (this.lowestAngle === null || avgElbow < this.lowestAngle) this.lowestAngle = avgElbow
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
@@ -224,13 +229,19 @@ export class RepCounter {
             this.confirmBuffer = 0
           }
         } else if (avgElbow >= this.t.hangEnter) {
-          // Dropped back without reaching peak — not a full rep
-          this.state = 'HANGING'
+          // Dropping back without reaching peak — require CONFIRM_FRAMES to avoid noise resets
+          this.abortBuffer++
           this.confirmBuffer = 0
-          this.lowestAngle = null
-          this.repStartMs = null
+          if (this.abortBuffer >= CONFIRM_FRAMES) {
+            this.state = 'HANGING'
+            this.confirmBuffer = 0
+            this.abortBuffer = 0
+            this.lowestAngle = null
+            this.repStartMs = null
+          }
         } else {
           this.confirmBuffer = 0
+          this.abortBuffer = 0
           // Track deepest point reached during pull
           if (this.lowestAngle === null || avgElbow < this.lowestAngle) this.lowestAngle = avgElbow
         }

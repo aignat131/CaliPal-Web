@@ -59,7 +59,7 @@ export class FormCoach {
     const avgHipY    = (lH.y + rH.y) / 2
 
     // Rule 1: arms not fully extended while hanging
-    if (state === 'HANGING' && avgElbow < 140) {
+    if (state === 'HANGING' && avgElbow < 130) {
       cues.push({ id: 'pu-extend', message: 'Extinde brațele complet', severity: 'warning' })
     }
 
