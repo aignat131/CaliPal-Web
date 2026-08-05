@@ -1,18 +1,40 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Clock, ChevronRight, Check } from 'lucide-react'
+import { ArrowLeft, Clock, ChevronRight, Check, Plus, Pencil, Trash2 } from 'lucide-react'
+import { deleteDoc, doc } from 'firebase/firestore'
+import { db } from '@/lib/firebase/firestore'
 import { ALL_PROGRAMS, LEVEL_LABELS, type TrainingProgram } from '@/lib/data/training-programs'
-import { useFirestorePrograms } from '@/lib/hooks/useFirestorePrograms'
+import { useFirestorePrograms, useMyPrograms } from '@/lib/hooks/useFirestorePrograms'
 import { useProgramEnrollment } from '@/lib/hooks/useProgramEnrollment'
+import { useAuth } from '@/lib/hooks/useAuth'
+import { useT } from '@/lib/context/LanguageContext'
+import ProgramForm from '@/components/training/ProgramForm'
 import type { FirestoreTrainingProgram, ProgramEnrollment } from '@/types'
 
 export default function ProgramsPage() {
+  const t = useT()
+  const { user, isSuperAdmin } = useAuth()
   const { programs: firestorePrograms, loading } = useFirestorePrograms()
+  const { programs: myPrograms, loading: myLoading } = useMyPrograms(user?.uid)
   const { activeEnrollment, getEnrollment, loading: enrollLoading } = useProgramEnrollment()
 
+  const [showForm, setShowForm] = useState(false)
+  const [editProgram, setEditProgram] = useState<FirestoreTrainingProgram | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // Filter out user's own programs from the published list to avoid duplicates
+  const publishedPrograms = firestorePrograms.filter(p => p.creatorUid !== user?.uid)
+
   // Sort enrolled program to top within each section
-  const sortedFirestore = [...firestorePrograms].sort((a, b) => {
+  const sortedFirestore = [...publishedPrograms].sort((a, b) => {
+    const aEnrolled = getEnrollment(a.id)?.status === 'active' ? -1 : 0
+    const bEnrolled = getEnrollment(b.id)?.status === 'active' ? -1 : 0
+    return aEnrolled - bEnrolled
+  })
+
+  const sortedMy = [...myPrograms].sort((a, b) => {
     const aEnrolled = getEnrollment(a.id)?.status === 'active' ? -1 : 0
     const bEnrolled = getEnrollment(b.id)?.status === 'active' ? -1 : 0
     return aEnrolled - bEnrolled
@@ -23,6 +45,13 @@ export default function ProgramsPage() {
     const bEnrolled = getEnrollment(b.id)?.status === 'active' ? -1 : 0
     return aEnrolled - bEnrolled
   })
+
+  async function deleteProgram(id: string, name: string) {
+    if (!confirm(`${t('program.cancel')}? "${name}"`)) return
+    setDeletingId(id)
+    try { await deleteDoc(doc(db, 'training_programs', id)) }
+    finally { setDeletingId(null) }
+  }
 
   return (
     <div className="min-h-[calc(100vh-64px)]" style={{ backgroundColor: 'var(--app-bg)' }}>
@@ -36,13 +65,72 @@ export default function ProgramsPage() {
               <ArrowLeft size={18} className="text-white/70" />
             </button>
           </Link>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-black text-white">Programe de Antrenament</h1>
             <p className="text-xs text-white/45 mt-0.5">Planuri structurate pentru progres real</p>
           </div>
         </div>
 
-        {/* Firestore programs (custom) */}
+        {/* Create Program button */}
+        <button
+          onClick={() => { setEditProgram(null); setShowForm(true) }}
+          className="w-full h-11 rounded-xl mb-6 border border-dashed border-brand-green/40 text-brand-green text-sm font-bold flex items-center justify-center gap-2 hover:bg-brand-green/5 transition-colors"
+        >
+          <Plus size={15} /> {t('program.createNew')}
+        </button>
+
+        {/* Program form */}
+        {showForm && (
+          <ProgramForm
+            program={editProgram}
+            nextOrder={myPrograms.length}
+            onClose={() => { setShowForm(false); setEditProgram(null) }}
+            creatorUid={isSuperAdmin ? undefined : user?.uid}
+            showPublishedToggle={isSuperAdmin}
+          />
+        )}
+
+        {/* My programs */}
+        {myLoading ? (
+          <div className="flex flex-col gap-3 mb-6">
+            {[0, 1].map(i => (
+              <div key={i} className="h-28 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--app-surface)' }} />
+            ))}
+          </div>
+        ) : sortedMy.length > 0 ? (
+          <>
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-3 px-1">{t('program.myPrograms')}</p>
+            <div className="flex flex-col gap-4 mb-6">
+              {sortedMy.map(program => (
+                <ProgramCardWrapper key={program.id} id={program.id} enrollment={enrollLoading ? null : getEnrollment(program.id)}>
+                  <div className="relative">
+                    <FirestoreProgramCard program={program} />
+                    {/* Edit/Delete controls for own programs */}
+                    <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                      <button
+                        onClick={(e) => { e.preventDefault(); setEditProgram(program); setShowForm(true) }}
+                        className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm"
+                      >
+                        <Pencil size={11} className="text-white/60" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.preventDefault(); deleteProgram(program.id, program.name) }}
+                        disabled={deletingId === program.id}
+                        className="w-7 h-7 rounded-full bg-red-500/15 flex items-center justify-center backdrop-blur-sm disabled:opacity-40"
+                      >
+                        {deletingId === program.id
+                          ? <div className="w-3 h-3 border border-red-400/50 border-t-transparent rounded-full animate-spin" />
+                          : <Trash2 size={11} className="text-red-400" />}
+                      </button>
+                    </div>
+                  </div>
+                </ProgramCardWrapper>
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        {/* Firestore programs (published by superadmins) */}
         {loading ? (
           <div className="flex flex-col gap-3 mb-6">
             {[0, 1].map(i => (
@@ -91,12 +179,12 @@ function ProgramCardWrapper({ id, enrollment, children }: { id: string; enrollme
         <div className="absolute top-0 right-0 mt-3 mr-4 flex items-center gap-1.5">
           {isActive && (
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/15 text-brand-green border border-brand-green/25">
-              Înscris · {progressPct}%
+              Enrolled · {progressPct}%
             </span>
           )}
           {isCompleted && (
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/15 text-brand-green border border-brand-green/25 flex items-center gap-1">
-              <Check size={10} /> Completat
+              <Check size={10} /> Completed
             </span>
           )}
         </div>
@@ -144,10 +232,10 @@ function FirestoreProgramCard({ program }: { program: FirestoreTrainingProgram }
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
               <Clock size={12} className="text-white/35" />
-              <span className="text-xs text-white/50">{program.durationWeeks} săptămâni</span>
+              <span className="text-xs text-white/50">{program.durationWeeks} weeks</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-white/50">{totalDays} antrenamente</span>
+              <span className="text-xs text-white/50">{totalDays} workouts</span>
             </div>
             <div className="ml-auto">
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -193,10 +281,10 @@ function ProgramCard({ program }: { program: TrainingProgram }) {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
               <Clock size={12} className="text-white/35" />
-              <span className="text-xs text-white/50">{program.durationWeeks} săptămâni</span>
+              <span className="text-xs text-white/50">{program.durationWeeks} weeks</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-white/50">{totalDays} antrenamente</span>
+              <span className="text-xs text-white/50">{totalDays} workouts</span>
             </div>
             <div className="ml-auto">
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"

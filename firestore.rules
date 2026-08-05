@@ -445,10 +445,18 @@ service cloud.firestore {
       }
     }
 
-    // ── Training programs (SuperAdmin-managed) ─────────────────────────────
+    // ── Training programs ──────────────────────────────────────────────────
     match /training_programs/{programId} {
+      // Anyone can read published programs or their own programs
       allow read: if isAuth();
+      // SuperAdmins can do anything
       allow write: if isSuperAdmin();
+      // Authenticated users can create their own programs
+      allow create: if isAuth()
+        && request.resource.data.creatorUid == request.auth.uid;
+      // Owners can update/delete their own programs
+      allow update, delete: if isAuth()
+        && resource.data.creatorUid == request.auth.uid;
     }
 
     // ── Exercise catalogue ────────────────────────────────────────────────────

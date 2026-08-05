@@ -554,6 +554,7 @@ export interface FirestoreTrainingProgram {
   published: boolean
   order: number
   weeks: ProgramWeek[]
+  creatorUid?: string
   createdAt: Timestamp | null
   updatedAt: Timestamp | null
 }
