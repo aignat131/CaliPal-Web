@@ -13,7 +13,7 @@ import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetr
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
-import { drawSkeleton, drawBarLine, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
+import { drawSkeleton, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
 import { PoseValidator } from '@/lib/ml/pose-validator'
 import { ExerciseDetector } from '@/lib/ml/exercise-detector'
 import type { DetectorState } from '@/lib/ml/exercise-detector'
@@ -294,7 +294,7 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
       newRepCount = cs.repCount
       repInProgress = cs.state !== 'IDLE' && cs.state !== 'HANGING'
       drawSkeleton(ctx, lms, w, h, EXERCISE_META.pullup.skeletonColor)
-      if (cs.barY !== null) drawBarLine(ctx, cs.barY, w, h, EXERCISE_META.pullup.skeletonColor)
+      // barY is still tracked internally for rep counting but not drawn
       setStateLabel(STATE_LABELS[cs.state])
       setStateColor(STATE_COLORS[cs.state])
       setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state, cs.bodyRiseRejected))

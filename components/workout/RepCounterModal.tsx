@@ -14,7 +14,7 @@ import { bestElbowAngle, squatDepthAngle, perLegSquatData, MP, AngleSmoother, ex
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
-import { drawSkeleton, drawBarLine, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
+import { drawSkeleton, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
 import { PoseValidator } from '@/lib/ml/pose-validator'
 import { PositionGate } from '@/lib/ml/position-gate'
 import type { GateState } from '@/lib/ml/position-gate'
@@ -257,7 +257,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
         const cs = repCounterRef.current.update(elbow, bodyMetrics)
         newRepCount = cs.repCount
         drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state] ?? '#1ED75F')
-        if (cs.barY !== null) drawBarLine(ctx, cs.barY, w, h, STATE_COLORS[cs.state] ?? '#1ED75F')
+        // barY is still tracked internally for rep counting but not drawn
         setStateLabel(STATE_LABELS[cs.state])
         setStateColor(STATE_COLORS[cs.state])
         setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state, cs.bodyRiseRejected))
