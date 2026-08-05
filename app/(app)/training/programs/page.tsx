@@ -18,7 +18,7 @@ export default function ProgramsPage() {
   const { user, isSuperAdmin } = useAuth()
   const { programs: firestorePrograms, loading } = useFirestorePrograms()
   const { programs: myPrograms, loading: myLoading } = useMyPrograms(user?.uid)
-  const { activeEnrollment, getEnrollment, loading: enrollLoading } = useProgramEnrollment()
+  const { getEnrollment, loading: enrollLoading } = useProgramEnrollment()
 
   const [showForm, setShowForm] = useState(false)
   const [editProgram, setEditProgram] = useState<FirestoreTrainingProgram | null>(null)
@@ -165,7 +165,7 @@ export default function ProgramsPage() {
   )
 }
 
-function ProgramCardWrapper({ id, enrollment, children }: { id: string; enrollment: ProgramEnrollment | null; children: React.ReactNode }) {
+function ProgramCardWrapper({ enrollment, children }: { id: string; enrollment: ProgramEnrollment | null; children: React.ReactNode }) {
   const isActive = enrollment?.status === 'active'
   const isCompleted = enrollment?.status === 'completed'
   const progressPct = enrollment && enrollment.totalDays > 0

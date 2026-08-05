@@ -73,7 +73,7 @@ export default function ProgramForm({
   function toggleWeek(idx: number) {
     setExpandedWeeks(prev => {
       const next = new Set(prev)
-      next.has(idx) ? next.delete(idx) : next.add(idx)
+      if (next.has(idx)) next.delete(idx); else next.add(idx)
       return next
     })
   }
@@ -81,7 +81,7 @@ export default function ProgramForm({
   function toggleDay(key: string) {
     setExpandedDays(prev => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) next.delete(key); else next.add(key)
       return next
     })
   }
@@ -179,6 +179,7 @@ export default function ProgramForm({
     if (!name.trim() || weeks.length === 0) return
     setSaving(true)
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data: Record<string, any> = {
         name: name.trim(),
         description: description.trim(),

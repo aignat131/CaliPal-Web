@@ -104,7 +104,7 @@ export function useBattleBots(
 export async function addBotsToBattle(
   battleId: string,
   botCount: number,
-  difficulty: BotDifficulty,
+  _difficulty: BotDifficulty,
 ) {
   const bots = getBotProfiles(botCount)
 
