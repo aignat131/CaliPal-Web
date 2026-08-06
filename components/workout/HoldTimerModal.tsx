@@ -270,13 +270,13 @@ export default function HoldTimerModal({ holdExercise, exerciseName, onConfirm, 
       {/* Camera feed */}
       <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full object-contain"
+        className="absolute inset-0 w-full h-full object-cover"
         style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
         muted playsInline
       />
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full object-contain"
+        className="absolute inset-0 w-full h-full object-cover"
         style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
       />
 
