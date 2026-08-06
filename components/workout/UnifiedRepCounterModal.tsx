@@ -6,8 +6,9 @@ import {
   RepCounter, STATE_LABELS, STATE_COLORS,
   PushupCounter, PUSHUP_STATE_LABELS,
   SquatCounter, SQUAT_STATE_LABELS,
-  BALANCED_PULLUP, EASY_PUSHUP, BALANCED_SQUAT,
+  BALANCED_PULLUP, EASY_PULLUP, STRICT_PULLUP, EASY_PUSHUP, BALANCED_SQUAT,
 } from '@/lib/ml/rep-counter'
+import type { PullupThresholds } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
 import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
@@ -36,6 +37,16 @@ const EXERCISE_META: Record<ExerciseType, { name: string; emoji: string; color: 
 }
 
 const EXERCISE_TYPES: ExerciseType[] = ['pushup', 'pullup', 'squat']
+
+// ── Pull-up difficulty presets ──────────────────────────────────────────────
+
+type PullupDifficulty = 'easy' | 'balanced' | 'hard'
+
+const PULLUP_PRESETS: Record<PullupDifficulty, { label: string; thresholds: PullupThresholds }> = {
+  easy:     { label: 'Ușor',      thresholds: EASY_PULLUP },
+  balanced: { label: 'Balansat',  thresholds: BALANCED_PULLUP },
+  hard:     { label: 'Strict',    thresholds: STRICT_PULLUP },
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,6 +92,9 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
   // Rep timing
   const firstRepTimestampRef = useRef<number | null>(null)
   const lastRepTimestampRef  = useRef<number | null>(null)
+
+  // Pull-up difficulty
+  const [pullupDifficulty, setPullupDifficulty] = useState<PullupDifficulty>('balanced')
 
   // Camera
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('user')
@@ -343,6 +357,11 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
   // Suppress unused type warnings
   void (null as unknown as RepState | PushupState | SquatState)
 
+  function handlePullupDifficulty(d: PullupDifficulty) {
+    setPullupDifficulty(d)
+    pullupCounterRef.current.setThresholds(PULLUP_PRESETS[d].thresholds)
+  }
+
   function handleCameraFlip() {
     const next = facingMode === 'environment' ? 'user' : 'environment'
     setFacingMode(next)
@@ -439,6 +458,25 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
                 style={{ backgroundColor: `${stateColor}33`, border: `1px solid ${stateColor}66` }}>
                 <span className="text-xs font-bold" style={{ color: stateColor }}>{stateLabel}</span>
               </div>
+              {/* Pull-up difficulty selector */}
+              {activeExercise === 'pullup' && (
+                <div className="mt-2 flex gap-1 pointer-events-auto">
+                  {(Object.keys(PULLUP_PRESETS) as PullupDifficulty[]).map(d => (
+                    <button
+                      key={d}
+                      onClick={() => handlePullupDifficulty(d)}
+                      className="px-3 py-1 rounded-full text-[10px] font-bold transition-all"
+                      style={{
+                        backgroundColor: pullupDifficulty === d ? '#1ED75F' : 'rgba(255,255,255,0.1)',
+                        color: pullupDifficulty === d ? '#000' : 'rgba(255,255,255,0.6)',
+                        border: `1px solid ${pullupDifficulty === d ? '#1ED75F' : 'rgba(255,255,255,0.2)'}`,
+                      }}
+                    >
+                      {PULLUP_PRESETS[d].label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             /* Detecting state — pulsing indicator */

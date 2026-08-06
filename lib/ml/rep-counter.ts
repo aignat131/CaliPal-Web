@@ -131,6 +131,17 @@ export class RepCounter {
     this.enforceTiming = enforceTiming
   }
 
+  /** Swap thresholds at runtime (e.g. easy/balanced/strict toggle). Preserves rep count. */
+  setThresholds(t: PullupThresholds) {
+    this.t = t
+    this.minRangeRequired = t.minRangeRequired ?? 25
+    this.firstRepMinMs = t.firstRepMinMs ?? FIRST_REP_MIN_MS
+    this.subsequentRepMinMs = t.subsequentRepMinMs ?? SUBSEQUENT_REP_MIN_MS
+    this.minRepFrames = t.minRepFrames ?? MIN_REP_FRAMES
+    this.minBodyRise = t.minBodyRise ?? 0.25
+    this.minHipRise = t.minHipRise ?? 0.15
+  }
+
   reset() {
     this.repCount = 0
     this.state = 'IDLE'
