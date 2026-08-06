@@ -86,6 +86,14 @@ export const DEFAULT_EXERCISE_CATALOGUE: CatalogueEntry[] = [
   { name: 'Bicep Curl cu bandă',      category: 'Cu Bandă',    metric: 'reps' },
   { name: 'Tricep Ext. cu bandă',     category: 'Cu Bandă',    metric: 'reps' },
   { name: 'Band Pull-Apart',          category: 'Cu Bandă',    metric: 'reps' },
+  // ── Flexibilitate ─────────────────────────────────────────────────────────
+  { name: 'Front Split',              category: 'Flexibilitate', metric: 'seconds' },
+  { name: 'Side Split',               category: 'Flexibilitate', metric: 'seconds' },
+  { name: 'Forward Fold',             category: 'Flexibilitate', metric: 'seconds' },
+  { name: 'Pike Stretch',             category: 'Flexibilitate', metric: 'seconds' },
+  { name: 'Bridge',                   category: 'Flexibilitate', metric: 'seconds' },
+  { name: 'Pancake',                  category: 'Flexibilitate', metric: 'seconds' },
+  { name: 'Pigeon Pose',              category: 'Flexibilitate', metric: 'seconds' },
 ]
 
 /** Group entries by category for display */

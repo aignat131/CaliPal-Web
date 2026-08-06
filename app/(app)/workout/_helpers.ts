@@ -1,6 +1,7 @@
 import type { WorkoutExercise, WorkoutSet, WorkoutCircuit } from '@/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import type { HoldExerciseType } from '@/lib/ml/hold-detector'
+import type { StretchExerciseType } from '@/lib/ml/stretch-detector'
 
 export function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -87,6 +88,19 @@ export function getHoldExerciseType(name: string): HoldExerciseType | null {
   if (n.includes('handstand')) return 'handstand'
   if (n.includes('front lever')) return 'front_lever'
   if (n.includes('planche')) return 'planche'
+  return null
+}
+
+/** Map exercise name to a supported camera-timed stretch type, or null if unsupported. */
+export function getStretchExerciseType(name: string): StretchExerciseType | null {
+  const n = norm(name)
+  if (n.includes('front split') || n.includes('spagat frontal')) return 'front_split'
+  if (n.includes('side split') || n.includes('spagat lateral')) return 'side_split'
+  if (n.includes('forward fold') || n.includes('indoire')) return 'forward_fold'
+  if (n.includes('pike stretch') || n.includes('pike')) return 'pike_stretch'
+  if (n.includes('bridge') || n.includes('podul')) return 'bridge'
+  if (n.includes('pancake')) return 'pancake_stretch'
+  if (n.includes('pigeon') || n.includes('porumbel')) return 'pigeon_pose'
   return null
 }
 

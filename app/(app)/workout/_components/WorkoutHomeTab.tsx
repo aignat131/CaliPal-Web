@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles, Swords, Trophy } from 'lucide-react'
+import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles, Swords, Trophy, Heart } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import FirstTimeHint from '@/components/ui/FirstTimeHint'
@@ -54,6 +54,7 @@ export function WorkoutHomeTab({
   onAutoCount,
   onSpidermanChallenge,
   onHoldTimer,
+  onStretchTimer,
   isActive,
   lastExerciseName,
   onQuickRecord,
@@ -72,6 +73,7 @@ export function WorkoutHomeTab({
   onAutoCount?: () => void
   onSpidermanChallenge?: () => void
   onHoldTimer?: () => void
+  onStretchTimer?: () => void
   isActive?: boolean
   lastExerciseName?: string | null
   onQuickRecord?: (name: string, type: ExerciseType) => void
@@ -196,6 +198,28 @@ export function WorkoutHomeTab({
                 <p className="text-[11px] text-white/40 mt-0.5">Cronometru cu cameră pentru hold-uri</p>
               </div>
               <Camera size={16} className="text-cyan-400 flex-shrink-0" />
+            </button>
+          )}
+
+          {/* Stretching */}
+          {onStretchTimer && (
+            <button
+              onClick={onStretchTimer}
+              className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
+              style={{
+                background: 'linear-gradient(135deg, rgba(236,72,153,0.12), rgba(168,85,247,0.08))',
+                border: '1px solid rgba(236,72,153,0.25)',
+              }}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'rgba(236,72,153,0.15)' }}>
+                <Heart size={20} className="text-pink-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-white text-sm">Stretching</p>
+                <p className="text-[11px] text-white/40 mt-0.5">Flexibilitate cu tracking profunzime</p>
+              </div>
+              <Camera size={16} className="text-pink-400 flex-shrink-0" />
             </button>
           )}
 

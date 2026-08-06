@@ -295,6 +295,17 @@ export interface HoldSession {
   savedAt: number
 }
 
+// ── Stretch Session (crash recovery for stretch timer) ──────────────────────
+
+export interface StretchSession {
+  stretchExercise: string
+  exerciseName: string
+  totalTimeMs: number
+  peakDepthScore: number
+  peakRawMeasurement: number
+  savedAt: number
+}
+
 // ── Challenge ─────────────────────────────────────────────────────────────────
 
 export interface WeeklyChallenge {

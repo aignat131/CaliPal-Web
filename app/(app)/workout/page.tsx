@@ -33,11 +33,16 @@ import HoldTimerModal, { HOLD_SESSION_KEY } from '@/components/workout/HoldTimer
 import type { HoldResult } from '@/components/workout/HoldTimerModal'
 import HoldExercisePicker from '@/components/workout/HoldExercisePicker'
 import type { HoldExerciseType } from '@/lib/ml/hold-detector'
-import type { HoldSession } from '@/types'
+import StretchTimerModal, { STRETCH_SESSION_KEY } from '@/components/workout/StretchTimerModal'
+import type { StretchResult } from '@/components/workout/StretchTimerModal'
+import StretchExercisePicker from '@/components/workout/StretchExercisePicker'
+import type { StretchExerciseType } from '@/lib/ml/stretch-detector'
+import type { StretchRoutine } from '@/lib/data/stretch-routines'
+import type { HoldSession, StretchSession } from '@/types'
 
 const AUTH_REDIRECT_KEY = 'calipal_auth_redirect'
 
-type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount' | 'autocount' | 'spiderman' | 'holdtimer'
+type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount' | 'autocount' | 'spiderman' | 'holdtimer' | 'stretchtimer'
 
 const PENDING_WORKOUT_KEY = 'calipal_pending_workout'
 
@@ -88,6 +93,11 @@ export default function WorkoutPage() {
   // Hold timer
   const [holdExercise, setHoldExercise] = useState<{ type: HoldExerciseType; name: string } | null>(null)
   const [showHoldPicker, setShowHoldPicker] = useState(false)
+
+  // Stretch timer
+  const [stretchExercise, setStretchExercise] = useState<{ type: StretchExerciseType; name: string } | null>(null)
+  const [stretchRoutine, setStretchRoutine] = useState<StretchRoutine | null>(null)
+  const [showStretchPicker, setShowStretchPicker] = useState(false)
 
   const [history, setHistory] = useState<WorkoutDoc[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
@@ -143,6 +153,22 @@ export default function WorkoutPage() {
       }
       if (session.totalHoldMs > 0) setRecoveredHoldSession(session)
     } catch { localStorage.removeItem(HOLD_SESSION_KEY) }
+  }, [])
+
+  // Crash recovery — stretch timer session
+  const [recoveredStretchSession, setRecoveredStretchSession] = useState<StretchSession | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STRETCH_SESSION_KEY)
+      if (!raw) return
+      const session = JSON.parse(raw) as StretchSession
+      if (Date.now() - session.savedAt > 60 * 60 * 1000) {
+        localStorage.removeItem(STRETCH_SESSION_KEY)
+        return
+      }
+      if (session.totalTimeMs > 0) setRecoveredStretchSession(session)
+    } catch { localStorage.removeItem(STRETCH_SESSION_KEY) }
   }, [])
 
   // Crash recovery — pending workout (user exited on postdetails/summary screen)
@@ -437,6 +463,29 @@ export default function WorkoutPage() {
       localStorage.setItem(PENDING_WORKOUT_KEY, JSON.stringify(pending))
     } catch { /* */ }
     setHoldExercise(null)
+    setScreen('postdetails')
+  }
+
+  function handleStretchConfirm(result: StretchResult) {
+    const workoutExercises: WorkoutExercise[] = result.exercises.map(ex => ({
+      name: ex.name,
+      category: getCategory(ex.name, catalogue),
+      sets: [{ durationSeconds: ex.holdSeconds, recorded: true }],
+    }))
+    const startedAtMs = Date.now() - result.totalSeconds * 1000
+    setCapturedExercises(workoutExercises)
+    setCapturedSeconds(result.totalSeconds)
+    setWorkoutStartedAt(startedAtMs)
+    setCapturedCircuits([])
+    try {
+      const pending: PendingWorkoutData = {
+        exercises: workoutExercises, seconds: result.totalSeconds,
+        circuits: [], startedAt: startedAtMs, savedAt: Date.now(),
+      }
+      localStorage.setItem(PENDING_WORKOUT_KEY, JSON.stringify(pending))
+    } catch { /* */ }
+    setStretchExercise(null)
+    setStretchRoutine(null)
     setScreen('postdetails')
   }
 
@@ -794,6 +843,35 @@ export default function WorkoutPage() {
         />
       )}
 
+      {screen === 'stretchtimer' && stretchExercise && (
+        <StretchTimerModal
+          stretchExercise={stretchExercise.type}
+          exerciseName={stretchExercise.name}
+          routine={stretchRoutine}
+          onConfirm={handleStretchConfirm}
+          onCancel={() => { setStretchExercise(null); setStretchRoutine(null); setScreen('home') }}
+        />
+      )}
+
+      {showStretchPicker && (
+        <StretchExercisePicker
+          onSelectExercise={(type, name) => {
+            setStretchExercise({ type, name })
+            setStretchRoutine(null)
+            setShowStretchPicker(false)
+            setScreen('stretchtimer')
+          }}
+          onSelectRoutine={(routine) => {
+            const firstStep = routine.steps[0]
+            setStretchExercise({ type: firstStep.exercise, name: firstStep.exercise })
+            setStretchRoutine(routine)
+            setShowStretchPicker(false)
+            setScreen('stretchtimer')
+          }}
+          onClose={() => setShowStretchPicker(false)}
+        />
+      )}
+
       {/* Spiderman mode picker */}
       {showSpidermanPicker && (
         <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-[55]">
@@ -884,6 +962,7 @@ export default function WorkoutPage() {
           onAutoCount={startAutoCount}
           onSpidermanChallenge={() => setShowSpidermanPicker(true)}
           onHoldTimer={() => setShowHoldPicker(true)}
+          onStretchTimer={() => setShowStretchPicker(true)}
           isActive={isActive}
           lastExerciseName={exercises.length > 0 ? exercises[exercises.length - 1].name : null}
           onQuickRecord={handleQuickRecord}
@@ -1166,6 +1245,61 @@ export default function WorkoutPage() {
                 onClick={() => {
                   setRecoveredHoldSession(null)
                   localStorage.removeItem(HOLD_SESSION_KEY)
+                }}
+                className="w-full py-3 text-sm font-semibold text-red-400 active:opacity-70 transition-opacity"
+              >
+                Renunță
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crash recovery — stretch timer session */}
+      {recoveredStretchSession && !recoveredSession && !recoveredUnifiedSession && !recoveredHoldSession && !recoveredPending && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-5 z-[100]">
+          <div className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-pink-500/15 flex items-center justify-center">
+                <span className="text-lg">🧘</span>
+              </div>
+              <div>
+                <p className="font-black text-white text-base">Sesiune recuperată</p>
+                <p className="text-xs text-white/40 mt-0.5">Stretching întrerupt</p>
+              </div>
+            </div>
+            <div className="rounded-2xl px-4 py-3 mb-5" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-sm text-white/60">{recoveredStretchSession.exerciseName}</span>
+                <span className="text-sm font-bold text-white">{Math.round(recoveredStretchSession.totalTimeMs / 1000)}s</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  const dur = Math.round(recoveredStretchSession.totalTimeMs / 1000)
+                  const entry: WorkoutExercise = {
+                    name: recoveredStretchSession.exerciseName,
+                    category: getCategory(recoveredStretchSession.exerciseName, catalogue),
+                    sets: [{ durationSeconds: dur, recorded: true }],
+                  }
+                  const startedAtMs = Date.now() - dur * 1000
+                  setCapturedExercises([entry])
+                  setCapturedSeconds(dur)
+                  setWorkoutStartedAt(startedAtMs)
+                  setCapturedCircuits([])
+                  setRecoveredStretchSession(null)
+                  localStorage.removeItem(STRETCH_SESSION_KEY)
+                  setScreen('postdetails')
+                }}
+                className="w-full h-13 rounded-2xl bg-brand-green text-black font-black text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+              >
+                Recuperează {Math.round(recoveredStretchSession.totalTimeMs / 1000)}s
+              </button>
+              <button
+                onClick={() => {
+                  setRecoveredStretchSession(null)
+                  localStorage.removeItem(STRETCH_SESSION_KEY)
                 }}
                 className="w-full py-3 text-sm font-semibold text-red-400 active:opacity-70 transition-opacity"
               >
