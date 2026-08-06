@@ -142,8 +142,15 @@ export default function HoldTimerModal({ holdExercise, exerciseName, onConfirm, 
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing },
+        video: { facingMode: facing, zoom: 1 } as MediaTrackConstraints,
       })
+      // Reset camera zoom to minimum to prevent device-level zoom
+      const track = stream.getVideoTracks()[0]
+      const caps = track.getCapabilities?.() as Record<string, unknown> | undefined
+      if (caps?.zoom) {
+        const z = caps.zoom as { min: number }
+        await track.applyConstraints({ advanced: [{ zoom: z.min } as MediaTrackConstraintSet] })
+      }
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
@@ -263,13 +270,13 @@ export default function HoldTimerModal({ holdExercise, exerciseName, onConfirm, 
       {/* Camera feed */}
       <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-contain"
         style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
         muted playsInline
       />
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-contain"
         style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
       />
 
