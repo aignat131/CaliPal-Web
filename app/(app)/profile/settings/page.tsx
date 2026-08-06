@@ -14,7 +14,7 @@ import {
   ArrowLeft, ChevronRight, User, LogOut, Lock, Info, Bell,
   Shield, Palette, MapPin, Globe, MessageSquarePlus,
   MessageSquare, Dumbbell, Newspaper, Send, CheckCircle, Users, UserPlus,
-  Download,
+  Download, Award,
 } from 'lucide-react'
 import { getInstallPrompt, clearInstallPrompt } from '@/components/layout/ServiceWorkerRegistrar'
 import { useTheme } from '@/lib/hooks/useTheme'
@@ -71,6 +71,7 @@ export default function SettingsPage() {
   const [pushNotifTrainings, setPushNotifTrainings] = useState(true)
   const [pushNotifCommunity, setPushNotifCommunity] = useState(true)
   const [pushNotifFriends,   setPushNotifFriends]   = useState(true)
+  const [showBadges,         setShowBadges]         = useState(true)
 
   // PWA install prompt
   const [pwaInstallable, setPwaInstallable] = useState(false)
@@ -119,6 +120,7 @@ export default function SettingsPage() {
       setPushNotifTrainings(d.pushNotifTrainings !== false)
       setPushNotifCommunity(d.pushNotifCommunity !== false)
       setPushNotifFriends(  d.pushNotifFriends   !== false)
+      setShowBadges(        d.hideBadges !== true)
     })
     return unsub
   }, [user])
@@ -389,6 +391,25 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Badges */}
+        <div className="rounded-2xl overflow-hidden divide-y divide-white/8 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <EmailToggleRow
+            icon={<Award size={17} />}
+            label={t('settings.show_badges')}
+            desc={t('settings.show_badges_desc')}
+            value={showBadges}
+            onToggle={async () => {
+              const newVal = !showBadges
+              setShowBadges(newVal)
+              try {
+                if (user) await updateDoc(doc(db, 'users', user.uid), { hideBadges: !newVal })
+              } catch {
+                setShowBadges(!newVal)
+              }
+            }}
+          />
         </div>
 
         {/* Language */}

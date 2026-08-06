@@ -434,6 +434,9 @@ export default function ProfilePage() {
               <Mail size={16} className="text-white/70" />
             </button>
           </Link>
+          <button onClick={() => setShowShop(true)} className="w-10 h-10 rounded-full flex items-center justify-center bg-white/8">
+            <ShoppingBag size={16} className="text-white/70" />
+          </button>
           <Link href="/profile/friends">
             <button className="w-10 h-10 rounded-full flex items-center justify-center bg-white/8">
               <Users size={16} className="text-white/70" />
@@ -500,78 +503,68 @@ export default function ProfilePage() {
                 </span>
               )
             }
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-medium"
-              style={{ backgroundColor: badge.bg, color: badge.color }}>
-              {badge.label}
-            </span>
-            {profile?.titleBadge && TITLE_LABELS[profile.titleBadge] && (
-              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                style={{
-                  backgroundColor: theme === 'light' ? '#f0e6ff' : '#A855F722',
-                  color: theme === 'light' ? '#7c3aed' : '#A855F7',
-                  border: `1px solid ${theme === 'light' ? '#d4b5ff' : '#A855F740'}`,
-                }}>
-                {TITLE_LABELS[profile.titleBadge]}
-              </span>
-            )}
-            {purchases.has('EARLY_BADGE') && (
-              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                style={{
-                  backgroundColor: theme === 'light' ? '#fff3cc' : '#FFB80022',
-                  color: theme === 'light' ? '#c17f00' : '#FFB800',
-                  border: `1px solid ${theme === 'light' ? '#e6d49a' : '#FFB80040'}`,
-                }}>
-                ⭐ Early Supporter
-              </span>
-            )}
-            {purchases.has('FIRE_BADGE') && (
-              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                style={{
-                  backgroundColor: theme === 'light' ? '#fff0e6' : '#F9731622',
-                  color: theme === 'light' ? '#c2410c' : '#F97316',
-                  border: `1px solid ${theme === 'light' ? '#fbd5b5' : '#F9731640'}`,
-                }}>
-                🔥 Fire
-              </span>
-            )}
-            {purchases.has('DIAMOND_BADGE') && (
-              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                style={{
-                  backgroundColor: theme === 'light' ? '#e6f4ff' : '#3B82F622',
-                  color: theme === 'light' ? '#1d4ed8' : '#60A5FA',
-                  border: `1px solid ${theme === 'light' ? '#93c5fd' : '#3B82F640'}`,
-                }}>
-                💎 Diamond
-              </span>
-            )}
-            {isSuperAdmin && (
-              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                style={{
-                  backgroundColor: theme === 'light' ? '#fff3cc' : '#FFB80022',
-                  color: theme === 'light' ? '#c17f00' : '#FFB800',
-                  border: `1px solid ${theme === 'light' ? '#e6d49a' : '#FFB80040'}`,
-                }}>
-                👑 Super Admin
-              </span>
+            {!profile?.hideBadges && (
+              <>
+                <span className="px-2 py-0.5 rounded-md text-[11px] font-medium"
+                  style={{ backgroundColor: badge.bg, color: badge.color }}>
+                  {badge.label}
+                </span>
+                {profile?.titleBadge && TITLE_LABELS[profile.titleBadge] && (
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                    style={{
+                      backgroundColor: theme === 'light' ? '#f0e6ff' : '#A855F722',
+                      color: theme === 'light' ? '#7c3aed' : '#A855F7',
+                      border: `1px solid ${theme === 'light' ? '#d4b5ff' : '#A855F740'}`,
+                    }}>
+                    {TITLE_LABELS[profile.titleBadge]}
+                  </span>
+                )}
+                {purchases.has('EARLY_BADGE') && (
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                    style={{
+                      backgroundColor: theme === 'light' ? '#fff3cc' : '#FFB80022',
+                      color: theme === 'light' ? '#c17f00' : '#FFB800',
+                      border: `1px solid ${theme === 'light' ? '#e6d49a' : '#FFB80040'}`,
+                    }}>
+                    ⭐ Early Supporter
+                  </span>
+                )}
+                {purchases.has('FIRE_BADGE') && (
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                    style={{
+                      backgroundColor: theme === 'light' ? '#fff0e6' : '#F9731622',
+                      color: theme === 'light' ? '#c2410c' : '#F97316',
+                      border: `1px solid ${theme === 'light' ? '#fbd5b5' : '#F9731640'}`,
+                    }}>
+                    🔥 Fire
+                  </span>
+                )}
+                {purchases.has('DIAMOND_BADGE') && (
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                    style={{
+                      backgroundColor: theme === 'light' ? '#e6f4ff' : '#3B82F622',
+                      color: theme === 'light' ? '#1d4ed8' : '#60A5FA',
+                      border: `1px solid ${theme === 'light' ? '#93c5fd' : '#3B82F640'}`,
+                    }}>
+                    💎 Diamond
+                  </span>
+                )}
+                {isSuperAdmin && (
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                    style={{
+                      backgroundColor: theme === 'light' ? '#fff3cc' : '#FFB80022',
+                      color: theme === 'light' ? '#c17f00' : '#FFB800',
+                      border: `1px solid ${theme === 'light' ? '#e6d49a' : '#FFB80040'}`,
+                    }}>
+                    👑 Super Admin
+                  </span>
+                )}
+              </>
             )}
           </div>
           <p className="text-sm text-white/50">{email}</p>
           {profile?.bio && <p className="text-sm text-white/80 mt-1 leading-relaxed">{profile.bio}</p>}
         </div>
-
-        {/* Shop button */}
-        <button
-          onClick={() => setShowShop(true)}
-          className="w-full h-10 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm mb-4"
-          style={{
-            backgroundColor: 'rgba(var(--accent-rgb), 0.10)',
-            color: 'var(--accent)',
-            border: '1px solid rgba(var(--accent-rgb), 0.22)',
-          }}
-        >
-          <ShoppingBag size={15} />
-          {t('shop.title')} · {profile?.coins ?? 0} {'\u{1FA99}'}
-        </button>
 
         {/* Tabs */}
         <div className="flex border-b border-white/10 mb-4 tab-bar">

@@ -152,7 +152,7 @@ export default function FormCheckPage() {
       setPushupModelReady(pushupOk)
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
+        video: { facingMode },
       })
       streamRef.current = stream
       if (videoRef.current) {

@@ -38,6 +38,7 @@ export interface UserDoc {
   nameColor?: string           // hex color
   titleBadge?: string          // 'BEAST_MODE' | 'IRON_WILL' | 'CHAMPION'
   emojiBadge?: string          // emoji string
+  hideBadges?: boolean         // hide badges on profile
   pinnedExercises?: string[]   // exercise names pinned to top of stats
   activeProgramId?: string     // currently enrolled program
   completedPrograms?: number   // count of completed programs

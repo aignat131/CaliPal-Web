@@ -206,6 +206,8 @@ const T: Record<string, { RO: string; EN: string }> = {
   'settings.loc_friends':     { RO: 'Doar prieteni',    EN: 'Friends only' },
   'settings.loc_everyone':    { RO: 'Toată lumea',      EN: 'Everyone' },
   'settings.loc_workouts':    { RO: 'Antrenamente',     EN: 'Workouts only' },
+  'settings.show_badges':     { RO: 'Afișează insigne',  EN: 'Show badges' },
+  'settings.show_badges_desc': { RO: 'Afișează insignele pe profilul tău', EN: 'Display badges on your profile' },
   'settings.section_pref':    { RO: 'PREFERINȚE',       EN: 'PREFERENCES' },
   'settings.light_mode':      { RO: 'Mod luminos',      EN: 'Light mode' },
   'settings.dark_mode':       { RO: 'Mod întunecat',    EN: 'Dark mode' },
