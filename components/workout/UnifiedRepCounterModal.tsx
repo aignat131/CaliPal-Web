@@ -177,7 +177,7 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } },
+        video: { facingMode: facing },
       })
       streamRef.current = stream
       if (videoRef.current) {

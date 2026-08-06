@@ -876,8 +876,8 @@ export default function WorkoutPage() {
       {showSpidermanPicker && (
         <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-[55]">
           <div
-            className="w-full max-w-md rounded-t-3xl p-6 pb-10 animate-slide-up"
-            style={{ backgroundColor: 'var(--app-surface)' }}
+            className="w-full max-w-md rounded-t-3xl p-6 animate-slide-up"
+            style={{ backgroundColor: 'var(--app-surface)', paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom, 0px))' }}
           >
             <div className="flex items-center gap-3 mb-5">
               <Image src="/icons/marvel.png" alt="Spiderman" width={32} height={32} />

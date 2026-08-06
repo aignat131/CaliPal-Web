@@ -27,8 +27,8 @@ export default function StretchExercisePicker({ onSelectExercise, onSelectRoutin
   return (
     <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/60" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-t-3xl pb-8 pt-6 px-4 max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.08)' }}
+        className="w-full max-w-lg rounded-t-3xl pt-6 px-4 max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: '#111113', border: '1px solid rgba(255,255,255,0.08)', paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
