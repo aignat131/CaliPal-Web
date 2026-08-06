@@ -284,6 +284,17 @@ export interface UnifiedRepSession {
   savedAt: number
 }
 
+// ── Hold Session (crash recovery for static hold timer) ─────────────────────
+
+export interface HoldSession {
+  holdExercise: string
+  exerciseName: string
+  totalHoldMs: number
+  bestSegmentMs: number
+  holdCount: number
+  savedAt: number
+}
+
 // ── Challenge ─────────────────────────────────────────────────────────────────
 
 export interface WeeklyChallenge {

@@ -53,6 +53,7 @@ export function WorkoutHomeTab({
   onQuickExercise,
   onAutoCount,
   onSpidermanChallenge,
+  onHoldTimer,
   isActive,
   lastExerciseName,
   onQuickRecord,
@@ -70,6 +71,7 @@ export function WorkoutHomeTab({
   onQuickExercise: (name: string, type: ExerciseType) => void
   onAutoCount?: () => void
   onSpidermanChallenge?: () => void
+  onHoldTimer?: () => void
   isActive?: boolean
   lastExerciseName?: string | null
   onQuickRecord?: (name: string, type: ExerciseType) => void
@@ -172,6 +174,28 @@ export function WorkoutHomeTab({
                 <p className="text-[11px] text-white/40 mt-0.5">Detectează exercițiul automat cu AI</p>
               </div>
               <Camera size={16} className="text-indigo-400 flex-shrink-0" />
+            </button>
+          )}
+
+          {/* Static Holds */}
+          {onHoldTimer && (
+            <button
+              onClick={onHoldTimer}
+              className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
+              style={{
+                background: 'linear-gradient(135deg, rgba(6,182,212,0.12), rgba(30,215,95,0.08))',
+                border: '1px solid rgba(6,182,212,0.25)',
+              }}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'rgba(6,182,212,0.15)' }}>
+                <Clock size={20} className="text-cyan-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-white text-sm">Exerciții statice</p>
+                <p className="text-[11px] text-white/40 mt-0.5">Cronometru cu cameră pentru hold-uri</p>
+              </div>
+              <Camera size={16} className="text-cyan-400 flex-shrink-0" />
             </button>
           )}
 

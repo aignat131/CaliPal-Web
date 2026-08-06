@@ -29,10 +29,15 @@ import { WorkoutSummaryCard } from './_components/WorkoutSummaryCard'
 import { QuickRepCounterView } from './_components/QuickRepCounterView'
 import { SpidermanChallenge } from './_components/SpidermanChallenge'
 import type { SpidermanResult, SpidermanMode } from './_components/SpidermanChallenge'
+import HoldTimerModal, { HOLD_SESSION_KEY } from '@/components/workout/HoldTimerModal'
+import type { HoldResult } from '@/components/workout/HoldTimerModal'
+import HoldExercisePicker from '@/components/workout/HoldExercisePicker'
+import type { HoldExerciseType } from '@/lib/ml/hold-detector'
+import type { HoldSession } from '@/types'
 
 const AUTH_REDIRECT_KEY = 'calipal_auth_redirect'
 
-type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount' | 'autocount' | 'spiderman'
+type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount' | 'autocount' | 'spiderman' | 'holdtimer'
 
 const PENDING_WORKOUT_KEY = 'calipal_pending_workout'
 
@@ -80,6 +85,10 @@ export default function WorkoutPage() {
   const [showSpidermanPicker, setShowSpidermanPicker] = useState(false)
   const [spidermanMode, setSpidermanMode] = useState<SpidermanMode>('amrap')
 
+  // Hold timer
+  const [holdExercise, setHoldExercise] = useState<{ type: HoldExerciseType; name: string } | null>(null)
+  const [showHoldPicker, setShowHoldPicker] = useState(false)
+
   const [history, setHistory] = useState<WorkoutDoc[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
@@ -118,6 +127,22 @@ export default function WorkoutPage() {
       }
       if (session.exercises.length > 0) setRecoveredUnifiedSession(session)
     } catch { localStorage.removeItem(UNIFIED_SESSION_KEY) }
+  }, [])
+
+  // Crash recovery — hold timer session
+  const [recoveredHoldSession, setRecoveredHoldSession] = useState<HoldSession | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(HOLD_SESSION_KEY)
+      if (!raw) return
+      const session = JSON.parse(raw) as HoldSession
+      if (Date.now() - session.savedAt > 60 * 60 * 1000) {
+        localStorage.removeItem(HOLD_SESSION_KEY)
+        return
+      }
+      if (session.totalHoldMs > 0) setRecoveredHoldSession(session)
+    } catch { localStorage.removeItem(HOLD_SESSION_KEY) }
   }, [])
 
   // Crash recovery — pending workout (user exited on postdetails/summary screen)
@@ -390,6 +415,28 @@ export default function WorkoutPage() {
       }
       localStorage.setItem(PENDING_WORKOUT_KEY, JSON.stringify(pending))
     } catch { /* */ }
+    setScreen('postdetails')
+  }
+
+  function handleHoldConfirm(result: HoldResult) {
+    const workoutExercise: WorkoutExercise = {
+      name: result.exerciseName,
+      category: getCategory(result.exerciseName, catalogue),
+      sets: [{ durationSeconds: result.totalHoldSeconds, recorded: true }],
+    }
+    const startedAtMs = Date.now() - result.totalHoldSeconds * 1000
+    setCapturedExercises([workoutExercise])
+    setCapturedSeconds(result.totalHoldSeconds)
+    setWorkoutStartedAt(startedAtMs)
+    setCapturedCircuits([])
+    try {
+      const pending: PendingWorkoutData = {
+        exercises: [workoutExercise], seconds: result.totalHoldSeconds,
+        circuits: [], startedAt: startedAtMs, savedAt: Date.now(),
+      }
+      localStorage.setItem(PENDING_WORKOUT_KEY, JSON.stringify(pending))
+    } catch { /* */ }
+    setHoldExercise(null)
     setScreen('postdetails')
   }
 
@@ -727,6 +774,26 @@ export default function WorkoutPage() {
         />
       )}
 
+      {screen === 'holdtimer' && holdExercise && (
+        <HoldTimerModal
+          holdExercise={holdExercise.type}
+          exerciseName={holdExercise.name}
+          onConfirm={handleHoldConfirm}
+          onCancel={() => { setHoldExercise(null); setScreen('home') }}
+        />
+      )}
+
+      {showHoldPicker && (
+        <HoldExercisePicker
+          onSelect={(type, name) => {
+            setHoldExercise({ type, name })
+            setShowHoldPicker(false)
+            setScreen('holdtimer')
+          }}
+          onClose={() => setShowHoldPicker(false)}
+        />
+      )}
+
       {/* Spiderman mode picker */}
       {showSpidermanPicker && (
         <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-[55]">
@@ -816,6 +883,7 @@ export default function WorkoutPage() {
           onQuickExercise={handleQuickExercise}
           onAutoCount={startAutoCount}
           onSpidermanChallenge={() => setShowSpidermanPicker(true)}
+          onHoldTimer={() => setShowHoldPicker(true)}
           isActive={isActive}
           lastExerciseName={exercises.length > 0 ? exercises[exercises.length - 1].name : null}
           onQuickRecord={handleQuickRecord}
@@ -1043,6 +1111,61 @@ export default function WorkoutPage() {
                 onClick={() => {
                   setRecoveredUnifiedSession(null)
                   localStorage.removeItem(UNIFIED_SESSION_KEY)
+                }}
+                className="w-full py-3 text-sm font-semibold text-red-400 active:opacity-70 transition-opacity"
+              >
+                Renunță
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crash recovery — hold timer session */}
+      {recoveredHoldSession && !recoveredSession && !recoveredUnifiedSession && !recoveredPending && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-5 z-[100]">
+          <div className="w-full max-w-sm rounded-3xl p-6" style={{ backgroundColor: 'var(--app-surface)' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-cyan-500/15 flex items-center justify-center">
+                <span className="text-lg">⏱️</span>
+              </div>
+              <div>
+                <p className="font-black text-white text-base">Sesiune recuperată</p>
+                <p className="text-xs text-white/40 mt-0.5">Hold timer întrerupt</p>
+              </div>
+            </div>
+            <div className="rounded-2xl px-4 py-3 mb-5" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-sm text-white/60">{recoveredHoldSession.exerciseName}</span>
+                <span className="text-sm font-bold text-white">{Math.round(recoveredHoldSession.totalHoldMs / 1000)}s</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  const dur = Math.round(recoveredHoldSession.totalHoldMs / 1000)
+                  const entry: WorkoutExercise = {
+                    name: recoveredHoldSession.exerciseName,
+                    category: getCategory(recoveredHoldSession.exerciseName, catalogue),
+                    sets: [{ durationSeconds: dur, recorded: true }],
+                  }
+                  const startedAtMs = Date.now() - dur * 1000
+                  setCapturedExercises([entry])
+                  setCapturedSeconds(dur)
+                  setWorkoutStartedAt(startedAtMs)
+                  setCapturedCircuits([])
+                  setRecoveredHoldSession(null)
+                  localStorage.removeItem(HOLD_SESSION_KEY)
+                  setScreen('postdetails')
+                }}
+                className="w-full h-13 rounded-2xl bg-brand-green text-black font-black text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+              >
+                Recuperează {Math.round(recoveredHoldSession.totalHoldMs / 1000)}s
+              </button>
+              <button
+                onClick={() => {
+                  setRecoveredHoldSession(null)
+                  localStorage.removeItem(HOLD_SESSION_KEY)
                 }}
                 className="w-full py-3 text-sm font-semibold text-red-400 active:opacity-70 transition-opacity"
               >

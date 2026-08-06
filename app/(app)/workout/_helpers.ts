@@ -1,5 +1,6 @@
 import type { WorkoutExercise, WorkoutSet, WorkoutCircuit } from '@/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
+import type { HoldExerciseType } from '@/lib/ml/hold-detector'
 
 export function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -75,6 +76,17 @@ export function getExerciseType(name: string): ExerciseType | null {
   if (n.includes('tractiuni') || n.includes('chin-up') || n.includes('chinup') || n.includes('australian')) return 'pullup'
   if (n.includes('flotari') || n.includes('flotare') || n.includes('push-up') || n.includes('pushup') || n.includes('diamond') || n.includes('pike')) return 'pushup'
   if (n.includes('squat')) return 'squat'
+  return null
+}
+
+/** Map exercise name to a supported camera-timed hold type, or null if unsupported. */
+export function getHoldExerciseType(name: string): HoldExerciseType | null {
+  const n = norm(name)
+  if (n.includes('dead hang') || n.includes('atarnat')) return 'dead_hang'
+  if (n.includes('l-sit') || n.includes('l sit')) return 'l_sit'
+  if (n.includes('handstand')) return 'handstand'
+  if (n.includes('front lever')) return 'front_lever'
+  if (n.includes('planche')) return 'planche'
   return null
 }
 
