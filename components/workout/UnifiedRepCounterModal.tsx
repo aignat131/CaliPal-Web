@@ -177,14 +177,8 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, zoom: 1 } as MediaTrackConstraints,
+        video: { facingMode: facing },
       })
-      const track = stream.getVideoTracks()[0]
-      const caps = track.getCapabilities?.() as Record<string, unknown> | undefined
-      if (caps?.zoom) {
-        const z = caps.zoom as { min: number }
-        await track.applyConstraints({ advanced: [{ zoom: z.min } as MediaTrackConstraintSet] })
-      }
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
