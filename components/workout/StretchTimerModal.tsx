@@ -10,6 +10,7 @@ import type { StretchExerciseType, StretchState } from '@/lib/ml/stretch-detecto
 import type { StretchRoutine } from '@/lib/data/stretch-routines'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { drawSkeleton, drawAngleArc, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
+import { renderVideoCover } from '@/lib/ml/video-render'
 import DepthMeter from './DepthMeter'
 import type { StretchSession } from '@/types'
 
@@ -194,16 +195,16 @@ export default function StretchTimerModal({
         const video  = videoRef.current
         const canvas = canvasRef.current
         const ctx    = canvas.getContext('2d')!
-        canvas.width  = video.videoWidth
-        canvas.height = video.videoHeight
-        ctx.drawImage(video, 0, 0)
+
+        const dims = renderVideoCover(ctx, canvas, video)
+        if (!dims) { animRef.current = requestAnimationFrame(detect); return }
 
         if (time !== lastTime && video.readyState >= 2) {
           lastTime = time
-          if (!detectorRef.current) return
+          if (!detectorRef.current) { animRef.current = requestAnimationFrame(detect); return }
           const result = detectorRef.current.detectForVideo(video, time)
           if (result.landmarks.length > 0) {
-            processFrame(result.landmarks[0], ctx, canvas.width, canvas.height)
+            processFrame(result.landmarks[0], ctx, dims.vw, dims.vh)
           }
         }
         animRef.current = requestAnimationFrame(detect)
@@ -347,16 +348,15 @@ export default function StretchTimerModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-black">
-      {/* Camera feed */}
+      {/* Camera feed — video is invisible; canvas handles all rendering */}
       <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover"
-        style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
+        className="absolute w-px h-px opacity-0 overflow-hidden"
         muted playsInline
       />
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full"
         style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
       />
 

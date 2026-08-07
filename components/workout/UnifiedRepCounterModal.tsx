@@ -15,6 +15,7 @@ import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
 import { drawSkeleton, POSE_CONNECTIONS } from '@/lib/ml/skeleton-draw'
+import { renderVideoCover } from '@/lib/ml/video-render'
 import { PoseValidator } from '@/lib/ml/pose-validator'
 import { ExerciseDetector } from '@/lib/ml/exercise-detector'
 import type { DetectorState } from '@/lib/ml/exercise-detector'
@@ -212,16 +213,15 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
         const canvas = canvasRef.current
         const ctx    = canvas.getContext('2d')!
 
-        canvas.width  = video.videoWidth
-        canvas.height = video.videoHeight
-        ctx.drawImage(video, 0, 0)
+        const dims = renderVideoCover(ctx, canvas, video)
+        if (!dims) { animRef.current = requestAnimationFrame(detect); return }
 
         if (time !== lastTime && video.readyState >= 2) {
           lastTime = time
-          if (!detectorRef.current) return
+          if (!detectorRef.current) { animRef.current = requestAnimationFrame(detect); return }
           const result = detectorRef.current.detectForVideo(video, time)
           if (result.landmarks.length > 0) {
-            processFrame(result.landmarks[0], ctx, canvas.width, canvas.height)
+            processFrame(result.landmarks[0], ctx, dims.vw, dims.vh)
           }
         }
         animRef.current = requestAnimationFrame(detect)
@@ -405,16 +405,15 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-black">
-      {/* Camera feed */}
+      {/* Camera feed — video is invisible; canvas handles all rendering */}
       <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover"
-        style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
+        className="absolute w-px h-px opacity-0 overflow-hidden"
         muted playsInline
       />
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full"
         style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
       />
 
