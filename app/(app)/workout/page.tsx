@@ -735,6 +735,46 @@ export default function WorkoutPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
+    <>
+    {/* Camera modals are rendered OUTSIDE the animated div so that
+        position:fixed is relative to the viewport, not the transformed parent */}
+
+      {screen === 'autocount' && (
+        <UnifiedRepCounterModal
+          onConfirm={handleAutoCountConfirm}
+          onCancel={() => setScreen('home')}
+        />
+      )}
+
+      {/* Quick exercise camera modal */}
+      {quickExercise && (
+        <RepCounterModal
+          exerciseType={quickExercise.type}
+          exerciseName={quickExercise.name}
+          onConfirm={handleQuickExerciseConfirm}
+          onCancel={() => setQuickExercise(null)}
+        />
+      )}
+
+      {screen === 'holdtimer' && holdExercise && (
+        <HoldTimerModal
+          holdExercise={holdExercise.type}
+          exerciseName={holdExercise.name}
+          onConfirm={handleHoldConfirm}
+          onCancel={() => { setHoldExercise(null); setScreen('home') }}
+        />
+      )}
+
+      {screen === 'stretchtimer' && stretchExercise && (
+        <StretchTimerModal
+          stretchExercise={stretchExercise.type}
+          exerciseName={stretchExercise.name}
+          routine={stretchRoutine}
+          onConfirm={handleStretchConfirm}
+          onCancel={() => { setStretchExercise(null); setStretchRoutine(null); setScreen('home') }}
+        />
+      )}
+
     <div className="min-h-[calc(100vh-64px)] animate-page-enter" style={{ backgroundColor: 'var(--app-bg)' }}>
       <h1 className="sr-only">Workout</h1>
 
@@ -808,27 +848,11 @@ export default function WorkoutPage() {
         />
       )}
 
-      {screen === 'autocount' && (
-        <UnifiedRepCounterModal
-          onConfirm={handleAutoCountConfirm}
-          onCancel={() => setScreen('home')}
-        />
-      )}
-
       {screen === 'spiderman' && (
         <SpidermanChallenge
           mode={spidermanMode}
           onComplete={handleSpidermanComplete}
           onCancel={() => setScreen('home')}
-        />
-      )}
-
-      {screen === 'holdtimer' && holdExercise && (
-        <HoldTimerModal
-          holdExercise={holdExercise.type}
-          exerciseName={holdExercise.name}
-          onConfirm={handleHoldConfirm}
-          onCancel={() => { setHoldExercise(null); setScreen('home') }}
         />
       )}
 
@@ -840,16 +864,6 @@ export default function WorkoutPage() {
             setScreen('holdtimer')
           }}
           onClose={() => setShowHoldPicker(false)}
-        />
-      )}
-
-      {screen === 'stretchtimer' && stretchExercise && (
-        <StretchTimerModal
-          stretchExercise={stretchExercise.type}
-          exerciseName={stretchExercise.name}
-          routine={stretchRoutine}
-          onConfirm={handleStretchConfirm}
-          onCancel={() => { setStretchExercise(null); setStretchRoutine(null); setScreen('home') }}
         />
       )}
 
@@ -966,16 +980,6 @@ export default function WorkoutPage() {
           isActive={isActive}
           lastExerciseName={exercises.length > 0 ? exercises[exercises.length - 1].name : null}
           onQuickRecord={handleQuickRecord}
-        />
-      )}
-
-      {/* Quick exercise camera modal */}
-      {quickExercise && (
-        <RepCounterModal
-          exerciseType={quickExercise.type}
-          exerciseName={quickExercise.name}
-          onConfirm={handleQuickExerciseConfirm}
-          onCancel={() => setQuickExercise(null)}
         />
       )}
 
@@ -1409,5 +1413,6 @@ export default function WorkoutPage() {
         </div>
       )}
     </div>
+    </>
   )
 }

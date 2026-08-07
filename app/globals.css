@@ -248,13 +248,17 @@
   background-size: 200% 100%;
 }
 
-/* Page enter transition — apply to page-level wrappers */
+/* Page enter transition — apply to page-level wrappers.
+   NOTE: do NOT use "forwards" — it persists transform: translateY(0) on the
+   element, which makes it a containing block for position:fixed children
+   (breaking fullscreen camera modals). Without "forwards" the element returns
+   to its natural state (opacity:1, no transform) after animation ends. */
 @keyframes pageEnter {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-page-enter {
-  animation: pageEnter 0.25s ease-out forwards;
+  animation: pageEnter 0.25s ease-out;
 }
 
 /* Coin count-up pulse */
