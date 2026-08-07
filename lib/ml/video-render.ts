@@ -28,6 +28,7 @@ export function renderVideoCover(
 
   // Resize canvas buffer to match its CSS display size (only when changed)
   if (canvas.width !== cw || canvas.height !== ch) {
+    console.log('[renderVideoCover] video:', vw, 'x', vh, '| canvas:', cw, 'x', ch, '| scale:', Math.max(cw / vw, ch / vh).toFixed(3))
     canvas.width = cw
     canvas.height = ch
   }
