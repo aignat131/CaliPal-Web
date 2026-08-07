@@ -20,6 +20,7 @@ import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { FormCue } from '@/lib/ml/form-coach'
 import { drawSkeleton } from '@/lib/ml/skeleton-draw'
+import { renderVideoCover } from '@/lib/ml/video-render'
 
 // MediaPipe pose landmarker model — loaded from Google's CDN so no local file
 // is required. The `connect-src *.googleapis.com` CSP directive covers this.
@@ -152,8 +153,15 @@ export default function FormCheckPage() {
       setPushupModelReady(pushupOk)
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode },
+        video: { facingMode, zoom: 1 } as MediaTrackConstraints,
       })
+      // Reset camera zoom to minimum to prevent device-level zoom
+      const track = stream.getVideoTracks()[0]
+      const caps = track.getCapabilities?.() as Record<string, unknown> | undefined
+      if (caps?.zoom) {
+        const z = caps.zoom as { min: number }
+        await track.applyConstraints({ advanced: [{ zoom: z.min } as MediaTrackConstraintSet] })
+      }
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
@@ -172,10 +180,8 @@ export default function FormCheckPage() {
         const canvas = canvasRef.current
         const ctx = canvas.getContext('2d')!
 
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
-
-        ctx.drawImage(video, 0, 0)
+        const dims = renderVideoCover(ctx, canvas, video)
+        if (!dims) { animRef.current = requestAnimationFrame(detect); return }
 
         if (time !== lastTime && video.readyState >= 2 && detectorRef.current) {
           lastTime = time
@@ -186,7 +192,7 @@ export default function FormCheckPage() {
 
             if (exerciseType === 'pullup') {
               const skeletonColor = STATE_COLORS[repState] ?? '#1ED75F'
-              drawSkeleton(ctx, lms, canvas.width, canvas.height, skeletonColor)
+              drawSkeleton(ctx, lms, dims.vw, dims.vh, skeletonColor)
               const elbow = avgElbowAngle(
                 lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST],
                 lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST]
@@ -207,7 +213,7 @@ export default function FormCheckPage() {
               frameBufferRef.current.push(lms)
               if (frameBufferRef.current.length > 150) frameBufferRef.current.shift()
             } else if (exerciseType === 'pushup') {
-              drawSkeleton(ctx, lms, canvas.width, canvas.height, '#F97316')
+              drawSkeleton(ctx, lms, dims.vw, dims.vh, '#F97316')
               const elbow = avgElbowAngle(
                 lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST],
                 lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST]
@@ -226,7 +232,7 @@ export default function FormCheckPage() {
               frameBufferRef.current.push(lms)
               if (frameBufferRef.current.length > 150) frameBufferRef.current.shift()
             } else {
-              drawSkeleton(ctx, lms, canvas.width, canvas.height, '#3B82F6')
+              drawSkeleton(ctx, lms, dims.vw, dims.vh, '#3B82F6')
               const knee = squatDepthAngle(
                 lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE],
                 lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE],
@@ -757,11 +763,11 @@ export default function FormCheckPage() {
             )}
           </div>
 
-          {/* Camera view */}
+          {/* Camera view — video is invisible; canvas handles all rendering */}
           <div className="relative flex-1 bg-black overflow-hidden">
-            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover"
-              style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined} muted playsInline />
-            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover"
+            <video ref={videoRef} className="absolute w-px h-px opacity-0 overflow-hidden"
+              muted playsInline />
+            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full"
               style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined} />
 
             {status === 'running' && (

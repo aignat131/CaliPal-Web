@@ -7,6 +7,7 @@ import { RepCounter, STATE_LABELS, STATE_COLORS } from '@/lib/ml/rep-counter'
 import { avgElbowAngle, MP, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import type { RepState } from '@/lib/ml/rep-counter'
+import { renderVideoCover } from '@/lib/ml/video-render'
 
 interface RepSegment {
   startMs: number
@@ -69,9 +70,16 @@ export default function AutoCutPage() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 }, zoom: 1 } as MediaTrackConstraints,
         audio: false,
       })
+      // Reset camera zoom to minimum to prevent device-level zoom
+      const track = stream.getVideoTracks()[0]
+      const caps = track.getCapabilities?.() as Record<string, unknown> | undefined
+      if (caps?.zoom) {
+        const z = caps.zoom as { min: number }
+        await track.applyConstraints({ advanced: [{ zoom: z.min } as MediaTrackConstraintSet] })
+      }
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
@@ -101,9 +109,8 @@ export default function AutoCutPage() {
         const video = videoRef.current
         const canvas = canvasRef.current
         const ctx = canvas.getContext('2d')!
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
-        ctx.drawImage(video, 0, 0)
+        const dims = renderVideoCover(ctx, canvas, video)
+        if (!dims) { animRef.current = requestAnimationFrame(detect); return }
 
         if (time !== lastTime && video.readyState >= 2 && detectorRef.current) {
           lastTime = time
@@ -270,8 +277,8 @@ export default function AutoCutPage() {
       <div className="relative flex-1 bg-black overflow-hidden">
         {status !== 'done' && (
           <>
-            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
-            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover" />
+            <video ref={videoRef} className="absolute w-px h-px opacity-0 overflow-hidden" muted playsInline />
+            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
           </>
         )}
 
