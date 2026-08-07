@@ -183,9 +183,6 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
       // Reset camera zoom to minimum to prevent device-level zoom
       const track = stream.getVideoTracks()[0]
       const caps = track.getCapabilities?.() as Record<string, unknown> | undefined
-      const settings = track.getSettings?.()
-      console.log('[UnifiedRepCounter] video resolution:', settings?.width, 'x', settings?.height)
-      console.log('[UnifiedRepCounter] facingMode:', settings?.facingMode)
       if (caps?.zoom) {
         const z = caps.zoom as { min: number }
         await track.applyConstraints({ advanced: [{ zoom: z.min } as MediaTrackConstraintSet] })

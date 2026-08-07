@@ -7,9 +7,10 @@ import {
   PushupCounter, PUSHUP_STATE_LABELS,
   SquatCounter, SQUAT_STATE_LABELS,
   PistolSquatCounter,
-  BALANCED_PULLUP, BALANCED_PUSHUP, BALANCED_SQUAT, EASY_PUSHUP,
+  BALANCED_PULLUP, EASY_PULLUP, STRICT_PULLUP,
+  BALANCED_PUSHUP, BALANCED_SQUAT, EASY_PUSHUP,
 } from '@/lib/ml/rep-counter'
-import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
+import type { RepState, PushupState, SquatState, PullupThresholds } from '@/lib/ml/rep-counter'
 import { bestElbowAngle, squatDepthAngle, perLegSquatData, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
@@ -26,6 +27,16 @@ void POSE_CONNECTIONS
 
 const POSE_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task'
+
+// ── Pull-up difficulty presets ──────────────────────────────────────────────
+
+type PullupDifficulty = 'easy' | 'balanced' | 'hard'
+
+const PULLUP_PRESETS: Record<PullupDifficulty, { label: string; thresholds: PullupThresholds }> = {
+  easy:     { label: 'Ușor',      thresholds: EASY_PULLUP },
+  balanced: { label: 'Balansat',  thresholds: BALANCED_PULLUP },
+  hard:     { label: 'Strict',    thresholds: STRICT_PULLUP },
+}
 
 export const REP_SESSION_KEY = 'calipal_rep_session'
 
@@ -67,6 +78,9 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
 
   const [poseInvalid, setPoseInvalid] = useState<string | null>(null)
   const [gateStatus, setGateStatus] = useState<GateState>('LOADING')
+
+  // Pull-up difficulty
+  const [pullupDifficulty, setPullupDifficulty] = useState<PullupDifficulty>('balanced')
 
   // Camera facing mode
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('user')
@@ -158,9 +172,6 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
       // Reset camera zoom to minimum to prevent device-level zoom
       const track = stream.getVideoTracks()[0]
       const caps = track.getCapabilities?.() as Record<string, unknown> | undefined
-      const settings = track.getSettings?.()
-      console.log('[RepCounter] video resolution:', settings?.width, 'x', settings?.height)
-      console.log('[RepCounter] facingMode:', settings?.facingMode)
       if (caps?.zoom) {
         const z = caps.zoom as { min: number }
         await track.applyConstraints({ advanced: [{ zoom: z.min } as MediaTrackConstraintSet] })
@@ -386,6 +397,11 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     poseValidatorRef.current.reset()
   }
 
+  function handlePullupDifficulty(d: PullupDifficulty) {
+    setPullupDifficulty(d)
+    repCounterRef.current.setThresholds(PULLUP_PRESETS[d].thresholds)
+  }
+
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-black">
       {/* Camera feed — video is invisible; canvas handles all rendering */}
@@ -465,6 +481,25 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
             style={{ backgroundColor: `${stateColor}33`, border: `1px solid ${stateColor}66` }}>
             <span className="text-xs font-bold" style={{ color: stateColor }}>{stateLabel}</span>
           </div>
+          {/* Pull-up difficulty selector */}
+          {exerciseType === 'pullup' && (
+            <div className="mt-2 flex gap-1 pointer-events-auto">
+              {(Object.keys(PULLUP_PRESETS) as PullupDifficulty[]).map(d => (
+                <button
+                  key={d}
+                  onClick={() => handlePullupDifficulty(d)}
+                  className="px-3 py-1 rounded-full text-[10px] font-bold transition-all"
+                  style={{
+                    backgroundColor: pullupDifficulty === d ? '#1ED75F' : 'rgba(255,255,255,0.1)',
+                    color: pullupDifficulty === d ? '#000' : 'rgba(255,255,255,0.6)',
+                    border: `1px solid ${pullupDifficulty === d ? '#1ED75F' : 'rgba(255,255,255,0.2)'}`,
+                  }}
+                >
+                  {PULLUP_PRESETS[d].label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
