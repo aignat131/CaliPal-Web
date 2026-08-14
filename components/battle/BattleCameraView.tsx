@@ -7,7 +7,7 @@ import {
   PushupCounter, SquatCounter,
   BALANCED_PULLUP, EASY_PUSHUP, BALANCED_SQUAT,
 } from '@/lib/ml/rep-counter'
-import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
+import { bestElbowAngle2D, pushupDepthAngle, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { PoseValidator } from '@/lib/ml/pose-validator'
 import { PositionGate } from '@/lib/ml/position-gate'
@@ -44,8 +44,9 @@ export default function BattleCameraView({ exerciseType, onRepCounted, onCameraR
   const squatCounterRef = useRef(new SquatCounter(BALANCED_SQUAT))
   const poseValidatorRef = useRef(new PoseValidator())
   const positionGateRef = useRef(new PositionGate(exerciseType))
-  const elbowSmootherRef = useRef(new AngleSmoother(0.3))
-  const kneeSmootherRef = useRef(new AngleSmoother(0.3))
+  const elbowSmootherRef       = useRef(new AngleSmoother(0.3))
+  const pushupDepthSmootherRef = useRef(new AngleSmoother(0.3))
+  const kneeSmootherRef        = useRef(new AngleSmoother(0.3))
 
   const repCountRef = useRef(0)
   const lastHapticRef = useRef(0)
@@ -71,6 +72,7 @@ export default function BattleCameraView({ exerciseType, onRepCounted, onCameraR
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
     streamRef.current = null
     elbowSmootherRef.current.reset()
+    pushupDepthSmootherRef.current.reset()
     kneeSmootherRef.current.reset()
     setError('')
 
@@ -135,7 +137,7 @@ export default function BattleCameraView({ exerciseType, onRepCounted, onCameraR
     const gate = positionGateRef.current
 
     if (exerciseType === 'pullup') {
-      const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
+      const rawElbow = bestElbowAngle2D(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
       const elbow = elbowSmootherRef.current.smooth(rawElbow)
       gate.update(lms, elbow)
       if (poseCheck.valid && gate.isOpen) {
@@ -147,11 +149,11 @@ export default function BattleCameraView({ exerciseType, onRepCounted, onCameraR
         drawSkeleton(ctx, lms, w, h, '#6B7280')
       }
     } else if (exerciseType === 'pushup') {
-      const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
-      const elbow = elbowSmootherRef.current.smooth(rawElbow)
-      gate.update(lms, elbow)
+      const rawDepth = pushupDepthAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
+      const depth = pushupDepthSmootherRef.current.smooth(rawDepth)
+      gate.update(lms, depth)
       if (poseCheck.valid && gate.isOpen) {
-        const cs = pushupCounterRef.current.update(elbow)
+        const cs = pushupCounterRef.current.update(depth)
         newRepCount = cs.repCount
         drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state as keyof typeof STATE_COLORS] ?? '#1ED75F')
       } else {

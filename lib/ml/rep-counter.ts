@@ -124,7 +124,7 @@ export class RepCounter {
   // Timeout recovery — prevents state machine from getting permanently stuck
   private stateFrameCount = 0
 
-  constructor(thresholds: PullupThresholds = STRICT_PULLUP, enforceTiming = true) {
+  constructor(thresholds: PullupThresholds = BALANCED_PULLUP, enforceTiming = true) {
     this.t = thresholds
     this.minRangeRequired = thresholds.minRangeRequired ?? 25
     this.firstRepMinMs = thresholds.firstRepMinMs ?? FIRST_REP_MIN_MS
@@ -148,6 +148,11 @@ export class RepCounter {
 
   reset() {
     this.repCount = 0
+    this.softReset()
+  }
+
+  /** Reset state machine but preserve rep count. Use when switching exercises in unified mode. */
+  softReset() {
     this.state = 'IDLE'
     this.confirmBuffer = 0
     this.framesSinceRep = 0
@@ -427,7 +432,13 @@ export class PushupCounter {
   }
 
   reset() {
-    this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0
+    this.repCount = 0
+    this.softReset()
+  }
+
+  /** Reset state machine but preserve rep count. Use when switching exercises in unified mode. */
+  softReset() {
+    this.state = 'IDLE'; this.confirmBuffer = 0
     this.framesSinceRep = 0
     this.highAngle = null; this.lowestAngle = null
     this.repStartMs = null
@@ -514,7 +525,13 @@ export class SquatCounter {
   }
 
   reset() {
-    this.repCount = 0; this.state = 'IDLE'; this.confirmBuffer = 0
+    this.repCount = 0
+    this.softReset()
+  }
+
+  /** Reset state machine but preserve rep count. Use when switching exercises in unified mode. */
+  softReset() {
+    this.state = 'IDLE'; this.confirmBuffer = 0
     this.framesSinceRep = 0
     this.highAngle = null; this.lowestAngle = null
     this.repStartMs = null

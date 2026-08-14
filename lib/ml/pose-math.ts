@@ -161,6 +161,54 @@ export function squatDepthAngle(
   return Math.min(knee2D, yAngle)
 }
 
+/**
+ * Push-up depth angle that works from any camera angle.
+ *
+ * Blends a 2D elbow angle (reliable from side camera) with a Y-position-based
+ * depth metric (reliable from front camera). The Y metric measures how close
+ * the shoulders are to the wrists (ground) — when arms are extended the gap
+ * is large, when bent the gap shrinks.
+ *
+ * Returns Math.min(elbow2D, yAngle) — whichever shows more bend wins.
+ */
+export function pushupDepthAngle(
+  leftShoulder: Landmark, leftElbow: Landmark, leftWrist: Landmark,
+  rightShoulder: Landmark, rightElbow: Landmark, rightWrist: Landmark,
+): number {
+  // 2D elbow angle (reliable from side camera, ignores Z-noise)
+  const elbow2D = bestElbowAngle2D(
+    leftShoulder, leftElbow, leftWrist,
+    rightShoulder, rightElbow, rightWrist,
+  )
+
+  // Y-position metric — shoulder-to-wrist vertical gap normalized by arm length
+  // In push-up position: wrists on the ground (high Y), shoulders above (low Y)
+  // UP: large gap → high angle | DOWN: small gap → low angle
+  const shoulderY = (leftShoulder.y + rightShoulder.y) / 2
+  const elbowY = (leftElbow.y + rightElbow.y) / 2
+  const wristY = (leftWrist.y + rightWrist.y) / 2
+
+  const shoulderX = (leftShoulder.x + rightShoulder.x) / 2
+  const elbowX = (leftElbow.x + rightElbow.x) / 2
+  const wristX = (leftWrist.x + rightWrist.x) / 2
+
+  // Total arm length in 2D (shoulder→elbow + elbow→wrist)
+  const upperArm = Math.hypot(shoulderX - elbowX, shoulderY - elbowY)
+  const forearm = Math.hypot(elbowX - wristX, elbowY - wristY)
+  const totalArmLen = upperArm + forearm
+  if (totalArmLen < 0.03) return elbow2D
+
+  // Shoulder-wrist distance as fraction of total arm length
+  // UP (arms extended): ratio ≈ 0.8–1.0 | DOWN (arms bent): ratio ≈ 0.3–0.5
+  const shoulderWristDist = Math.hypot(shoulderX - wristX, shoulderY - wristY)
+  const ratio = shoulderWristDist / totalArmLen
+
+  // Linear map: ratio 0.3 → 70°, ratio 0.95 → 170°
+  const yAngle = Math.max(60, Math.min(175, 70 + (ratio - 0.3) * (170 - 70) / 0.65))
+
+  return Math.min(elbow2D, yAngle)
+}
+
 // ── Per-leg data (pistol squat support) ──────────────────────────────────────
 
 /** Per-leg knee angles and ankle positions for pistol squat detection */

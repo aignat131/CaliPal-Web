@@ -6,11 +6,10 @@ import {
   RepCounter, STATE_LABELS, STATE_COLORS,
   PushupCounter, PUSHUP_STATE_LABELS,
   SquatCounter, SQUAT_STATE_LABELS,
-  BALANCED_PULLUP, EASY_PULLUP, STRICT_PULLUP, EASY_PUSHUP, BALANCED_SQUAT,
+  BALANCED_PULLUP, EASY_PUSHUP, BALANCED_SQUAT,
 } from '@/lib/ml/rep-counter'
-import type { PullupThresholds } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
-import { bestElbowAngle, bestElbowAngle2D, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
+import { bestElbowAngle2D, pushupDepthAngle, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
@@ -38,16 +37,6 @@ const EXERCISE_META: Record<ExerciseType, { name: string; emoji: string; color: 
 }
 
 const EXERCISE_TYPES: ExerciseType[] = ['pushup', 'pullup', 'squat']
-
-// ── Pull-up difficulty presets ──────────────────────────────────────────────
-
-type PullupDifficulty = 'easy' | 'balanced' | 'hard'
-
-const PULLUP_PRESETS: Record<PullupDifficulty, { label: string; thresholds: PullupThresholds }> = {
-  easy:     { label: 'Ușor',      thresholds: EASY_PULLUP },
-  balanced: { label: 'Balansat',  thresholds: BALANCED_PULLUP },
-  hard:     { label: 'Strict',    thresholds: STRICT_PULLUP },
-}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,9 +72,9 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
   const formCoachRef        = useRef(new FormCoach())
   const poseValidatorRef    = useRef(new PoseValidator())
 
-  const elbowSmootherRef   = useRef(new AngleSmoother(0.3))
-  const elbowSmoother2DRef = useRef(new AngleSmoother(0.3)) // 2D angles for pull-ups (Z-depth unreliable)
-  const kneeSmootherRef    = useRef(new AngleSmoother(0.3))
+  const elbowSmoother2DRef    = useRef(new AngleSmoother(0.3)) // 2D angles for pull-ups (Z-depth unreliable)
+  const pushupDepthSmootherRef = useRef(new AngleSmoother(0.3)) // blended push-up depth angle
+  const kneeSmootherRef       = useRef(new AngleSmoother(0.3))
 
   // Rep counts for all exercises (ref for rAF loop, state for UI)
   const repCountsRef = useRef<Record<ExerciseType, number>>({ pushup: 0, pullup: 0, squat: 0 })
@@ -94,9 +83,6 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
   // Rep timing
   const firstRepTimestampRef = useRef<number | null>(null)
   const lastRepTimestampRef  = useRef<number | null>(null)
-
-  // Pull-up difficulty
-  const [pullupDifficulty, setPullupDifficulty] = useState<PullupDifficulty>('balanced')
 
   // Camera
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('user')
@@ -171,8 +157,8 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
     if (animRef.current) cancelAnimationFrame(animRef.current)
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
     streamRef.current = null
-    elbowSmootherRef.current.reset()
     elbowSmoother2DRef.current.reset()
+    pushupDepthSmootherRef.current.reset()
     kneeSmootherRef.current.reset()
 
     setCameraLoading(true)
@@ -259,13 +245,12 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
   // ── Frame processing ──────────────────────────────────────────────────────
 
   function processFrame(lms: Landmark[], ctx: CanvasRenderingContext2D, w: number, h: number) {
-    // Always compute both angles
-    const rawElbow = bestElbowAngle(
+    // Compute angles — 2D elbow for pull-ups, blended depth for push-ups, blended depth for squats
+    const rawElbow2D = bestElbowAngle2D(
       lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST],
       lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST],
     )
-    // 2D elbow angle for pull-ups — ignores Z-depth noise from front-facing cameras
-    const rawElbow2D = bestElbowAngle2D(
+    const rawPushupDepth = pushupDepthAngle(
       lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST],
       lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST],
     )
@@ -274,20 +259,24 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
       lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE],
       lms[MP.LEFT_SHOULDER], lms[MP.RIGHT_SHOULDER],
     )
-    const elbow   = elbowSmootherRef.current.smooth(rawElbow)
-    const elbow2D = elbowSmoother2DRef.current.smooth(rawElbow2D)
-    const knee    = kneeSmootherRef.current.smooth(rawKnee)
+    const elbow2D     = elbowSmoother2DRef.current.smooth(rawElbow2D)
+    const pushupDepth = pushupDepthSmootherRef.current.smooth(rawPushupDepth)
+    const knee        = kneeSmootherRef.current.smooth(rawKnee)
 
     // Exercise detection
     const detection = exerciseDetectorRef.current.update(lms)
     const active = detection.activeExercise
     setDetectorState(detection.state)
 
-    // Handle exercise change — reset validator and form coach
+    // Handle exercise change — reset validator, form coach, and counter state machines
     if (active !== prevActiveExerciseRef.current) {
       if (active) {
         poseValidatorRef.current.reset()
         formCoachRef.current.reset()
+        // Soft-reset counters: clear state machine but preserve rep counts
+        pullupCounterRef.current.softReset()
+        pushupCounterRef.current.softReset()
+        squatCounterRef.current.softReset()
       }
       prevActiveExerciseRef.current = active
     }
@@ -323,12 +312,11 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
       newRepCount = cs.repCount
       repInProgress = cs.state !== 'IDLE' && cs.state !== 'HANGING'
       drawSkeleton(ctx, lms, w, h, EXERCISE_META.pullup.skeletonColor)
-      // barY is still tracked internally for rep counting but not drawn
       setStateLabel(STATE_LABELS[cs.state])
       setStateColor(STATE_COLORS[cs.state])
       setFormCues(formCoachRef.current.getFormCues(lms, 'pullup', cs.state, cs.bodyRiseRejected))
     } else if (active === 'pushup') {
-      const cs = pushupCounterRef.current.update(elbow)
+      const cs = pushupCounterRef.current.update(pushupDepth)
       newRepCount = cs.repCount
       repInProgress = cs.state === 'DOWN'
       drawSkeleton(ctx, lms, w, h, EXERCISE_META.pushup.skeletonColor)
@@ -372,17 +360,12 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
   // Suppress unused type warnings
   void (null as unknown as RepState | PushupState | SquatState)
 
-  function handlePullupDifficulty(d: PullupDifficulty) {
-    setPullupDifficulty(d)
-    pullupCounterRef.current.setThresholds(PULLUP_PRESETS[d].thresholds)
-  }
-
   function handleCameraFlip() {
     const next = facingMode === 'environment' ? 'user' : 'environment'
     setFacingMode(next)
     exerciseDetectorRef.current.reset()
-    elbowSmootherRef.current.reset()
     elbowSmoother2DRef.current.reset()
+    pushupDepthSmootherRef.current.reset()
     kneeSmootherRef.current.reset()
     startCamera(next)
   }
@@ -473,25 +456,6 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
                 style={{ backgroundColor: `${stateColor}33`, border: `1px solid ${stateColor}66` }}>
                 <span className="text-xs font-bold" style={{ color: stateColor }}>{stateLabel}</span>
               </div>
-              {/* Pull-up difficulty selector */}
-              {activeExercise === 'pullup' && (
-                <div className="mt-2 flex gap-1 pointer-events-auto">
-                  {(Object.keys(PULLUP_PRESETS) as PullupDifficulty[]).map(d => (
-                    <button
-                      key={d}
-                      onClick={() => handlePullupDifficulty(d)}
-                      className="px-3 py-1 rounded-full text-[10px] font-bold transition-all"
-                      style={{
-                        backgroundColor: pullupDifficulty === d ? '#1ED75F' : 'rgba(255,255,255,0.1)',
-                        color: pullupDifficulty === d ? '#000' : 'rgba(255,255,255,0.6)',
-                        border: `1px solid ${pullupDifficulty === d ? '#1ED75F' : 'rgba(255,255,255,0.2)'}`,
-                      }}
-                    >
-                      {PULLUP_PRESETS[d].label}
-                    </button>
-                  ))}
-                </div>
-              )}
             </>
           ) : (
             /* Detecting state — pulsing indicator */
