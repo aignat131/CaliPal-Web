@@ -290,6 +290,8 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
       setStateColor('#6B7280')
       setFormCues([])
       setPoseInvalid(null)
+      // Release mid-rep lock so detector can freely switch
+      exerciseDetectorRef.current.setRepInProgress(false)
       return
     }
 
@@ -299,6 +301,9 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
 
     if (!poseCheck.valid) {
       drawSkeleton(ctx, lms, w, h, '#6B7280')
+      // Release mid-rep lock — user is no longer in valid exercise pose,
+      // allow detector to start counting exit frames for exercise switching
+      exerciseDetectorRef.current.setRepInProgress(false)
       return
     }
 

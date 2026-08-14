@@ -8,7 +8,7 @@ const CONFIRM_FRAMES = 3
 const MIN_REP_FRAMES = 20
 const FIRST_REP_MIN_MS = 1800
 const SUBSEQUENT_REP_MIN_MS = 700
-const MAX_STATE_FRAMES = 300 // ~10s at 30fps — reset if stuck in PULLING/PEAK/LOWERING
+const MAX_STATE_FRAMES = 120 // ~4s at 30fps — reset if stuck in PULLING/PEAK/LOWERING
 
 // ── Threshold config types & presets ─────────────────────────────────────────
 

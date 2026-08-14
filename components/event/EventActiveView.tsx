@@ -109,10 +109,10 @@ export default function EventActiveView({
 
       {/* Two-column layout on desktop */}
       <div className="md:flex md:gap-6 md:items-start">
-        {/* Leaderboard — full width on desktop */}
+        {/* Leaderboard — full width on desktop, capped height on mobile so buttons stay visible */}
         <div className="md:flex-1 md:min-w-0 mb-5 md:mb-0">
           <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2">{t('event.leaderboard').toUpperCase()}</p>
-          <div className="rounded-2xl p-3 border border-white/8" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+          <div className="rounded-2xl p-3 border border-white/8 max-h-[40vh] md:max-h-none overflow-y-auto" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
             <EventLeaderboard sortedParticipants={sortedParticipants} currentUid={currentUid} />
           </div>
         </div>
