@@ -5,8 +5,6 @@ import { parseBody } from '@/lib/api/parseBody'
 
 export const dynamic = 'force-dynamic'
 
-const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL ?? ''
-
 export async function POST(req: NextRequest) {
   try {
     // ── 1. Auth ───────────────────────────────────────────────────────────────
@@ -15,13 +13,13 @@ export async function POST(req: NextRequest) {
     if (!idToken) return NextResponse.json({ ok: false, reason: 'no-token' }, { status: 401 })
 
     let callerUid: string
-    let callerEmail: string | undefined
     let callerIsSuperAdmin = false
     try {
       const decoded = await adminAuth().verifyIdToken(idToken)
       callerUid = decoded.uid
-      callerEmail = decoded.email
-      callerIsSuperAdmin = decoded.superAdmin === true || (!!SUPERADMIN_EMAIL && callerEmail === SUPERADMIN_EMAIL)
+      // Check superAdmin custom claim (set via scripts/set-superadmin-claim.ts)
+      const userRecord = await adminAuth().getUser(decoded.uid)
+      callerIsSuperAdmin = userRecord.customClaims?.superAdmin === true
     } catch {
       return NextResponse.json({ ok: false, reason: 'invalid-token' }, { status: 401 })
     }
