@@ -10,7 +10,7 @@ import {
 } from '@/lib/ml/rep-counter'
 import type { PullupThresholds } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState } from '@/lib/ml/rep-counter'
-import { bestElbowAngle, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
+import { bestElbowAngle, bestElbowAngle2D, squatDepthAngle, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
@@ -83,8 +83,9 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
   const formCoachRef        = useRef(new FormCoach())
   const poseValidatorRef    = useRef(new PoseValidator())
 
-  const elbowSmootherRef = useRef(new AngleSmoother(0.3))
-  const kneeSmootherRef  = useRef(new AngleSmoother(0.3))
+  const elbowSmootherRef   = useRef(new AngleSmoother(0.3))
+  const elbowSmoother2DRef = useRef(new AngleSmoother(0.3)) // 2D angles for pull-ups (Z-depth unreliable)
+  const kneeSmootherRef    = useRef(new AngleSmoother(0.3))
 
   // Rep counts for all exercises (ref for rAF loop, state for UI)
   const repCountsRef = useRef<Record<ExerciseType, number>>({ pushup: 0, pullup: 0, squat: 0 })
@@ -171,6 +172,7 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
     streamRef.current = null
     elbowSmootherRef.current.reset()
+    elbowSmoother2DRef.current.reset()
     kneeSmootherRef.current.reset()
 
     setCameraLoading(true)
@@ -262,13 +264,19 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
       lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST],
       lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST],
     )
+    // 2D elbow angle for pull-ups — ignores Z-depth noise from front-facing cameras
+    const rawElbow2D = bestElbowAngle2D(
+      lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST],
+      lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST],
+    )
     const rawKnee = squatDepthAngle(
       lms[MP.LEFT_HIP], lms[MP.LEFT_KNEE], lms[MP.LEFT_ANKLE],
       lms[MP.RIGHT_HIP], lms[MP.RIGHT_KNEE], lms[MP.RIGHT_ANKLE],
       lms[MP.LEFT_SHOULDER], lms[MP.RIGHT_SHOULDER],
     )
-    const elbow = elbowSmootherRef.current.smooth(rawElbow)
-    const knee  = kneeSmootherRef.current.smooth(rawKnee)
+    const elbow   = elbowSmootherRef.current.smooth(rawElbow)
+    const elbow2D = elbowSmoother2DRef.current.smooth(rawElbow2D)
+    const knee    = kneeSmootherRef.current.smooth(rawKnee)
 
     // Exercise detection
     const detection = exerciseDetectorRef.current.update(lms)
@@ -311,7 +319,7 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
 
     if (active === 'pullup') {
       const bodyMetrics = extractBodyRiseMetrics(lms)
-      const cs = pullupCounterRef.current.update(elbow, bodyMetrics)
+      const cs = pullupCounterRef.current.update(elbow2D, bodyMetrics)
       newRepCount = cs.repCount
       repInProgress = cs.state !== 'IDLE' && cs.state !== 'HANGING'
       drawSkeleton(ctx, lms, w, h, EXERCISE_META.pullup.skeletonColor)
@@ -374,6 +382,7 @@ export default function UnifiedRepCounterModal({ onConfirm, onCancel }: Props) {
     setFacingMode(next)
     exerciseDetectorRef.current.reset()
     elbowSmootherRef.current.reset()
+    elbowSmoother2DRef.current.reset()
     kneeSmootherRef.current.reset()
     startCamera(next)
   }

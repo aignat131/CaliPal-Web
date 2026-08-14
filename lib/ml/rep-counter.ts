@@ -8,6 +8,7 @@ const CONFIRM_FRAMES = 3
 const MIN_REP_FRAMES = 20
 const FIRST_REP_MIN_MS = 1800
 const SUBSEQUENT_REP_MIN_MS = 700
+const MAX_STATE_FRAMES = 300 // ~10s at 30fps — reset if stuck in PULLING/PEAK/LOWERING
 
 // ── Threshold config types & presets ─────────────────────────────────────────
 
@@ -120,6 +121,9 @@ export class RepCounter {
   // Abort buffer — separate from confirmBuffer to guard PULLING→HANGING fallback
   private abortBuffer = 0
 
+  // Timeout recovery — prevents state machine from getting permanently stuck
+  private stateFrameCount = 0
+
   constructor(thresholds: PullupThresholds = STRICT_PULLUP, enforceTiming = true) {
     this.t = thresholds
     this.minRangeRequired = thresholds.minRangeRequired ?? 25
@@ -159,6 +163,7 @@ export class RepCounter {
     this.barYSamples = []
     this.barY = null
     this.abortBuffer = 0
+    this.stateFrameCount = 0
   }
 
   private snapshot(): RepCounterState {
@@ -171,6 +176,23 @@ export class RepCounter {
   update(avgElbow: number, bodyMetrics?: BodyRiseMetrics | null): RepCounterState {
     if (!isFinite(avgElbow)) return this.snapshot()
     this.framesSinceRep++
+
+    // Timeout recovery — if stuck in PULLING/PEAK/LOWERING for too long, reset
+    if (this.state === 'PULLING' || this.state === 'PEAK' || this.state === 'LOWERING') {
+      this.stateFrameCount++
+      if (this.stateFrameCount > MAX_STATE_FRAMES) {
+        this.state = 'IDLE'
+        this.confirmBuffer = 0
+        this.abortBuffer = 0
+        this.stateFrameCount = 0
+        this.peakReached = false
+        this.lowestAngle = null
+        this.repStartMs = null
+        this.bestShoulderY = null
+        this.bestHipY = null
+        return this.snapshot()
+      }
+    }
 
     switch (this.state) {
       case 'IDLE':
@@ -198,6 +220,7 @@ export class RepCounter {
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'PULLING'
             this.confirmBuffer = 0
+            this.stateFrameCount = 0
             this.lowestAngle = avgElbow
             this.repStartMs = performance.now()
           }
@@ -238,6 +261,7 @@ export class RepCounter {
             this.state = 'PEAK'
             this.peakReached = true
             this.confirmBuffer = 0
+            this.stateFrameCount = 0
           }
         } else if (avgElbow >= this.t.hangEnter) {
           // Dropping back without reaching peak — require CONFIRM_FRAMES to avoid noise resets
@@ -247,6 +271,7 @@ export class RepCounter {
             this.state = 'HANGING'
             this.confirmBuffer = 0
             this.abortBuffer = 0
+            this.stateFrameCount = 0
             this.lowestAngle = null
             this.repStartMs = null
           }
@@ -278,6 +303,7 @@ export class RepCounter {
           if (this.confirmBuffer >= CONFIRM_FRAMES) {
             this.state = 'LOWERING'
             this.confirmBuffer = 0
+            this.stateFrameCount = 0
           }
         } else {
           this.confirmBuffer = 0
@@ -315,6 +341,7 @@ export class RepCounter {
             if (rangeOk && timeOk && bodyRiseOk) this.repCount++
             this.state = 'HANGING'
             this.confirmBuffer = 0
+            this.stateFrameCount = 0
             this.framesSinceRep = 0
             this.peakReached = false
             this.highAngle = avgElbow

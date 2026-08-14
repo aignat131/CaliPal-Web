@@ -91,6 +91,21 @@ export function bestElbowAngle(
 }
 
 /**
+ * 2D variant of bestElbowAngle — ignores Z-depth to avoid noise from
+ * front-facing cameras. Critical for pull-ups where MediaPipe's Z estimation
+ * is unreliable (arms above head, partially occluded by bar).
+ */
+export function bestElbowAngle2D(
+  leftShoulder: Landmark, leftElbow: Landmark, leftWrist: Landmark,
+  rightShoulder: Landmark, rightElbow: Landmark, rightWrist: Landmark
+): number {
+  const leftVis  = Math.min(leftShoulder.visibility ?? 0, leftElbow.visibility ?? 0, leftWrist.visibility ?? 0)
+  const rightVis = Math.min(rightShoulder.visibility ?? 0, rightElbow.visibility ?? 0, rightWrist.visibility ?? 0)
+  if (leftVis >= rightVis) return angleBetween2D(leftShoulder, leftElbow, leftWrist)
+  return angleBetween2D(rightShoulder, rightElbow, rightWrist)
+}
+
+/**
  * Easy-mode knee angle: picks the side whose three joints have the highest
  * minimum visibility score.
  */

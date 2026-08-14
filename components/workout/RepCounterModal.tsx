@@ -11,7 +11,7 @@ import {
   BALANCED_PUSHUP, BALANCED_SQUAT, EASY_PUSHUP,
 } from '@/lib/ml/rep-counter'
 import type { RepState, PushupState, SquatState, PullupThresholds } from '@/lib/ml/rep-counter'
-import { bestElbowAngle, squatDepthAngle, perLegSquatData, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
+import { bestElbowAngle, bestElbowAngle2D, squatDepthAngle, perLegSquatData, MP, AngleSmoother, extractBodyRiseMetrics } from '@/lib/ml/pose-math'
 import type { Landmark } from '@/lib/ml/pose-math'
 import { FormCoach } from '@/lib/ml/form-coach'
 import type { ExerciseType, FormCue } from '@/lib/ml/form-coach'
@@ -66,8 +66,9 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
   const positionGateRef  = useRef(new PositionGate(exerciseType))
 
   // Angle smoothers — one per joint type
-  const elbowSmootherRef    = useRef(new AngleSmoother(0.3))
-  const kneeSmootherRef     = useRef(new AngleSmoother(0.3))
+  const elbowSmootherRef     = useRef(new AngleSmoother(0.3))
+  const elbowSmoother2DRef   = useRef(new AngleSmoother(0.3)) // 2D angles for pull-ups (Z-depth unreliable)
+  const kneeSmootherRef      = useRef(new AngleSmoother(0.3))
   // Pistol mode: separate smoothers per leg (independent signals)
   const leftKneeSmootherRef  = useRef(new AngleSmoother(0.3))
   const rightKneeSmootherRef = useRef(new AngleSmoother(0.3))
@@ -160,6 +161,7 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     streamRef.current = null
     // Reset smoothers on camera switch — different perspective can yield different angle offsets
     elbowSmootherRef.current.reset()
+    elbowSmoother2DRef.current.reset()
     kneeSmootherRef.current.reset()
 
     setCameraLoading(true)
@@ -269,14 +271,15 @@ export default function RepCounterModal({ exerciseType, exerciseName, onConfirm,
     const gate = positionGateRef.current
 
     if (exerciseType === 'pullup') {
-      const rawElbow = bestElbowAngle(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
-      const elbow = elbowSmootherRef.current.smooth(rawElbow)
-      gate.update(lms, elbow)
+      // Use 2D elbow angle for pull-ups — Z-depth is unreliable from front-facing cameras
+      const rawElbow2D = bestElbowAngle2D(lms[MP.LEFT_SHOULDER], lms[MP.LEFT_ELBOW], lms[MP.LEFT_WRIST], lms[MP.RIGHT_SHOULDER], lms[MP.RIGHT_ELBOW], lms[MP.RIGHT_WRIST])
+      const elbow2D = elbowSmoother2DRef.current.smooth(rawElbow2D)
+      gate.update(lms, elbow2D)
       setGateStatus(gate.gateState)
 
       if (poseCheck.valid && gate.isOpen) {
         const bodyMetrics = extractBodyRiseMetrics(lms)
-        const cs = repCounterRef.current.update(elbow, bodyMetrics)
+        const cs = repCounterRef.current.update(elbow2D, bodyMetrics)
         newRepCount = cs.repCount
         drawSkeleton(ctx, lms, w, h, STATE_COLORS[cs.state] ?? '#1ED75F')
         // barY is still tracked internally for rep counting but not drawn
