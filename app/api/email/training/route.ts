@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3. Verify caller is staff in this community ────────────────────────────
+  console.log('[email/training] step 3: checking membership for', callerUid, 'in', communityId)
   const callerMemberSnap = await adminDb()
     .collection('communities').doc(communityId)
     .collection('members').doc(callerUid)
@@ -81,7 +82,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: 'not-member' }, { status: 403 })
   }
   const callerRole = callerMemberSnap.data()?.role as string | undefined
-  const isSuperAdmin = (await adminAuth().getUser(callerUid)).customClaims?.superAdmin === true
+  const userRecord = await adminAuth().getUser(callerUid)
+  const isSuperAdmin = userRecord.customClaims?.superAdmin === true
+  console.log('[email/training] step 3: role=', callerRole, 'superAdmin=', isSuperAdmin)
   if (!isSuperAdmin && callerRole !== 'ADMIN' && callerRole !== 'MODERATOR' && callerRole !== 'TRAINER') {
     return NextResponse.json({ ok: false, reason: 'not-admin' }, { status: 403 })
   }
@@ -89,6 +92,7 @@ export async function POST(req: NextRequest) {
   // ── 4. Fetch community name ────────────────────────────────────────────────
   const communitySnap = await adminDb().collection('communities').doc(communityId).get()
   const communityName = (communitySnap.data()?.name as string | undefined) ?? 'Comunitate'
+  console.log('[email/training] step 4: community=', communityName)
 
   // ── 5. Fetch all members, filter out opted-out ─────────────────────────────
   const membersSnap = await adminDb()
@@ -103,6 +107,8 @@ export async function POST(req: NextRequest) {
       return true
     })
     .map(d => d.id)
+
+  console.log('[email/training] step 5: eligible members=', memberUids.length)
 
   if (memberUids.length === 0) {
     return NextResponse.json({ ok: true, sent: 0 })
@@ -127,6 +133,8 @@ export async function POST(req: NextRequest) {
       }
     })
   }
+
+  console.log('[email/training] step 6: targets with email=', emailTargets.length)
 
   if (emailTargets.length === 0) {
     return NextResponse.json({ ok: true, sent: 0 })
@@ -168,8 +176,10 @@ export async function POST(req: NextRequest) {
     })
 
     try {
+      console.log('[email/training] step 8: sending batch of', emails.length, 'emails')
       const resend = new Resend(process.env.RESEND_API_KEY)
-      await resend.batch.send(emails)
+      const result = await resend.batch.send(emails)
+      console.log('[email/training] step 8: batch result=', JSON.stringify(result))
       sent += slice.length
     } catch (err) {
       console.error('[email/training] batch send error:', err)
@@ -177,6 +187,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  console.log('[email/training] done: sent=', sent)
   return NextResponse.json({ ok: true, sent })
   } catch (err) {
     console.error('[email/training] unhandled error:', err)
