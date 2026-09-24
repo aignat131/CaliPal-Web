@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Trash2, ChevronRight, Check, X, Square, Search, Camera, Timer, RotateCcw, Layers, Pause, Play } from 'lucide-react'
+import { Plus, Trash2, ChevronRight, Check, X, Square, Search, Camera, Timer, RotateCcw, Layers, Pause, Play, Mic } from 'lucide-react'
 import type { WorkoutExercise, WorkoutSet, GripType } from '@/types'
 import type { ActiveCircuit, ActiveTimedSet } from '@/lib/context/WorkoutContext'
 import { getMetric, getCategory, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
@@ -16,7 +16,7 @@ export function ActiveWorkoutView({
   onPause, onResume, onToggleSet,
   favorites, onToggleFavorite: _onToggleFavorite,
   circuits, onAddCircuit, onRemoveCircuit, onStartCircuitRound, onCompleteCircuitRound,
-  activeTimedSet, onStartTimedSet, onClearTimedSet,
+  activeTimedSet, onStartTimedSet, onClearTimedSet, onVoiceLog,
 }: {
   exercises: WorkoutExercise[]
   seconds: number
@@ -43,6 +43,7 @@ export function ActiveWorkoutView({
   activeTimedSet: ActiveTimedSet | null
   onStartTimedSet: (exerciseIndex: number, setIndex: number, targetDurationSeconds: number) => void
   onClearTimedSet: () => void
+  onVoiceLog: () => void
 }) {
   const [showCancel, setShowCancel] = useState(false)
   const [showFinishConfirm, setShowFinishConfirm] = useState(false)
@@ -345,7 +346,7 @@ export function ActiveWorkoutView({
                         key={s.name}
                         onClick={() => {
                           if (exType) {
-                            setLogExercise(s.name)
+                            openLogPopup(s.name)
                           }
                         }}
                         className="w-full rounded-2xl px-4 py-4 flex items-center gap-3.5 active:scale-[0.98] transition-all border border-white/6 hover:border-brand-green/20"
@@ -516,13 +517,21 @@ export function ActiveWorkoutView({
             </button>
           )}
 
-          {/* Search exercise button */}
-          <button
-            onClick={() => setShowSearch(true)}
-            className="w-full h-11 rounded-2xl border border-dashed border-white/20 text-sm text-white/40 flex items-center justify-center gap-2 mb-3 hover:border-brand-green/40 hover:text-brand-green transition-colors"
-          >
-            <Search size={15} /> Caută exercițiu
-          </button>
+          {/* Search exercise / dictate buttons */}
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => setShowSearch(true)}
+              className="flex-1 h-11 rounded-2xl border border-dashed border-white/20 text-sm text-white/40 flex items-center justify-center gap-2 hover:border-brand-green/40 hover:text-brand-green transition-colors"
+            >
+              <Search size={15} /> Caută exercițiu
+            </button>
+            <button
+              onClick={onVoiceLog}
+              className="h-11 px-4 rounded-2xl border border-dashed border-brand-green/30 text-sm text-brand-green/70 flex items-center justify-center gap-2 hover:border-brand-green/60 hover:text-brand-green transition-colors"
+            >
+              <Mic size={15} /> Dictează
+            </button>
+          </div>
 
           {/* Note */}
           <textarea

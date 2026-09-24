@@ -35,7 +35,7 @@ export function exerciseOneLiner(ex: WorkoutExercise): string {
       base = s.durationSeconds != null ? `${s.durationSeconds}s` : '—'
     }
     const mod  = s.weightKg ? ` +${s.weightKg}kg` : s.bandKg ? ` ~${s.bandKg}kg` : ''
-    const rec  = s.recorded ? ' 📹' : ''
+    const rec  = s.recorded ? ' 📹' : s.source === 'voice' ? ' 🎤' : ''
     return base + mod + rec
   }
 
@@ -64,6 +64,19 @@ export function exerciseOneLiner(ex: WorkoutExercise): string {
 /** Locale-safe "yyyy-MM-dd" from a Date — avoids toDateString() timezone issues. */
 export function localDate(d: Date): string {
   return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+}
+
+/**
+ * Reps that count toward leaderboards and challenges, per exercise name.
+ * Dictated (voice) sets only live in the user's own workout history.
+ */
+export function competitiveRepsByExercise(exercises: WorkoutExercise[]): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const ex of exercises) {
+    const reps = ex.sets.reduce((sum, s) => s.source === 'voice' ? sum : sum + (s.reps ?? 0), 0)
+    out[ex.name] = (out[ex.name] ?? 0) + reps
+  }
+  return out
 }
 
 /** Normalize string for diacritic-insensitive search. */

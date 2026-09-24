@@ -3,7 +3,14 @@
 import { useRef, useState } from 'react'
 import { X, ImagePlus, Share2 } from 'lucide-react'
 import type { WorkoutExercise } from '@/types'
-import { formatDuration, totalRepsInWorkout, exerciseOneLiner } from '../_helpers'
+import { useT } from '@/lib/context/LanguageContext'
+import { formatDuration, totalRepsInWorkout, exerciseOneLiner, localDate } from '../_helpers'
+
+/** Date (yyyy-MM-dd, local) and duration chosen on the post-workout screen. */
+export interface WorkoutMeta {
+  date: string
+  seconds: number
+}
 
 export function PostWorkoutDetails({
   exercises,
@@ -14,14 +21,23 @@ export function PostWorkoutDetails({
 }: {
   exercises: WorkoutExercise[]
   seconds: number
-  onSave: (photoFile: File | null, description: string) => void
-  onShare: (photoFile: File | null, description: string) => void
+  onSave: (photoFile: File | null, description: string, meta: WorkoutMeta) => void
+  onShare: (photoFile: File | null, description: string, meta: WorkoutMeta) => void
   hasJoinedCommunities: boolean
 }) {
   const [description, setDescription] = useState('')
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const t = useT()
+  const today = localDate(new Date())
+  const [date, setDate] = useState(today)
+  // null = untouched → keep the exact timer seconds
+  const [minutesInput, setMinutesInput] = useState<string | null>(null)
+  const effectiveSeconds = minutesInput === null
+    ? seconds
+    : Math.min(24 * 60, Math.max(0, parseInt(minutesInput) || 0)) * 60
+  const meta: WorkoutMeta = { date: date && date <= today ? date : today, seconds: effectiveSeconds }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -41,7 +57,7 @@ export function PostWorkoutDetails({
       <div className="flex-shrink-0 px-5 pt-12 pb-5 border-b border-white/8">
         <h2 className="text-2xl font-black text-white mb-1">Cum a mers?</h2>
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-white/40">⏱ {formatDuration(seconds)}</span>
+          <span className="text-xs font-semibold text-white/40">⏱ {formatDuration(effectiveSeconds)}</span>
           <span className="text-white/20">·</span>
           <span className="text-xs font-semibold text-white/40">🔁 {totalReps} rep</span>
           <span className="text-white/20">·</span>
@@ -63,6 +79,35 @@ export function PostWorkoutDetails({
               ))}
             </div>
           )}
+
+          {/* Date + duration — lets users log a workout after the fact */}
+          <div className="flex gap-3 mb-2">
+            <label className="flex-1 flex flex-col gap-1">
+              <span className="text-[10px] font-bold text-white/35 tracking-widest uppercase">{t('postworkout.date')}</span>
+              <input
+                type="date"
+                value={date}
+                max={today}
+                onChange={e => setDate(e.target.value)}
+                className="h-10 rounded-xl px-3 text-sm text-white bg-white/5 border border-white/10 outline-none [color-scheme:dark]"
+              />
+            </label>
+            <label className="w-32 flex flex-col gap-1">
+              <span className="text-[10px] font-bold text-white/35 tracking-widest uppercase">{t('postworkout.duration_min')}</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={minutesInput ?? String(Math.round(seconds / 60))}
+                onChange={e => setMinutesInput(e.target.value)}
+                onFocus={e => e.target.select()}
+                className="h-10 rounded-xl px-3 text-sm text-white tabular-nums bg-white/5 border border-white/10 outline-none"
+              />
+            </label>
+          </div>
+          {meta.date !== today
+            ? <p className="text-[11px] text-amber-400/80 mb-4">{t('postworkout.backdated_note')}</p>
+            : <div className="mb-3" />}
 
           <textarea
             value={description}
@@ -98,7 +143,7 @@ export function PostWorkoutDetails({
 
           {/* Actions */}
           <button
-            onClick={() => onSave(photoFile, description)}
+            onClick={() => onSave(photoFile, description, meta)}
             className="w-full rounded-full font-black text-black bg-brand-green mb-3"
             style={{ height: 52 }}
           >
@@ -106,7 +151,7 @@ export function PostWorkoutDetails({
           </button>
           {hasJoinedCommunities && (
             <button
-              onClick={() => onShare(photoFile, description)}
+              onClick={() => onShare(photoFile, description, meta)}
               className="w-full rounded-full font-bold border border-white/20 text-white/70 flex items-center justify-center gap-2"
               style={{ height: 48 }}
             >

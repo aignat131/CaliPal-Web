@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import {
   collection, query, orderBy, limit, onSnapshot,
-  addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, getDocs, deleteDoc, setDoc, runTransaction,
+  addDoc, doc, updateDoc, increment, serverTimestamp, getDoc, getDocs, deleteDoc, setDoc, runTransaction, Timestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -17,14 +17,15 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useT } from '@/lib/context/LanguageContext'
 import { useWorkout } from '@/lib/context/WorkoutContext'
 import { DEFAULT_EXERCISE_CATALOGUE, getCategory, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
-import { localDate, totalRepsInWorkout, formatDuration, getExerciseType, norm } from './_helpers'
+import { localDate, totalRepsInWorkout, formatDuration, getExerciseType, norm, competitiveRepsByExercise } from './_helpers'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import RepCounterModal, { REP_SESSION_KEY } from '@/components/workout/RepCounterModal'
 import UnifiedRepCounterModal, { UNIFIED_SESSION_KEY } from '@/components/workout/UnifiedRepCounterModal'
 import type { UnifiedResult } from '@/components/workout/UnifiedRepCounterModal'
 import { WorkoutHomeTab } from './_components/WorkoutHomeTab'
 import { ActiveWorkoutView } from './_components/ActiveWorkoutView'
-import { PostWorkoutDetails } from './_components/PostWorkoutDetails'
+import { PostWorkoutDetails, type WorkoutMeta } from './_components/PostWorkoutDetails'
+import VoiceLogSheet from '@/components/workout/VoiceLogSheet'
 import { WorkoutSummaryCard } from './_components/WorkoutSummaryCard'
 import { QuickRepCounterView } from './_components/QuickRepCounterView'
 import { SpidermanChallenge } from './_components/SpidermanChallenge'
@@ -89,6 +90,9 @@ export default function WorkoutPage() {
   // Spiderman mode selection
   const [showSpidermanPicker, setShowSpidermanPicker] = useState(false)
   const [spidermanMode, setSpidermanMode] = useState<SpidermanMode>('amrap')
+
+  // Voice log sheet — 'home' creates a new workout, 'active' adds to the running one
+  const [voiceMode, setVoiceMode] = useState<'home' | 'active' | null>(null)
 
   // Hold timer
   const [holdExercise, setHoldExercise] = useState<{ type: HoldExerciseType; name: string } | null>(null)
@@ -329,6 +333,26 @@ export default function WorkoutPage() {
     setScreen('postdetails')
   }
 
+  // ── Voice log ──────────────────────────────────────────────────────────────
+
+  function handleVoiceConfirm(voiceExercises: WorkoutExercise[]) {
+    setVoiceMode(null)
+    if (!isActive) {
+      // Standalone dictated workout → straight to the details screen (date + duration editable there)
+      setCapturedCircuits([])
+      saveQuickCountAsWorkout(voiceExercises, 0)
+      return
+    }
+    const updated = [...exercises]
+    for (const vex of voiceExercises) {
+      const idx = updated.findIndex(e => !e.fromProgram && norm(e.name) === norm(vex.name))
+      if (idx >= 0) updated[idx] = { ...updated[idx], sets: [...updated[idx].sets, ...vex.sets] }
+      else updated.push(vex)
+    }
+    setExercises(updated)
+    setScreen('active')
+  }
+
   // ── Quick exercise flow (from home screen chips) ───────────────────────────
 
   function handleQuickExercise(name: string, type: ExerciseType) {
@@ -553,7 +577,7 @@ export default function WorkoutPage() {
     setScreen('postdetails')
   }
 
-  async function saveWorkout(photoFile: File | null, description: string) {
+  async function saveWorkout(photoFile: File | null, description: string, meta?: WorkoutMeta) {
     if (!user) {
       // Guest user — prompt to create account; pending data is already in localStorage
       sessionStorage.setItem(AUTH_REDIRECT_KEY, '/workout')
@@ -563,8 +587,18 @@ export default function WorkoutPage() {
     setSummaryPhotoFile(photoFile)
 
     const finalExercises = capturedExercises
-    const finalSeconds = capturedSeconds
+    const finalSeconds = meta?.seconds ?? capturedSeconds
     const finalNote = description
+    const today = localDate(new Date())
+    // Workouts logged for a past day only go into history: no streak, leaderboard or challenge progress
+    const isBackdated = !!meta && meta.date !== today
+    let backdatedAt: Date | null = null
+    if (isBackdated) {
+      const [y, m, d] = meta.date.split('-').map(Number)
+      backdatedAt = new Date()
+      backdatedAt.setFullYear(y, m - 1, d)
+      setWorkoutStartedAt(backdatedAt.getTime() - finalSeconds * 1000)
+    }
     setScreen('summary')
 
     const hasContent = finalExercises.some(ex => ex.sets.some(s => (s.reps ?? 0) > 0 || (s.durationSeconds ?? 0) > 0))
@@ -576,13 +610,14 @@ export default function WorkoutPage() {
     const serializedExercises = finalExercises.map(ex => ({
       ...ex,
       sets: ex.sets.map(s => {
-        const set: Record<string, number | boolean> = {}
+        const set: Record<string, number | boolean | string> = {}
         if (s.reps !== undefined) set.reps = s.reps
         if (s.durationSeconds !== undefined) set.durationSeconds = s.durationSeconds
         if (s.weightKg !== undefined) set.weightKg = s.weightKg
         if (s.bandKg !== undefined) set.bandKg = s.bandKg
         if (s.timedDurationSeconds !== undefined) set.timedDurationSeconds = s.timedDurationSeconds
         if (s.recorded) set.recorded = true
+        if (s.source) set.source = s.source
         if (Object.keys(set).length === 0) set.reps = 0
         return set
       }),
@@ -607,7 +642,7 @@ export default function WorkoutPage() {
         totalReps,
         coinsEarned: 0,
         note: finalNote.trim(),
-        createdAt: serverTimestamp(),
+        createdAt: backdatedAt ? Timestamp.fromDate(backdatedAt) : serverTimestamp(),
       })
 
       // Workout saved successfully — clear pending data
@@ -624,7 +659,6 @@ export default function WorkoutPage() {
       earned += completeCoins
 
       const userRef = doc(db, 'users', user.uid)
-      const today = localDate(new Date())
       const yesterday = localDate(new Date(Date.now() - 86400000))
       let _newTotal = 0
       let newStreak = 0
@@ -636,21 +670,25 @@ export default function WorkoutPage() {
         joinedCommunityIds = userData?.joinedCommunityIds ?? []
         const lastWorkoutDate: string | undefined = userData?.lastWorkoutDate
         const currentStreak = userData?.currentStreak ?? 0
+        if (isBackdated) {
+          newStreak = currentStreak
+          tx.update(userRef, { totalWorkouts: increment(1) })
+          return
+        }
         newStreak = lastWorkoutDate === yesterday ? currentStreak + 1 : lastWorkoutDate === today ? currentStreak : 1
         tx.update(userRef, { totalWorkouts: increment(1), currentStreak: newStreak, lastWorkoutDate: today })
       })
 
       // Award milestone coins for workout count and streak
       await checkWorkoutMilestones(user.uid, _newTotal)
-      await checkStreakMilestones(user.uid, newStreak)
+      if (!isBackdated) await checkStreakMilestones(user.uid, newStreak)
+
+      // Reps that count outside the user's own history (no dictated sets, no past days)
+      const competitiveReps = isBackdated ? {} : competitiveRepsByExercise(finalExercises)
 
       // Update weekly push-up leaderboard
-      const pushupReps = finalExercises.reduce((sum, ex) => {
-        if (getExerciseType(ex.name) === 'pushup') {
-          return sum + ex.sets.reduce((s, set) => s + (set.reps ?? 0), 0)
-        }
-        return sum
-      }, 0)
+      const pushupReps = Object.entries(competitiveReps).reduce(
+        (sum, [name, reps]) => getExerciseType(name) === 'pushup' ? sum + reps : sum, 0)
       if (pushupReps > 0) {
         updateWeeklyPushupLeaderboard(
           user.uid,
@@ -661,12 +699,7 @@ export default function WorkoutPage() {
       }
 
       if (challenge) {
-        const exerciseReps: Record<string, number> = {}
-        for (const ex of finalExercises) {
-          const reps = ex.sets.reduce((sum, s) => sum + (s.reps ?? 0), 0)
-          if (reps > 0) exerciseReps[ex.name] = (exerciseReps[ex.name] ?? 0) + reps
-        }
-        const repsForChallenge = exerciseReps[challenge.exerciseName] ?? 0
+        const repsForChallenge = competitiveReps[challenge.exerciseName] ?? 0
         if (repsForChallenge > 0) {
           const progressRef = doc(db, 'users', user.uid, 'challenge_progress', challenge.id)
           const current = challengeProgress?.currentReps ?? 0
@@ -687,12 +720,8 @@ export default function WorkoutPage() {
       }
 
       try {
-        const exerciseReps: Record<string, number> = {}
-        for (const ex of finalExercises) {
-          const reps = ex.sets.reduce((sum, s) => sum + (s.reps ?? 0), 0)
-          exerciseReps[ex.name] = (exerciseReps[ex.name] ?? 0) + reps
-        }
-        await Promise.all(joinedCommunityIds.map(async cid => {
+        const exerciseReps = competitiveReps
+        if (Object.values(exerciseReps).some(r => r > 0)) await Promise.all(joinedCommunityIds.map(async cid => {
           const cSnap = await getDocs(collection(db, 'communities', cid, 'challenges'))
           await Promise.all(cSnap.docs.map(async cd => {
             const ch = { id: cd.id, ...cd.data() } as CommunityChallenge
@@ -727,9 +756,9 @@ export default function WorkoutPage() {
     })
   }
 
-  async function saveWorkoutAndShare(photoFile: File | null, description: string) {
+  async function saveWorkoutAndShare(photoFile: File | null, description: string, meta?: WorkoutMeta) {
     setAutoOpenShare(true)
-    await saveWorkout(photoFile, description)
+    await saveWorkout(photoFile, description, meta)
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -753,6 +782,14 @@ export default function WorkoutPage() {
           exerciseName={quickExercise.name}
           onConfirm={handleQuickExerciseConfirm}
           onCancel={() => setQuickExercise(null)}
+        />
+      )}
+
+      {voiceMode && (
+        <VoiceLogSheet
+          catalogue={catalogue}
+          onConfirm={handleVoiceConfirm}
+          onClose={() => setVoiceMode(null)}
         />
       )}
 
@@ -833,6 +870,7 @@ export default function WorkoutPage() {
           activeTimedSet={activeTimedSet}
           onStartTimedSet={startTimedSet}
           onClearTimedSet={clearTimedSet}
+          onVoiceLog={() => setVoiceMode('active')}
         />
       )}
 
@@ -977,6 +1015,7 @@ export default function WorkoutPage() {
           onSpidermanChallenge={() => setShowSpidermanPicker(true)}
           onHoldTimer={() => setShowHoldPicker(true)}
           onStretchTimer={() => setShowStretchPicker(true)}
+          onVoiceLog={() => setVoiceMode('home')}
           isActive={isActive}
           lastExerciseName={exercises.length > 0 ? exercises[exercises.length - 1].name : null}
           onQuickRecord={handleQuickRecord}

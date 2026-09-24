@@ -19,7 +19,7 @@ const GLOBAL_SECURITY_HEADERS = [
     key: 'Permissions-Policy',
     value: [
       'camera=(self)',         // form-check and autocut pages
-      'microphone=()',         // never needed
+      'microphone=(self)',     // voice workout logging (Web Speech API)
       'geolocation=(self)',    // map location sharing
       'payment=()',            // never needed
       'usb=()',                // never needed
