@@ -249,7 +249,7 @@ export default function VoiceLogSheet({
                 disabled={items.length === 0 || incomplete}
                 className="w-full h-12 rounded-2xl bg-brand-green text-black text-sm font-black flex items-center justify-center gap-2 disabled:opacity-40"
               >
-                <Check size={16} /> {incomplete ? t('voice.fill_missing') : t('voice.confirm', { n: items.length })}
+                <Check size={16} /> {incomplete ? t('voice.fill_missing') : items.length === 1 ? t('voice.confirm_one') : t('voice.confirm', { n: items.length })}
               </button>
               <button onClick={retry} className="w-full py-2.5 text-sm font-semibold text-white/50 flex items-center justify-center gap-1.5">
                 <RotateCcw size={13} /> {t('voice.retry')}

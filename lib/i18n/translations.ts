@@ -1128,6 +1128,7 @@ const T: Record<string, { RO: string; EN: string }> = {
   'voice.add_set':        { RO: 'Adaugă set',                         EN: 'Add set' },
   'voice.retry':          { RO: 'Înregistrează din nou',              EN: 'Record again' },
   'voice.confirm':        { RO: 'Adaugă ({n} exerciții)',             EN: 'Add ({n} exercises)' },
+  'voice.confirm_one':    { RO: 'Adaugă (1 exercițiu)',               EN: 'Add (1 exercise)' },
   'voice.not_counted':    { RO: 'Seturile dictate apar doar în istoricul antrenamentelor, nu în clasamente sau provocări.', EN: 'Dictated sets only appear in your workout history, not in leaderboards or challenges.' },
 
   // ── Post-workout date / duration ─────────────────────────────────────────────

@@ -25,6 +25,23 @@ function getCtor(): SpeechRecognitionCtor | null {
 }
 
 /**
+ * Join result pieces, collapsing progressive repeats. Chrome on Android emits the growing
+ * utterance as separate results ("Deci", "Deci am", "Deci am băgat"…), often all flagged final.
+ */
+function collapse(pieces: string[]): string {
+  const out: string[] = []
+  for (const raw of pieces) {
+    const p = raw.trim()
+    if (!p) continue
+    const last = out[out.length - 1]
+    if (last !== undefined && p.toLowerCase().startsWith(last.toLowerCase())) out[out.length - 1] = p
+    else if (last !== undefined && last.toLowerCase().startsWith(p.toLowerCase())) continue
+    else out.push(p)
+  }
+  return out.join(' ')
+}
+
+/**
  * Browser speech-to-text. `transcript` accumulates final results across the session;
  * `interim` holds the words currently being recognised.
  */
@@ -35,6 +52,10 @@ export function useSpeechRecognition(lang: string) {
   const [interim, setInterim] = useState('')
   const [error, setError] = useState<string | null>(null)
   const recRef = useRef<SpeechRecognitionLike | null>(null)
+  const transcriptRef = useRef('')
+  const baseRef = useRef('')        // transcript before the current recognition session
+
+  useEffect(() => { transcriptRef.current = transcript }, [transcript])
 
   useEffect(() => { setSupported(getCtor() !== null) }, [])
 
@@ -48,19 +69,26 @@ export function useSpeechRecognition(lang: string) {
     rec.continuous = true
     rec.interimResults = true
     rec.onresult = e => {
-      let finalText = ''
-      let interimText = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      // Rebuild from the whole results list every time instead of appending, so re-emitted
+      // or progressively growing results can't pile up.
+      const finals: string[] = []
+      const interims: string[] = []
+      for (let i = 0; i < e.results.length; i++) {
         const r = e.results[i]
-        if (r.isFinal) finalText += r[0].transcript
-        else interimText += r[0].transcript
+        ;(r.isFinal ? finals : interims).push(r[0].transcript)
       }
-      if (finalText) setTranscript(prev => `${prev} ${finalText}`.trim())
+      const finalText = collapse(finals)
+      const full = collapse([...finals, ...interims])
+      const interimText = full.toLowerCase().startsWith(finalText.toLowerCase())
+        ? full.slice(finalText.length).trim()
+        : collapse(interims)
+      setTranscript(`${baseRef.current} ${finalText}`.trim())
       setInterim(interimText)
     }
     rec.onerror = e => { if (e.error !== 'aborted' && e.error !== 'no-speech') setError(e.error) }
     rec.onend = () => { recRef.current = null; setListening(false); setInterim('') }
     setError(null)
+    baseRef.current = transcriptRef.current
     recRef.current = rec
     try {
       rec.start()

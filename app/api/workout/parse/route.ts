@@ -50,6 +50,7 @@ function buildPrompt(text: string, catalogue: ParseCatalogueEntry[]): string {
     'You convert a calisthenics athlete\'s spoken workout log (Romanian or English, possibly with speech-recognition errors) into JSON.',
     'Rules:',
     '- Map every exercise to EXACTLY one name from the catalogue below (copy the name verbatim). Push ups = Flotări, pull ups = Tracțiuni, squats = Squaturi.',
+    '- Romanian speech recognition mangles English exercise names; match by sound. E.g. "masă lapuri" / "mascăl ap" = Muscle-Up.',
     '- Emit one entry in "sets" per set. "3 sets of 50" → three sets with reps 50. "10, 8, 6 pull ups" → three sets with reps 10, 8, 6.',
     '- For (reps) exercises fill "reps"; for (seconds) exercises fill "durationSeconds". Convert minutes to seconds.',
     '- If the number of reps/seconds was not said, still emit the sets but leave reps/durationSeconds out. Never invent numbers.',

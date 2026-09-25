@@ -53,6 +53,9 @@ const ALIASES: Record<string, string> = {
   'pike push up': 'Pike Push-up', 'flotari pike': 'Pike Push-up',
   'handstand push up': 'Handstand Push-up',
   'muscle up': 'Muscle-Up', 'muscleup': 'Muscle-Up',
+  // How ro-RO speech recognition tends to hear "muscle up(s)"
+  'masa lapuri': 'Muscle-Up', 'masa lap': 'Muscle-Up', 'masal ap': 'Muscle-Up', 'masal apuri': 'Muscle-Up',
+  'mascal ap': 'Muscle-Up', 'mascal apuri': 'Muscle-Up', 'masl ap': 'Muscle-Up', 'mazal ap': 'Muscle-Up',
   'squat': 'Squaturi', 'squaturi': 'Squaturi', 'genuflexiuni': 'Squaturi', 'genoflexiuni': 'Squaturi', 'genuflexiune': 'Squaturi',
   'pistol squat': 'Pistol Squat', 'pistol': 'Pistol Squat',
   'lunge': 'Lunges', 'lunges': 'Lunges', 'fandari': 'Lunges', 'fandare': 'Lunges',
@@ -234,6 +237,35 @@ function mergeByName(list: ParsedExercise[]): ParsedExercise[] {
   return out
 }
 
+/**
+ * Split a clause naming several exercises ("1 serie de 10 muscle ups 4 serii de 10 tracțiuni")
+ * into one piece per exercise. Numbers before the first name → "N serii de M <ex>" order,
+ * so cut after each name; otherwise "<ex> 3x10" order, so cut before each name.
+ */
+function splitMultiExercise(text: string, matchers: Matcher[]): string[] {
+  const padded = ` ${text} `
+  const taken: { start: number; end: number }[] = []
+  for (const m of matchers) {
+    const re = new RegExp(m.re.source, 'g')
+    let hit: RegExpExecArray | null
+    while ((hit = re.exec(padded))) {
+      const start = hit.index + (hit[0].length - hit[0].trimStart().length)
+      const end = hit.index + hit[0].length
+      if (!taken.some(t => start < t.end && end > t.start)) taken.push({ start, end })
+      re.lastIndex = Math.max(re.lastIndex, hit.index + 1)
+    }
+  }
+  if (taken.length < 2) return [text]
+  taken.sort((a, b) => a.start - b.start)
+  const cuts = /\d/.test(padded.slice(0, taken[0].start))
+    ? taken.slice(0, -1).map(t => t.end)
+    : taken.slice(1).map(t => t.start)
+  const pieces: string[] = []
+  let from = 0
+  for (const c of [...cuts, padded.length]) { pieces.push(padded.slice(from, c).trim()); from = c }
+  return pieces.filter(Boolean)
+}
+
 /** Deterministic rule-based parser. Handles RO + EN, digits or number words. */
 export function parseWorkoutText(input: string, catalogue: ParseCatalogueEntry[]): ParsedWorkout {
   const matchers = buildMatchers(catalogue)
@@ -243,6 +275,7 @@ export function parseWorkoutText(input: string, catalogue: ParseCatalogueEntry[]
   const clauses: Clause[] = text.split(CLAUSE_SPLIT)
     .map(s => s?.trim() ?? '')
     .filter(Boolean)
+    .flatMap(s => splitMultiExercise(s, matchers))
     .map(s => ({ text: s, exercise: matchers.find(m => m.re.test(` ${s} `))?.name ?? null, hasNumbers: /\d/.test(s) }))
 
   // Glue "flotări, 3 serii de 50" / "3 serii de 50, flotări" back together
