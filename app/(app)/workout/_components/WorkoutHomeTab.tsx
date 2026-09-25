@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles, Swords, Trophy, Heart } from 'lucide-react'
+import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles, Swords, Trophy, Heart, Mic } from 'lucide-react'
 import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import FirstTimeHint from '@/components/ui/FirstTimeHint'
@@ -55,6 +55,7 @@ export function WorkoutHomeTab({
   onSpidermanChallenge,
   onHoldTimer,
   onStretchTimer,
+  onVoiceLog,
   isActive,
   lastExerciseName,
   onQuickRecord,
@@ -74,6 +75,7 @@ export function WorkoutHomeTab({
   onSpidermanChallenge?: () => void
   onHoldTimer?: () => void
   onStretchTimer?: () => void
+  onVoiceLog?: () => void
   isActive?: boolean
   lastExerciseName?: string | null
   onQuickRecord?: (name: string, type: ExerciseType) => void
@@ -156,6 +158,28 @@ export function WorkoutHomeTab({
               </div>
             )
           })()}
+
+          {/* Dictate a workout */}
+          {onVoiceLog && (
+            <button
+              onClick={onVoiceLog}
+              className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
+              style={{
+                background: 'linear-gradient(135deg, rgba(30,215,95,0.12), rgba(59,130,246,0.08))',
+                border: '1px solid rgba(30,215,95,0.25)',
+              }}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'rgba(30,215,95,0.15)' }}>
+                <Mic size={20} className="text-brand-green" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-white text-sm">{t('voice.title')}</p>
+                <p className="text-[11px] text-white/40 mt-0.5">{t('voice.home_desc')}</p>
+              </div>
+              <ChevronRight size={16} className="text-brand-green/60 flex-shrink-0" />
+            </button>
+          )}
 
           {/* Auto-detect counter */}
           {onAutoCount && (

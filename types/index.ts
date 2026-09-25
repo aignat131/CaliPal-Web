@@ -219,6 +219,7 @@ export interface WorkoutSet {
   bandKg?: number    // band resistance for this set
   timedDurationSeconds?: number  // AMRAP countdown (e.g. 180 = "3 min push-ups")
   recorded?: boolean  // true when set was captured via camera rep counter
+  source?: 'voice'    // dictated — kept out of leaderboards and challenges
 }
 
 export type GripType = 'pronat' | 'supinat' | 'neutru'
