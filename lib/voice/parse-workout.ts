@@ -29,6 +29,8 @@ export const MAX_SETS = 20
 export const MAX_REPS = 1000
 export const MAX_SECONDS = 4 * 60 * 60
 export const MAX_KG = 300
+// Two bare numbers read as "sets × reps" only when the first is a plausible set count
+const MAX_BARE_SETS = 6
 
 /** Lowercase, strip diacritics, hyphens → spaces, collapse whitespace. */
 export function normalizeText(s: string): string {
@@ -179,7 +181,9 @@ function parseClause(text: string, exercise: string, metric: 'reps' | 'seconds')
     } else if (rest.length >= 3) {
       repsList = rest                      // "tracțiuni 10 8 6"
     } else if (rest.length === 2) {
-      sets = rest[0]; reps = rest[1]       // "flotări 3 50"
+      // "flotări 3 50" → 3 sets of 50; "tracțiuni 10, 8" / "12 10" → two sets
+      if (rest[0] <= MAX_BARE_SETS && rest[0] < rest[1]) { sets = rest[0]; reps = rest[1] }
+      else repsList = rest
     } else {
       reps = rest[0]
     }
@@ -188,10 +192,13 @@ function parseClause(text: string, exercise: string, metric: 'reps' | 'seconds')
   // Seconds-based exercise: a bare number means seconds
   if (metric === 'seconds') {
     if (seconds === 0) {
-      if (repsList) { repsList = null; seconds = rest[0] }
-      else if (reps !== undefined) { seconds = reps; reps = undefined }
-    } else if (sets === undefined && reps !== undefined) {
-      sets = reps; reps = undefined         // "l-sit 2 x 15 secunde"
+      // repsList stays: each bare number is one set's duration ("plank 60 45")
+      if (!repsList && reps !== undefined) { seconds = reps; reps = undefined }
+    } else {
+      repsList = null
+      if (sets === undefined && reps !== undefined) {
+        sets = reps; reps = undefined       // "l-sit 2 x 15 secunde"
+      }
     }
   }
 
@@ -201,8 +208,10 @@ function parseClause(text: string, exercise: string, metric: 'reps' | 'seconds')
     ...(weightKg !== undefined && { weightKg: clamp(weightKg, 0, MAX_KG) }),
     ...(bandKg !== undefined && { bandKg: clamp(bandKg, 0, MAX_KG) }),
   }
-  const parsedSets: ParsedSet[] = repsList && metric === 'reps'
-    ? repsList.slice(0, MAX_SETS).map(r => ({ ...base, reps: clamp(r, 1, MAX_REPS) }))
+  const parsedSets: ParsedSet[] = repsList
+    ? repsList.slice(0, MAX_SETS).map(r => metric === 'reps'
+      ? { ...base, reps: clamp(r, 1, MAX_REPS) }
+      : { ...base, durationSeconds: clamp(r, 1, MAX_SECONDS) })
     : Array.from({ length: clamp(sets ?? 1, 1, MAX_SETS) }, () => ({ ...base }))
 
   const missing = metric === 'reps'
