@@ -15,6 +15,8 @@ import { AvailabilitySection } from './_components/AvailabilitySection'
 import { GoalsSection } from './_components/GoalsSection'
 import { ExtraExercisesSection } from './_components/ExtraExercisesSection'
 import { AttendanceSection } from './_components/AttendanceSection'
+import { JournalSection } from './_components/JournalSection'
+import { TestsSection } from './_components/TestsSection'
 import { ArrowLeft, Lock } from 'lucide-react'
 
 /**
@@ -104,6 +106,8 @@ export default function MemberFilePage() {
               coachUid={user?.uid ?? ''} coachName={myName || 'Antrenor'} />
             <AttendanceSection communityId={communityId} uid={uid} trainings={trainings}
               joinedAtMs={member.joinedAt?.toMillis?.() ?? null} />
+            <JournalSection communityId={communityId} uid={uid} isOwner={isOwner} trainings={trainings} />
+            <TestsSection communityId={communityId} uid={uid} isOwner={isOwner} />
             <AvailabilitySection communityId={communityId} uid={uid} isOwner={isOwner} />
           </>
         )}

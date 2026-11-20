@@ -41,6 +41,7 @@ function notifIcon(type: AppNotification['type']) {
     case 'EVENT_INVITE': return <Trophy size={16} className="text-amber-400" />
     case 'EVENT_RESULT': return <Trophy size={16} className="text-amber-400" />
     case 'AVAILABILITY_REMINDER': return <CalendarClock size={16} className="text-brand-green" />
+    case 'PLAN_REMINDER': return <CalendarClock size={16} className="text-[#FFB800]" />
     default: return <Bell size={16} className="text-white/50" />
   }
 }
@@ -66,7 +67,8 @@ function notifRoute(notif: AppNotification): string | null {
     case 'BATTLE_RESULT': return notif.relatedId ? `/battle/${notif.relatedId}` : '/battle'
     case 'EVENT_INVITE': return notif.relatedId ? `/event/${notif.relatedId}` : '/event'
     case 'EVENT_RESULT': return notif.relatedId ? `/event/${notif.relatedId}` : '/event'
-    case 'AVAILABILITY_REMINDER': return notif.relatedId ? `/community/${notif.relatedId}?tab=orar` : '/community'
+    case 'AVAILABILITY_REMINDER':
+    case 'PLAN_REMINDER': return notif.relatedId ? `/community/${notif.relatedId}?tab=orar` : '/community'
     default: return null
   }
 }

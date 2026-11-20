@@ -8,7 +8,7 @@ import type { AvailabilityMemberRow } from '@/lib/schedule/api-types'
 import {
   computeHeatmap, configHours, topSlots, type ScheduleConfig,
 } from '@/lib/schedule/availability'
-import { DAY_NAMES, relativeTimeRo, slotLabel, weekDays } from '@/lib/schedule/week'
+import { DAY_NAMES, relativeTimeRo, slotLabel, weekDays, weekRangeLabel } from '@/lib/schedule/week'
 import { ROLE_LABELS } from '@/types'
 import { AvailabilityGrid, type GridCell } from './AvailabilityGrid'
 import { RoleAvatar } from '../Avatars'
@@ -51,15 +51,15 @@ export function AvailabilityOverview({ communityId, weekKey, config, canRemind, 
   const top = useMemo(() => heat ? topSlots(heat.counts, config, 5) : [], [heat, config])
   const byUid = useMemo(() => new Map((rows ?? []).map(r => [r.uid, r])), [rows])
 
-  async function sendReminder(uids: string[]) {
-    if (!uids.length) return
+  async function sendReminder(uids: string[] | null, kind: 'availability' | 'journal' | 'test' = 'availability') {
+    if (uids && !uids.length) return
     setReminding(true)
     try {
       const token = await auth.currentUser?.getIdToken()
       const res = await fetch(`/api/community/${communityId}/availability/remind`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ week: weekKey, uids }),
+        body: JSON.stringify({ week: weekKey, kind, ...(uids ? { uids } : {}) }),
       })
       const json = await res.json().catch(() => ({}))
       if (res.status === 429 && json.retryAt) {
@@ -67,7 +67,7 @@ export function AvailabilityOverview({ communityId, weekKey, config, canRemind, 
       } else if (!res.ok) {
         throw new Error(String(res.status))
       } else {
-        showToast(`Reminder trimis către ${json.sent} ${json.sent === 1 ? 'membru' : 'membri'}`, 'success')
+        showToast(json.sent === 0 ? 'Toți membrii sunt la zi — nimeni de anunțat.' : `Reminder trimis către ${json.sent} ${json.sent === 1 ? 'membru' : 'membri'}`, 'success')
       }
     } catch {
       showToast('Nu am putut trimite reminder-ul.', 'error')
@@ -221,6 +221,24 @@ export function AvailabilityOverview({ communityId, weekKey, config, canRemind, 
           <p className="text-[11px] text-white/30 mt-2 px-1">
             „Completat” = membrul a confirmat sau a personalizat orarul pentru săptămâna selectată.
           </p>
+        </section>
+      )}
+
+      {canRemind && (
+        <section>
+          <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-1">ALTE REMINDERE</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button disabled={reminding} onClick={() => void sendReminder(filteredRows ? filteredRows.map(r => r.uid) : null, 'journal')}
+              className="h-auto py-2.5 px-3 rounded-xl text-left disabled:opacity-50" style={{ backgroundColor: 'var(--app-surface)' }}>
+              <span className="block text-xs font-bold text-white">📓 Jurnal</span>
+              <span className="block text-[11px] text-white/45">cine n-a completat {weekRangeLabel(weekKey)}</span>
+            </button>
+            <button disabled={reminding} onClick={() => void sendReminder(filteredRows ? filteredRows.map(r => r.uid) : null, 'test')}
+              className="h-auto py-2.5 px-3 rounded-xl text-left disabled:opacity-50" style={{ backgroundColor: 'var(--app-surface)' }}>
+              <span className="block text-xs font-bold text-white">💪 Test de progres</span>
+              <span className="block text-[11px] text-white/45">cui îi e scadent testul</span>
+            </button>
+          </div>
         </section>
       )}
     </div>

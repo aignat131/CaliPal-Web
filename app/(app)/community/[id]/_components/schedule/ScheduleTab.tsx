@@ -8,6 +8,7 @@ import type { CommunityMember, MemberRole, PlannedTraining } from '@/types'
 import { can } from '@/lib/schedule/permissions'
 import { DEFAULT_SCHEDULE_CONFIG, sanitizeConfig, type ScheduleConfig } from '@/lib/schedule/availability'
 import { DEFAULT_POINTS, MAX_POINTS, sanitizePoints, type PlanPoints } from '@/lib/schedule/attendance'
+import { MAX_TEST_METRICS, metricId, sanitizeTestConfig, type TestConfig, type TestMetric } from '@/lib/schedule/progress'
 import { addDays, addWeeks, currentWeekStart, todayKey, trainingSlot, weekRangeLabel, weeksBetween } from '@/lib/schedule/week'
 import { MyAvailability } from './MyAvailability'
 import { AvailabilityOverview } from './AvailabilityOverview'
@@ -33,13 +34,18 @@ export function ScheduleTab({ communityId, uid, role, isSuperAdmin, trainings, m
   const [view, setView] = useState<View>('mine')
   const [config, setConfig] = useState<ScheduleConfig>(DEFAULT_SCHEDULE_CONFIG)
   const [points, setPoints] = useState<PlanPoints>(DEFAULT_POINTS)
+  const [testCfg, setTestCfg] = useState<TestConfig>(sanitizeTestConfig(null))
   const [showSettings, setShowSettings] = useState(false)
   const [sessionPrefill, setSessionPrefill] = useState<SessionPrefill | null>(null)
 
   useEffect(() => {
     return onSnapshot(
       doc(db, 'communities', communityId, 'config', 'plan'),
-      snap => { setConfig(sanitizeConfig(snap.data())); setPoints(sanitizePoints(snap.data()?.points)) },
+      snap => {
+        setConfig(sanitizeConfig(snap.data()))
+        setPoints(sanitizePoints(snap.data()?.points))
+        setTestCfg(sanitizeTestConfig(snap.data()))
+      },
       () => setConfig(DEFAULT_SCHEDULE_CONFIG),
     )
   }, [communityId])
@@ -105,7 +111,7 @@ export function ScheduleTab({ communityId, uid, role, isSuperAdmin, trainings, m
       </Link>
 
       {showSettings && canConfigure && (
-        <ScheduleSettings communityId={communityId} uid={uid} config={config} points={points} onClose={() => setShowSettings(false)} />
+        <ScheduleSettings communityId={communityId} uid={uid} config={config} points={points} testCfg={testCfg} onClose={() => setShowSettings(false)} />
       )}
 
       {/* Week navigation */}
@@ -146,11 +152,12 @@ export function ScheduleTab({ communityId, uid, role, isSuperAdmin, trainings, m
   )
 }
 
-function ScheduleSettings({ communityId, uid, config, points, onClose }: {
+function ScheduleSettings({ communityId, uid, config, points, testCfg, onClose }: {
   communityId: string
   uid: string
   config: ScheduleConfig
   points: PlanPoints
+  testCfg: TestConfig
   onClose: () => void
 }) {
   const { showToast } = useToast()
@@ -158,9 +165,22 @@ function ScheduleSettings({ communityId, uid, config, points, onClose }: {
   const [end, setEnd] = useState(config.endHour)
   const [attendancePts, setAttendancePts] = useState(String(points.attendance))
   const [goalPts, setGoalPts] = useState(String(points.goalAchieved))
+  const [interval, setInterval_] = useState(testCfg.intervalWeeks)
+  const [metrics, setMetrics] = useState<TestMetric[]>(testCfg.metrics)
+  const [newMetric, setNewMetric] = useState('')
+  const [newUnit, setNewUnit] = useState<TestMetric['unit']>('rep')
+
+  function addMetric() {
+    const name = newMetric.trim().slice(0, 40)
+    if (!name || metrics.length >= MAX_TEST_METRICS) return
+    let id = metricId(name)
+    while (metrics.some(m => m.id === id)) id = `${id}_2`
+    setMetrics([...metrics, { id, name, unit: newUnit }])
+    setNewMetric('')
+  }
   const [saving, setSaving] = useState(false)
   const ptsOk = (v: string) => /^\d+$/.test(v) && +v <= MAX_POINTS
-  const valid = end > start && ptsOk(attendancePts) && ptsOk(goalPts)
+  const valid = end > start && ptsOk(attendancePts) && ptsOk(goalPts) && metrics.length > 0
 
   async function save() {
     if (!valid) return
@@ -170,6 +190,8 @@ function ScheduleSettings({ communityId, uid, config, points, onClose }: {
         startHour: start,
         endHour: end,
         points: { attendance: +attendancePts, goalAchieved: +goalPts },
+        testIntervalWeeks: interval,
+        testMetrics: metrics,
         updatedAt: serverTimestamp(),
         updatedBy: uid,
       }, { merge: true })
@@ -216,6 +238,32 @@ function ScheduleSettings({ communityId, uid, config, points, onClose }: {
         </label>
       </div>
       <p className="text-[11px] text-white/40">Se aplică la prezențele marcate de acum înainte. Punctele deja acordate nu se recalculează.</p>
+
+      <p className="text-xs font-bold text-white/60 mt-1">Teste de progres</p>
+      <label className="flex items-center gap-2">
+        <span className="text-[11px] text-white/45 flex-1">Un test la fiecare</span>
+        <select value={interval} onChange={e => setInterval_(+e.target.value)} className={`${selectCls} max-w-32`}>
+          {[1, 2, 3, 4, 6, 8].map(w => <option key={w} value={w}>{w} {w === 1 ? 'săptămână' : 'săptămâni'}</option>)}
+        </select>
+      </label>
+      <div className="flex flex-wrap gap-1.5">
+        {metrics.map(m => (
+          <span key={m.id} className="text-[11px] pl-2.5 pr-1 py-1 rounded-full bg-white/8 text-white/75 flex items-center gap-1">
+            {m.name} ({m.unit})
+            <button onClick={() => setMetrics(metrics.filter(x => x.id !== m.id))} aria-label={`Elimină ${m.name}`}
+              className="w-4 h-4 rounded-full flex items-center justify-center text-white/40 hover:text-red-400"><X size={10} /></button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input value={newMetric} onChange={e => setNewMetric(e.target.value)} maxLength={40} placeholder="Metrică nouă (ex: Muscle-ups max)"
+          className={`${selectCls} min-w-0`} onKeyDown={e => { if (e.key === 'Enter') addMetric() }} />
+        <select value={newUnit} onChange={e => setNewUnit(e.target.value as TestMetric['unit'])} className={`${selectCls} max-w-20 flex-none`} aria-label="Unitate">
+          {['rep', 'sec', 'kg', 'cm'].map(u => <option key={u} value={u}>{u}</option>)}
+        </select>
+        <button onClick={addMetric} disabled={!newMetric.trim()} className="h-10 px-3 rounded-xl border border-brand-green/40 text-brand-green text-sm font-bold disabled:opacity-40">+</button>
+      </div>
+      <p className="text-[11px] text-white/40">Eliminarea unei metrici o ascunde din grafice; valorile salvate rămân.</p>
 
       <button disabled={!valid || saving} onClick={() => void save()}
         className="h-10 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-50">

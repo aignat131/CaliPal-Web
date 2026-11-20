@@ -197,7 +197,14 @@ service cloud.firestore {
                 && (!('goalAchieved' in request.resource.data.points)
                     || (request.resource.data.points.goalAchieved is int
                         && request.resource.data.points.goalAchieved >= 0
-                        && request.resource.data.points.goalAchieved <= 1000))));
+                        && request.resource.data.points.goalAchieved <= 1000))))
+          && (!('testIntervalWeeks' in request.resource.data)
+              || (request.resource.data.testIntervalWeeks is int
+                  && request.resource.data.testIntervalWeeks >= 1
+                  && request.resource.data.testIntervalWeeks <= 12))
+          && (!('testMetrics' in request.resource.data)
+              || (request.resource.data.testMetrics is list
+                  && request.resource.data.testMetrics.size() <= 15));
       }
 
       // ── Schedule: session templates (Fondator / Antrenor) ─────────────────

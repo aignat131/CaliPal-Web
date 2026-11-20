@@ -298,7 +298,17 @@
   --app-divider: rgba(255,255,255,0.07);
   --accent: #1ED75F;
   --accent-rgb: 30, 215, 95;
+  /* Progress charts: single-series line; contrast-validated per surface */
+  --chart-series: #1ED75F;
+  --chart-grid: rgba(255,255,255,0.08);
+  --chart-ink: rgba(255,255,255,0.45);
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.light, .soft {
+  --chart-series: #13853C;
+  --chart-grid: rgba(17,17,17,0.08);
+  --chart-ink: rgba(17,17,17,0.5);
 }
 
 .light {
