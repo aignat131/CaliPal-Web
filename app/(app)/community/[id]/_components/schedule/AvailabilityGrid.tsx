@@ -12,6 +12,8 @@ type EditProps = {
   /** Called for every painted cell (tap, or mouse drag on desktop). */
   onChange: (cells: GridCell[], on: boolean) => void
   disabled?: boolean
+  /** Display only (e.g. coach viewing a member's schedule). */
+  readOnly?: boolean
 }
 
 type HeatProps = {
@@ -145,6 +147,14 @@ function Cell(props: Props & {
 
   if (props.mode === 'edit') {
     const on = props.isOn(day, hour)
+    if (props.readOnly) {
+      return (
+        <td className="p-0">
+          <div aria-label={`${label} — ${on ? 'disponibil' : 'indisponibil'}`} role="img"
+            className={`${base} ${on ? 'bg-brand-green' : 'bg-white/5'}`} />
+        </td>
+      )
+    }
     return (
       <td className="p-0">
         <button type="button" {...handlers}

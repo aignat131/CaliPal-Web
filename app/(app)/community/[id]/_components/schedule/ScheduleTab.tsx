@@ -14,7 +14,8 @@ import { AvailabilityOverview } from './AvailabilityOverview'
 import { PlanView } from './PlanView'
 import { SessionSheet, type SessionPrefill } from './SessionSheet'
 import { TemplatesManager } from './TemplatesManager'
-import { ChevronLeft, ChevronRight, Settings2, X } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronLeft, ChevronRight, Settings2, X, Target } from 'lucide-react'
 
 type View = 'mine' | 'overview' | 'plan'
 
@@ -92,6 +93,16 @@ export function ScheduleTab({ communityId, uid, role, isSuperAdmin, trainings, m
           </button>
         )}
       </div>
+
+      <Link href={`/community/${communityId}/member/${uid}`}
+        className="flex items-center gap-3 rounded-2xl px-4 py-3 active:bg-white/5" style={{ backgroundColor: 'var(--app-surface)' }}>
+        <span className="w-9 h-9 rounded-full flex items-center justify-center bg-brand-green/15"><Target size={16} className="text-brand-green" /></span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-bold text-white">Progresul meu</span>
+          <span className="block text-[11px] text-white/45">Goals, exerciții de la antrenor, jurnal, teste</span>
+        </span>
+        <ChevronRight size={16} className="text-white/30" />
+      </Link>
 
       {showSettings && canConfigure && (
         <ScheduleSettings communityId={communityId} uid={uid} config={config} points={points} onClose={() => setShowSettings(false)} />

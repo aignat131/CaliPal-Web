@@ -19,6 +19,7 @@ import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { createNotification } from '@/lib/firebase/notifications'
 import { awardCoins } from '@/lib/gamification/coins'
 import { callApi, apiErrorMessage } from '@/lib/schedule/client'
+import { can } from '@/lib/schedule/permissions'
 import { TrainingPlanExtras } from './_components/schedule/TrainingPlanExtras'
 import type {
   CommunityDoc, CommunityMember, CommunityPost,
@@ -30,7 +31,7 @@ import {
   UserPlus, Check, Clock, MapPin, Dumbbell, Users,
   MessageCircle, User, Bell, X, LogOut, UserX, Share2,
   Pencil, Camera, Info, Mail, MailX, History, ImagePlus,
-  ChevronDown, ChevronUp, ShieldCheck, CalendarDays,
+  ChevronDown, ChevronUp, ShieldCheck, CalendarDays, ClipboardList,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
@@ -1218,6 +1219,8 @@ export default function CommunityDetailPage() {
           isFriend={friendIds.has(memberSheetTarget.userId)}
           isPending={pendingIds.has(memberSheetTarget.userId)}
           canKick={(isSuperAdmin || myRole === 'ADMIN') && memberSheetTarget.role !== 'ADMIN'}
+          fileHref={isMember && (memberSheetTarget.userId === user?.uid || can(myRole, 'viewMemberFile', isSuperAdmin))
+            ? `/community/${id}/member/${memberSheetTarget.userId}` : undefined}
           onClose={() => setMemberSheetTarget(null)}
           onGoToChat={() => { goToChat(memberSheetTarget.userId, memberSheetTarget.displayName); setMemberSheetTarget(null) }}
           onAddFriend={() => { sendFriendRequest(memberSheetTarget); setMemberSheetTarget(null) }}
@@ -1335,7 +1338,7 @@ function JoinNotificationModal({
 // ── Member Sheet ─────────────────────────────────────────────────────────────
 
 function MemberSheet({
-  member, myUid, isFriend, isPending, canKick,
+  member, myUid, isFriend, isPending, canKick, fileHref,
   onClose, onGoToChat, onAddFriend, onKick,
 }: {
   member: CommunityMember
@@ -1343,6 +1346,8 @@ function MemberSheet({
   isFriend: boolean
   isPending: boolean
   canKick: boolean
+  /** Link to the coaching file (coach viewing anyone, or the member themself). */
+  fileHref?: string
   onClose: () => void
   onGoToChat: () => void
   onAddFriend: () => void
@@ -1416,6 +1421,11 @@ function MemberSheet({
 
         {/* Actions */}
         <div className="px-5 flex flex-col gap-2">
+          {fileHref && (
+            <Link href={fileHref} className="h-12 rounded-2xl flex items-center justify-center gap-2 font-black text-sm bg-brand-green text-black active:scale-95 transition-transform">
+              <ClipboardList size={16} /> {isMe ? 'Progresul meu' : 'Fișa membrului'}
+            </Link>
+          )}
           {!isMe && (
             <div className="grid grid-cols-2 gap-2">
               <button

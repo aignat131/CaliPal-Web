@@ -215,6 +215,90 @@ service cloud.firestore {
         allow delete: if isCommunityCoach(communityId) || isSuperAdmin();
       }
 
+      // ── Coaching: per-member plan (goals, extra exercises, journal, tests) ──
+      // Owner writes their own data; Fondator/Antrenor can read it (member file).
+      match /memberPlans/{uid} {
+        function canReadPlan() {
+          return isOwner(uid) || isCommunityCoach(communityId) || isSuperAdmin();
+        }
+        function ownerWrites() {
+          return isOwner(uid) && isCommunityMember(communityId);
+        }
+
+        // Goals — "atins" (reward + feed post) goes through the API.
+        match /goals/{goalId} {
+          allow read: if canReadPlan();
+          allow create: if ownerWrites()
+            && request.resource.data.status == 'IN_PROGRESS'
+            && !request.resource.data.keys().hasAny(['rewarded', 'rewardPoints', 'achievedAt', 'posted'])
+            && request.resource.data.skill is string
+            && request.resource.data.skill.size() > 0
+            && request.resource.data.skill.size() <= 60
+            && request.resource.data.currentLevel is string
+            && request.resource.data.currentLevel.size() <= 120
+            && request.resource.data.target is string
+            && request.resource.data.target.size() <= 120
+            && request.resource.data.createdAt == request.time;
+          allow update: if ownerWrites()
+            && !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['rewarded', 'rewardPoints', 'achievedAt', 'posted', 'createdAt'])
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
+                || request.resource.data.status == 'IN_PROGRESS')
+            && request.resource.data.skill is string
+            && request.resource.data.skill.size() <= 60
+            && request.resource.data.currentLevel.size() <= 120
+            && request.resource.data.target.size() <= 120;
+          allow delete: if ownerWrites() || isSuperAdmin();
+        }
+
+        // Extra exercises — assigned by Fondator/Antrenor; the member only ticks `checks`.
+        match /extraExercises/{exerciseId} {
+          allow read: if canReadPlan();
+          allow create, update: if (isCommunityCoach(communityId) || isSuperAdmin())
+            && request.resource.data.name is string
+            && request.resource.data.name.size() > 0
+            && request.resource.data.name.size() <= 80
+            && request.resource.data.sets is int
+            && request.resource.data.amount is int
+            && request.resource.data.perWeek is int
+            && request.resource.data.perWeek >= 1
+            && request.resource.data.perWeek <= 14
+            && request.resource.data.checks is map;
+          allow update: if ownerWrites()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checks'])
+            && request.resource.data.checks is map
+            && request.resource.data.checks.size() <= 60;
+          allow delete: if isCommunityCoach(communityId) || isSuperAdmin();
+        }
+
+        // Weekly journal — one doc per week (id = weekStart).
+        match /journal/{weekKey} {
+          allow read: if canReadPlan();
+          allow write: if ownerWrites()
+            && weekKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && request.resource.data.keys().hasOnly(['trainings', 'worked', 'progress', 'notes', 'updatedAt'])
+            && request.resource.data.trainings is int
+            && request.resource.data.trainings >= 0
+            && request.resource.data.trainings <= 21
+            && request.resource.data.worked is string && request.resource.data.worked.size() <= 1000
+            && request.resource.data.progress is string && request.resource.data.progress.size() <= 1000
+            && request.resource.data.notes is string && request.resource.data.notes.size() <= 1000
+            && request.resource.data.updatedAt == request.time;
+        }
+
+        // Progress tests — one doc per test date (id = yyyy-MM-dd).
+        match /tests/{dateKey} {
+          allow read: if canReadPlan();
+          allow write: if ownerWrites()
+            && dateKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && request.resource.data.keys().hasOnly(['values', 'updatedAt'])
+            && request.resource.data.values is map
+            && request.resource.data.values.size() <= 20
+            && request.resource.data.updatedAt == request.time;
+          allow delete: if ownerWrites();
+        }
+      }
+
       // Reminder cooldown bookkeeping — written by the Admin SDK only.
       match /reminders/{docId} {
         allow read: if isCommunityStaff(communityId) || isSuperAdmin();
