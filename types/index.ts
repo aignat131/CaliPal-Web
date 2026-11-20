@@ -455,6 +455,7 @@ export type NotificationType =
   | 'BATTLE_RESULT'
   | 'EVENT_INVITE'
   | 'EVENT_RESULT'
+  | 'AVAILABILITY_REMINDER'
 
 export interface AppNotification {
   id: string

@@ -28,6 +28,16 @@ service cloud.firestore {
       return isCommunityMember(communityId) &&
         getMemberRole(communityId) in ['ADMIN', 'MODERATOR', 'TRAINER'];
     }
+    // Fondator + Antrenor (not Voluntar) — see lib/schedule/permissions.ts
+    function isCommunityCoach(communityId) {
+      return isCommunityMember(communityId) &&
+        getMemberRole(communityId) in ['ADMIN', 'TRAINER'];
+    }
+    function isWeekMask(v) {
+      return v is list && v.size() == 7
+        && v[0] is int && v[1] is int && v[2] is int && v[3] is int
+        && v[4] is int && v[5] is int && v[6] is int;
+    }
 
     // ── Users ─────────────────────────────────────────────────────────────────
     match /users/{uid} {
@@ -131,10 +141,58 @@ service cloud.firestore {
 
       match /members/{uid} {
         allow read: if true;
+        // Joining: role must be MEMBER, except the community creator who joins as ADMIN.
+        // Score fields can't be self-seeded.
         allow create: if isOwner(uid)
-          && request.resource.data.joinedAt == request.time;
-        allow update: if isOwner(uid) || isCommunityStaff(communityId) || isSuperAdmin();
+          && request.resource.data.joinedAt == request.time
+          && (request.resource.data.role == 'MEMBER'
+              || (request.resource.data.role == 'ADMIN'
+                  && get(/databases/$(database)/documents/communities/$(communityId)).data.creatorId == request.auth.uid))
+          && !request.resource.data.keys().hasAny(['trainingPoints', 'totalTrainingsAttended'])
+          && (!('points' in request.resource.data) || request.resource.data.points == 0);
+        // Self-edits (name/photo/notification prefs) can't touch role or score.
+        // Staff can update members (attendance points — also used by the Android app),
+        // but only the Fondator can change roles.
+        allow update: if isSuperAdmin()
+          || isCommunityAdmin(communityId)
+          || (isOwner(uid)
+              && !request.resource.data.diff(resource.data).affectedKeys()
+                  .hasAny(['role', 'points', 'level', 'trainingPoints', 'totalTrainingsAttended']))
+          || (isCommunityStaff(communityId)
+              && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
         allow delete: if isOwner(uid) || isCommunityAdmin(communityId) || isSuperAdmin();
+      }
+
+      // ── Schedule: availability (one doc per member) ──────────────────────
+      // Members see only aggregated counts via /api/community/{id}/availability.
+      match /availability/{uid} {
+        allow read: if isOwner(uid) || isCommunityStaff(communityId) || isSuperAdmin();
+        allow create, update: if isOwner(uid)
+          && isCommunityMember(communityId)
+          && request.resource.data.keys().hasOnly(['typical', 'weeks', 'updatedAt'])
+          && (!('typical' in request.resource.data) || isWeekMask(request.resource.data.typical))
+          && (!('weeks' in request.resource.data)
+              || (request.resource.data.weeks is map && request.resource.data.weeks.size() <= 60))
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isOwner(uid) || isSuperAdmin();
+      }
+
+      // ── Schedule: per-community configuration ────────────────────────────
+      match /config/{docId} {
+        allow read: if isCommunityMember(communityId) || isSuperAdmin();
+        allow write: if (isCommunityCoach(communityId) || isSuperAdmin())
+          && docId == 'plan'
+          && request.resource.data.startHour is int
+          && request.resource.data.endHour is int
+          && request.resource.data.startHour >= 0
+          && request.resource.data.endHour <= 24
+          && request.resource.data.startHour < request.resource.data.endHour;
+      }
+
+      // Reminder cooldown bookkeeping — written by the Admin SDK only.
+      match /reminders/{docId} {
+        allow read: if isCommunityStaff(communityId) || isSuperAdmin();
+        allow write: if false;
       }
 
       match /posts/{postId} {

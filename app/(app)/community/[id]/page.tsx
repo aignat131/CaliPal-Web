@@ -28,13 +28,14 @@ import {
   UserPlus, Check, Clock, MapPin, Dumbbell, Users,
   MessageCircle, User, Bell, X, LogOut, UserX, Share2,
   Pencil, Camera, Info, Mail, MailX, History, ImagePlus,
-  ChevronDown, ChevronUp, ShieldCheck,
+  ChevronDown, ChevronUp, ShieldCheck, CalendarDays,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
 import { useToast } from '@/lib/context/ToastContext'
 import { SkeletonCard, SkeletonTrainingRow } from '@/components/ui/SkeletonLoaders'
 import TrainingPhotoCard from '@/components/training/TrainingPhotoCard'
+import { ScheduleTab } from './_components/schedule/ScheduleTab'
 import {
   parseTrainingDateTime,
   formatTrainingDate,
@@ -91,6 +92,12 @@ export default function CommunityDetailPage() {
   const [myRole, setMyRole] = useState<MemberRole>('MEMBER')
   const [myEmailNotifications, setMyEmailNotifications] = useState(true)
   const [tab, setTab] = useState(1) // always default: Antrenamente
+  // Deep link: /community/{id}?tab=orar (used by availability reminders)
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    const map: Record<string, number> = { feed: 0, antrenamente: 1, membri: 2, orar: 3 }
+    if (t && t in map) setTab(map[t])
+  }, [])
   const [loading, setLoading] = useState(true)
   const [postText, setPostText] = useState('')
   const [postImage, setPostImage] = useState<File | null>(null)
@@ -603,6 +610,7 @@ export default function CommunityDetailPage() {
         { label: 'Feed', Icon: MessageSquare },
         { label: 'Antrenamente', Icon: Dumbbell },
         { label: 'Membri', Icon: Users },
+        { label: 'Orar', Icon: CalendarDays },
       ]
     : [{ label: 'Membri', Icon: Users }]
 
@@ -1214,6 +1222,10 @@ export default function CommunityDetailPage() {
           </div>
         ))}
 
+        {/* ── Orar (disponibilitate + overview) ── */}
+        {effectiveTab === 3 && user && (
+          <ScheduleTab communityId={id} uid={user.uid} role={myRole} isSuperAdmin={isSuperAdmin} />
+        )}
 
       </div>
 

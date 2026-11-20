@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { markAllRead, deleteNotification } from '@/lib/firebase/notifications'
 import { useNotifications } from '@/lib/context/NotificationContext'
 import type { AppNotification } from '@/types'
-import { X, Bell, MessageSquare, UserPlus, UserCheck, Dumbbell, MapPin, Trash2, Users, Star, AtSign, Swords, Trophy } from 'lucide-react'
+import { X, Bell, MessageSquare, UserPlus, UserCheck, Dumbbell, MapPin, Trash2, Users, Star, AtSign, Swords, Trophy, CalendarClock } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
 
 function timeAgo(ts: { toDate?: () => Date } | null | undefined, nowLabel: string, daySuffix: string): string {
@@ -40,6 +40,7 @@ function notifIcon(type: AppNotification['type']) {
     case 'BATTLE_RESULT': return <Trophy size={16} className="text-yellow-400" />
     case 'EVENT_INVITE': return <Trophy size={16} className="text-amber-400" />
     case 'EVENT_RESULT': return <Trophy size={16} className="text-amber-400" />
+    case 'AVAILABILITY_REMINDER': return <CalendarClock size={16} className="text-brand-green" />
     default: return <Bell size={16} className="text-white/50" />
   }
 }
@@ -65,6 +66,7 @@ function notifRoute(notif: AppNotification): string | null {
     case 'BATTLE_RESULT': return notif.relatedId ? `/battle/${notif.relatedId}` : '/battle'
     case 'EVENT_INVITE': return notif.relatedId ? `/event/${notif.relatedId}` : '/event'
     case 'EVENT_RESULT': return notif.relatedId ? `/event/${notif.relatedId}` : '/event'
+    case 'AVAILABILITY_REMINDER': return notif.relatedId ? `/community/${notif.relatedId}?tab=orar` : '/community'
     default: return null
   }
 }
