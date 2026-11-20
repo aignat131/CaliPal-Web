@@ -92,6 +92,56 @@ export function weekRangeLabel(weekKey: string): string {
   return `${days[0].dayMonth} – ${days[6].dayMonth}`
 }
 
+/** Offset (ms) of Europe/Bucharest from UTC at the given instant. */
+function bucharestOffsetMs(utcMs: number): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SCHEDULE_TIME_ZONE, hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(utcMs))
+  const get = (t: string) => +(parts.find(p => p.type === t)?.value ?? 0)
+  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'))
+  return asUtc - Math.floor(utcMs / 1000) * 1000
+}
+
+/**
+ * Convert a Bucharest wall-clock time to epoch ms (independent of the
+ * machine's own time zone — safe on the server).
+ */
+export function bucharestToMs(dateKey: string, hour: number, minute = 0): number {
+  const [y, m, d] = dateKey.split('-').map(Number)
+  const guess = Date.UTC(y, m - 1, d, hour, minute)
+  const first = guess - bucharestOffsetMs(guess)
+  // Re-evaluate the offset at the computed instant (handles DST boundaries)
+  return guess - bucharestOffsetMs(first)
+}
+
+/** Parse the app's training format "dd/MM/yyyy HH:mm" as Bucharest time → epoch ms. */
+export function parseTrainingMs(s: string | undefined | null): number | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/.exec(s ?? '')
+  if (!m) return null
+  return bucharestToMs(`${m[3]}-${m[2]}-${m[1]}`, +m[4], +m[5])
+}
+
+/** "yyyy-MM-dd" + "HH:mm" → "dd/MM/yyyy HH:mm" (the format stored on trainings). */
+export function toTrainingDateTime(dateKey: string, hhmm: string): string {
+  const [y, m, d] = dateKey.split('-')
+  return `${d}/${m}/${y} ${hhmm}`
+}
+
+/** Day index (0 = Monday) and hour of a training start, plus its week key. */
+export function trainingSlot(timeStart: string | undefined): { weekKey: string; day: number; hour: number; dateKey: string } | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/.exec(timeStart ?? '')
+  if (!m) return null
+  const dateKey = `${m[3]}-${m[2]}-${m[1]}`
+  if (!isDateKey(dateKey)) return null
+  const weekKey = weekStartOf(dateKey)
+  return { weekKey, day: weeksDayIndex(weekKey, dateKey), hour: +m[4], dateKey }
+}
+
+function weeksDayIndex(weekKey: string, dateKey: string): number {
+  return Math.round((parseKey(dateKey).getTime() - parseKey(weekKey).getTime()) / 86_400_000)
+}
+
 /** "acum 5 min", "acum 3 ore", "ieri", "acum 4 zile", "12.10.2026" */
 export function relativeTimeRo(ms: number | null | undefined, now: number = Date.now()): string {
   if (!ms) return 'niciodată'

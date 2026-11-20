@@ -112,3 +112,40 @@ describe('member doc hardening', () => {
       { userId: 'newbie', role: 'MEMBER', points: 0, trainingPoints: 500, joinedAt: serverTimestamp() }))
   })
 })
+
+describe('phase 2 — sessions, templates, points config', () => {
+  const tpl = { name: 'Pull standard', focus: 'Pull', durationMinutes: 90, exercises: [], notes: '' }
+
+  it('only Fondator/Antrenor manage session templates; members can read them', async () => {
+    await assertSucceeds(setDoc(doc(as('coach'), 'communities', C, 'sessionTemplates', 't1'), tpl))
+    await assertFails(setDoc(doc(as('vol'), 'communities', C, 'sessionTemplates', 't2'), tpl))
+    await assertFails(setDoc(doc(as('m1'), 'communities', C, 'sessionTemplates', 't3'), tpl))
+    await assertSucceeds(getDoc(doc(as('m1'), 'communities', C, 'sessionTemplates', 't1')))
+  })
+
+  it('validates configurable points', async () => {
+    const ref = doc(as('coach'), 'communities', C, 'config', 'plan')
+    await assertSucceeds(setDoc(ref, { startHour: 10, endHour: 24, points: { attendance: 15, goalAchieved: 30 } }))
+    await assertFails(setDoc(ref, { startHour: 10, endHour: 24, points: { attendance: 5000 } }))
+    await assertFails(setDoc(ref, { startHour: 10, endHour: 24, points: { attendance: 10, hack: 1 } }))
+  })
+
+  it('RSVP to a capped session must go through the API; uncapped stays direct', async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'communities', C, 'trainings', 'capped'), { name: 'x', capacity: 2, rsvps: {} })
+      await setDoc(doc(db, 'communities', C, 'trainings', 'open'), { name: 'y', rsvps: {} })
+    })
+    await assertFails(updateDoc(doc(as('m1'), 'communities', C, 'trainings', 'capped'), { 'rsvps.m1': 'GOING' }))
+    await assertSucceeds(updateDoc(doc(as('m1'), 'communities', C, 'trainings', 'open'), { 'rsvps.m1': 'GOING' }))
+  })
+
+  it('members cannot forge attendance awards on create', async () => {
+    await assertFails(setDoc(doc(as('m1'), 'communities', C, 'trainings', 'forged'), {
+      name: 'x', description: '', createdAt: serverTimestamp(), attendanceAwards: { m2: -500 },
+    }))
+    await assertSucceeds(setDoc(doc(as('m1'), 'communities', C, 'trainings', 'legit'), {
+      name: 'x', description: '', createdAt: serverTimestamp(),
+    }))
+  })
+})

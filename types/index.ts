@@ -103,6 +103,9 @@ export interface CommunityPost {
   workoutReps?: number
   workoutExercises?: { name: string; summary: string }[]
   mentionedUserIds?: string[]
+  // Auto-generated posts
+  kind?: 'session' | 'goal'
+  trainingId?: string
   // Client-side only — populated when displaying posts in the home feed
   communityId?: string
   communityName?: string
@@ -150,6 +153,16 @@ export interface PlannedTraining {
   commentsCount?: number
   // Visibility
   visibility?: 'public' | 'private'
+  // Planned session (community schedule) — see lib/schedule/sessions.ts
+  source?: 'plan'
+  focus?: string
+  parkId?: string | null
+  capacity?: number | null
+  templateId?: string | null
+  durationMinutes?: number
+  /** Points credited per member for this training (attendance diffing). */
+  attendanceAwards?: Record<string, number>
+  attendanceUpdatedAt?: Timestamp | null
 }
 
 export interface TrainingPhoto {

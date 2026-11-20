@@ -20,6 +20,8 @@ type HeatProps = {
   respondents: number
   selected?: GridCell | null
   onSelect?: (cell: GridCell | null) => void
+  /** Cells that already have a session — shown with a dot. */
+  marked?: (day: number, hour: number) => boolean
 }
 
 type Props = (EditProps | HeatProps) & {
@@ -158,15 +160,21 @@ function Cell(props: Props & {
   const count = props.count(day, hour)
   const intensity = heatIntensity(count, props.respondents)
   const isSel = props.selected?.day === day && props.selected?.hour === hour
+  const hasSession = props.marked?.(day, hour) ?? false
   return (
     <td className="p-0">
       <button type="button" {...handlers}
-        aria-label={`${label} — ${count} disponibili`}
+        aria-label={`${label} — ${count} disponibili${hasSession ? ', antrenament programat' : ''}`}
         aria-pressed={isSel}
         className={`${base} ${count === 0 ? 'bg-white/5 text-white/20' : intensity > 0.55 ? 'text-black' : 'text-white'} ${isSel ? 'ring-2 ring-white' : ''}`}
         style={count > 0 ? { backgroundColor: `rgba(var(--accent-rgb), ${(0.15 + 0.85 * intensity).toFixed(3)})` } : undefined}
       >
-        {count > 0 ? count : ''}
+        <span className="relative">
+          {count > 0 ? count : ''}
+          {hasSession && (
+            <span className="absolute -top-1.5 -right-2 w-2 h-2 rounded-full bg-white ring-1 ring-black/40" />
+          )}
+        </span>
       </button>
     </td>
   )

@@ -3,13 +3,15 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  doc, getDoc, onSnapshot, updateDoc, deleteField, getDocs, collection, serverTimestamp, increment, arrayUnion,
+  doc, getDoc, onSnapshot, updateDoc, deleteField, getDocs, collection, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
-import { awardTrainingAttendancePoints } from '@/lib/gamification/coins'
+import { callApi, apiErrorMessage } from '@/lib/schedule/client'
+import { ATTENDANCE_EDIT_WINDOW_MS } from '@/lib/schedule/attendance'
+import { TrainingPlanExtras } from '@/app/(app)/community/[id]/_components/schedule/TrainingPlanExtras'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
   Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil, X, Search, UserPlus, Trash2,
@@ -123,6 +125,7 @@ export default function PublicTrainingPage() {
   const [attendedUids, setAttendedUids] = useState<Set<string>>(new Set())
   const [closing, setClosing] = useState(false)
   const [closeResult, setCloseResult] = useState<{ awarded: number } | null>(null)
+  const [closeError, setCloseError] = useState<string | null>(null)
 
   // Add Members state
   const [showAddMembersPanel, setShowAddMembersPanel] = useState(false)
@@ -332,40 +335,30 @@ export default function PublicTrainingPage() {
     if (!training) return
     const goingUids = Object.entries(training.rsvps ?? {})
       .filter(([, s]) => s === 'GOING').map(([uid]) => uid)
-    setAttendedUids(new Set(goingUids))
+    // Closed: edit the confirmed list. Open: pre-fill with RSVP "GOING" + check-ins.
+    setAttendedUids(new Set(training.isClosed
+      ? (training.attendedBy ?? [])
+      : [...goingUids, ...(training.attendedBy ?? [])]))
+    setCloseError(null)
     setShowClosePanel(true)
+  }
+
+  /** Set attendance server-side — points (configurable) are diffed and applied there. */
+  async function submitAttendance(uids: string[]): Promise<boolean> {
+    const res = await callApi(
+      `/api/community/${communityId}/trainings/${trainingId}/attendance`,
+      { mode: 'set', attendedUids: uids },
+    )
+    if (!res.ok) { setCloseError(apiErrorMessage(res.reason)); return false }
+    setCloseResult({ awarded: uids.length })
+    return true
   }
 
   async function closeTraining() {
     if (!user || !training || closing) return
     setClosing(true)
     try {
-      const uidsArr = Array.from(attendedUids)
-      await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
-        isClosed: true,
-        attendedBy: uidsArr,
-        closedAt: serverTimestamp(),
-        closedByUid: user.uid,
-      })
-
-      // Award training points to all attendees + the creator
-      const uidsToAward = new Set(uidsArr)
-      if (training.authorId) uidsToAward.add(training.authorId)
-      const allUids = Array.from(uidsToAward)
-      const results = await Promise.allSettled(
-        allUids.map(uid => awardTrainingAttendancePoints(uid, communityId))
-      )
-      const awarded = results.filter(r => r.status === 'fulfilled').length
-
-      // Increment global totalTrainings on each attendee's user profile
-      await Promise.allSettled(
-        allUids.map(uid => updateDoc(doc(db, 'users', uid), { totalTrainings: increment(1) }))
-      )
-
-      setCloseResult({ awarded })
-      setShowClosePanel(false)
-    } catch (e) {
-      console.error(e)
+      if (await submitAttendance(Array.from(attendedUids))) setShowClosePanel(false)
     } finally {
       setClosing(false)
     }
@@ -408,18 +401,9 @@ export default function PublicTrainingPage() {
       const trainingRef = doc(db, 'communities', communityId, 'trainings', trainingId)
 
       if (training.isClosed) {
-        if (isSuperAdmin) {
-          await updateDoc(trainingRef, { ...rsvpUpdate, attendedBy: arrayUnion(...newUids) })
-        } else {
-          await updateDoc(trainingRef, rsvpUpdate)
-          await updateDoc(trainingRef, { attendedBy: arrayUnion(...newUids) })
-        }
-        await Promise.allSettled(
-          newUids.map(uid => awardTrainingAttendancePoints(uid, communityId))
-        )
-        await Promise.allSettled(
-          newUids.map(uid => updateDoc(doc(db, 'users', uid), { totalTrainings: increment(1) }))
-        )
+        await updateDoc(trainingRef, rsvpUpdate)
+        const ok = await submitAttendance(Array.from(new Set([...(training.attendedBy ?? []), ...newUids])))
+        if (!ok) throw new Error('attendance')
       } else {
         await updateDoc(trainingRef, rsvpUpdate)
       }
@@ -436,6 +420,11 @@ export default function PublicTrainingPage() {
 
   async function memberRsvp(status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
     if (!user || !training || training.isClosed) return
+    if (typeof training.capacity === 'number') {
+      const res = await callApi(`/api/community/${communityId}/trainings/${trainingId}/rsvp`, { status })
+      if (!res.ok) alert(apiErrorMessage(res.reason))
+      return
+    }
     const wasGoing = training.rsvps?.[user.uid] === 'GOING'
     const storedName = members.find(m => m.userId === user.uid)?.displayName || myDisplayName
     const storedPhoto = members.find(m => m.userId === user.uid)?.photoUrl || myPhotoUrl || null
@@ -513,6 +502,9 @@ export default function PublicTrainingPage() {
   const canManageTraining = isAuthor || !!isStaff
   const trainingIsPast = isPast(training)
   const canAddMembers = isSuperAdmin || (myMember?.role === 'ADMIN' && (trainingIsPast || !!training.isClosed))
+  const closedAtMs = training.closedAt?.toMillis?.() ?? null
+  const canEditAttendance = !!training.isClosed && (isSuperAdmin
+    || (canManageTraining && (closedAtMs === null || Date.now() - closedAtMs <= ATTENDANCE_EDIT_WINDOW_MS)))
 
   const officialStyle = training.official ? {
     background: 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.08) 0%, var(--app-surface) 100%)',
@@ -716,6 +708,8 @@ export default function PublicTrainingPage() {
           </div>
         )}
 
+        <TrainingPlanExtras training={training} communityId={communityId} myUid={user?.uid ?? ''} isMember={isMember} />
+
         {/* Confirmed attendance (closed training) */}
         {training.isClosed && (training.attendedBy?.length ?? 0) > 0 && (
           <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
@@ -737,8 +731,8 @@ export default function PublicTrainingPage() {
                       <button
                         onClick={async () => {
                           try {
+                            await submitAttendance(training.attendedBy!.filter(id => id !== uid))
                             await updateDoc(doc(db, 'communities', communityId, 'trainings', trainingId), {
-                              attendedBy: training.attendedBy!.filter(id => id !== uid),
                               [`rsvps.${uid}`]: deleteField(),
                               [`rsvpNames.${uid}`]: deleteField(),
                               [`rsvpPhotos.${uid}`]: deleteField(),
@@ -980,6 +974,18 @@ export default function PublicTrainingPage() {
           </button>
         )}
 
+        {/* Edit attendance (closed, within 48h) */}
+        {canEditAttendance && (
+          <button
+            onClick={openClosePanel}
+            className="mt-4 w-full flex items-center justify-center gap-2 h-11 rounded-2xl border text-sm font-bold transition-colors"
+            style={{ borderColor: 'rgba(var(--accent-rgb), 0.25)', color: 'var(--accent)', backgroundColor: 'rgba(var(--accent-rgb), 0.06)' }}
+          >
+            <Pencil size={14} />
+            Editează prezența
+          </button>
+        )}
+
         {/* Close Training button (staff/author, past trainings only) */}
         {canManageTraining && !training.isClosed && isPast(training) && (
           <button
@@ -1010,17 +1016,17 @@ export default function PublicTrainingPage() {
             <div className="w-full max-w-lg mx-auto rounded-t-3xl p-5 pb-8"
               style={{ backgroundColor: 'var(--app-surface)', maxHeight: '80vh', overflowY: 'auto' }}>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-base font-black text-white">Închide antrenamentul</p>
+                <p className="text-base font-black text-white">{training.isClosed ? 'Editează prezența' : 'Închide antrenamentul'}</p>
                 <button onClick={() => setShowClosePanel(false)}
                   className="w-8 h-8 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
                   <X size={16} className="text-white/60" />
                 </button>
               </div>
-              <p className="text-xs text-white/45 mb-4">Selectează persoanele care au participat efectiv.</p>
+              <p className="text-xs text-white/45 mb-4">Selectează persoanele care au participat efectiv. Punctele se ajustează automat.</p>
 
               <div className="flex flex-col gap-2 mb-5">
-                {goingUids.map(uid => {
+                {Array.from(new Set([...goingUids, ...(training.attendedBy ?? []), ...members.map(m => m.userId)])).map(uid => {
                   const m = members.find(mem => mem.userId === uid)
                   const name = training.rsvpNames?.[uid] ?? m?.displayName ?? profiles[uid]?.name ?? 'Participant'
                   const photo = training.rsvpPhotos?.[uid] || m?.photoUrl || profiles[uid]?.photoUrl || null
@@ -1047,18 +1053,16 @@ export default function PublicTrainingPage() {
                     </button>
                   )
                 })}
-                {goingUids.length === 0 && (
-                  <p className="text-sm text-white/40 text-center py-4">Niciun participant GOING înregistrat.</p>
-                )}
               </div>
+              {closeError && <p className="text-xs text-red-400 text-center mb-3">{closeError}</p>}
 
               <button
                 onClick={closeTraining}
-                disabled={closing || attendedUids.size === 0}
+                disabled={closing || (!training.isClosed && attendedUids.size === 0)}
                 className="w-full h-12 rounded-2xl text-sm font-black disabled:opacity-40 transition-opacity"
                 style={{ backgroundColor: 'var(--accent)', color: 'white' }}
               >
-                {closing ? 'Se procesează...' : `Confirmă și închide (${attendedUids.size} participanți)`}
+                {closing ? 'Se procesează...' : training.isClosed ? `Salvează prezența (${attendedUids.size})` : `Confirmă și închide (${attendedUids.size} participanți)`}
               </button>
             </div>
           </div>

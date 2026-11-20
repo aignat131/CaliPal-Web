@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { auth } from '@/lib/firebase/auth'
+import { useAvailabilityOverview } from './useAvailabilityOverview'
 import { useToast } from '@/lib/context/ToastContext'
-import type { AvailabilityOverviewResponse, AvailabilityMemberRow } from '@/lib/schedule/api-types'
+import type { AvailabilityMemberRow } from '@/lib/schedule/api-types'
 import {
   computeHeatmap, configHours, topSlots, type ScheduleConfig,
 } from '@/lib/schedule/availability'
@@ -12,43 +13,26 @@ import { ROLE_LABELS } from '@/types'
 import { AvailabilityGrid, type GridCell } from './AvailabilityGrid'
 import { RoleAvatar } from '../Avatars'
 import { ROLE_COLORS } from '../shared'
-import { BellRing, Filter, RefreshCw, Trophy, X, Check, Clock } from 'lucide-react'
+import { BellRing, Filter, RefreshCw, Trophy, X, Check, Clock, CalendarPlus } from 'lucide-react'
 
-export function AvailabilityOverview({ communityId, weekKey, config, canRemind }: {
+export function AvailabilityOverview({ communityId, weekKey, config, canRemind, onSchedule, sessionSlots }: {
   communityId: string
   weekKey: string
   config: ScheduleConfig
   canRemind: boolean
+  /** Present when the viewer can create sessions. */
+  onSchedule?: (cell: GridCell) => void
+  /** "day:hour" keys of slots that already have a session this week. */
+  sessionSlots?: Set<string>
 }) {
   const { showToast } = useToast()
-  const [data, setData] = useState<AvailabilityOverviewResponse | null>(null)
-  const [error, setError] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const { data, loading, error, reload: load } = useAvailabilityOverview(communityId, weekKey)
   const [selected, setSelected] = useState<GridCell | null>(null)
   const [filter, setFilter] = useState<Set<string> | null>(null) // null = toți
   const [showFilter, setShowFilter] = useState(false)
   const [reminding, setReminding] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(false)
-    try {
-      const token = await auth.currentUser?.getIdToken()
-      const res = await fetch(`/api/community/${communityId}/availability?week=${weekKey}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        cache: 'no-store',
-      })
-      if (!res.ok) throw new Error(String(res.status))
-      setData(await res.json())
-    } catch (e) {
-      console.error('[overview] load failed', e)
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [communityId, weekKey])
-
-  useEffect(() => { setSelected(null); void load() }, [load])
+  useEffect(() => { setSelected(null) }, [weekKey])
 
   const hours = configHours(config)
   const rows = data?.members ?? null
@@ -146,6 +130,7 @@ export function AvailabilityOverview({ communityId, weekKey, config, canRemind }
         respondents={heat.respondents}
         selected={selected}
         onSelect={setSelected}
+        marked={sessionSlots ? (d, h) => sessionSlots.has(`${d}:${h}`) : undefined}
       />
 
       {/* Selected cell detail */}
@@ -161,7 +146,14 @@ export function AvailabilityOverview({ communityId, weekKey, config, canRemind }
           </div>
           <p className="text-xs text-white/50 mb-2">
             {selCount} din {heat.respondents} {heat.respondents === 1 ? 'membru poate' : 'membri pot'}
+            {sessionSlots?.has(`${selected.day}:${selected.hour}`) && ' · are deja un antrenament programat'}
           </p>
+          {onSchedule && (
+            <button onClick={() => onSchedule(selected)}
+              className="w-full h-10 mb-3 rounded-xl bg-brand-green text-black text-sm font-black flex items-center justify-center gap-1.5">
+              <CalendarPlus size={15} /> Programează antrenament
+            </button>
+          )}
           {heat.uids && (
             selUids.length === 0
               ? <p className="text-xs text-white/35">Nimeni nu e disponibil.</p>

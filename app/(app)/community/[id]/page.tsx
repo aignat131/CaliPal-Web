@@ -17,7 +17,9 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { createNotification } from '@/lib/firebase/notifications'
-import { awardCoins, awardTrainingAttendancePoints } from '@/lib/gamification/coins'
+import { awardCoins } from '@/lib/gamification/coins'
+import { callApi, apiErrorMessage } from '@/lib/schedule/client'
+import { TrainingPlanExtras } from './_components/schedule/TrainingPlanExtras'
 import type {
   CommunityDoc, CommunityMember, CommunityPost,
   PlannedTraining, MemberRole, PostComment,
@@ -278,49 +280,21 @@ export default function CommunityDetailPage() {
     )
   }, [id, user])
 
-  // Auto-close past trainings and award points to all GOING members
+  // Auto-close ended trainings: attendance = RSVP "GOING" + check-ins.
+  // Points are applied server-side (configurable, idempotent); staff can correct for 48h.
   useEffect(() => {
     if (!user || !isMember) return
     const isStaff = myRole === 'ADMIN' || myRole === 'MODERATOR' || myRole === 'TRAINER'
     if (!isStaff && !isSuperAdmin) return
 
     const pastUnclosed = trainings.filter(t => isTrainingPast(t) && !t.isClosed)
-    if (!pastUnclosed.length) return
-
     pastUnclosed.forEach(async (t) => {
       if (autoClosedRef.current.has(t.id)) return
       autoClosedRef.current.add(t.id)
-
-      const goingUids = Object.entries(t.rsvps ?? {})
-        .filter(([, s]) => s === 'GOING').map(([uid]) => uid)
-      if (!goingUids.length) return
-
-      try {
-        // Mark the training as closed
-        await updateDoc(doc(db, 'communities', id, 'trainings', t.id), {
-          isClosed: true,
-          attendedBy: goingUids,
-          closedAt: serverTimestamp(),
-          closedByUid: user.uid,
-        })
-
-        // Award points to all attendees + author
-        const uidsToAward = new Set(goingUids)
-        if (t.authorId) uidsToAward.add(t.authorId)
-        const allUids = Array.from(uidsToAward)
-        await Promise.allSettled(
-          allUids.map(uid => awardTrainingAttendancePoints(uid, id))
-        )
-        // Increment global totalTrainings on each attendee's user profile
-        await Promise.allSettled(
-          allUids.map(uid => updateDoc(doc(db, 'users', uid), { totalTrainings: increment(1) }))
-        )
-      } catch (e) {
-        console.error('[AutoClose] failed for training', t.id, e)
-        autoClosedRef.current.delete(t.id)
-      }
+      const res = await callApi(`/api/community/${id}/trainings/${t.id}/attendance`, { mode: 'auto' })
+      if (!res.ok && res.status >= 500) autoClosedRef.current.delete(t.id)
     })
-  }, [trainings, user, isMember, myRole, id])
+  }, [trainings, user, isMember, myRole, id, isSuperAdmin])
 
   // Load friend/pending status for member tab
   const loadSocialStatus = useCallback(async () => {
@@ -515,6 +489,12 @@ export default function CommunityDetailPage() {
 
   async function rsvp(trainingId: string, status: 'GOING' | 'NOT_GOING' | 'MAYBE') {
     if (!user) return
+    const tr = trainings.find(t => t.id === trainingId)
+    if (typeof tr?.capacity === 'number') {
+      const res = await callApi(`/api/community/${id}/trainings/${trainingId}/rsvp`, { status })
+      if (!res.ok) showToast(apiErrorMessage(res.reason), 'error')
+      return res.ok
+    }
     const nameUpdate = status === 'GOING' && myName
       ? { [`rsvpNames.${user.uid}`]: myName }
       : { [`rsvpNames.${user.uid}`]: deleteField() }
@@ -1224,7 +1204,8 @@ export default function CommunityDetailPage() {
 
         {/* ── Orar (disponibilitate + overview) ── */}
         {effectiveTab === 3 && user && (
-          <ScheduleTab communityId={id} uid={user.uid} role={myRole} isSuperAdmin={isSuperAdmin} />
+          <ScheduleTab communityId={id} uid={user.uid} role={myRole} isSuperAdmin={isSuperAdmin}
+            trainings={trainings} members={members} defaultLocation={community?.location ?? ''} />
         )}
 
       </div>
@@ -1609,7 +1590,7 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
   canDelete: boolean
   canEdit: boolean
   readOnly?: boolean
-  onRsvp: (s: 'GOING' | 'NOT_GOING' | 'MAYBE') => void
+  onRsvp: (s: 'GOING' | 'NOT_GOING' | 'MAYBE') => void | Promise<boolean | void>
   onLoad: () => void
   onDelete: () => void
   onEdit: (fields: { name: string; description: string; timeStart: string; timeEnd: string }) => void
@@ -1934,20 +1915,32 @@ function TrainingCard({ training, communityId, myUid, members, canLoad, canDelet
           <p className="text-xs text-white/25 mb-3">Nimeni nu a confirmat încă</p>
         )}
 
-        {/* RSVP buttons */}
+        <TrainingPlanExtras training={training} communityId={communityId} myUid={myUid}
+          isMember={members.some(m => m.userId === myUid)} readOnly={readOnly} />
+
+        {/* RSVP buttons — plan sessions are a simple Vin / Nu vin */}
         {!readOnly && (
           <div className="flex gap-2">
-            {(['GOING', 'MAYBE', 'NOT_GOING'] as const).map(status => (
-              <button key={status}
-                onClick={() => { setLocalRsvpStatus(status); onRsvp(status) }}
-                className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors border ${
+            {(training.source === 'plan' ? (['GOING', 'NOT_GOING'] as const) : (['GOING', 'MAYBE', 'NOT_GOING'] as const)).map(status => {
+              const isFull = typeof training.capacity === 'number' && goingUids.length >= training.capacity
+              const disabled = status === 'GOING' && isFull && myStatus !== 'GOING'
+              return (
+              <button key={status} disabled={disabled}
+                onClick={() => {
+                  setLocalRsvpStatus(status)
+                  Promise.resolve(onRsvp(status)).then(ok => { if (ok === false) setLocalRsvpStatus(null) })
+                }}
+                className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors border disabled:opacity-40 ${
                   myStatus === status
                     ? 'bg-brand-green text-black border-brand-green'
                     : 'border-white/15 text-white/50 hover:bg-white/8'
                 }`}>
-                {status === 'GOING' ? 'Merg' : status === 'MAYBE' ? 'Poate' : 'Nu merg'}
+                {training.source === 'plan'
+                  ? (status === 'GOING' ? (disabled ? 'Plin' : 'Vin') : 'Nu vin')
+                  : (status === 'GOING' ? 'Merg' : status === 'MAYBE' ? 'Poate' : 'Nu merg')}
               </button>
-            ))}
+              )
+            })}
             {canLoad && (
               <button onClick={onLoad} className="h-8 px-3 rounded-lg text-xs font-bold bg-brand-green text-black flex items-center gap-1 flex-shrink-0">
                 <Dumbbell size={12} /> Încarcă
@@ -2418,6 +2411,13 @@ function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAd
           <p className="text-[15px] text-white/90 leading-snug mb-3 whitespace-pre-line font-medium">
             {renderTextWithMentions(isWorkoutPost ? (post.workoutNote ?? '') : post.content)}
           </p>
+        )}
+
+        {post.kind === 'session' && post.trainingId && (
+          <Link href={`/training/${communityId}/${post.trainingId}`} onClick={e => e.stopPropagation()}
+            className="inline-flex items-center gap-1.5 h-9 px-3 mb-3 rounded-xl bg-brand-green text-black text-xs font-black">
+            <Dumbbell size={13} /> Vezi antrenamentul · Vin?
+          </Link>
         )}
 
         {/* Workout training block */}
