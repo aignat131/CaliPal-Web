@@ -1,22 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import type { PlannedTraining, CommunityMember } from '@/types'
-import {
-  Share2, Trash2, Clock, MapPin, Dumbbell, User, Pencil,
-} from 'lucide-react'
-import {
-  formatTrainingDate,
-} from '@/lib/utils/trainingDateTime'
-import { MemberAvatar, GuestAvatar } from './Avatars'
+import { TrainingPlanExtras } from './schedule/TrainingPlanExtras'
+import type { CommunityMember, PlannedTraining } from '@/types'
+import { Trash2, Clock, MapPin, Dumbbell, User, Share2, Pencil } from 'lucide-react'
+import { formatTrainingDate } from '@/lib/utils/trainingDateTime'
 import { toAndroidDateTime } from './shared'
+import { GuestAvatar, MemberAvatar } from './Avatars'
 
-function toDateInputValue(str: string): string {
+export function toDateInputValue(str: string): string {
   const m = str?.match(/^(\d{2})\/(\d{2})\/(\d{4})/)
   if (m) return `${m[3]}-${m[2]}-${m[1]}`
   return ''
 }
-function toTimeInputValue(str: string): string {
+export function toTimeInputValue(str: string): string {
   const m = str?.match(/(\d{2}:\d{2})$/)
   return m ? m[1] : ''
 }
@@ -30,7 +27,7 @@ export function TrainingCard({ training, communityId, myUid, members, canLoad, c
   canDelete: boolean
   canEdit: boolean
   readOnly?: boolean
-  onRsvp: (s: 'GOING' | 'NOT_GOING' | 'MAYBE') => void
+  onRsvp: (s: 'GOING' | 'NOT_GOING' | 'MAYBE') => void | Promise<boolean | void>
   onLoad: () => void
   onDelete: () => void
   onEdit: (fields: { name: string; description: string; timeStart: string; timeEnd: string }) => void
@@ -355,20 +352,32 @@ export function TrainingCard({ training, communityId, myUid, members, canLoad, c
           <p className="text-xs text-white/25 mb-3">Nimeni nu a confirmat încă</p>
         )}
 
-        {/* RSVP buttons */}
+        <TrainingPlanExtras training={training} communityId={communityId} myUid={myUid}
+          isMember={members.some(m => m.userId === myUid)} readOnly={readOnly} />
+
+        {/* RSVP buttons — plan sessions are a simple Vin / Nu vin */}
         {!readOnly && (
           <div className="flex gap-2">
-            {(['GOING', 'MAYBE', 'NOT_GOING'] as const).map(status => (
-              <button key={status}
-                onClick={() => { setLocalRsvpStatus(status); onRsvp(status) }}
-                className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors border ${
+            {(training.source === 'plan' ? (['GOING', 'NOT_GOING'] as const) : (['GOING', 'MAYBE', 'NOT_GOING'] as const)).map(status => {
+              const isFull = typeof training.capacity === 'number' && goingUids.length >= training.capacity
+              const disabled = status === 'GOING' && isFull && myStatus !== 'GOING'
+              return (
+              <button key={status} disabled={disabled}
+                onClick={() => {
+                  setLocalRsvpStatus(status)
+                  Promise.resolve(onRsvp(status)).then(ok => { if (ok === false) setLocalRsvpStatus(null) })
+                }}
+                className={`flex-1 h-8 rounded-lg text-xs font-bold transition-colors border disabled:opacity-40 ${
                   myStatus === status
                     ? 'bg-brand-green text-black border-brand-green'
                     : 'border-white/15 text-white/50 hover:bg-white/8'
                 }`}>
-                {status === 'GOING' ? 'Merg' : status === 'MAYBE' ? 'Poate' : 'Nu merg'}
+                {training.source === 'plan'
+                  ? (status === 'GOING' ? (disabled ? 'Plin' : 'Vin') : 'Nu vin')
+                  : (status === 'GOING' ? 'Merg' : status === 'MAYBE' ? 'Poate' : 'Nu merg')}
               </button>
-            ))}
+              )
+            })}
             {canLoad && (
               <button onClick={onLoad} className="h-8 px-3 rounded-lg text-xs font-bold bg-brand-green text-black flex items-center gap-1 flex-shrink-0">
                 <Dumbbell size={12} /> Încarcă

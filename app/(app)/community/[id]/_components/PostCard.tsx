@@ -1,29 +1,32 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
 import {
-  doc, collection, onSnapshot, addDoc, deleteDoc,
-  updateDoc, setDoc, serverTimestamp, query, orderBy, increment,
+  doc,
+  collection,
+  onSnapshot,
+  addDoc,
+  deleteDoc,
+  updateDoc,
+  setDoc,
+  serverTimestamp,
+  query,
+  orderBy,
+  increment,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
-import { useT } from '@/lib/context/LanguageContext'
-import type {
-  CommunityPost, CommunityMember, MemberRole, PostComment,
-} from '@/types'
+import type { CommunityMember, CommunityPost, MemberRole, PostComment } from '@/types'
 import { ROLE_LABELS } from '@/types'
-import {
-  Send, Trash2, MessageCircle, X, Pencil,
-} from 'lucide-react'
+import { Send, Trash2, Dumbbell, MessageCircle, X, Pencil } from 'lucide-react'
+import Link from 'next/link'
+import { useT } from '@/lib/context/LanguageContext'
 import { ROLE_COLORS } from './shared'
 import { MemberAvatar } from './Avatars'
 import { ReactorsModal } from './ReactorsModal'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatPostDate(createdAt: CommunityPost['createdAt']): string {
+export function formatPostDate(createdAt: CommunityPost['createdAt']): string {
   if (!createdAt) return ''
   const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt as unknown as number)
   const now = Date.now()
@@ -36,13 +39,13 @@ function formatPostDate(createdAt: CommunityPost['createdAt']): string {
   return date.toLocaleDateString('ro', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-function formatPostDuration(s: number): string {
+export function formatPostDuration(s: number): string {
   const m = Math.floor(s / 60)
   const sec = s % 60
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-function renderTextWithMentions(text: string): React.ReactNode {
+export function renderTextWithMentions(text: string): React.ReactNode {
   const parts = text.split(/(@\w[\w\s]*?\w(?=\s|$)|@\w+)/g)
   return parts.map((part, i) =>
     part.startsWith('@')
@@ -50,8 +53,6 @@ function renderTextWithMentions(text: string): React.ReactNode {
       : part
   )
 }
-
-// ── PostCard ─────────────────────────────────────────────────────────────────
 
 export function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, myProTitle, members, onDelete, onOpen }: {
   post: CommunityPost
@@ -199,6 +200,13 @@ export function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, is
           <p className="text-[15px] text-white/90 leading-snug mb-3 whitespace-pre-line font-medium">
             {renderTextWithMentions(isWorkoutPost ? (post.workoutNote ?? '') : post.content)}
           </p>
+        )}
+
+        {post.kind === 'session' && post.trainingId && (
+          <Link href={`/training/${communityId}/${post.trainingId}`} onClick={e => e.stopPropagation()}
+            className="inline-flex items-center gap-1.5 h-9 px-3 mb-3 rounded-xl bg-brand-green text-black text-xs font-black">
+            <Dumbbell size={13} /> Vezi antrenamentul · Vin?
+          </Link>
         )}
 
         {/* Workout training block */}

@@ -1,18 +1,24 @@
 'use client'
 
 import { useRef } from 'react'
-import Link from 'next/link'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
-import { useT } from '@/lib/context/LanguageContext'
 import type { CommunityMember, MemberRole } from '@/types'
 import { ROLE_LABELS } from '@/types'
 import {
-  MessageSquare, Check, Clock, UserPlus, User, Bell, X, UserX,
+  MessageSquare,
+  UserPlus,
+  Check,
+  Clock,
+  User,
+  Bell,
+  X,
+  UserX,
+  ClipboardList,
 } from 'lucide-react'
+import Link from 'next/link'
+import { useT } from '@/lib/context/LanguageContext'
 import { ROLE_COLORS } from './shared'
 import { RoleAvatar } from './Avatars'
-
-// ── Join Notification Modal ───────────────────────────────────────────────────
 
 export function JoinNotificationModal({
   communityName, onRequestNotifications, onDismiss,
@@ -69,7 +75,7 @@ export function JoinNotificationModal({
 // ── Member Sheet ─────────────────────────────────────────────────────────────
 
 export function MemberSheet({
-  member, myUid, isFriend, isPending, canKick,
+  member, myUid, isFriend, isPending, canKick, fileHref,
   onClose, onGoToChat, onAddFriend, onKick,
 }: {
   member: CommunityMember
@@ -77,6 +83,8 @@ export function MemberSheet({
   isFriend: boolean
   isPending: boolean
   canKick: boolean
+  /** Link to the coaching file (coach viewing anyone, or the member themself). */
+  fileHref?: string
   onClose: () => void
   onGoToChat: () => void
   onAddFriend: () => void
@@ -150,6 +158,11 @@ export function MemberSheet({
 
         {/* Actions */}
         <div className="px-5 flex flex-col gap-2">
+          {fileHref && (
+            <Link href={fileHref} className="h-12 rounded-2xl flex items-center justify-center gap-2 font-black text-sm bg-brand-green text-black active:scale-95 transition-transform">
+              <ClipboardList size={16} /> {isMe ? 'Progresul meu' : 'Fișa membrului'}
+            </Link>
+          )}
           {!isMe && (
             <div className="grid grid-cols-2 gap-2">
               <button
