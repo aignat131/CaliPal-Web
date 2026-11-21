@@ -20,6 +20,7 @@ import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCir
 import { useToast } from '@/lib/context/ToastContext'
 import { useT } from '@/lib/context/LanguageContext'
 import { ExerciseStatsTab } from './_components/ExerciseStatsTab'
+import { useBadgeData, BadgeWall, RecordsGrid } from '@/components/profile/BadgesAndRecords'
 import ShopModal, { FRAME_STYLES, TITLE_LABELS, SHOP_ITEMS } from './_components/ShopModal'
 
 function formatDuration(s: number): string {
@@ -134,6 +135,12 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState(0)
+  const badgeData = useBadgeData(user?.uid, profile, true)
+
+  // Deep link from badge / record notifications: /profile?tab=badges
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'badges') setTab(1)
+  }, [])
   const [showLogout, setShowLogout] = useState(false)
   const [showShop, setShowShop] = useState(false)
   const [purchases, setPurchases] = useState<Set<string>>(new Set())
@@ -365,7 +372,7 @@ export default function ProfilePage() {
     ? { label: '⭐ Master Coach', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.13)' }
     : LEVEL_BADGE[assessmentLevel ?? 'beginner'] ?? LEVEL_BADGE.beginner
 
-  const tabs = [t('profile.tab_progress'), t('profile.tab_stats'), t('profile.tab_tasks')]
+  const tabs = [t('profile.tab_progress'), t('profile.tab_badges'), t('profile.tab_stats'), t('profile.tab_tasks')]
 
   const derivedCompleted = getDerivedCompleted()
 
@@ -742,8 +749,35 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* ── Badges & records tab ── */}
+        {tab === 1 && (
+          <div className="flex flex-col gap-4">
+            {badgeData.loading ? (
+              <div className="flex justify-center py-8">
+                <span className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : badgeData.data ? (
+              <>
+                <div className="app-card">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-bold text-white">{t('records.title')}</p>
+                    <Link href="/leaderboard" className="text-xs text-brand-green font-semibold">{t('records.leaderboard')} →</Link>
+                  </div>
+                  <RecordsGrid data={badgeData.data} isOwn />
+                </div>
+                <div className="app-card">
+                  <p className="text-sm font-bold text-white mb-1">{t('badges.title')}</p>
+                  <BadgeWall data={badgeData.data} isOwn />
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-white/40 text-center py-6">{t('common.unknown_error')}</p>
+            )}
+          </div>
+        )}
+
         {/* ── Stats tab ── */}
-        {tab === 1 && user && (
+        {tab === 2 && user && (
           <ExerciseStatsTab
             uid={user.uid}
             pinnedExercises={profile?.pinnedExercises ?? []}
@@ -759,7 +793,7 @@ export default function ProfilePage() {
         )}
 
         {/* ── Tasks tab ── */}
-        {tab === 2 && (
+        {tab === 3 && (
           <div className="flex flex-col gap-2">
             <p className="text-xs text-white/35 mb-2">{t('profile.tasks_desc')}</p>
             {COIN_TASKS.map(task => {

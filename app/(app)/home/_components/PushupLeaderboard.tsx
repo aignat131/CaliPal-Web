@@ -66,7 +66,10 @@ export function PushupLeaderboard({ user }: { user: User }) {
     <div className="mb-4">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[11px] font-bold text-white/40 tracking-widest">{t('home.leaderboard_title')}</p>
-        <span className="text-[10px] text-white/30">{t('home.leaderboard_week')}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-white/30">{t('home.leaderboard_week')}</span>
+          <Link href="/leaderboard" className="text-[11px] text-brand-green font-semibold">{t('lb.title')} →</Link>
+        </div>
       </div>
 
       <div className="app-card overflow-hidden">
@@ -75,7 +78,7 @@ export function PushupLeaderboard({ user }: { user: User }) {
             <Trophy size={24} className="text-white/20" />
             <p className="text-xs text-white/40">{t('home.leaderboard_empty')}</p>
             <Link href="/workout" className="text-xs text-brand-green font-semibold mt-1">
-              Start workout →
+              {t('lb.cta')} →
             </Link>
           </div>
         ) : (

@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge, GripType, RepSession, UnifiedRepSession, ProgramRef } from '@/types'
 import { checkWorkoutMilestones, checkStreakMilestones, awardCoins } from '@/lib/gamification/coins'
 import { useProgramEnrollment } from '@/lib/hooks/useProgramEnrollment'
+import { afterWorkoutSaved } from '@/lib/gamification/badgeSync'
 import { updateWeeklyPushupLeaderboard } from '@/lib/gamification/leaderboard'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useT } from '@/lib/context/LanguageContext'
@@ -642,6 +643,7 @@ export default function WorkoutPage() {
         totalReps,
         coinsEarned: 0,
         note: finalNote.trim(),
+        ...(isBackdated && { backdated: true }),
         createdAt: backdatedAt ? Timestamp.fromDate(backdatedAt) : serverTimestamp(),
       })
 
@@ -682,6 +684,9 @@ export default function WorkoutPage() {
       // Award milestone coins for workout count and streak
       await checkWorkoutMilestones(user.uid, _newTotal)
       if (!isBackdated) await checkStreakMilestones(user.uid, newStreak)
+
+      // Personal records + badges (fire-and-forget; never blocks the save flow)
+      afterWorkoutSaved(user.uid, workoutRef.id)
 
       // Reps that count outside the user's own history (no dictated sets, no past days)
       const competitiveReps = isBackdated ? {} : competitiveRepsByExercise(finalExercises)

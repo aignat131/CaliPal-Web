@@ -69,6 +69,18 @@ service cloud.firestore {
         allow read: if isAuth();
         allow write: if isOwner(uid);
       }
+      // Earned badge levels (lib/gamification/badgeSync.ts). Levels only go up.
+      match /badges/{badgeId} {
+        allow read: if isAuth();
+        allow create: if isOwner(uid)
+          && request.resource.data.level is int
+          && request.resource.data.level >= 1 && request.resource.data.level <= 3;
+        allow update: if isOwner(uid)
+          && request.resource.data.level is int
+          && request.resource.data.level > resource.data.level
+          && request.resource.data.level <= 3;
+        allow delete: if false;
+      }
       match /challenge_progress/{challengeId} {
         allow read, write: if isOwner(uid);
       }
@@ -452,6 +464,28 @@ service cloud.firestore {
     }
 
     // ── Weekly Leaderboard ─────────────────────────────────────────────────────
+    // ── Personal-record leaderboard (lib/gamification/badgeSync.ts publishRecords) ──
+    match /user_records/{uid} {
+      function repsOk(v) { return v is int && v >= 0 && v <= 500; }
+      function secsOk(v) { return v is int && v >= 0 && v <= 3600; }
+      allow read: if isAuth();
+      allow create, update: if isOwner(uid)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 100
+        && repsOk(request.resource.data.pullup)
+        && repsOk(request.resource.data.pushup)
+        && repsOk(request.resource.data.dips)
+        && repsOk(request.resource.data.squat)
+        && repsOk(request.resource.data.muscleup)
+        && secsOk(request.resource.data.handstand)
+        && secsOk(request.resource.data.lsit)
+        && secsOk(request.resource.data.plank)
+        && secsOk(request.resource.data.front_lever)
+        && secsOk(request.resource.data.dead_hang);
+      allow delete: if false;
+    }
+
     match /weekly_leaderboard/{weekId} {
       allow read: if isAuth();
       allow write: if false;

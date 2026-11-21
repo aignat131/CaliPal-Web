@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import {
   doc, collection, query, orderBy, limit,
@@ -17,6 +18,7 @@ import { conversationId } from '@/types'
 import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell, X } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
 import { formatDuration, formatDate } from '@/lib/formatters'
+import { useBadgeData, BadgeWall, RecordsGrid } from '@/components/profile/BadgesAndRecords'
 
 function exercisePreview(ex: import('@/types').WorkoutExercise, nSetsLabel: (n: number) => string): string {
   const n = ex.sets.length
@@ -59,6 +61,7 @@ export default function UserProfilePage() {
   const [friendLoading, setFriendLoading] = useState(false)
   const [friendError, setFriendError] = useState<string | null>(null)
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutDoc | null>(null)
+  const badgeData = useBadgeData(uid, profile, false)
 
   // Don't render own profile here — redirect to /profile
   useEffect(() => {
@@ -365,6 +368,23 @@ export default function UserProfilePage() {
             <MessageSquare size={18} className="text-white/70" />
           </button>
         </div>
+
+        {/* Personal records + badges */}
+        {badgeData.data && (
+          <>
+            <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-bold text-white">{t('records.title')}</p>
+                <Link href="/leaderboard" className="text-xs text-brand-green font-semibold">{t('records.leaderboard')} →</Link>
+              </div>
+              <RecordsGrid data={badgeData.data} isOwn={false} />
+            </div>
+            <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
+              <p className="text-sm font-bold text-white mb-1">{t('badges.title')}</p>
+              <BadgeWall data={badgeData.data} isOwn={false} />
+            </div>
+          </>
+        )}
 
         {/* Recent workouts */}
         <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>

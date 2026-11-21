@@ -263,6 +263,8 @@ export interface WorkoutDoc {
   coinsEarned: number
   note: string
   programRef?: ProgramRef
+  /** Logged for a past day: history only, not leaderboards or challenges. */
+  backdated?: boolean
   createdAt: Timestamp | null
 }
 
@@ -471,6 +473,8 @@ export type NotificationType =
   | 'EVENT_RESULT'
   | 'AVAILABILITY_REMINDER'
   | 'PLAN_REMINDER'
+  | 'BADGE_EARNED'
+  | 'NEW_RECORD'
 
 export interface AppNotification {
   id: string
