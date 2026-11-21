@@ -758,6 +758,16 @@ export default function ProfilePage() {
               </div>
             ) : badgeData.data ? (
               <>
+                <div className="grid grid-cols-2 gap-2">
+                  <Link href="/challenges" className="app-card !p-3 flex items-center gap-2 hover:border-white/20 transition-colors">
+                    <span className="text-lg">⚔️</span>
+                    <span className="text-sm font-bold text-white">{t('ch.my_challenges')}</span>
+                  </Link>
+                  <Link href="/leaderboard" className="app-card !p-3 flex items-center gap-2 hover:border-white/20 transition-colors">
+                    <span className="text-lg">🏆</span>
+                    <span className="text-sm font-bold text-white">{t('lb.title')}</span>
+                  </Link>
+                </div>
                 <div className="app-card">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-bold text-white">{t('records.title')}</p>

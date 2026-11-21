@@ -486,6 +486,50 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Friend challenges (lib/gamification/challenges.ts) ─────────────────────
+    match /challenges/{challengeId} {
+      function lifts() {
+        return ['pullup', 'pushup', 'dips', 'squat', 'muscleup',
+                'handstand', 'lsit', 'plank', 'front_lever', 'dead_hang'];
+      }
+      function changes(keys) {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+      }
+      function isFrom() { return isAuth() && request.auth.uid == resource.data.fromUid; }
+      function isTo() { return isAuth() && request.auth.uid == resource.data.toUid; }
+      function open() { return request.time < resource.data.deadline; }
+
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid);
+      allow create: if isAuth()
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid is string
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.lift in lifts()
+        && request.resource.data.target is int
+        && request.resource.data.target >= 1 && request.resource.data.target <= 3600
+        && request.resource.data.deadline is timestamp
+        && request.resource.data.deadline > request.time
+        && request.resource.data.deadline < request.time + duration.value(15, 'd')
+        && request.resource.data.status == 'PENDING'
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 140;
+      allow update: if
+        // recipient accepts or declines a pending challenge
+        (isTo() && open() && resource.data.status == 'PENDING' && changes(['status'])
+          && request.resource.data.status in ['ACCEPTED', 'DECLINED'])
+        // recipient completes an accepted challenge before the deadline
+        || (isTo() && open() && resource.data.status == 'ACCEPTED'
+          && changes(['status', 'result', 'verified', 'completedAt'])
+          && request.resource.data.status == 'COMPLETED'
+          && request.resource.data.result is int
+          && request.resource.data.result >= resource.data.target)
+        // challenger withdraws before it's done
+        || (isFrom() && resource.data.status in ['PENDING', 'ACCEPTED'] && changes(['status'])
+          && request.resource.data.status == 'CANCELLED');
+      allow delete: if false;
+    }
+
     match /weekly_leaderboard/{weekId} {
       allow read: if isAuth();
       allow write: if false;

@@ -15,10 +15,13 @@ import { createNotification } from '@/lib/firebase/notifications'
 import type { UserDoc, WorkoutDoc } from '@/types'
 import { SkeletonProfile } from '@/components/ui/SkeletonLoaders'
 import { conversationId } from '@/types'
-import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell, X } from 'lucide-react'
+import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell, X, Swords } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
 import { formatDuration, formatDate } from '@/lib/formatters'
 import { useBadgeData, BadgeWall, RecordsGrid } from '@/components/profile/BadgesAndRecords'
+import { ChallengeFriendSheet } from '@/components/challenge/ChallengeFriendSheet'
+import { LIFTS, emptyRecords, type RecordMap } from '@/lib/gamification/records'
+import { useToast } from '@/lib/context/ToastContext'
 
 function exercisePreview(ex: import('@/types').WorkoutExercise, nSetsLabel: (n: number) => string): string {
   const n = ex.sets.length
@@ -62,6 +65,20 @@ export default function UserProfilePage() {
   const [friendError, setFriendError] = useState<string | null>(null)
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutDoc | null>(null)
   const badgeData = useBadgeData(uid, profile, false)
+  const { showToast } = useToast()
+  const [challengeOpen, setChallengeOpen] = useState(false)
+  const [myRecords, setMyRecords] = useState<RecordMap | null>(null)
+
+  async function openChallenge() {
+    if (myRecords || !user) { setChallengeOpen(true); return }
+    // "Beat my record" default: read my published records
+    const snap = await getDoc(doc(db, 'user_records', user.uid)).catch(() => null)
+    const d = snap?.data()
+    const recs = emptyRecords()
+    if (d) for (const l of LIFTS) recs[l.key] = { ...recs[l.key], value: Number(d[l.key] ?? 0), verified: d[`${l.key}_v`] === true }
+    setMyRecords(recs)
+    setChallengeOpen(true)
+  }
 
   // Don't render own profile here — redirect to /profile
   useEffect(() => {
@@ -360,6 +377,18 @@ export default function UserProfilePage() {
             </button>
           )}
 
+          {/* Challenge button (friends only) */}
+          {friendStatus === 'friends' && (
+            <button
+              onClick={openChallenge}
+              aria-label={t('ch.challenge_btn')}
+              title={t('ch.challenge_btn')}
+              className="w-11 h-11 rounded-xl flex items-center justify-center border border-[#F97316]/50 hover:bg-[#F97316]/10 transition-colors"
+            >
+              <Swords size={18} className="text-[#F97316]" />
+            </button>
+          )}
+
           {/* Chat button */}
           <button
             onClick={goToChat}
@@ -368,6 +397,16 @@ export default function UserProfilePage() {
             <MessageSquare size={18} className="text-white/70" />
           </button>
         </div>
+
+        {challengeOpen && user && profile && (
+          <ChallengeFriendSheet
+            me={{ uid: user.uid, name: myName || user.displayName || '', photo: myPhoto || '' }}
+            friend={{ uid, name: profile.displayName || t('common.user_fallback'), photo: profile.photoUrl || '' }}
+            myRecords={myRecords}
+            onClose={() => setChallengeOpen(false)}
+            onSent={() => { setChallengeOpen(false); showToast(t('ch.sent')) }}
+          />
+        )}
 
         {/* Personal records + badges */}
         {badgeData.data && (

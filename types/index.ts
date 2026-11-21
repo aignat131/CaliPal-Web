@@ -475,6 +475,8 @@ export type NotificationType =
   | 'PLAN_REMINDER'
   | 'BADGE_EARNED'
   | 'NEW_RECORD'
+  | 'CHALLENGE_RECEIVED'
+  | 'CHALLENGE_UPDATE'
 
 export interface AppNotification {
   id: string

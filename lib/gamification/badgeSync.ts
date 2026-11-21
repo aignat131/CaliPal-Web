@@ -6,6 +6,7 @@ import { createNotification } from '@/lib/firebase/notifications'
 import type { UserDoc, WorkoutDoc } from '@/types'
 import { evaluateBadges, levelFor, type BadgeResult, type BadgeStats } from './badges'
 import { LIFTS, computeRecords, formatRecordValue, type RecordMap } from './records'
+import { checkChallenges } from './challenges'
 
 const WORKOUT_LIMIT = 1000
 
@@ -167,6 +168,7 @@ export async function afterWorkoutSaved(uid: string, workoutId: string): Promise
         }
       }
     }
+    if (latest) await checkChallenges(uid, latest)
     await syncBadges(uid, data)
     const userSnap = await getDoc(doc(db, 'users', uid))
     await publishRecords(uid, (userSnap.data() ?? {}) as Partial<UserDoc>, workouts)

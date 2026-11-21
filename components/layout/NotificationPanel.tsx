@@ -44,6 +44,8 @@ function notifIcon(type: AppNotification['type']) {
     case 'PLAN_REMINDER': return <CalendarClock size={16} className="text-[#FFB800]" />
     case 'BADGE_EARNED': return <Medal size={16} className="text-[#E3B24C]" />
     case 'NEW_RECORD': return <Trophy size={16} className="text-brand-green" />
+    case 'CHALLENGE_RECEIVED':
+    case 'CHALLENGE_UPDATE': return <Swords size={16} className="text-[#F97316]" />
     default: return <Bell size={16} className="text-white/50" />
   }
 }
@@ -62,6 +64,8 @@ function notifRoute(notif: AppNotification): string | null {
     case 'TASK_COMPLETED': return '/profile'
     case 'BADGE_EARNED':
     case 'NEW_RECORD': return '/profile?tab=badges'
+    case 'CHALLENGE_RECEIVED':
+    case 'CHALLENGE_UPDATE': return '/challenges'
     case 'POST_MENTION': return notif.relatedId ? `/community/${notif.relatedId}` : '/community'
     case 'PARK_CREATED': return '/map'
     case 'COMMUNITY_REQUEST_APPROVED': return notif.relatedId ? `/community/${notif.relatedId}` : '/map'
