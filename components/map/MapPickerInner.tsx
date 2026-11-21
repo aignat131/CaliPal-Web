@@ -1,6 +1,7 @@
 'use client'
 
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import { TILE_URL, TILE_ATTRIBUTION, TILE_MAX_ZOOM, DARK_TILES_CLASS } from './tiles'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -39,8 +40,10 @@ export default function MapPickerInner({
       zoomControl={false}
     >
       <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        url={TILE_URL}
+        attribution={TILE_ATTRIBUTION}
+        maxZoom={TILE_MAX_ZOOM}
+        className={DARK_TILES_CLASS}
       />
       <ClickHandler onPick={onPick} />
       {lat && lng && <Marker position={[lat, lng]} icon={icon} />}

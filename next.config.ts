@@ -54,14 +54,12 @@ const GLOBAL_SECURITY_HEADERS = [
         // ffmpeg WASM (will be replaced once hosted locally)
         "https://unpkg.com",
       ].join(' '),
-      // Images: Firebase Storage, Google user avatars, OSM/CartoCDN map tiles, blobs
+      // Images: Firebase Storage, Google user avatars, OSM map tiles, blobs
       [
         "img-src 'self' data: blob:",
         "https://firebasestorage.googleapis.com",
         "https://lh3.googleusercontent.com",
-        "https://*.tile.openstreetmap.org",
-        "https://*.basemaps.cartocdn.com",
-        "https://*.cartocdn.com",
+        "https://tile.openstreetmap.org",
       ].join(' '),
       // Videos and audio blobs (form-check + autocut)
       "media-src 'self' blob:",

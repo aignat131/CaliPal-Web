@@ -17,6 +17,7 @@ import { MapPin, Navigation } from 'lucide-react'
 import {
   MapContainer, TileLayer, Marker, useMap,
 } from 'react-leaflet'
+import { TILE_URL, TILE_ATTRIBUTION, TILE_MAX_ZOOM, DARK_TILES_CLASS } from './tiles'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import ParkRequestModal from '@/components/map/ParkRequestModal'
@@ -823,12 +824,10 @@ export default function MapClient() {
         >
           <TileLayer
             key={theme}
-            url={
-              theme === 'light'
-                ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-                : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-            }
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url={TILE_URL}
+            attribution={TILE_ATTRIBUTION}
+            maxZoom={TILE_MAX_ZOOM}
+            className={theme === 'light' ? undefined : DARK_TILES_CLASS}
           />
 
           <FlyToMap target={flyTarget} />
