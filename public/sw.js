@@ -31,7 +31,7 @@ self.addEventListener('fetch', event => {
     'firebaseio.com', 'firebase.google.com', 'googleapis.com',
     'googleusercontent.com', 'accounts.google.com',
     'apis.google.com', 'google.com',
-    'cartocdn.com', 'basemaps.cartocdn.com',
+    'tile.openstreetmap.org',
     'mediapipe.dev', 'cdn.jsdelivr.net', 'unpkg.com',
     'nominatim.openstreetmap.org',
   ]

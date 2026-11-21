@@ -59,9 +59,10 @@ const GLOBAL_SECURITY_HEADERS = [
         "img-src 'self' data: blob:",
         "https://firebasestorage.googleapis.com",
         "https://lh3.googleusercontent.com",
+        "https://tile.openstreetmap.org",
         "https://*.tile.openstreetmap.org",
-        "https://*.basemaps.cartocdn.com",
-        "https://*.cartocdn.com",
+        // Leaflet default marker icons (map picker)
+        "https://unpkg.com",
       ].join(' '),
       // Videos and audio blobs (form-check + autocut)
       "media-src 'self' blob:",
