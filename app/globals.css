@@ -428,3 +428,8 @@
   color: rgba(17,17,17,0.35) !important;
 }
 
+
+/* Dark map tiles: OpenStreetMap inverted (no API key needed) */
+.leaflet-tile-pane .calipal-dark-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.6);
+}

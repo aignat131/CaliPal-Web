@@ -1,6 +1,8 @@
 'use client'
 
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import { MapContainer, Marker, useMapEvents } from 'react-leaflet'
+import { useTheme } from '@/lib/hooks/useTheme'
+import BaseTileLayer from './BaseTileLayer'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -29,6 +31,7 @@ export default function MapPickerInner({
   lng: number | null
   onPick: (lat: number, lng: number) => void
 }) {
+  const { theme } = useTheme()
   const center: [number, number] = lat && lng ? [lat, lng] : [45.9432, 24.9668] // Romania center
 
   return (
@@ -38,10 +41,7 @@ export default function MapPickerInner({
       style={{ width: '100%', height: '100%', borderRadius: '12px' }}
       zoomControl={false}
     >
-      <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      />
+      <BaseTileLayer dark={theme !== 'light'} />
       <ClickHandler onPick={onPick} />
       {lat && lng && <Marker position={[lat, lng]} icon={icon} />}
     </MapContainer>

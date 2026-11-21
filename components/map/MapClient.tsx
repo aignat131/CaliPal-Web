@@ -11,11 +11,12 @@ import { auth } from '@/lib/firebase/auth'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useTheme } from '@/lib/hooks/useTheme'
+import BaseTileLayer from '@/components/map/BaseTileLayer'
 import { useT } from '@/lib/context/LanguageContext'
 import type { ParkDoc, ParkPresenceMember, CommunityDoc, LocationSharingMode, ParkCommunityRequest, PlannedTraining, CommunityMember } from '@/types'
 import { MapPin, Navigation } from 'lucide-react'
 import {
-  MapContainer, TileLayer, Marker, useMap,
+  MapContainer, Marker, useMap,
 } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -821,15 +822,7 @@ export default function MapClient() {
           style={{ width: '100%', height: '100%' }}
           zoomControl={false}
         >
-          <TileLayer
-            key={theme}
-            url={
-              theme === 'light'
-                ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-                : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-            }
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          />
+          <BaseTileLayer dark={theme !== 'light'} />
 
           <FlyToMap target={flyTarget} />
 

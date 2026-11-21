@@ -49,6 +49,7 @@ export interface CommunityDoc {
   name: string
   description: string
   location: string
+  city?: string
   latitude: number
   longitude: number
   creatorId: string

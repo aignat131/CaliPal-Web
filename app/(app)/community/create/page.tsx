@@ -35,6 +35,20 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ city: string;
   }
 }
 
+async function geocodeCity(city: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&countrycodes=ro&format=json&limit=1`,
+      { headers: { 'Accept-Language': 'ro' } }
+    )
+    const data = await res.json()
+    if (!Array.isArray(data) || !data[0]) return null
+    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+  } catch {
+    return null
+  }
+}
+
 export default function CreateCommunityPage() {
   const { user } = useAuth()
   const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
@@ -44,6 +58,7 @@ export default function CreateCommunityPage() {
   // Form fields
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [city, setCity] = useState('')
   const [selectedPark, setSelectedPark] = useState<ParkDoc | null>(null)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
@@ -82,6 +97,7 @@ export default function CreateCommunityPage() {
       async pos => {
         const { city } = await reverseGeocode(pos.coords.latitude, pos.coords.longitude)
         setDetectedCity(city)
+        if (city) setCity(prev => prev || city)
         setDetectingCity(false)
       },
       () => { setDetectingCity(false) }
@@ -159,7 +175,8 @@ export default function CreateCommunityPage() {
   }
 
   async function handleCreate() {
-    if (!user || !name.trim() || !selectedPark) return
+    const cityName = city.trim() || selectedPark?.city || ''
+    if (!user || !name.trim() || (!cityName && !selectedPark)) return
     setCreating(true)
     setError('')
     try {
@@ -169,12 +186,25 @@ export default function CreateCommunityPage() {
       const memberName = userData?.displayName || myName || user.displayName || ''
       const memberPhoto = userData?.photoUrl || myPhoto || user.photoURL || null
 
+      // Park is optional: without one, the community is placed at the city center
+      let lat = selectedPark?.latitude ?? 0
+      let lng = selectedPark?.longitude ?? 0
+      if (!selectedPark && cityName) {
+        const geo = await geocodeCity(cityName)
+        if (geo) { lat = geo.lat; lng = geo.lng }
+      }
+      const location = selectedPark
+        ? (cityName && !selectedPark.name.toLowerCase().includes(cityName.toLowerCase())
+            ? `${selectedPark.name}, ${cityName}` : selectedPark.name)
+        : cityName
+
       const communityRef = await addDoc(collection(db, 'communities'), {
         name: name.trim(),
         description: description.trim(),
-        location: selectedPark.name,
-        latitude: selectedPark.latitude,
-        longitude: selectedPark.longitude,
+        location,
+        city: cityName,
+        latitude: lat,
+        longitude: lng,
         creatorId: user.uid,
         creatorName: memberName,
         memberCount: 1,
@@ -351,7 +381,10 @@ export default function CreateCommunityPage() {
             />
           </div>
 
-          {/* Park selection */}
+          {/* City */}
+          <Field label={t('create.city_label')} value={city} onChange={setCity} placeholder={t('create.city_placeholder')} />
+
+          {/* Park selection (optional) */}
           <div>
             <p className="text-[11px] font-bold text-white/45 tracking-[1.5px] mb-2">{t('create.park_label')}</p>
 
@@ -447,7 +480,7 @@ export default function CreateCommunityPage() {
 
           <button
             onClick={handleCreate}
-            disabled={creating || !name.trim() || !selectedPark}
+            disabled={creating || !name.trim() || (!city.trim() && !selectedPark)}
             className="w-full h-[52px] rounded-full font-extrabold text-[15px] text-white disabled:opacity-40 flex items-center justify-center mt-2 bg-brand-green"
           >
             {creating
