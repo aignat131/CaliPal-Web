@@ -3,7 +3,8 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { createNotification } from '@/lib/firebase/notifications'
-import type { WorkoutDoc } from '@/types'
+import type { UserDoc, WorkoutDoc } from '@/types'
+import { postActivity } from './activity'
 import { LIFTS, computeRecords, formatRecordValue, type LiftKey } from './records'
 
 // Async friend challenges: "do N pull-ups in one set before <deadline>".
@@ -98,7 +99,7 @@ export async function loadMyChallenges(uid: string): Promise<FriendChallenge[]> 
 }
 
 /** After a workout is saved: complete accepted challenges it satisfies. Never throws. */
-export async function checkChallenges(uid: string, workout: WorkoutDoc): Promise<number> {
+export async function checkChallenges(uid: string, workout: WorkoutDoc, me?: Partial<UserDoc>): Promise<number> {
   try {
     if (workout.backdated) return 0
     const snap = await getDocs(query(collection(db, 'challenges'),
@@ -119,6 +120,10 @@ export async function checkChallenges(uid: string, workout: WorkoutDoc): Promise
         c.id, uid).catch(() => {})
       await createNotification(uid, 'CHALLENGE_UPDATE',
         '🏁 Provocare reușită!', `${lift.name.RO}: ${val}, provocarea lui ${c.fromName}.`, c.id, uid).catch(() => {})
+      await postActivity({
+        uid, name: me?.displayName ?? c.toName, photo: me?.photoUrl ?? c.toPhoto,
+        kind: 'challenge', lift: c.lift, value: Math.round(hit.result), verified: hit.verified, otherName: c.fromName,
+      })
       done++
     }
     return done

@@ -486,6 +486,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Friends activity feed (lib/gamification/activity.ts) ───────────────────
+    match /activity/{activityId} {
+      allow read: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.kind in ['badge', 'record', 'challenge']
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100
+        && request.resource.data.cheers == {}
+        && request.resource.data.createdAt == request.time;
+      // Anyone signed in may add/remove only their own cheer
+      allow update: if isAuth()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cheers'])
+        && request.resource.data.cheers.diff(resource.data.cheers).affectedKeys().hasOnly([request.auth.uid]);
+      allow delete: if isAuth() && request.auth.uid == resource.data.uid;
+    }
+
     // ── Friend challenges (lib/gamification/challenges.ts) ─────────────────────
     match /challenges/{challengeId} {
       function lifts() {

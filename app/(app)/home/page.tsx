@@ -18,6 +18,7 @@ import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { useT } from '@/lib/context/LanguageContext'
 import { parseTrainingDateTime, formatTrainingDate, compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
 import { HomeFeed } from './_components/HomeFeed'
+import { FriendsActivity } from './_components/FriendsActivity'
 
 export default function HomePage() {
   const { user, loading: authLoading, isSuperAdmin } = useAuth()
@@ -224,7 +225,8 @@ export default function HomePage() {
           )
         })()}
 
-        {/* Push-up Leaderboard — temporarily hidden */}
+        {/* Challenges / leaderboards shortcuts + friends activity */}
+        {user && <FriendsActivity uid={user.uid} />}
 
         {/* Feed */}
         {user && (

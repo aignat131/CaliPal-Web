@@ -7,6 +7,7 @@ import type { UserDoc, WorkoutDoc } from '@/types'
 import { evaluateBadges, levelFor, type BadgeResult, type BadgeStats } from './badges'
 import { LIFTS, computeRecords, formatRecordValue, type RecordMap } from './records'
 import { checkChallenges } from './challenges'
+import { postActivity } from './activity'
 
 const WORKOUT_LIMIT = 1000
 
@@ -16,6 +17,7 @@ export interface BadgeData {
   results: BadgeResult[]
   stored: Record<string, number>
   workouts: WorkoutDoc[]
+  user: Partial<UserDoc>
 }
 
 async function loadWorkouts(uid: string): Promise<WorkoutDoc[]> {
@@ -72,7 +74,7 @@ export async function loadBadgeData(uid: string, user?: Partial<UserDoc> | null)
     loadStoredBadges(uid),
   ])
   const stats = statsFrom(userDoc, workouts, battleWins)
-  return { stats, records: stats.records, results: evaluateBadges(stats, stored), stored, workouts }
+  return { stats, records: stats.records, results: evaluateBadges(stats, stored), stored, workouts, user: userDoc }
 }
 
 /**
@@ -95,10 +97,16 @@ export async function syncBadges(uid: string, data: BadgeData): Promise<BadgeRes
       `Ai deblocat ${upgraded.length} insigne. Vezi-le pe profil.`, undefined, uid)
   } else {
     for (const r of upgraded) {
+      const level = levelFor(r.def, r.value)
       const tiered = r.def.thresholds.length > 1
-      const tier = tiered ? ` (${['bronz', 'argint', 'aur'][levelFor(r.def, r.value) - 1]})` : ''
+      const tier = tiered ? ` (${['bronz', 'argint', 'aur'][level - 1]})` : ''
       await createNotification(uid, 'BADGE_EARNED', `${r.def.icon} Insignă nouă: ${r.def.name.RO}${tier}`,
         'Vezi toate insignele pe profilul tău.', r.def.id, uid)
+      // Share with friends (not on the bulk first sync above, to avoid flooding the feed)
+      await postActivity({
+        uid, name: data.user.displayName ?? '', photo: data.user.photoUrl ?? '',
+        kind: 'badge', badgeId: r.def.id, level,
+      })
     }
   }
   return upgraded
@@ -155,6 +163,19 @@ export async function afterWorkoutSaved(uid: string, workoutId: string): Promise
     const before = computeRecords(workouts.filter(w => w.id !== workoutId))
     const latest = workouts.find(w => w.id === workoutId)
     if (latest) {
+      // Friends feed: competitive records only (same rules as the leaderboard)
+      const beforeC = computeRecords(workouts.filter(w => w.id !== workoutId), { competitive: true })
+      const afterC = computeRecords([latest], { competitive: true })
+      for (const lift of LIFTS) {
+        const v = afterC[lift.key].value
+        if (v > 0 && beforeC[lift.key].value > 0 && v > beforeC[lift.key].value) {
+          await postActivity({
+            uid, name: data.user.displayName ?? '', photo: data.user.photoUrl ?? '',
+            kind: 'record', lift: lift.key, value: Math.round(v), verified: afterC[lift.key].verified,
+          })
+        }
+      }
+
       const after = computeRecords([latest])
       for (const lift of LIFTS) {
         const v = after[lift.key].value
@@ -168,10 +189,9 @@ export async function afterWorkoutSaved(uid: string, workoutId: string): Promise
         }
       }
     }
-    if (latest) await checkChallenges(uid, latest)
+    if (latest) await checkChallenges(uid, latest, data.user)
     await syncBadges(uid, data)
-    const userSnap = await getDoc(doc(db, 'users', uid))
-    await publishRecords(uid, (userSnap.data() ?? {}) as Partial<UserDoc>, workouts)
+    await publishRecords(uid, data.user, workouts)
   } catch (e) {
     console.warn('[badges] post-workout sync failed', e)
   }

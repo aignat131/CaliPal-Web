@@ -148,3 +148,27 @@ describe('challenges', () => {
     await assertFails(deleteDoc(doc(as('a'), 'challenges', 'c2')))
   })
 })
+
+describe('activity', () => {
+  const act = (over: Record<string, unknown> = {}) => ({
+    uid: 'a', name: 'A', photo: '', kind: 'badge', badgeId: 'first_pullup', level: 1,
+    cheers: {}, createdAt: serverTimestamp(), ...over,
+  })
+
+  it('users post their own activity only, with a known kind and no pre-filled cheers', async () => {
+    const c = collection(as('a'), 'activity')
+    await assertSucceeds(addDoc(c, act()))
+    await assertFails(addDoc(c, act({ uid: 'b' })))
+    await assertFails(addDoc(c, act({ kind: 'spam' })))
+    await assertFails(addDoc(c, act({ cheers: { a: true } })))
+  })
+
+  it('anyone signed in toggles only their own cheer', async () => {
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'activity', 'x'), act({ cheers: {} })))
+    await assertSucceeds(updateDoc(doc(as('b'), 'activity', 'x'), { 'cheers.b': true }))
+    await assertFails(updateDoc(doc(as('b'), 'activity', 'x'), { 'cheers.c': true }))
+    await assertFails(updateDoc(doc(as('b'), 'activity', 'x'), { level: 3 }))
+    await assertFails(deleteDoc(doc(as('b'), 'activity', 'x')))
+    await assertSucceeds(deleteDoc(doc(as('a'), 'activity', 'x')))
+  })
+})
