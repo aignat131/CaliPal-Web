@@ -69,3 +69,9 @@ Status: [ ] de făcut · [~] în lucru · [x] gata
   `user_records/{uid}`, `challenges`, `activity` (+ index `activity(uid, createdAt desc)`); workout-urile au acum
   `backdated: true`. **Regulile și indexul trebuie deploy-ate** (`firebase deploy --only firestore:rules,firestore:indexes`).
   Rămase: 0.2, 0.3, 0.5, 0.6, 0.7, validare video skill-uri, clasamente pe oraș/perioadă.
+- 2026-11-22: **Schimbare de direcție** („ne focusăm pe ce merge”). Scoase: insignele (înlocuite de arborele
+  de milestone-uri, `lib/milestones/tree.ts`, bifate de user, salvate în `users/{uid}.milestones`), clasamentele
+  (`/leaderboard`, flotări săptămânale, `user_records`), recordurile de pe profil, monedele + magazinul + cosmeticele,
+  tabul Sarcini, subtaburile Evenimente/Provocări din lista de comunități. Rămân: Battle, Evenimente live, Spiderman,
+  provocările între prieteni (ținta implicită „bate-mi recordul” se calculează acum din antrenamentele proprii).
+  Feed-ul prietenilor arată milestone-uri și provocări; tipul `milestone` în `activity` cere deploy de reguli.

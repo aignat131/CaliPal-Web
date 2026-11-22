@@ -115,7 +115,6 @@ export function useEvent(eventId: string) {
   const joinEvent = useCallback(async (
     displayName: string,
     photoUrl: string,
-    cosmetics?: { nameColor?: string; emojiBadge?: string; titleBadge?: string; profileFrame?: string },
   ) => {
     if (!user) return
     const participantRef = doc(db, 'events', eventId, 'participants', user.uid)
@@ -130,11 +129,6 @@ export function useEvent(eventId: string) {
         lastRepAt: null,
         isConnected: true,
         placement: null,
-        coinsEarned: 0,
-        ...(cosmetics?.nameColor ? { nameColor: cosmetics.nameColor } : {}),
-        ...(cosmetics?.emojiBadge ? { emojiBadge: cosmetics.emojiBadge } : {}),
-        ...(cosmetics?.titleBadge ? { titleBadge: cosmetics.titleBadge } : {}),
-        ...(cosmetics?.profileFrame ? { profileFrame: cosmetics.profileFrame } : {}),
       }),
     )
     await updateDoc(doc(db, 'events', eventId), { participantCount: increment(1) })
@@ -197,11 +191,10 @@ export function useEvent(eventId: string) {
     })
   }, [user, eventId, event, myParticipant?.reps])
 
-  const markFinished = useCallback(async (placement: number, coinsEarned: number) => {
+  const markFinished = useCallback(async (placement: number) => {
     if (!user) return
     await updateDoc(doc(db, 'events', eventId, 'participants', user.uid), {
       placement,
-      coinsEarned,
     })
   }, [user, eventId])
 

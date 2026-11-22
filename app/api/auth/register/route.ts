@@ -61,7 +61,6 @@ export async function POST(req: NextRequest) {
       photoUrl: '',
       totalWorkouts: 0,
       currentStreak: 0,
-      coins: 0,
       friendCount: 0,
       assessmentCompleted: false,
       joinedCommunityIds: [],

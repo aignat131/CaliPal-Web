@@ -42,6 +42,8 @@ service cloud.firestore {
       allow update: if (isOwner(uid)
           && !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['coins', 'totalWorkouts', 'currentStreak'])
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['milestones'])
+              || (request.resource.data.milestones is map && request.resource.data.milestones.size() <= 200))
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['bio'])
               || (request.resource.data.bio is string && request.resource.data.bio.size() <= 500))
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['displayName'])
@@ -49,12 +51,9 @@ service cloud.firestore {
         ) || isSuperAdmin()
         // Allow owner to increment totalTrainings (used when closing a training)
         || (isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalTrainings']))
-        // Allow owner to increment coins, totalWorkouts, currentStreak, lastWorkoutDate (gamification)
+        // Allow owner to update workout counters, streak and program progress
         || (isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['coins', 'totalWorkouts', 'currentStreak', 'lastWorkoutDate', 'activeProgramId', 'completedPrograms']))
-        // Allow owner to update cosmetic fields (shop purchases — coins decrement + cosmetic)
-        || (isOwner(uid) && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['coins', 'nameColor', 'emojiBadge', 'titleBadge', 'profileFrame', 'proTitle', 'customNickname']));
+            .hasOnly(['totalWorkouts', 'currentStreak', 'lastWorkoutDate', 'activeProgramId', 'completedPrograms']));
 
       match /workouts/{workoutId} {
         allow read: if isAuth();
@@ -63,18 +62,6 @@ service cloud.firestore {
       match /skills/{skillId} {
         allow read: if isAuth();
         allow write: if isOwner(uid);
-      }
-      // Earned badge levels (lib/gamification/badgeSync.ts). Levels only go up.
-      match /badges/{badgeId} {
-        allow read: if isAuth();
-        allow create: if isOwner(uid)
-          && request.resource.data.level is int
-          && request.resource.data.level >= 1 && request.resource.data.level <= 3;
-        allow update: if isOwner(uid)
-          && request.resource.data.level is int
-          && request.resource.data.level > resource.data.level
-          && request.resource.data.level <= 3;
-        allow delete: if false;
       }
       match /challenge_progress/{challengeId} {
         allow read, write: if isOwner(uid);
@@ -92,22 +79,6 @@ service cloud.firestore {
         allow create: if isOwner(uid);
         allow delete: if isOwner(uid) || (isAuth() && request.auth.uid == friendId);
       }
-    }
-
-    // ── Shop purchases ────────────────────────────────────────────────────────
-    match /users/{uid}/purchases/{itemId} {
-      allow read: if isAuth();
-      allow create: if isOwner(uid);
-      allow update, delete: if false;
-    }
-
-    // ── Coin tasks (one-time award guards) ────────────────────────────────────
-    match /coin_tasks/{taskId} {
-      allow read: if isAuth() && (resource == null || resource.data.uid == request.auth.uid);
-      allow create: if isAuth()
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.awardedAt == request.time;
-      allow update, delete: if false;
     }
 
     // ── Training streak milestone guards ──────────────────────────────────────
@@ -435,35 +406,14 @@ service cloud.firestore {
       }
     }
 
-    // ── Weekly Leaderboard ─────────────────────────────────────────────────────
-    // ── Personal-record leaderboard (lib/gamification/badgeSync.ts publishRecords) ──
-    match /user_records/{uid} {
-      function repsOk(v) { return v is int && v >= 0 && v <= 500; }
-      function secsOk(v) { return v is int && v >= 0 && v <= 3600; }
-      allow read: if isAuth();
-      allow create, update: if isOwner(uid)
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.displayName is string
-        && request.resource.data.displayName.size() <= 100
-        && repsOk(request.resource.data.pullup)
-        && repsOk(request.resource.data.pushup)
-        && repsOk(request.resource.data.dips)
-        && repsOk(request.resource.data.squat)
-        && repsOk(request.resource.data.muscleup)
-        && secsOk(request.resource.data.handstand)
-        && secsOk(request.resource.data.lsit)
-        && secsOk(request.resource.data.plank)
-        && secsOk(request.resource.data.front_lever)
-        && secsOk(request.resource.data.dead_hang);
-      allow delete: if false;
-    }
-
     // ── Friends activity feed (lib/gamification/activity.ts) ───────────────────
     match /activity/{activityId} {
       allow read: if isAuth();
       allow create: if isAuth()
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.kind in ['badge', 'record', 'challenge']
+        && request.resource.data.kind in ['milestone', 'challenge']
+        && (request.resource.data.kind != 'milestone'
+            || (request.resource.data.milestoneId is string && request.resource.data.milestoneId.size() <= 60))
         && request.resource.data.name is string && request.resource.data.name.size() <= 100
         && request.resource.data.cheers == {}
         && request.resource.data.createdAt == request.time;
@@ -516,23 +466,6 @@ service cloud.firestore {
         || (isFrom() && resource.data.status in ['PENDING', 'ACCEPTED'] && changes(['status'])
           && request.resource.data.status == 'CANCELLED');
       allow delete: if false;
-    }
-
-    match /weekly_leaderboard/{weekId} {
-      allow read: if isAuth();
-      allow write: if false;
-
-      match /entries/{uid} {
-        allow read: if isAuth();
-        allow create: if isOwner(uid)
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.totalPushupReps is number
-          && request.resource.data.totalPushupReps > 0;
-        allow update: if isOwner(uid)
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.totalPushupReps >= resource.data.totalPushupReps;
-        allow delete: if false;
-      }
     }
 
     // ── Direct messages ───────────────────────────────────────────────────────

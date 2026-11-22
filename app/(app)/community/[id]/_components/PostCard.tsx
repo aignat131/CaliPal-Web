@@ -54,7 +54,7 @@ export function renderTextWithMentions(text: string): React.ReactNode {
   )
 }
 
-export function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, myProTitle, members, onDelete, onOpen }: {
+export function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, members, onDelete, onOpen }: {
   post: CommunityPost
   communityId: string
   myUid: string
@@ -62,7 +62,6 @@ export function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, is
   myPhoto?: string | null
   myRole: MemberRole
   isSuperAdmin: boolean
-  myProTitle?: boolean
   members: CommunityMember[]
   onDelete: () => void
   onOpen?: () => void
@@ -180,7 +179,7 @@ export function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, is
               <span className="text-sm font-bold text-white leading-none">{post.authorName}</span>
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md leading-none"
                 style={{ backgroundColor: `${roleColor}22`, color: roleColor }}>
-                {post.authorId === myUid && myProTitle ? '🎯 Pro' : ROLE_LABELS[post.authorRole as MemberRole]}
+                {ROLE_LABELS[post.authorRole as MemberRole]}
               </span>
             </div>
             <span className="text-[11px] text-white/35">{formatPostDate(post.createdAt)}</span>
@@ -361,7 +360,7 @@ export function PostCard({ post, communityId, myUid, myName, myPhoto, myRole, is
 
 // ── Post Detail Sheet ─────────────────────────────────────────────────────────
 
-export function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, myProTitle: _myProTitle, members, onDelete, onClose }: {
+export function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myRole, isSuperAdmin, members, onDelete, onClose }: {
   post: CommunityPost
   communityId: string
   myUid: string
@@ -369,7 +368,6 @@ export function PostDetailSheet({ post, communityId, myUid, myName, myPhoto, myR
   myPhoto?: string | null
   myRole: MemberRole
   isSuperAdmin: boolean
-  myProTitle?: boolean
   members: CommunityMember[]
   onDelete: () => void
   onClose: () => void

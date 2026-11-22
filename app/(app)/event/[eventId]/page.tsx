@@ -59,12 +59,7 @@ export default function EventRoomPage() {
     if (myParticipant) return
     if (participants.length >= event.maxParticipants) return
 
-    joinEvent(displayName, photoUrl, {
-      nameColor: profile?.nameColor,
-      emojiBadge: profile?.emojiBadge,
-      titleBadge: profile?.titleBadge,
-      profileFrame: profile?.profileFrame,
-    })
+    joinEvent(displayName, photoUrl)
   }, [user, event, myParticipant, participants.length, loading, profileLoaded, displayName, photoUrl, profile, joinEvent])
 
   // ── Countdown → Active transition (host only) ────────────────────────────

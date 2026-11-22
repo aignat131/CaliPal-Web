@@ -13,7 +13,6 @@ export interface UserDoc {
   totalWorkouts: number
   currentStreak: number
   lastWorkoutDate?: string
-  coins: number
   friendCount: number
   assessmentCompleted: boolean
   joinedCommunityIds: string[]
@@ -31,13 +30,10 @@ export interface UserDoc {
   pushNotifTrainings?: boolean
   pushNotifCommunity?: boolean
   pushNotifFriends?: boolean
-  proTitle?: boolean
   totalTrainings?: number
   customNickname?: string
-  profileFrame?: string        // 'GOLD' | 'FIRE' | 'GLOW'
-  nameColor?: string           // hex color
-  titleBadge?: string          // 'BEAST_MODE' | 'IRON_WILL' | 'CHAMPION'
-  emojiBadge?: string          // emoji string
+  /** Calisthenics milestone tree: milestoneId → achievedAt (ms). See lib/milestones/tree.ts */
+  milestones?: Record<string, number>
   hideBadges?: boolean         // hide badges on profile
   pinnedExercises?: string[]   // exercise names pinned to top of stats
   activeProgramId?: string     // currently enrolled program
@@ -260,7 +256,6 @@ export interface WorkoutDoc {
   circuits?: WorkoutCircuit[]
   durationSeconds: number
   totalReps: number
-  coinsEarned: number
   note: string
   programRef?: ProgramRef
   /** Logged for a past day: history only, not leaderboards or challenges. */
@@ -332,7 +327,6 @@ export interface WeeklyChallenge {
   description: string
   exerciseName: string
   targetReps: number
-  coinsReward: number
   endsAt: Timestamp | null
 }
 
@@ -350,7 +344,6 @@ export interface CommunityChallenge {
   title: string
   exerciseName: string
   targetReps: number
-  coinsReward: number
   communityId: string
   createdAt: Timestamp | null
   endsAt: Timestamp | null
@@ -405,7 +398,6 @@ export interface SkillDef {
   level: SkillLevel
   category: SkillCategory
   icon: string
-  coinsReward: number
   requirements: string[]
   maxRepsToUnlock?: number
 }
@@ -540,7 +532,6 @@ export interface FormCheckRequest {
   notes: string
   status: 'PENDING' | 'REVIEWED'
   feedback?: string
-  coinsSpent: number
   createdAt: Timestamp | null
 }
 

@@ -251,7 +251,6 @@ export default function HomePage() {
                   title={challenge.title}
                   exerciseName={challenge.exerciseName}
                   targetReps={challenge.targetReps}
-                  coinsReward={challenge.coinsReward}
                   current={challengeProgress?.currentReps ?? 0}
                   completed={challengeProgress?.completed ?? false}
                 />
@@ -264,7 +263,6 @@ export default function HomePage() {
                   title={commChallenge.title}
                   exerciseName={commChallenge.exerciseName}
                   targetReps={commChallenge.targetReps}
-                  coinsReward={commChallenge.coinsReward}
                   current={commChallengeProgress?.currentReps ?? 0}
                   completed={commChallengeProgress?.completed ?? false}
 
@@ -302,13 +300,12 @@ export default function HomePage() {
 }
 
 function ChallengeCard({
-  label, title, exerciseName, targetReps, coinsReward, current, completed,
+  label, title, exerciseName, targetReps, current, completed,
 }: {
   label: string
   title: string
   exerciseName: string
   targetReps: number
-  coinsReward: number
   current: number
   completed: boolean
 
@@ -323,9 +320,8 @@ function ChallengeCard({
         {completed && <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/20 text-brand-green">{t('common.completed')}</span>}
       </div>
       <p className="font-black text-white text-sm mb-0.5">{title}</p>
-      <div className="flex items-center justify-between text-xs text-white/40 mb-1.5">
+      <div className="text-xs text-white/40 mb-1.5">
         <span>{current} / {targetReps} {exerciseName}</span>
-        <span>🪙 +{coinsReward}</span>
       </div>
       <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
         <div className="h-full rounded-full transition-all"

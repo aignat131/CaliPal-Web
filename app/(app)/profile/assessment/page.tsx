@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { awardCoins, checkSkillMilestones } from '@/lib/gamification/coins'
 import { loadSkillCategories } from '@/lib/data/skillCategories'
 import { ArrowLeft, ArrowRight, Check, Plus } from 'lucide-react'
 import { SkeletonProfile } from '@/components/ui/SkeletonLoaders'
@@ -95,7 +94,6 @@ export default function AssessmentPage() {
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
-  const [coinsEarned, setCoinsEarned] = useState(0)
   const [favoriteSkillIds, setFavoriteSkillIds] = useState<string[]>([])
 
   const SKILL_STEP_OFFSET = 6
@@ -160,7 +158,6 @@ export default function AssessmentPage() {
     if (!user || saving) return
     setSaving(true)
     try {
-      const totalHave = Object.values(assignments).reduce((sum, v) => sum + v.have.length, 0)
       const allHaveSkills = Object.values(assignments).flatMap(v => v.have)
       // If user didn't pick favorites, auto-select first 5 mastered skills
       const effectiveFavorites = favoriteSkillIds.length > 0
@@ -187,9 +184,6 @@ export default function AssessmentPage() {
         ),
         favoriteSkillIds: effectiveFavorites,
       })
-      const coins = await awardCoins(user.uid, 'COMPLETE_ASSESSMENT')
-      await checkSkillMilestones(user.uid, totalHave)
-      setCoinsEarned(coins)
       setDone(true)
     } finally {
       setSaving(false)
@@ -246,11 +240,6 @@ export default function AssessmentPage() {
                   </div>
                 )}
               </div>
-              {coinsEarned > 0 && (
-                <p className="text-sm text-white/60 text-center">
-                  🪙 Ai câștigat <span className="text-brand-green font-bold">+{coinsEarned} monede</span>!
-                </p>
-              )}
             </div>
 
             <div className="flex flex-col gap-3 w-full max-w-sm">

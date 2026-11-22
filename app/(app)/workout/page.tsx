@@ -10,10 +10,8 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import type { WorkoutDoc, WorkoutExercise, WorkoutSet, WorkoutCircuit, WeeklyChallenge, UserChallengeProgress, CommunityChallenge, GripType, RepSession, UnifiedRepSession, ProgramRef } from '@/types'
-import { checkWorkoutMilestones, checkStreakMilestones, awardCoins } from '@/lib/gamification/coins'
 import { useProgramEnrollment } from '@/lib/hooks/useProgramEnrollment'
-import { afterWorkoutSaved } from '@/lib/gamification/badgeSync'
-import { updateWeeklyPushupLeaderboard } from '@/lib/gamification/leaderboard'
+import { afterWorkoutSaved } from '@/lib/gamification/afterWorkout'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { useT } from '@/lib/context/LanguageContext'
 import { useWorkout } from '@/lib/context/WorkoutContext'
@@ -75,7 +73,6 @@ export default function WorkoutPage() {
   const [catalogue, setCatalogue] = useState<CatalogueEntry[]>(DEFAULT_EXERCISE_CATALOGUE)
 
   const [lastWorkout, setLastWorkout] = useState<WorkoutDoc | null>(null)
-  const [coinsEarned, setCoinsEarned] = useState(0)
   const [workoutStartedAt, setWorkoutStartedAt] = useState<number | null>(null)
   const [capturedExercises, setCapturedExercises] = useState<WorkoutExercise[]>([])
   const [capturedSeconds, setCapturedSeconds] = useState(0)
@@ -606,7 +603,6 @@ export default function WorkoutPage() {
     if (!hasContent) return
 
     const totalReps = totalRepsInWorkout(finalExercises)
-    let earned = 0
 
     const serializedExercises = finalExercises.map(ex => ({
       ...ex,
@@ -641,7 +637,6 @@ export default function WorkoutPage() {
         ...(programRefState && { programRef: programRefState }),
         durationSeconds: finalSeconds,
         totalReps,
-        coinsEarned: 0,
         note: finalNote.trim(),
         ...(isBackdated && { backdated: true }),
         createdAt: backdatedAt ? Timestamp.fromDate(backdatedAt) : serverTimestamp(),
@@ -656,52 +651,28 @@ export default function WorkoutPage() {
         setProgramRefState(null)
       }
 
-      // Award 10 coins for completing a workout
-      const completeCoins = await awardCoins(user.uid, 'COMPLETE_WORKOUT')
-      earned += completeCoins
-
       const userRef = doc(db, 'users', user.uid)
       const yesterday = localDate(new Date(Date.now() - 86400000))
-      let _newTotal = 0
-      let newStreak = 0
       let joinedCommunityIds: string[] = []
       await runTransaction(db, async tx => {
         const userSnap = await tx.get(userRef)
         const userData = userSnap.data()
-        _newTotal = (userData?.totalWorkouts ?? 0) + 1
         joinedCommunityIds = userData?.joinedCommunityIds ?? []
         const lastWorkoutDate: string | undefined = userData?.lastWorkoutDate
         const currentStreak = userData?.currentStreak ?? 0
         if (isBackdated) {
-          newStreak = currentStreak
           tx.update(userRef, { totalWorkouts: increment(1) })
           return
         }
-        newStreak = lastWorkoutDate === yesterday ? currentStreak + 1 : lastWorkoutDate === today ? currentStreak : 1
+        const newStreak = lastWorkoutDate === yesterday ? currentStreak + 1 : lastWorkoutDate === today ? currentStreak : 1
         tx.update(userRef, { totalWorkouts: increment(1), currentStreak: newStreak, lastWorkoutDate: today })
       })
 
-      // Award milestone coins for workout count and streak
-      await checkWorkoutMilestones(user.uid, _newTotal)
-      if (!isBackdated) await checkStreakMilestones(user.uid, newStreak)
-
-      // Personal records + badges (fire-and-forget; never blocks the save flow)
+      // Friend challenges (fire-and-forget; never blocks the save flow)
       afterWorkoutSaved(user.uid, workoutRef.id)
 
       // Reps that count outside the user's own history (no dictated sets, no past days)
       const competitiveReps = isBackdated ? {} : competitiveRepsByExercise(finalExercises)
-
-      // Update weekly push-up leaderboard
-      const pushupReps = Object.entries(competitiveReps).reduce(
-        (sum, [name, reps]) => getExerciseType(name) === 'pushup' ? sum + reps : sum, 0)
-      if (pushupReps > 0) {
-        updateWeeklyPushupLeaderboard(
-          user.uid,
-          profile?.displayName ?? user.displayName ?? '',
-          profile?.photoUrl ?? user.photoURL ?? '',
-          pushupReps,
-        ).catch(() => {})
-      }
 
       if (challenge) {
         const repsForChallenge = competitiveReps[challenge.exerciseName] ?? 0
@@ -717,10 +688,6 @@ export default function WorkoutPage() {
             completed,
             completedAt: completed && !wasCompleted ? serverTimestamp() : (challengeProgress?.completedAt ?? null),
           })
-          if (completed && !wasCompleted) {
-            await updateDoc(userRef, { coins: increment(challenge.coinsReward) })
-            earned += challenge.coinsReward
-          }
         }
       }
 
@@ -741,10 +708,6 @@ export default function WorkoutPage() {
               challengeId: ch.id, communityId: cid, currentReps: newReps, completed,
               completedAt: completed && !ps.data()?.completed ? serverTimestamp() : (ps.exists() ? ps.data().completedAt ?? null : null),
             })
-            if (completed && !ps.data()?.completed) {
-              await updateDoc(userRef, { coins: increment(ch.coinsReward ?? 0) })
-              earned += ch.coinsReward ?? 0
-            }
           }))
         }))
       } catch { /* non-critical */ }
@@ -753,11 +716,10 @@ export default function WorkoutPage() {
       console.error(e)
     }
 
-    setCoinsEarned(earned)
     setLastWorkout({
       id: '', userId: user.uid, exercises: finalExercises,
       ...(serializedCircuits.length > 0 && { circuits: serializedCircuits }),
-      durationSeconds: finalSeconds, totalReps, coinsEarned: earned, note: finalNote, createdAt: null,
+      durationSeconds: finalSeconds, totalReps, note: finalNote, createdAt: null,
     })
   }
 
@@ -833,7 +795,6 @@ export default function WorkoutPage() {
       {screen === 'summary' && lastWorkout && (
         <WorkoutSummaryCard
           workout={lastWorkout}
-          coinsEarned={coinsEarned}
           onDone={() => { setScreen('home'); setTab(1); setAutoOpenShare(false) }}
           userId={user?.uid ?? ''}
           userDisplayName={profile?.displayName ?? user?.displayName ?? ''}

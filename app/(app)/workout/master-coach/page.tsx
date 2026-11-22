@@ -2,14 +2,12 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { addDoc, collection, doc, increment, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { uploadFormCheckVideo } from '@/lib/firebase/storage'
 import { ArrowLeft, Check, Star, Video, X } from 'lucide-react'
-
-const COST = 500
 
 export default function MasterCoachPage() {
   const router = useRouter()
@@ -27,9 +25,6 @@ export default function MasterCoachPage() {
 
   const videoInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
-
-  const coins = profile?.coins ?? 0
-  const canAfford = coins >= COST
 
   function handleVideoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -54,7 +49,7 @@ export default function MasterCoachPage() {
   }
 
   async function submit() {
-    if (!user || submitting || !exercise.trim() || !canAfford) return
+    if (!user || submitting || !exercise.trim()) return
     setSubmitting(true)
     try {
       let videoUrl: string | null = null
@@ -71,10 +66,8 @@ export default function MasterCoachPage() {
         notes: notes.trim(),
         ...(videoUrl && { videoUrl }),
         status: 'PENDING',
-        coinsSpent: COST,
         createdAt: serverTimestamp(),
       })
-      await updateDoc(doc(db, 'users', user.uid), { coins: increment(-COST) })
       setDone(true)
     } finally {
       setSubmitting(false)
@@ -121,33 +114,7 @@ export default function MasterCoachPage() {
             </h1>
             <p className="text-xs text-white/40">Analiză formă personalizată</p>
           </div>
-          <div className="ml-auto text-sm font-black text-yellow-400">{COST} 🪙</div>
         </div>
-
-        {/* Coins balance */}
-        <div
-          className="rounded-2xl p-4 mb-5 flex items-center justify-between"
-          style={{ backgroundColor: 'var(--app-surface)' }}
-        >
-          <div>
-            <p className="text-xs text-white/40 mb-0.5">Soldul tău</p>
-            <p className={`text-xl font-black ${canAfford ? 'text-white' : 'text-red-400'}`}>
-              {coins} 🪙
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-white/40 mb-0.5">Cost</p>
-            <p className="text-xl font-black text-yellow-400">{COST} 🪙</p>
-          </div>
-        </div>
-
-        {!canAfford && (
-          <div className="rounded-xl p-3 mb-4 border border-red-400/25 bg-red-400/10">
-            <p className="text-xs text-red-400">
-              Monede insuficiente. Completează antrenamente pentru a câștiga monede.
-            </p>
-          </div>
-        )}
 
         {/* Exercise name */}
         <div className="mb-4">
@@ -222,14 +189,14 @@ export default function MasterCoachPage() {
         {/* Submit */}
         <button
           onClick={submit}
-          disabled={submitting || !exercise.trim() || !canAfford}
+          disabled={submitting || !exercise.trim()}
           className="w-full h-14 rounded-2xl font-black text-black bg-brand-green disabled:opacity-40 disabled:cursor-not-allowed text-base"
         >
           {submitting
             ? uploadProgress === 'uploading'
               ? '⏳ Se încarcă videoul...'
               : '💾 Se salvează...'
-            : `Solicită analiză · ${COST} 🪙`}
+            : 'Solicită analiză'}
         </button>
       </div>
     </div>

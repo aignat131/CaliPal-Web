@@ -24,9 +24,8 @@ export function ChallengeCard({
       </div>
       <p className="font-black text-white text-base mb-0.5">{challenge.title}</p>
       <p className="text-xs text-white/50 mb-3">{challenge.description}</p>
-      <div className="flex items-center justify-between text-xs text-white/40 mb-1.5">
+      <div className="text-xs text-white/40 mb-1.5">
         <span>{current} / {challenge.targetReps} {challenge.exerciseName}</span>
-        <span>🪙 +{challenge.coinsReward}</span>
       </div>
       <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
         <div

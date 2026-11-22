@@ -8,20 +8,20 @@ import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase/auth'
 import { db } from '@/lib/firebase/firestore'
 import {
-  collection, query, orderBy, limit, where, onSnapshot, doc,
-  runTransaction, increment, serverTimestamp, getDocs, getDoc, updateDoc,
+  collection, query, orderBy, limit, onSnapshot, doc, getDocs, getDoc, updateDoc,
 } from 'firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useTheme } from '@/lib/hooks/useTheme'
 import { SkeletonProfile } from '@/components/ui/SkeletonLoaders'
 
 import type { UserDoc, WorkoutDoc, PlannedTraining } from '@/types'
-import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, CheckCircle, ShoppingBag, Calendar, MapPin } from 'lucide-react'
+import { Settings, Mail, Users, Pencil, LogOut, ChevronRight, Dumbbell, Calendar, MapPin } from 'lucide-react'
 import { useToast } from '@/lib/context/ToastContext'
 import { useT } from '@/lib/context/LanguageContext'
 import { ExerciseStatsTab } from './_components/ExerciseStatsTab'
-import { useBadgeData, BadgeWall, RecordsGrid } from '@/components/profile/BadgesAndRecords'
-import ShopModal, { FRAME_STYLES, TITLE_LABELS, SHOP_ITEMS } from './_components/ShopModal'
+import { MilestoneTree } from '@/components/profile/MilestoneTree'
+import { setMilestone } from '@/lib/milestones/client'
+import { totalDone } from '@/lib/milestones/tree'
 
 function formatDuration(s: number): string {
   const m = Math.floor(s / 60)
@@ -78,54 +78,6 @@ function _formatTrainingTime(str: string): string {
   return str?.slice(-5) ?? ''
 }
 
-const COIN_TASK_KEYS: Record<string, string> = {
-  FIRST_WORKOUT:        'profile.task_first_workout',
-  COMPLETE_WORKOUT:     'profile.task_complete_workout',
-  STREAK_3:             'profile.task_streak_3',
-  STREAK_7:             'profile.task_streak_7',
-  STREAK_30:            'profile.task_streak_30',
-  COMPLETE_ASSESSMENT:  'profile.task_complete_assessment',
-  JOIN_COMMUNITY:       'profile.task_join_community',
-  ADD_FRIEND:           'profile.task_add_friend',
-  WORKOUTS_10:          'profile.task_workouts_10',
-  WORKOUTS_50:          'profile.task_workouts_50',
-  WORKOUTS_100:         'profile.task_workouts_100',
-  SKILLS_5:             'profile.task_skills_5',
-  SKILLS_10:            'profile.task_skills_10',
-}
-
-const COIN_TASK_DESC_KEYS: Record<string, string> = {
-  FIRST_WORKOUT:        'profile.task_first_workout_desc',
-  COMPLETE_WORKOUT:     'profile.task_complete_workout_desc',
-  STREAK_3:             'profile.task_streak_3_desc',
-  STREAK_7:             'profile.task_streak_7_desc',
-  STREAK_30:            'profile.task_streak_30_desc',
-  COMPLETE_ASSESSMENT:  'profile.task_complete_assessment_desc',
-  JOIN_COMMUNITY:       'profile.task_join_community_desc',
-  ADD_FRIEND:           'profile.task_add_friend_desc',
-  WORKOUTS_10:          'profile.task_workouts_10_desc',
-  WORKOUTS_50:          'profile.task_workouts_50_desc',
-  WORKOUTS_100:         'profile.task_workouts_100_desc',
-  SKILLS_5:             'profile.task_skills_5_desc',
-  SKILLS_10:            'profile.task_skills_10_desc',
-}
-
-const COIN_TASKS = [
-  { id: 'FIRST_WORKOUT',        coins: 20,  icon: '🏋️' },
-  { id: 'COMPLETE_WORKOUT',     coins: 10,  icon: '✅' },
-  { id: 'STREAK_3',             coins: 15,  icon: '🔥' },
-  { id: 'STREAK_7',             coins: 50,  icon: '🔥' },
-  { id: 'STREAK_30',            coins: 200, icon: '🔥' },
-  { id: 'COMPLETE_ASSESSMENT',  coins: 25,  icon: '📋' },
-  { id: 'JOIN_COMMUNITY',       coins: 5,   icon: '👥' },
-  { id: 'ADD_FRIEND',           coins: 5,   icon: '🤝' },
-  { id: 'WORKOUTS_10',          coins: 30,  icon: '💪' },
-  { id: 'WORKOUTS_50',          coins: 100, icon: '💪' },
-  { id: 'WORKOUTS_100',         coins: 250, icon: '💪' },
-  { id: 'SKILLS_5',             coins: 30,  icon: '⭐' },
-  { id: 'SKILLS_10',            coins: 75,  icon: '🌟' },
-]
-
 export default function ProfilePage() {
   const { user, isSuperAdmin } = useAuth()
   const { theme } = useTheme()
@@ -135,22 +87,14 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState(0)
-  const badgeData = useBadgeData(user?.uid, profile, true)
 
-  // Deep link from badge / record notifications: /profile?tab=badges
+  // Deep link: /profile?tab=milestones (old badge notifications use tab=badges)
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('tab') === 'badges') setTab(1)
+    const t = new URLSearchParams(window.location.search).get('tab')
+    if (t === 'milestones' || t === 'badges') setTab(1)
   }, [])
   const [showLogout, setShowLogout] = useState(false)
-  const [showShop, setShowShop] = useState(false)
-  const [purchases, setPurchases] = useState<Set<string>>(new Set())
   const [recentWorkouts, setRecentWorkouts] = useState<WorkoutDoc[]>([])
-  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set())
-  const [taskDoneToast, setTaskDoneToast] = useState<{ id: string; icon: string } | null>(null)
-  const prevCompletedRef = useRef<Set<string>>(new Set())
-  const prevDerivedRef = useRef<Set<string>>(new Set())
-  const initializedRef = useRef(false)
-  const coinTasksReadyRef = useRef(false)
 
   // Live profile
   useEffect(() => {
@@ -179,29 +123,6 @@ export default function ProfilePage() {
     )
     const unsub = onSnapshot(q, snap => {
       setRecentWorkouts(snap.docs.map(d => ({ id: d.id, ...d.data() }) as WorkoutDoc))
-    })
-    return unsub
-  }, [user])
-
-  // Completed coin tasks — query only this user's docs via uid field
-  useEffect(() => {
-    if (!user) return
-    const unsub = onSnapshot(
-      query(collection(db, 'coin_tasks'), where('uid', '==', user.uid)),
-      snap => {
-        coinTasksReadyRef.current = true
-        const tasks = snap.docs.map(d => d.data().task as string)
-        setCompletedTasks(new Set(tasks))
-      }
-    )
-    return unsub
-  }, [user])
-
-  // Purchases subcollection
-  useEffect(() => {
-    if (!user) return
-    const unsub = onSnapshot(collection(db, 'users', user.uid, 'purchases'), snap => {
-      setPurchases(new Set(snap.docs.map(d => d.id)))
     })
     return unsub
   }, [user])
@@ -260,72 +181,6 @@ export default function ProfilePage() {
     loadHistory()
   }, [user, profile])
 
-  async function handlePurchase(itemId: string, price: number) {
-    if (!user) return
-    const item = SHOP_ITEMS.find(i => i.id === itemId)
-    if (!item) return
-    try {
-      await runTransaction(db, async txn => {
-        const userRef = doc(db, 'users', user.uid)
-        const userSnap = await txn.get(userRef)
-        const coins: number = userSnap.data()?.coins ?? 0
-        if (coins < price) throw new Error('insufficient-coins')
-        const purchaseRef = doc(db, 'users', user.uid, 'purchases', itemId)
-        const purchaseSnap = await txn.get(purchaseRef)
-        if (purchaseSnap.exists()) throw new Error('already-purchased')
-        const extraFields: Record<string, unknown> = {}
-        if (item.userDocField && item.userDocValue) {
-          extraFields[item.userDocField] = item.userDocValue
-        }
-        // Legacy compat: PRO_TITLE also sets proTitle boolean
-        if (itemId === 'PRO_TITLE') extraFields.proTitle = true
-        txn.update(userRef, { coins: increment(-price), ...extraFields })
-        txn.set(purchaseRef, { itemId, purchasedAt: serverTimestamp() })
-      })
-      showToast('Achiziție reușită! 🎉')
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : ''
-      if (msg === 'insufficient-coins') showToast('Monede insuficiente.', 'error')
-      else if (msg === 'already-purchased') showToast('Ai cumpărat deja acest articol.', 'error')
-      else showToast('Eroare la achiziție.', 'error')
-    }
-  }
-
-  // Derived completion for tasks not guarded by coin_tasks docs
-  function getDerivedCompleted(): Set<string> {
-    const s = new Set<string>()
-    if ((profile?.totalWorkouts ?? 0) > 0) s.add('COMPLETE_WORKOUT')
-    if ((profile?.joinedCommunityIds?.length ?? 0) > 0) s.add('JOIN_COMMUNITY')
-    if ((profile?.friendCount ?? 0) > 0) s.add('ADD_FRIEND')
-    return s
-  }
-
-  // Show toast when a task is newly completed (skip initial load)
-  useEffect(() => {
-    if (!profile) return
-    if (!coinTasksReadyRef.current) return
-    const derived = getDerivedCompleted()
-    if (!initializedRef.current) {
-      // First data load — seed the refs so we only toast on changes after page open
-      prevCompletedRef.current = new Set(completedTasks)
-      prevDerivedRef.current = derived
-      initializedRef.current = true
-      return
-    }
-    for (const task of COIN_TASKS) {
-      const wasDone = prevCompletedRef.current.has(task.id) || prevDerivedRef.current.has(task.id)
-      const nowDone = completedTasks.has(task.id) || derived.has(task.id)
-      if (nowDone && !wasDone) {
-        setTaskDoneToast({ id: task.id, icon: task.icon })
-        setTimeout(() => setTaskDoneToast(null), 3500)
-        break
-      }
-    }
-    prevCompletedRef.current = new Set(completedTasks)
-    prevDerivedRef.current = derived
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completedTasks, profile?.totalWorkouts, profile?.joinedCommunityIds, profile?.friendCount])
-
   async function handleLogout() {
     await signOut(auth)
     router.replace('/login')
@@ -372,47 +227,21 @@ export default function ProfilePage() {
     ? { label: '⭐ Master Coach', color: 'var(--accent)', bg: 'rgba(var(--accent-rgb), 0.13)' }
     : LEVEL_BADGE[assessmentLevel ?? 'beginner'] ?? LEVEL_BADGE.beginner
 
-  const tabs = [t('profile.tab_progress'), t('profile.tab_badges'), t('profile.tab_stats'), t('profile.tab_tasks')]
+  const tabs = [t('profile.tab_progress'), 'Milestones', t('profile.tab_stats')]
 
-  const derivedCompleted = getDerivedCompleted()
-
-  function isTaskDone(taskId: string): boolean {
-    return completedTasks.has(taskId) || derivedCompleted.has(taskId)
+  async function toggleMilestone(id: string, done: boolean) {
+    if (!user) return
+    try {
+      await setMilestone(user.uid, id, done, { name: displayName, photo: photoUrl })
+      if (done) showToast('Milestone bifat! 💪')
+    } catch {
+      showToast('Nu am putut salva. Încearcă din nou.', 'error')
+    }
   }
 
   return (
     <div className="min-h-[calc(100vh-64px)] animate-page-enter" style={{ backgroundColor: 'var(--app-bg)' }}>
       <h1 className="sr-only">Profile</h1>
-      {/* Task done toast */}
-      {taskDoneToast && (
-        <div
-          className="fixed top-4 left-1/2 z-[600] flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-lg"
-          style={{
-            transform: 'translateX(-50%)',
-            backgroundColor: 'var(--accent)',
-            animation: 'slideDown 0.35s ease',
-          }}
-        >
-          <CheckCircle size={18} className="text-black flex-shrink-0" />
-          <span className="text-sm font-black text-black">
-            {t(COIN_TASK_KEYS[taskDoneToast.id] ?? taskDoneToast.id)} {taskDoneToast.icon}
-          </span>
-          <span className="text-xs font-bold text-black/60 ml-1">
-            🪙 +{COIN_TASKS.find(c => c.id === taskDoneToast.id)?.coins ?? 0}
-          </span>
-        </div>
-      )}
-      {/* Shop modal */}
-      {showShop && (
-        <ShopModal
-          onClose={() => setShowShop(false)}
-          profile={profile}
-          purchases={purchases}
-          uid={user!.uid}
-          onPurchase={handlePurchase}
-        />
-      )}
-
       {/* Logout dialog */}
       {showLogout && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
@@ -441,9 +270,6 @@ export default function ProfilePage() {
               <Mail size={16} className="text-white/70" />
             </button>
           </Link>
-          <button onClick={() => setShowShop(true)} className="w-10 h-10 rounded-full flex items-center justify-center bg-white/8">
-            <ShoppingBag size={16} className="text-white/70" />
-          </button>
           <Link href="/profile/friends">
             <button className="w-10 h-10 rounded-full flex items-center justify-center bg-white/8">
               <Users size={16} className="text-white/70" />
@@ -461,14 +287,8 @@ export default function ProfilePage() {
           <div className="relative">
             <Link href="/profile/edit">
               <div
-                className={`relative w-20 h-20 rounded-full overflow-hidden flex items-center justify-center cursor-pointer${profile?.profileFrame && FRAME_STYLES[profile.profileFrame]?.animate ? ' animate-pulse-glow' : ''}`}
-                style={{
-                  backgroundColor: 'rgba(var(--accent-rgb), 0.20)',
-                  ...(profile?.profileFrame && FRAME_STYLES[profile.profileFrame] ? {
-                    border: FRAME_STYLES[profile.profileFrame].border,
-                    boxShadow: FRAME_STYLES[profile.profileFrame].shadow,
-                  } : {}),
-                }}>
+                className="relative w-20 h-20 rounded-full overflow-hidden flex items-center justify-center cursor-pointer"
+                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.20)' }}>
                 {photoUrl
                   ? <Image src={photoUrl} alt={displayName} fill sizes="80px" className="object-cover" />
                   : <span className="text-3xl font-black text-brand-green">{initial}</span>}
@@ -484,7 +304,7 @@ export default function ProfilePage() {
           <div className="flex-1">
             <div className="flex justify-around mb-2">
               <Link href="/workout"><Stat value={String((profile?.totalWorkouts ?? 0) + (profile?.totalTrainings ?? 0))} label={t('profile.workouts')} /></Link>
-              <button onClick={() => setShowShop(true)}><Stat value={String(profile?.coins ?? 0)} label={t('profile.coins')} animate /></button>
+              <button onClick={() => setTab(1)}><Stat value={String(totalDone(profile?.milestones ?? {}))} label="Milestones" /></button>
               <Link href="/profile/friends"><Stat value={String(profile?.friendCount ?? 0)} label={t('profile.friends')} /></Link>
             </div>
             {(profile?.currentStreak ?? 0) > 0 && (
@@ -504,10 +324,7 @@ export default function ProfilePage() {
             {!profile && !user?.displayName
               ? <div className="h-6 w-28 rounded-lg bg-white/8 animate-pulse" />
               : (
-                <span className="text-[17px] font-black" style={{ color: profile?.nameColor ?? '#ffffff' }}>
-                  {profile?.emojiBadge && <span className="mr-1">{profile.emojiBadge}</span>}
-                  {displayName}
-                </span>
+                <span className="text-[17px] font-black text-white">{displayName}</span>
               )
             }
             {!profile?.hideBadges && (
@@ -516,46 +333,6 @@ export default function ProfilePage() {
                   style={{ backgroundColor: badge.bg, color: badge.color }}>
                   {badge.label}
                 </span>
-                {profile?.titleBadge && TITLE_LABELS[profile.titleBadge] && (
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                    style={{
-                      backgroundColor: theme === 'light' ? '#f0e6ff' : '#A855F722',
-                      color: theme === 'light' ? '#7c3aed' : '#A855F7',
-                      border: `1px solid ${theme === 'light' ? '#d4b5ff' : '#A855F740'}`,
-                    }}>
-                    {TITLE_LABELS[profile.titleBadge]}
-                  </span>
-                )}
-                {purchases.has('EARLY_BADGE') && (
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                    style={{
-                      backgroundColor: theme === 'light' ? '#fff3cc' : '#FFB80022',
-                      color: theme === 'light' ? '#c17f00' : '#FFB800',
-                      border: `1px solid ${theme === 'light' ? '#e6d49a' : '#FFB80040'}`,
-                    }}>
-                    ⭐ Early Supporter
-                  </span>
-                )}
-                {purchases.has('FIRE_BADGE') && (
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                    style={{
-                      backgroundColor: theme === 'light' ? '#fff0e6' : '#F9731622',
-                      color: theme === 'light' ? '#c2410c' : '#F97316',
-                      border: `1px solid ${theme === 'light' ? '#fbd5b5' : '#F9731640'}`,
-                    }}>
-                    🔥 Fire
-                  </span>
-                )}
-                {purchases.has('DIAMOND_BADGE') && (
-                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                    style={{
-                      backgroundColor: theme === 'light' ? '#e6f4ff' : '#3B82F622',
-                      color: theme === 'light' ? '#1d4ed8' : '#60A5FA',
-                      border: `1px solid ${theme === 'light' ? '#93c5fd' : '#3B82F640'}`,
-                    }}>
-                    💎 Diamond
-                  </span>
-                )}
                 {isSuperAdmin && (
                   <span className="px-2 py-0.5 rounded-md text-[11px] font-bold"
                     style={{
@@ -749,41 +526,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* ── Badges & records tab ── */}
+        {/* ── Milestones tab ── */}
         {tab === 1 && (
-          <div className="flex flex-col gap-4">
-            {badgeData.loading ? (
-              <div className="flex justify-center py-8">
-                <span className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : badgeData.data ? (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <Link href="/challenges" className="app-card !p-3 flex items-center gap-2 hover:border-white/20 transition-colors">
-                    <span className="text-lg">⚔️</span>
-                    <span className="text-sm font-bold text-white">{t('ch.my_challenges')}</span>
-                  </Link>
-                  <Link href="/leaderboard" className="app-card !p-3 flex items-center gap-2 hover:border-white/20 transition-colors">
-                    <span className="text-lg">🏆</span>
-                    <span className="text-sm font-bold text-white">{t('lb.title')}</span>
-                  </Link>
-                </div>
-                <div className="app-card">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-bold text-white">{t('records.title')}</p>
-                    <Link href="/leaderboard" className="text-xs text-brand-green font-semibold">{t('records.leaderboard')} →</Link>
-                  </div>
-                  <RecordsGrid data={badgeData.data} isOwn />
-                </div>
-                <div className="app-card">
-                  <p className="text-sm font-bold text-white mb-1">{t('badges.title')}</p>
-                  <BadgeWall data={badgeData.data} isOwn />
-                </div>
-              </>
-            ) : (
-              <p className="text-xs text-white/40 text-center py-6">{t('common.unknown_error')}</p>
-            )}
-          </div>
+          <MilestoneTree milestones={profile?.milestones} editable onToggle={toggleMilestone} />
         )}
 
         {/* ── Stats tab ── */}
@@ -802,51 +547,15 @@ export default function ProfilePage() {
           />
         )}
 
-        {/* ── Tasks tab ── */}
-        {tab === 3 && (
-          <div className="flex flex-col gap-2">
-            <p className="text-xs text-white/35 mb-2">{t('profile.tasks_desc')}</p>
-            {COIN_TASKS.map(task => {
-              const done = isTaskDone(task.id)
-              return (
-                <div key={task.id}
-                  className={`flex items-center gap-3 p-3.5 rounded-2xl ${done ? 'opacity-60' : ''}`}
-                  style={{ backgroundColor: 'var(--app-surface)' }}>
-                  <span className="text-xl flex-shrink-0">{task.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-semibold ${done ? 'text-white/50 line-through' : 'text-white'}`}>
-                      {t(COIN_TASK_KEYS[task.id])}
-                    </p>
-                    {COIN_TASK_DESC_KEYS[task.id] && (
-                      <p className={`text-[11px] mt-0.5 ${done ? 'text-white/25' : 'text-white/40'}`}>
-                        {t(COIN_TASK_DESC_KEYS[task.id])}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className={`text-xs font-bold ${done ? 'text-white/30' : 'text-brand-green'}`}>
-                      🪙 +{task.coins}
-                    </span>
-                    {done && (
-                      <div className="w-5 h-5 rounded-full bg-brand-green/20 flex items-center justify-center">
-                        <span className="text-brand-green text-[10px]">✓</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
       </div>
     </div>
   )
 }
 
-function Stat({ value, label, animate }: { value: string; label: string; animate?: boolean }) {
+function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <span key={animate ? value : undefined} className={`text-[17px] font-black text-white ${animate ? 'animate-coin-pop' : ''}`}>{value}</span>
+      <span className="text-[17px] font-black text-white">{value}</span>
       <span className="text-[10px] text-white/45">{label}</span>
     </div>
   )

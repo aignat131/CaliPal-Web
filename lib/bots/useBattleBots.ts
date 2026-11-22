@@ -120,7 +120,6 @@ export async function addBotsToBattle(
       lastRepAt: null,
       isConnected: true,
       placement: null,
-      coinsEarned: 0,
       finished: false,
     })
     await updateDoc(doc(db, 'battles', battleId), {

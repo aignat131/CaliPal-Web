@@ -8,7 +8,7 @@ import type { LiftKey } from './records'
 // Friends activity: small structured events (no free text) so the feed can be
 // rendered in either language. Written by the user who achieved something.
 
-export type ActivityKind = 'badge' | 'record' | 'challenge'
+export type ActivityKind = 'milestone' | 'challenge'
 
 export interface ActivityDoc {
   id: string
@@ -16,8 +16,8 @@ export interface ActivityDoc {
   name: string
   photo: string
   kind: ActivityKind
-  badgeId?: string
-  level?: number
+  /** milestone: id from lib/milestones/tree.ts */
+  milestoneId?: string
   lift?: LiftKey
   value?: number
   verified?: boolean

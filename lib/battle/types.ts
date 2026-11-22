@@ -62,7 +62,6 @@ export interface BattlePlayerDoc {
 
   // Results
   placement: number | null
-  coinsEarned: number
   finished: boolean
 }
 
@@ -76,7 +75,6 @@ export interface UserBattleHistory {
   reps: number
   placement: number
   playerCount: number
-  coinsEarned: number
   playedAt: Timestamp
 }
 

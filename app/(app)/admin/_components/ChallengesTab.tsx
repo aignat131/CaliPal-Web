@@ -86,7 +86,7 @@ export function ChallengesTab() {
                     <p className="text-sm font-bold text-white truncate">{c.title}</p>
                     {isActive && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-green/20 text-brand-green">ACTIV</span>}
                   </div>
-                  <p className="text-xs text-white/40">{c.targetReps}× {c.exerciseName} · 🪙 {c.coinsReward}</p>
+                  <p className="text-xs text-white/40">{c.targetReps}× {c.exerciseName}</p>
                   {endDate && <p className="text-[10px] text-white/30 mt-0.5">Expiră: {endDate.toLocaleDateString('ro')}</p>}
                 </div>
                 <button onClick={() => { setEditChallenge(c); setShowForm(true) }}
@@ -131,7 +131,7 @@ export function ChallengesTab() {
                     <p className="text-sm font-bold text-white truncate">{c.title}</p>
                     {isActive && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-green/20 text-brand-green">ACTIV</span>}
                   </div>
-                  <p className="text-xs text-white/40">{c.targetReps}× {c.exerciseName} · 🪙 {c.coinsReward}</p>
+                  <p className="text-xs text-white/40">{c.targetReps}× {c.exerciseName}</p>
                   {endDate && <p className="text-[10px] text-white/30 mt-0.5">Expiră: {endDate.toLocaleDateString('ro')}</p>}
                 </div>
                 <button onClick={() => deleteCommChallenge(c.communityId, c.id)}
@@ -163,7 +163,6 @@ function CommunityChallengeForm({
   const [exerciseName, setExerciseName] = useState('')
   const [customExercise, setCustomExercise] = useState('')
   const [targetReps, setTargetReps] = useState('100')
-  const [coinsReward, setCoinsReward] = useState('50')
   const [endsAt, setEndsAt] = useState(defaultEnd)
   const [saving, setSaving] = useState(false)
 
@@ -178,7 +177,6 @@ function CommunityChallengeForm({
         title: title.trim(),
         exerciseName: finalExercise,
         targetReps: parseInt(targetReps) || 100,
-        coinsReward: parseInt(coinsReward) || 50,
         communityId: selectedCommunity,
         endsAt: Timestamp.fromDate(new Date(endsAt)),
         createdAt: serverTimestamp(),
@@ -189,7 +187,6 @@ function CommunityChallengeForm({
         title: title.trim(),
         exerciseName: finalExercise,
         targetReps: parseInt(targetReps) || 100,
-        coinsReward: parseInt(coinsReward) || 50,
         communityId: selectedCommunity,
         endsAt: Timestamp.fromDate(new Date(endsAt)),
         createdAt: null,
@@ -224,7 +221,6 @@ function CommunityChallengeForm({
         )}
         <div className="flex gap-2">
           <input value={targetReps} onChange={e => setTargetReps(e.target.value)} placeholder="Repetări" className={`${inputCls} flex-1`} type="number" />
-          <input value={coinsReward} onChange={e => setCoinsReward(e.target.value)} placeholder="Monede" className={`${inputCls} flex-1`} type="number" />
         </div>
         <input value={endsAt} onChange={e => setEndsAt(e.target.value)} type="date" className={inputCls} style={{ colorScheme: 'dark' }} />
         <div className="flex gap-2 mt-1">
@@ -247,7 +243,6 @@ function ChallengeForm({ challenge, onClose }: { challenge: WeeklyChallenge | nu
   const [exerciseName, setExerciseName] = useState(isKnown ? existingEx : 'Altul...')
   const [customExercise, setCustomExercise] = useState(isKnown ? '' : existingEx)
   const [targetReps, setTargetReps] = useState(String(challenge?.targetReps ?? '100'))
-  const [coinsReward, setCoinsReward] = useState(String(challenge?.coinsReward ?? '50'))
   const [endsAt, setEndsAt] = useState(() => {
     if (challenge?.endsAt?.toDate) {
       return challenge.endsAt.toDate().toISOString().split('T')[0]
@@ -270,7 +265,6 @@ function ChallengeForm({ challenge, onClose }: { challenge: WeeklyChallenge | nu
         description: description.trim(),
         exerciseName: finalExercise,
         targetReps: parseInt(targetReps) || 100,
-        coinsReward: parseInt(coinsReward) || 50,
         endsAt: new Date(endsAt),
       }
       if (challenge) {
@@ -300,7 +294,6 @@ function ChallengeForm({ challenge, onClose }: { challenge: WeeklyChallenge | nu
         )}
         <div className="flex gap-2">
           <input value={targetReps} onChange={e => setTargetReps(e.target.value)} placeholder="Repetări țintă" className={`${inputCls} flex-1`} type="number" />
-          <input value={coinsReward} onChange={e => setCoinsReward(e.target.value)} placeholder="Monede" className={`${inputCls} flex-1`} type="number" />
         </div>
         <div>
           <p className="text-[10px] text-white/40 mb-1">Data expirare</p>

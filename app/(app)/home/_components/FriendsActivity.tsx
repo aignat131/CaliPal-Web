@@ -6,7 +6,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore'
 import { BadgeCheck, ChevronRight, User } from 'lucide-react'
 import { db } from '@/lib/firebase/firestore'
 import { useLanguage, useT } from '@/lib/context/LanguageContext'
-import { BADGE_BY_ID, tierName, TIER_COLORS } from '@/lib/gamification/badges'
+import { MILESTONE_BY_ID, milestoneLabel } from '@/lib/milestones/tree'
 import { LIFTS, formatRecordValue } from '@/lib/gamification/records'
 import { loadActivity, toggleCheer, type ActivityDoc } from '@/lib/gamification/activity'
 
@@ -21,24 +21,25 @@ function timeAgo(ts: ActivityDoc['createdAt'], lang: 'RO' | 'EN'): string {
   return lang === 'RO' ? `acum ${days} ${days === 1 ? 'zi' : 'zile'}` : `${days}d ago`
 }
 
-function describe(a: ActivityDoc, lang: 'RO' | 'EN', t: ReturnType<typeof useT>): { icon: string; text: string; color?: string } {
-  if (a.kind === 'badge' && a.badgeId) {
-    const def = BADGE_BY_ID.get(a.badgeId)
-    if (!def) return { icon: '🏅', text: t('act.badge_generic') }
-    const tier = tierName(def, a.level ?? 1)
-    const tierLabel = def.thresholds.length > 1 && tier
-      ? ` (${t(`badges.${tier}`)})` : ''
-    return { icon: def.icon, text: t('act.badge', { badge: def.name[lang] + tierLabel }), color: tier ? TIER_COLORS[tier] : undefined }
+function describe(a: ActivityDoc, lang: 'RO' | 'EN', t: ReturnType<typeof useT>): { icon: string; text: string; color?: string } | null {
+  if (a.kind === 'milestone' && a.milestoneId) {
+    const e = MILESTONE_BY_ID.get(a.milestoneId)
+    if (!e) return null
+    return { icon: e.branch.icon, text: `a reușit ${milestoneLabel(e.milestone)}`, color: e.branch.color }
   }
   const lift = LIFTS.find(l => l.key === a.lift)
-  const val = lift ? `${formatRecordValue(a.value ?? 0, lift.metric)}${lift.metric === 'reps' ? ' rep' : ''}` : ''
-  if (a.kind === 'record' && lift) {
-    return { icon: '🏆', text: t('act.record', { lift: lift.name[lang], v: val }) }
-  }
   if (a.kind === 'challenge' && lift) {
+    const val = `${formatRecordValue(a.value ?? 0, lift.metric)}${lift.metric === 'reps' ? ' rep' : ''}`
     return { icon: '⚔️', text: t('act.challenge', { lift: lift.name[lang], v: val, name: a.otherName ?? '' }) }
   }
-  return { icon: '✨', text: '' }
+  // Older kinds (badges, records) are no longer shown.
+  return null
+}
+
+/** Older kinds (badges, records) are no longer shown. */
+function isShown(a: ActivityDoc): boolean {
+  if (a.kind === 'milestone') return !!a.milestoneId && MILESTONE_BY_ID.has(a.milestoneId)
+  return a.kind === 'challenge' && LIFTS.some(l => l.key === a.lift)
 }
 
 export function FriendsActivity({ uid }: { uid: string }) {
@@ -51,7 +52,7 @@ export function FriendsActivity({ uid }: { uid: string }) {
     let cancelled = false
     getDocs(collection(db, 'users', uid, 'friends'))
       .then(snap => loadActivity(snap.docs.map(d => d.id), 8))
-      .then(list => { if (!cancelled) setItems(list) })
+      .then(list => { if (!cancelled) setItems(list.filter(isShown)) })
       .catch(() => { if (!cancelled) setItems([]) })
     getDocs(query(collection(db, 'challenges'), where('toUid', '==', uid), where('status', '==', 'PENDING')))
       .then(snap => {
@@ -77,7 +78,7 @@ export function FriendsActivity({ uid }: { uid: string }) {
   return (
     <div className="mb-5">
       {/* Shortcuts */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
+      <div className="mb-4">
         <Link href="/challenges" className="app-card !p-3 flex items-center gap-2 hover:border-white/20 transition-colors relative">
           <span className="text-lg">⚔️</span>
           <span className="text-sm font-bold text-white flex-1">{t('ch.page_title')}</span>
@@ -87,10 +88,6 @@ export function FriendsActivity({ uid }: { uid: string }) {
             </span>
           )}
         </Link>
-        <Link href="/leaderboard" className="app-card !p-3 flex items-center gap-2 hover:border-white/20 transition-colors">
-          <span className="text-lg">🏆</span>
-          <span className="text-sm font-bold text-white flex-1">{t('lb.title')}</span>
-        </Link>
       </div>
 
       {items && items.length > 0 && (
@@ -99,6 +96,7 @@ export function FriendsActivity({ uid }: { uid: string }) {
           <div className="app-card !p-1.5 flex flex-col">
             {items.map(a => {
               const d = describe(a, lang, t)
+              if (!d) return null
               const n = Object.keys(a.cheers ?? {}).length
               const mine = !!a.cheers?.[uid]
               return (

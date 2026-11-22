@@ -2,11 +2,10 @@
 
 import { useEffect, useRef } from 'react'
 import { Trophy, RotateCcw, Home, Bot } from 'lucide-react'
-import { addDoc, collection, serverTimestamp, getDocs } from 'firebase/firestore'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
 import { useBattleAudio } from '@/lib/battle/useBattleAudio'
-import { awardCoins, checkBattleMilestones } from '@/lib/gamification/coins'
 import { PLAYER_COLORS } from '@/lib/battle/types'
 import type { BattleDoc, BattlePlayerDoc } from '@/lib/battle/types'
 import { isBotUid } from '@/lib/bots/bot-profiles'
@@ -20,7 +19,7 @@ interface Props {
   currentUid: string
   onRematch: () => void
   onHome: () => void
-  onMarkFinished: (placement: number, coinsEarned: number) => Promise<void>
+  onMarkFinished: (placement: number) => Promise<void>
 }
 
 export default function BattleResultsScreen({
@@ -31,26 +30,13 @@ export default function BattleResultsScreen({
   const { playFinish } = useBattleAudio()
   const processedRef = useRef(false)
 
-  // Process results once: compute placement, award coins, write history
+  // Process results once: compute placement, write history
   useEffect(() => {
     if (processedRef.current || !myPlayer || myPlayer.finished) return
     processedRef.current = true
 
     async function processResults() {
       const placement = sortedPlayers.findIndex(p => p.uid === currentUid) + 1
-      let totalCoins = 0
-
-      // Award coins only to the winner (daily-guarded)
-      if (placement === 1) {
-        const winCoins = await awardCoins(currentUid, 'BATTLE_WIN')
-        totalCoins += winCoins
-      }
-
-      // Check milestones
-      const historySnap = await getDocs(collection(db, 'users', currentUid, 'battle_history'))
-      const totalBattles = historySnap.size + 1
-      await checkBattleMilestones(currentUid, totalBattles)
-
       // Write battle history
       await addDoc(collection(db, 'users', currentUid, 'battle_history'), {
         battleId: battle.id,
@@ -60,20 +46,17 @@ export default function BattleResultsScreen({
         reps: myPlayer!.reps,
         placement,
         playerCount: sortedPlayers.length,
-        coinsEarned: totalCoins,
         playedAt: serverTimestamp(),
       })
 
       // Mark finished in player doc
-      await onMarkFinished(placement, totalCoins)
+      await onMarkFinished(placement)
 
       playFinish()
     }
 
     processResults().catch(() => {})
   }, [myPlayer, sortedPlayers, currentUid, battle, onMarkFinished, playFinish])
-
-  const myCoins = myPlayer?.coinsEarned ?? 0
 
   // Detect draw: top 2+ players have same reps
   const isDraw = sortedPlayers.length >= 2 && sortedPlayers[0].reps === sortedPlayers[1].reps
@@ -158,18 +141,6 @@ export default function BattleResultsScreen({
         })}
       </div>
 
-      {/* Coin reward */}
-      {myCoins > 0 && (
-        <div
-          className="mx-auto w-fit px-5 py-2.5 rounded-full mb-6 animate-[coinPop_0.5s_ease-out]"
-          style={{
-            background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.08))',
-            border: '1px solid rgba(251,191,36,0.2)',
-          }}
-        >
-          <span className="text-amber-400 font-bold">+{myCoins} 🪙</span>
-        </div>
-      )}
 
       {/* Action buttons */}
       <div className="flex gap-3">

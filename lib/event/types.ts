@@ -56,14 +56,9 @@ export interface EventParticipantDoc {
   isConnected: boolean
 
   // Cosmetics (denormalized from user profile)
-  nameColor?: string
-  emojiBadge?: string
-  titleBadge?: string
-  profileFrame?: string
 
   // Results
   placement: number | null
-  coinsEarned: number
 }
 
 // ── Event History (denormalized under user) ─────────────────────────────────
@@ -76,7 +71,6 @@ export interface UserEventHistory {
   totalPoints: number
   placement: number
   participantCount: number
-  coinsEarned: number
   playedAt: Timestamp
 }
 
@@ -94,6 +88,3 @@ export const MIN_PARTICIPANTS = 2
 export const COUNTDOWN_DURATION_MS = 5000
 export const DURATION_OPTIONS = [10, 15, 20, 30, 45, 60] as const
 
-/** Coin rewards by placement */
-export const EVENT_PLACEMENT_COINS = [20, 12, 8] as const  // 1st, 2nd, 3rd
-export const EVENT_PARTICIPATION_COINS = 3

@@ -9,16 +9,14 @@ import type { WorkoutDoc } from '@/types'
 import { uploadWorkoutPhoto } from '@/lib/firebase/storage'
 import { formatDuration, exerciseOneLiner, circuitSummaryLine, formatCircuitRounds, circuitAverage, circuitTotal } from '../_helpers'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
-import { CoinRewardBanner } from './CoinRewardBanner'
 import { ConfettiBurst } from './ConfettiBurst'
 
 export function WorkoutSummaryCard({
-  workout, coinsEarned, onDone, userId, userDisplayName, userPhotoURL,
+  workout, onDone, userId, userDisplayName, userPhotoURL,
   joinedCommunityIds, favoriteCommunityId, startedAt, photoFile, autoOpenShare,
   hasAssessment, totalWorkouts,
 }: {
   workout: WorkoutDoc
-  coinsEarned: number
   onDone: () => void
   userId: string
   userDisplayName: string
@@ -116,7 +114,6 @@ export function WorkoutSummaryCard({
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto" style={{ backgroundColor: 'var(--app-bg)' }}>
       <ConfettiBurst />
-      {coinsEarned > 0 && <CoinRewardBanner coins={coinsEarned} />}
       <div className="flex-1 max-w-sm mx-auto w-full px-4 py-8 flex flex-col">
 
         {/* Celebration header */}
@@ -144,8 +141,8 @@ export function WorkoutSummaryCard({
               <p className="text-xs text-white/40 mt-0.5">Repetări</p>
             </div>
             <div>
-              <p className="text-xl font-black text-brand-green">+{coinsEarned}</p>
-              <p className="text-xs text-white/40 mt-0.5">Monede 🪙</p>
+              <p className="text-xl font-black text-brand-green">{workout.exercises.length}</p>
+              <p className="text-xs text-white/40 mt-0.5">Exerciții</p>
             </div>
           </div>
           {startedAt && (

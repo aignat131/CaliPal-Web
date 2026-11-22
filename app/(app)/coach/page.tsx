@@ -132,7 +132,6 @@ export default function CoachPage() {
                       </div>
 
                       <div className="flex items-center gap-2 mb-3">
-                        <span className="text-xs text-white/40">🪙 {req.coinsSpent} monede</span>
                         {req.status === 'REVIEWED' && (
                           <span className="text-xs text-brand-green flex items-center gap-1">
                             <Check size={11} /> {t('coach.reviewed')}

@@ -9,7 +9,6 @@ export const SKILLS: SkillDef[] = [
     level: 'BEGINNER',
     category: 'STRENGTH',
     icon: '🤸',
-    coinsReward: 10,
     requirements: [],
   },
   {
@@ -19,7 +18,6 @@ export const SKILLS: SkillDef[] = [
     level: 'BEGINNER',
     category: 'STRENGTH',
     icon: '💪',
-    coinsReward: 10,
     requirements: [],
   },
   {
@@ -29,7 +27,6 @@ export const SKILLS: SkillDef[] = [
     level: 'BEGINNER',
     category: 'CARDIO',
     icon: '🦵',
-    coinsReward: 10,
     requirements: [],
   },
   {
@@ -39,7 +36,6 @@ export const SKILLS: SkillDef[] = [
     level: 'BEGINNER',
     category: 'CARDIO',
     icon: '🏋️',
-    coinsReward: 10,
     requirements: [],
   },
   {
@@ -49,7 +45,6 @@ export const SKILLS: SkillDef[] = [
     level: 'BEGINNER',
     category: 'CARDIO',
     icon: '🌉',
-    coinsReward: 10,
     requirements: [],
   },
 
@@ -61,7 +56,6 @@ export const SKILLS: SkillDef[] = [
     level: 'INTERMEDIATE',
     category: 'STRENGTH',
     icon: '💪',
-    coinsReward: 20,
     requirements: ['knee_pushup'],
   },
   {
@@ -71,7 +65,6 @@ export const SKILLS: SkillDef[] = [
     level: 'INTERMEDIATE',
     category: 'STRENGTH',
     icon: '🏋️',
-    coinsReward: 25,
     requirements: ['dead_hang'],
   },
   {
@@ -81,7 +74,6 @@ export const SKILLS: SkillDef[] = [
     level: 'INTERMEDIATE',
     category: 'STRENGTH',
     icon: '⬇️',
-    coinsReward: 20,
     requirements: ['pushup'],
   },
   {
@@ -91,7 +83,6 @@ export const SKILLS: SkillDef[] = [
     level: 'INTERMEDIATE',
     category: 'STRENGTH',
     icon: '🔻',
-    coinsReward: 20,
     requirements: ['pushup'],
   },
   {
@@ -101,7 +92,6 @@ export const SKILLS: SkillDef[] = [
     level: 'INTERMEDIATE',
     category: 'MOBILITY',
     icon: '🪑',
-    coinsReward: 25,
     requirements: ['hollow_body', 'dip'],
   },
   {
@@ -111,7 +101,6 @@ export const SKILLS: SkillDef[] = [
     level: 'INTERMEDIATE',
     category: 'CARDIO',
     icon: '🦵',
-    coinsReward: 25,
     requirements: ['basic_squat'],
   },
   {
@@ -121,7 +110,6 @@ export const SKILLS: SkillDef[] = [
     level: 'INTERMEDIATE',
     category: 'STRENGTH',
     icon: '🦘',
-    coinsReward: 15,
     requirements: ['dead_hang'],
   },
   {
@@ -131,7 +119,6 @@ export const SKILLS: SkillDef[] = [
     level: 'INTERMEDIATE',
     category: 'MOBILITY',
     icon: '🐉',
-    coinsReward: 25,
     requirements: ['hollow_body'],
   },
   {
@@ -141,7 +128,6 @@ export const SKILLS: SkillDef[] = [
     level: 'INTERMEDIATE',
     category: 'CARDIO',
     icon: '🏃',
-    coinsReward: 30,
     requirements: [],
   },
 
@@ -153,7 +139,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ADVANCED',
     category: 'STRENGTH',
     icon: '⚡',
-    coinsReward: 50,
     requirements: ['pullup', 'dip'],
   },
   {
@@ -163,7 +148,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ADVANCED',
     category: 'STRENGTH',
     icon: '🤸',
-    coinsReward: 50,
     requirements: ['pike_pushup'],
   },
   {
@@ -173,7 +157,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ADVANCED',
     category: 'STRENGTH',
     icon: '🔝',
-    coinsReward: 60,
     requirements: ['handstand', 'pike_pushup'],
   },
   {
@@ -183,7 +166,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ADVANCED',
     category: 'STRENGTH',
     icon: '💎',
-    coinsReward: 30,
     requirements: ['pushup'],
   },
   {
@@ -193,7 +175,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ADVANCED',
     category: 'STRENGTH',
     icon: '🎯',
-    coinsReward: 35,
     requirements: ['pullup'],
   },
   {
@@ -203,7 +184,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ADVANCED',
     category: 'MOBILITY',
     icon: '🐲',
-    coinsReward: 50,
     requirements: ['dragon_flag_neg'],
   },
   {
@@ -213,7 +193,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ADVANCED',
     category: 'MOBILITY',
     icon: '⚓',
-    coinsReward: 50,
     requirements: ['chest_to_bar'],
   },
   {
@@ -223,7 +202,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ADVANCED',
     category: 'STRENGTH',
     icon: '✈️',
-    coinsReward: 50,
     requirements: ['lsit', 'diamond_pushup'],
   },
   {
@@ -233,7 +211,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ADVANCED',
     category: 'MOBILITY',
     icon: '🤸',
-    coinsReward: 50,
     requirements: [],
   },
 
@@ -245,7 +222,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ELITE',
     category: 'MOBILITY',
     icon: '🏆',
-    coinsReward: 100,
     requirements: ['tuck_front_lever'],
   },
   {
@@ -255,7 +231,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ELITE',
     category: 'MOBILITY',
     icon: '🥇',
-    coinsReward: 100,
     requirements: ['tuck_front_lever'],
   },
   {
@@ -265,7 +240,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ELITE',
     category: 'STRENGTH',
     icon: '🦅',
-    coinsReward: 150,
     requirements: ['tuck_planche'],
   },
   {
@@ -275,7 +249,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ELITE',
     category: 'STRENGTH',
     icon: '☝️',
-    coinsReward: 150,
     requirements: ['chest_to_bar', 'muscle_up'],
   },
   {
@@ -285,7 +258,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ELITE',
     category: 'STRENGTH',
     icon: '👆',
-    coinsReward: 100,
     requirements: ['diamond_pushup'],
   },
   {
@@ -295,7 +267,6 @@ export const SKILLS: SkillDef[] = [
     level: 'ELITE',
     category: 'STRENGTH',
     icon: '🔗',
-    coinsReward: 120,
     requirements: ['muscle_up'],
   },
 ]

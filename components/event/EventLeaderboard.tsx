@@ -51,8 +51,7 @@ export default function EventLeaderboard({ sortedParticipants, currentUid }: Pro
             {/* Name + bar */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="text-xs font-medium truncate" style={{ color: participant.nameColor ?? 'rgba(255,255,255,0.75)' }}>
-                  {participant.emojiBadge && <span className="mr-0.5">{participant.emojiBadge}</span>}
+                <span className="text-xs font-medium truncate text-white/75">
                   {participant.displayName}
                 </span>
                 {isBotUid(participant.uid) && (

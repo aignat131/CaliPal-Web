@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Flame, Trash2, X, Coins } from 'lucide-react'
+import { Flame, Trash2, X } from 'lucide-react'
 import type { WorkoutDoc, WorkoutExercise } from '@/types'
 import { useT } from '@/lib/context/LanguageContext'
 import { formatDate, formatDuration, exerciseOneLiner, circuitSummaryLine, formatCircuitRounds, circuitAverage, circuitTotal } from '../_helpers'
@@ -69,8 +69,7 @@ export function WorkoutHistory({ history, loading, onDelete }: {
       <div className="text-center py-16">
         <Flame size={48} className="text-white/15 mx-auto mb-4" />
         <p className="text-white/50 font-semibold text-sm mb-1">{t('empty.workout_title')}</p>
-        <p className="text-white/30 text-xs flex items-center justify-center gap-1">
-          <Coins size={12} className="text-amber-400" />
+        <p className="text-white/30 text-xs">
           {t('empty.workout_desc')}
         </p>
       </div>
@@ -132,7 +131,6 @@ export function WorkoutHistory({ history, loading, onDelete }: {
               <div className="flex gap-4 mb-1.5">
                 <span className="text-xs text-white/50">⏱ {formatDuration(w.durationSeconds)}</span>
                 <span className="text-xs text-white/50">🔁 {w.totalReps} rep</span>
-                <span className="text-xs text-white/50">🪙 +{w.coinsEarned}</span>
               </div>
               {newPRs.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -187,7 +185,6 @@ export function WorkoutHistory({ history, loading, onDelete }: {
                 {selectedWorkout.totalReps > 0 && (
                   <span className="text-xs font-semibold text-white/60">🔁 {selectedWorkout.totalReps} rep</span>
                 )}
-                <span className="text-xs font-semibold text-white/60">🪙 +{selectedWorkout.coinsEarned}</span>
               </div>
               <div className="flex flex-col gap-1">
                 {selectedWorkout.exercises.map((ex, i) => (

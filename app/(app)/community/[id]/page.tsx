@@ -17,7 +17,6 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
 import { createNotification } from '@/lib/firebase/notifications'
-import { awardCoins } from '@/lib/gamification/coins'
 import { callApi, apiErrorMessage } from '@/lib/schedule/client'
 import { can } from '@/lib/schedule/permissions'
 import type {
@@ -60,7 +59,7 @@ import {
 export default function CommunityDetailPage() {
   const { user, isSuperAdmin } = useAuth()
   const { theme } = useTheme()
-  const { displayName: myName, photoUrl: myPhoto, profile: myProfile } = useMyProfile()
+  const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
   const { requestPermission } = usePushNotifications(user?.uid)
   const t = useT()
   const { showToast } = useToast()
@@ -329,7 +328,6 @@ export default function CommunityDetailPage() {
       batch.update(doc(db, 'communities', id), { memberCount: increment(1) })
       batch.update(doc(db, 'users', user.uid), { joinedCommunityIds: arrayUnion(id) })
       await batch.commit()
-      awardCoins(user.uid, 'JOIN_COMMUNITY').catch(() => {})
       setShowJoinNotif(true)
     } catch {
       showToast('Eroare la alăturare. Încearcă din nou.', 'error')
@@ -978,7 +976,6 @@ export default function CommunityDetailPage() {
                       myPhoto={myPhoto}
                       myRole={myRole}
                       isSuperAdmin={isSuperAdmin}
-                      myProTitle={myProfile?.proTitle}
                       members={members}
                       onDelete={() => deletePost(item.post.id)}
                       onOpen={() => setPostDetailTarget(item.post)}
@@ -1161,7 +1158,7 @@ export default function CommunityDetailPage() {
                       )}
                     </div>
                     <span className="text-[12.5px] mt-0.5 block" style={{ color: roleTextColor }}>
-                      {isMe && myProfile?.proTitle ? 'Pro' : ROLE_LABELS[m.role as MemberRole]}
+                      {ROLE_LABELS[m.role as MemberRole]}
                     </span>
                   </div>
 
@@ -1219,7 +1216,6 @@ export default function CommunityDetailPage() {
           myPhoto={myPhoto}
           myRole={myRole}
           isSuperAdmin={isSuperAdmin}
-          myProTitle={myProfile?.proTitle}
           members={members}
           onDelete={() => { deletePost(postDetailTarget.id); setPostDetailTarget(null) }}
           onClose={() => setPostDetailTarget(null)}

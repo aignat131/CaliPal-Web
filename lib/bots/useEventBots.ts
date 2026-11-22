@@ -156,7 +156,6 @@ export async function addBotsToEvent(
       lastRepAt: null,
       isConnected: true,
       placement: null,
-      coinsEarned: 0,
     })
     await updateDoc(doc(db, 'events', eventId), {
       participantCount: increment(1),

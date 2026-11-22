@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import {
   doc, collection, query, orderBy, limit,
-  setDoc, deleteDoc, updateDoc, onSnapshot, serverTimestamp, increment, getDoc,
+  setDoc, deleteDoc, updateDoc, onSnapshot, serverTimestamp, increment, getDoc, getDocs,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
@@ -18,9 +17,10 @@ import { conversationId } from '@/types'
 import { ArrowLeft, MessageSquare, UserPlus, UserCheck, Clock, Dumbbell, X, Swords } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
 import { formatDuration, formatDate } from '@/lib/formatters'
-import { useBadgeData, BadgeWall, RecordsGrid } from '@/components/profile/BadgesAndRecords'
+import { MilestoneTree } from '@/components/profile/MilestoneTree'
+import { totalDone } from '@/lib/milestones/tree'
 import { ChallengeFriendSheet } from '@/components/challenge/ChallengeFriendSheet'
-import { LIFTS, emptyRecords, type RecordMap } from '@/lib/gamification/records'
+import { computeRecords, type RecordMap } from '@/lib/gamification/records'
 import { useToast } from '@/lib/context/ToastContext'
 
 function exercisePreview(ex: import('@/types').WorkoutExercise, nSetsLabel: (n: number) => string): string {
@@ -64,19 +64,16 @@ export default function UserProfilePage() {
   const [friendLoading, setFriendLoading] = useState(false)
   const [friendError, setFriendError] = useState<string | null>(null)
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutDoc | null>(null)
-  const badgeData = useBadgeData(uid, profile, false)
   const { showToast } = useToast()
   const [challengeOpen, setChallengeOpen] = useState(false)
   const [myRecords, setMyRecords] = useState<RecordMap | null>(null)
 
   async function openChallenge() {
     if (myRecords || !user) { setChallengeOpen(true); return }
-    // "Beat my record" default: read my published records
-    const snap = await getDoc(doc(db, 'user_records', user.uid)).catch(() => null)
-    const d = snap?.data()
-    const recs = emptyRecords()
-    if (d) for (const l of LIFTS) recs[l.key] = { ...recs[l.key], value: Number(d[l.key] ?? 0), verified: d[`${l.key}_v`] === true }
-    setMyRecords(recs)
+    // "Beat my best" default target: computed from my own workouts
+    const snap = await getDocs(query(collection(db, 'users', user.uid, 'workouts'), orderBy('createdAt', 'desc'), limit(500)))
+      .catch(() => null)
+    setMyRecords(computeRecords(snap ? snap.docs.map(d => d.data() as WorkoutDoc) : [], { competitive: true }))
     setChallengeOpen(true)
   }
 
@@ -308,7 +305,7 @@ export default function UserProfilePage() {
           <div className="flex-1">
             <div className="flex justify-around mb-2">
               <Stat value={String((profile.totalWorkouts ?? 0) + (profile.totalTrainings ?? 0))} label={t('pub_profile.workouts')} />
-              <Stat value={String(profile.coins ?? 0)} label={t('pub_profile.coins')} />
+              <Stat value={String(totalDone(profile.milestones ?? {}))} label="Milestones" />
               <Stat value={String(profile.friendCount ?? 0)} label={t('pub_profile.friends')} />
             </div>
             {(profile.currentStreak ?? 0) > 0 && (
@@ -408,22 +405,10 @@ export default function UserProfilePage() {
           />
         )}
 
-        {/* Personal records + badges */}
-        {badgeData.data && (
-          <>
-            <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-bold text-white">{t('records.title')}</p>
-                <Link href="/leaderboard" className="text-xs text-brand-green font-semibold">{t('records.leaderboard')} →</Link>
-              </div>
-              <RecordsGrid data={badgeData.data} isOwn={false} />
-            </div>
-            <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>
-              <p className="text-sm font-bold text-white mb-1">{t('badges.title')}</p>
-              <BadgeWall data={badgeData.data} isOwn={false} />
-            </div>
-          </>
-        )}
+        {/* Milestone tree (read-only) */}
+        <div className="mb-4">
+          <MilestoneTree milestones={profile.milestones} editable={false} />
+        </div>
 
         {/* Recent workouts */}
         <div className="rounded-2xl p-4 mb-4" style={{ backgroundColor: 'var(--app-surface)' }}>

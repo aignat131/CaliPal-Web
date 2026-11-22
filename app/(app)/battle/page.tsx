@@ -148,9 +148,6 @@ export default function BattlePage() {
                         <span>{h.playerCount} {t('battle.players')}</span>
                       </div>
                     </div>
-                    {h.coinsEarned > 0 && (
-                      <span className="text-xs font-semibold text-amber-400">+{h.coinsEarned}</span>
-                    )}
                   </div>
                 ))}
               </div>

@@ -2,12 +2,10 @@
 
 import { useEffect, useRef } from 'react'
 import { Trophy, Home, Bot } from 'lucide-react'
-import { addDoc, collection, serverTimestamp, getDocs } from 'firebase/firestore'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useT } from '@/lib/context/LanguageContext'
-import { awardCoins, checkEventMilestones } from '@/lib/gamification/coins'
 import { PLAYER_COLORS } from '@/lib/battle/types'
-import { EVENT_PLACEMENT_COINS, EVENT_PARTICIPATION_COINS } from '@/lib/event/types'
 import type { EventDoc, EventParticipantDoc } from '@/lib/event/types'
 import { isBotUid } from '@/lib/bots/bot-profiles'
 
@@ -19,7 +17,7 @@ interface Props {
   myParticipant: EventParticipantDoc | null
   currentUid: string
   onHome: () => void
-  onMarkFinished: (placement: number, coinsEarned: number) => Promise<void>
+  onMarkFinished: (placement: number) => Promise<void>
 }
 
 export default function EventPodium({
@@ -36,30 +34,6 @@ export default function EventPodium({
 
     async function processResults() {
       const placement = sortedParticipants.findIndex(p => p.uid === currentUid) + 1
-      let totalCoins = 0
-
-      // Award placement coins
-      if (placement === 1) {
-        const winCoins = await awardCoins(currentUid, 'EVENT_WIN')
-        totalCoins += winCoins
-      }
-
-      // Placement bonus from EVENT_PLACEMENT_COINS
-      const placementIndex = placement - 1
-      if (placementIndex < EVENT_PLACEMENT_COINS.length) {
-        // Placement coins are included in EVENT_WIN for 1st place
-        if (placement > 1) {
-          totalCoins += EVENT_PLACEMENT_COINS[placementIndex]
-        }
-      } else {
-        totalCoins += EVENT_PARTICIPATION_COINS
-      }
-
-      // Check milestones
-      const historySnap = await getDocs(collection(db, 'users', currentUid, 'event_history'))
-      const totalEvents = historySnap.size + 1
-      await checkEventMilestones(currentUid, totalEvents)
-
       // Write event history
       await addDoc(collection(db, 'users', currentUid, 'event_history'), {
         eventId: event.id,
@@ -69,18 +43,15 @@ export default function EventPodium({
         totalPoints: myParticipant!.totalPoints,
         placement,
         participantCount: sortedParticipants.length,
-        coinsEarned: totalCoins,
         playedAt: serverTimestamp(),
       })
 
       // Mark finished in participant doc
-      await onMarkFinished(placement, totalCoins)
+      await onMarkFinished(placement)
     }
 
     processResults().catch(() => {})
   }, [myParticipant, sortedParticipants, currentUid, event, onMarkFinished])
-
-  const myCoins = myParticipant?.coinsEarned ?? 0
 
   return (
     <div className="max-w-md mx-auto px-4 py-8 animate-[fadeInUp_0.3s_ease-out]">
@@ -225,18 +196,6 @@ export default function EventPodium({
         })}
       </div>
 
-      {/* Coin reward */}
-      {myCoins > 0 && (
-        <div
-          className="mx-auto w-fit px-5 py-2.5 rounded-full mb-6 animate-[coinPop_0.5s_ease-out]"
-          style={{
-            background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.08))',
-            border: '1px solid rgba(251,191,36,0.2)',
-          }}
-        >
-          <span className="text-amber-400 font-bold">+{myCoins} 🪙</span>
-        </div>
-      )}
 
       {/* Action button */}
       <button

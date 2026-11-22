@@ -31,7 +31,6 @@ export async function ensureUserDoc(user: User): Promise<void> {
       photoUrl: user.photoURL ?? '',
       totalWorkouts: 0,
       currentStreak: 0,
-      coins: 0,
       friendCount: 0,
       assessmentCompleted: false,
       joinedCommunityIds: [],

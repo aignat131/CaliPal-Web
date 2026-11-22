@@ -117,7 +117,6 @@ export function useBattle(battleId: string) {
         lastRepAt: null,
         isConnected: true,
         placement: null,
-        coinsEarned: 0,
         finished: false,
       }),
     )
@@ -177,12 +176,11 @@ export function useBattle(battleId: string) {
     })
   }, [user, battleId, battle?.exerciseType])
 
-  const markFinished = useCallback(async (placement: number, coinsEarned: number) => {
+  const markFinished = useCallback(async (placement: number) => {
     if (!user) return
     await updateDoc(doc(db, 'battles', battleId, 'players', user.uid), {
       finished: true,
       placement,
-      coinsEarned,
     })
   }, [user, battleId])
 

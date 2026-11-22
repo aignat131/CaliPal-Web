@@ -10,7 +10,6 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { createNotification } from '@/lib/firebase/notifications'
-import { awardCoins } from '@/lib/gamification/coins'
 import type { FriendRequest, FriendEntry } from '@/types'
 import { ArrowLeft, Check, X, UserMinus, Search } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
@@ -157,7 +156,6 @@ export default function FriendsPage() {
       user.uid,
       user.uid,
     )
-    awardCoins(user.uid, 'ADD_FRIEND').catch(() => {})
     setSearchResult(null)
     setSearchQuery('')
   }

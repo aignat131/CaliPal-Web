@@ -175,9 +175,6 @@ export default function EventPage() {
                         <span>{h.participantCount} {t('event.participants')}</span>
                       </div>
                     </div>
-                    {h.coinsEarned > 0 && (
-                      <span className="text-xs font-semibold text-amber-400">+{h.coinsEarned}</span>
-                    )}
                   </div>
                 ))}
               </div>

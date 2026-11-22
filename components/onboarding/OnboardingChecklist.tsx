@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Check, ChevronDown, ChevronUp, X, Coins } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useT } from '@/lib/context/LanguageContext'
 import type { UserDoc } from '@/types'
 
 interface Step {
   key: string
   labelKey: string
-  coins: number
   href: string
   done: boolean
 }
@@ -31,15 +30,14 @@ export default function OnboardingChecklist({ userDoc }: { userDoc: UserDoc }) {
   }, [])
 
   const steps: Step[] = [
-    { key: 'assessment', labelKey: 'onboarding.step_assessment', coins: 25, href: '/profile/assessment', done: userDoc.assessmentCompleted },
-    { key: 'community',  labelKey: 'onboarding.step_community',  coins: 5,  href: '/community',          done: (userDoc.joinedCommunityIds?.length ?? 0) > 0 },
-    { key: 'workout',    labelKey: 'onboarding.step_workout',    coins: 20, href: '/workout',             done: userDoc.totalWorkouts >= 1 },
-    { key: 'friend',     labelKey: 'onboarding.step_friend',     coins: 5,  href: '/profile/friends',     done: userDoc.friendCount >= 1 },
-    { key: 'map',        labelKey: 'onboarding.step_map',        coins: 0,  href: '/map',                 done: parkVisited },
+    { key: 'assessment', labelKey: 'onboarding.step_assessment', href: '/profile/assessment', done: userDoc.assessmentCompleted },
+    { key: 'community',  labelKey: 'onboarding.step_community',  href: '/community',          done: (userDoc.joinedCommunityIds?.length ?? 0) > 0 },
+    { key: 'workout',    labelKey: 'onboarding.step_workout',    href: '/workout',             done: userDoc.totalWorkouts >= 1 },
+    { key: 'friend',     labelKey: 'onboarding.step_friend',     href: '/profile/friends',     done: userDoc.friendCount >= 1 },
+    { key: 'map',        labelKey: 'onboarding.step_map',        href: '/map',                 done: parkVisited },
   ]
 
   const doneCount = steps.filter(s => s.done).length
-  const totalCoins = steps.reduce((sum, s) => sum + s.coins, 0)
   const allDone = doneCount === steps.length
 
   if (dismissed || allDone) return null
@@ -67,11 +65,6 @@ export default function OnboardingChecklist({ userDoc }: { userDoc: UserDoc }) {
             <p className="font-black text-white text-sm">{t('onboarding.title')}</p>
             <p className="text-xs text-white/50 mt-0.5">
               {t('onboarding.progress').replace('{done}', String(doneCount)).replace('{total}', String(steps.length))}
-              {totalCoins > 0 && (
-                <span className="ml-2 text-amber-400">
-                  {t('onboarding.coins_total').replace('{n}', String(totalCoins))}
-                </span>
-              )}
             </p>
           </div>
           {collapsed ? <ChevronDown size={16} className="text-white/40" /> : <ChevronUp size={16} className="text-white/40" />}
@@ -109,13 +102,6 @@ export default function OnboardingChecklist({ userDoc }: { userDoc: UserDoc }) {
                 {t(step.labelKey)}
               </span>
 
-              {/* Coin badge */}
-              {step.coins > 0 && (
-                <span className="flex items-center gap-1 text-xs text-amber-400/80">
-                  <Coins size={12} />
-                  {step.coins}
-                </span>
-              )}
             </Link>
           ))}
         </div>

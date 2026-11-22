@@ -7,7 +7,6 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from './useAuth'
-import { awardCoins } from '@/lib/gamification/coins'
 import type { ProgramEnrollment } from '@/types'
 
 export function useProgramEnrollment() {
@@ -110,7 +109,6 @@ export function useProgramEnrollment() {
         activeProgramId: deleteField(),
         completedPrograms: increment(1),
       })
-      await awardCoins(user.uid, 'COMPLETE_PROGRAM', undefined, programId)
     }
   }, [user, enrollments])
 
