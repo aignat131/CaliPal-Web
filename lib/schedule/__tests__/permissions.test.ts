@@ -2,8 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { can, canEditOwnData, type ScheduleAction } from '../permissions'
 
 const ALL: ScheduleAction[] = [
-  'viewOverviewNames', 'sendReminders', 'configureSchedule', 'createSessions',
-  'manageTemplates', 'markAttendance', 'assignExercises', 'viewMemberFile',
+  'sendReminders', 'configureProgress', 'markAttendance', 'assignExercises', 'viewMemberFile',
 ]
 
 describe('schedule permissions', () => {
@@ -14,12 +13,12 @@ describe('schedule permissions', () => {
     }
   })
 
-  it('Voluntar sees the overview, marks attendance and reminds — nothing else', () => {
-    const allowed = new Set<ScheduleAction>(['viewOverviewNames', 'sendReminders', 'markAttendance'])
+  it('Voluntar marks attendance and reminds — nothing else', () => {
+    const allowed = new Set<ScheduleAction>(['sendReminders', 'markAttendance'])
     for (const a of ALL) expect(can('MODERATOR', a)).toBe(allowed.has(a))
   })
 
-  it('Membru has no staff capabilities (heatmap counts only)', () => {
+  it('Membru has no staff capabilities', () => {
     for (const a of ALL) expect(can('MEMBER', a)).toBe(false)
   })
 

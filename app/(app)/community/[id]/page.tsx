@@ -30,14 +30,14 @@ import {
   Clock, Dumbbell, Users,
   X, LogOut, UserX, Share2,
   Pencil, Info, Mail, MailX, History, ImagePlus,
-  ChevronDown, ChevronUp, ShieldCheck, CalendarDays,
+  ChevronDown, ChevronUp, ShieldCheck, TrendingUp,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
 import { useToast } from '@/lib/context/ToastContext'
 import { SkeletonCard, SkeletonTrainingRow } from '@/components/ui/SkeletonLoaders'
 import TrainingPhotoCard from '@/components/training/TrainingPhotoCard'
-import { ScheduleTab } from './_components/schedule/ScheduleTab'
+import { ProgressTab } from './_components/progress/ProgressTab'
 import { ROLE_COLORS, ROLE_TEXT_COLORS, MEDAL_STYLES } from './_components/shared'
 import { AddTrainingForm } from './_components/AddTrainingForm'
 import { MemberAvatar, RoleAvatar } from './_components/Avatars'
@@ -76,10 +76,10 @@ export default function CommunityDetailPage() {
   const [myRole, setMyRole] = useState<MemberRole>('MEMBER')
   const [myEmailNotifications, setMyEmailNotifications] = useState(true)
   const [tab, setTab] = useState(1) // always default: Antrenamente
-  // Deep link: /community/{id}?tab=orar (used by availability reminders)
+  // Deep link: /community/{id}?tab=progress (used by reminders / coach tips; `orar` kept for old notifications)
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab')
-    const map: Record<string, number> = { feed: 0, antrenamente: 1, membri: 2, orar: 3 }
+    const map: Record<string, number> = { feed: 0, antrenamente: 1, membri: 2, progress: 3, orar: 3 }
     if (t && t in map) setTab(map[t])
   }, [])
   const [loading, setLoading] = useState(true)
@@ -572,7 +572,7 @@ export default function CommunityDetailPage() {
         { label: 'Feed', Icon: MessageSquare },
         { label: 'Antrenamente', Icon: Dumbbell },
         { label: 'Membri', Icon: Users },
-        { label: 'Orar', Icon: CalendarDays },
+        { label: 'Progress', Icon: TrendingUp },
       ]
     : [{ label: 'Membri', Icon: Users }]
 
@@ -1184,10 +1184,10 @@ export default function CommunityDetailPage() {
           </div>
         ))}
 
-        {/* ── Orar (disponibilitate + overview) ── */}
+        {/* ── Progress (goals, exerciții extra, sfaturi de la antrenor) ── */}
         {effectiveTab === 3 && user && (
-          <ScheduleTab communityId={id} uid={user.uid} role={myRole} isSuperAdmin={isSuperAdmin}
-            trainings={trainings} members={members} defaultLocation={community?.location ?? ''} />
+          <ProgressTab communityId={id} uid={user.uid} role={myRole} isSuperAdmin={isSuperAdmin}
+            members={members} trainings={trainings} myName={myName} />
         )}
 
       </div>

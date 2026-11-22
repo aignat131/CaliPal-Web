@@ -473,6 +473,7 @@ export type NotificationType =
   | 'EVENT_RESULT'
   | 'AVAILABILITY_REMINDER'
   | 'PLAN_REMINDER'
+  | 'COACH_TIP'
   | 'BADGE_EARNED'
   | 'NEW_RECORD'
   | 'CHALLENGE_RECEIVED'

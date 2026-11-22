@@ -11,7 +11,7 @@ import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { createNotification } from '@/lib/firebase/notifications'
 import { callApi, apiErrorMessage } from '@/lib/schedule/client'
 import { ATTENDANCE_EDIT_WINDOW_MS } from '@/lib/schedule/attendance'
-import { TrainingPlanExtras } from '@/app/(app)/community/[id]/_components/schedule/TrainingPlanExtras'
+import { TrainingPlanExtras } from '@/app/(app)/community/[id]/_components/TrainingPlanExtras'
 import type { PlannedTraining, CommunityDoc, CommunityMember } from '@/types'
 import {
   Calendar, Clock, MapPin, Dumbbell, Users, User, Check, Pencil, X, Search, UserPlus, Trash2,

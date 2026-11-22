@@ -1,5 +1,5 @@
 /**
- * Firestore rules tests for the schedule feature + member-doc hardening.
+ * Firestore rules tests for the Progress feature + member-doc hardening.
  * Run with:  npm run test:rules   (starts the Firestore emulator)
  */
 import { readFileSync } from 'node:fs'
@@ -7,12 +7,10 @@ import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest'
 import {
   initializeTestEnvironment, assertFails, assertSucceeds, type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { deleteDoc, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 
 const C = 'comm1'
 let env: RulesTestEnvironment
-
-const week = [0, 0, 0, 0, 0, 0, 0]
 
 beforeAll(async () => {
   env = await initializeTestEnvironment({
@@ -30,43 +28,13 @@ beforeEach(async () => {
     for (const [uid, role] of [['founder', 'ADMIN'], ['coach', 'TRAINER'], ['vol', 'MODERATOR'], ['m1', 'MEMBER'], ['m2', 'MEMBER']]) {
       await setDoc(doc(db, 'communities', C, 'members', uid), { userId: uid, role, points: 0, trainingPoints: 0 })
     }
-    await setDoc(doc(db, 'communities', C, 'availability', 'm2'), { typical: week, weeks: {} })
   })
 })
 
 const as = (uid: string) => env.authenticatedContext(uid).firestore()
 
-describe('availability', () => {
-  it('a member writes their own availability', async () => {
-    await assertSucceeds(setDoc(doc(as('m1'), 'communities', C, 'availability', 'm1'),
-      { typical: [1, 2, 3, 4, 5, 6, 7], weeks: { '2026-11-23': week }, updatedAt: serverTimestamp() }, { merge: true }))
-  })
-
-  it("a member cannot write someone else's availability", async () => {
-    await assertFails(setDoc(doc(as('m1'), 'communities', C, 'availability', 'm2'),
-      { typical: week, updatedAt: serverTimestamp() }, { merge: true }))
-  })
-
-  it('rejects malformed masks and extra fields', async () => {
-    const ref = doc(as('m1'), 'communities', C, 'availability', 'm1')
-    await assertFails(setDoc(ref, { typical: [1, 2, 3], updatedAt: serverTimestamp() }))
-    await assertFails(setDoc(ref, { typical: week, hacked: true, updatedAt: serverTimestamp() }))
-  })
-
-  it('non-members cannot write availability', async () => {
-    await assertFails(setDoc(doc(as('stranger'), 'communities', C, 'availability', 'stranger'),
-      { typical: week, updatedAt: serverTimestamp() }))
-  })
-
-  it("members cannot read others' availability (names stay private); staff can", async () => {
-    await assertFails(getDoc(doc(as('m1'), 'communities', C, 'availability', 'm2')))
-    await assertSucceeds(getDoc(doc(as('vol'), 'communities', C, 'availability', 'm2')))
-    await assertSucceeds(getDoc(doc(as('coach'), 'communities', C, 'availability', 'm2')))
-  })
-})
-
-describe('schedule config', () => {
-  const cfg = { startHour: 9, endHour: 22 }
+describe('progress config', () => {
+  const cfg = { points: { attendance: 10, goalAchieved: 25 }, testIntervalWeeks: 2 }
   it('Fondator and Antrenor can configure', async () => {
     await assertSucceeds(setDoc(doc(as('founder'), 'communities', C, 'config', 'plan'), cfg))
     await assertSucceeds(setDoc(doc(as('coach'), 'communities', C, 'config', 'plan'), cfg))
@@ -75,8 +43,8 @@ describe('schedule config', () => {
     await assertFails(setDoc(doc(as('vol'), 'communities', C, 'config', 'plan'), cfg))
     await assertFails(setDoc(doc(as('m1'), 'communities', C, 'config', 'plan'), cfg))
   })
-  it('rejects an invalid hour range', async () => {
-    await assertFails(setDoc(doc(as('coach'), 'communities', C, 'config', 'plan'), { startHour: 20, endHour: 10 }))
+  it('rejects an invalid test interval', async () => {
+    await assertFails(setDoc(doc(as('coach'), 'communities', C, 'config', 'plan'), { testIntervalWeeks: 50 }))
   })
 })
 
@@ -113,21 +81,12 @@ describe('member doc hardening', () => {
   })
 })
 
-describe('phase 2 — sessions, templates, points config', () => {
-  const tpl = { name: 'Pull standard', focus: 'Pull', durationMinutes: 90, exercises: [], notes: '' }
-
-  it('only Fondator/Antrenor manage session templates; members can read them', async () => {
-    await assertSucceeds(setDoc(doc(as('coach'), 'communities', C, 'sessionTemplates', 't1'), tpl))
-    await assertFails(setDoc(doc(as('vol'), 'communities', C, 'sessionTemplates', 't2'), tpl))
-    await assertFails(setDoc(doc(as('m1'), 'communities', C, 'sessionTemplates', 't3'), tpl))
-    await assertSucceeds(getDoc(doc(as('m1'), 'communities', C, 'sessionTemplates', 't1')))
-  })
-
+describe('trainings RSVP/attendance + points config', () => {
   it('validates configurable points', async () => {
     const ref = doc(as('coach'), 'communities', C, 'config', 'plan')
-    await assertSucceeds(setDoc(ref, { startHour: 10, endHour: 24, points: { attendance: 15, goalAchieved: 30 } }))
-    await assertFails(setDoc(ref, { startHour: 10, endHour: 24, points: { attendance: 5000 } }))
-    await assertFails(setDoc(ref, { startHour: 10, endHour: 24, points: { attendance: 10, hack: 1 } }))
+    await assertSucceeds(setDoc(ref, { points: { attendance: 15, goalAchieved: 30 } }))
+    await assertFails(setDoc(ref, { points: { attendance: 5000 } }))
+    await assertFails(setDoc(ref, { points: { attendance: 10, hack: 1 } }))
   })
 
   it('RSVP to a capped session must go through the API; uncapped stays direct', async () => {
@@ -150,7 +109,7 @@ describe('phase 2 — sessions, templates, points config', () => {
   })
 })
 
-describe('phase 3/4 — member plans (goals, exercises, journal, tests)', () => {
+describe('member plans (goals, exercises, tips, journal, tests)', () => {
   const goal = { skill: 'Muscle-up', currentLevel: '', target: '1 rep', deadline: null, status: 'IN_PROGRESS' }
 
   it('a member manages their own goals but cannot self-award', async () => {
@@ -198,5 +157,21 @@ describe('phase 3/4 — member plans (goals, exercises, journal, tests)', () => 
     const t = doc(as('m1'), 'communities', C, 'memberPlans', 'm1', 'tests', '2026-11-20')
     await assertSucceeds(setDoc(t, { values: { pullups: 12 }, updatedAt: serverTimestamp() }))
     await assertFails(setDoc(doc(as('coach'), 'communities', C, 'memberPlans', 'm1', 'tests', '2026-11-21'), { values: {}, updatedAt: serverTimestamp() }))
+  })
+
+  it('tips: only the API creates them; the member marks seen; coach reads and deletes', async () => {
+    const tip = { text: 'Încălzește încheieturile', category: 'warmup', authorUid: 'coach', authorName: 'C', seen: false }
+    await assertFails(setDoc(doc(as('coach'), 'communities', C, 'memberPlans', 'm1', 'tips', 'x'), tip))
+    await assertFails(setDoc(doc(as('m1'), 'communities', C, 'memberPlans', 'm1', 'tips', 'y'), tip))
+    await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'communities', C, 'memberPlans', 'm1', 'tips', 't1'), tip))
+    const mine = doc(as('m1'), 'communities', C, 'memberPlans', 'm1', 'tips', 't1')
+    await assertSucceeds(getDoc(mine))
+    await assertFails(updateDoc(mine, { text: 'hacked' }))
+    await assertSucceeds(updateDoc(mine, { seen: true }))
+    await assertFails(getDoc(doc(as('m2'), 'communities', C, 'memberPlans', 'm1', 'tips', 't1')))
+    await assertFails(getDoc(doc(as('vol'), 'communities', C, 'memberPlans', 'm1', 'tips', 't1')))
+    await assertSucceeds(getDoc(doc(as('coach'), 'communities', C, 'memberPlans', 'm1', 'tips', 't1')))
+    await assertFails(deleteDoc(mine))
+    await assertSucceeds(deleteDoc(doc(as('coach'), 'communities', C, 'memberPlans', 'm1', 'tips', 't1')))
   })
 })

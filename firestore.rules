@@ -33,11 +33,6 @@ service cloud.firestore {
       return isCommunityMember(communityId) &&
         getMemberRole(communityId) in ['ADMIN', 'TRAINER'];
     }
-    function isWeekMask(v) {
-      return v is list && v.size() == 7
-        && v[0] is int && v[1] is int && v[2] is int && v[3] is int
-        && v[4] is int && v[5] is int && v[6] is int;
-    }
 
     // ── Users ─────────────────────────────────────────────────────────────────
     match /users/{uid} {
@@ -175,30 +170,11 @@ service cloud.firestore {
         allow delete: if isOwner(uid) || isCommunityAdmin(communityId) || isSuperAdmin();
       }
 
-      // ── Schedule: availability (one doc per member) ──────────────────────
-      // Members see only aggregated counts via /api/community/{id}/availability.
-      match /availability/{uid} {
-        allow read: if isOwner(uid) || isCommunityStaff(communityId) || isSuperAdmin();
-        allow create, update: if isOwner(uid)
-          && isCommunityMember(communityId)
-          && request.resource.data.keys().hasOnly(['typical', 'weeks', 'updatedAt'])
-          && (!('typical' in request.resource.data) || isWeekMask(request.resource.data.typical))
-          && (!('weeks' in request.resource.data)
-              || (request.resource.data.weeks is map && request.resource.data.weeks.size() <= 60))
-          && request.resource.data.updatedAt == request.time;
-        allow delete: if isOwner(uid) || isSuperAdmin();
-      }
-
-      // ── Schedule: per-community configuration ────────────────────────────
+      // ── Progress: per-community configuration (points, test metrics) ──────
       match /config/{docId} {
         allow read: if isCommunityMember(communityId) || isSuperAdmin();
         allow write: if (isCommunityCoach(communityId) || isSuperAdmin())
           && docId == 'plan'
-          && request.resource.data.startHour is int
-          && request.resource.data.endHour is int
-          && request.resource.data.startHour >= 0
-          && request.resource.data.endHour <= 24
-          && request.resource.data.startHour < request.resource.data.endHour
           && (!('points' in request.resource.data) || (
                 request.resource.data.points is map
                 && request.resource.data.points.keys().hasOnly(['attendance', 'goalAchieved'])
@@ -219,22 +195,7 @@ service cloud.firestore {
                   && request.resource.data.testMetrics.size() <= 15));
       }
 
-      // ── Schedule: session templates (Fondator / Antrenor) ─────────────────
-      match /sessionTemplates/{templateId} {
-        allow read: if isCommunityMember(communityId) || isSuperAdmin();
-        allow create, update: if (isCommunityCoach(communityId) || isSuperAdmin())
-          && request.resource.data.name is string
-          && request.resource.data.name.size() > 0
-          && request.resource.data.name.size() <= 80
-          && request.resource.data.focus is string
-          && request.resource.data.focus.size() <= 40
-          && request.resource.data.durationMinutes is int
-          && request.resource.data.exercises is list
-          && request.resource.data.exercises.size() <= 30;
-        allow delete: if isCommunityCoach(communityId) || isSuperAdmin();
-      }
-
-      // ── Coaching: per-member plan (goals, extra exercises, journal, tests) ──
+      // ── Progress: per-member plan (goals, exercises, tips, journal, tests) ──
       // Owner writes their own data; Fondator/Antrenor can read it (member file).
       match /memberPlans/{uid} {
         function canReadPlan() {
@@ -306,6 +267,17 @@ service cloud.firestore {
         }
 
         // Progress tests — one doc per test date (id = yyyy-MM-dd).
+        // Coach tips — created by the API (Admin SDK, notifies the member);
+        // the member may only mark them seen; Fondator/Antrenor may delete.
+        match /tips/{tipId} {
+          allow read: if canReadPlan();
+          allow create: if false;
+          allow update: if ownerWrites()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen'])
+            && request.resource.data.seen == true;
+          allow delete: if isCommunityCoach(communityId) || isSuperAdmin();
+        }
+
         match /tests/{dateKey} {
           allow read: if canReadPlan();
           allow write: if ownerWrites()

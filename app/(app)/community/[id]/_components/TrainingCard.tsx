@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TrainingPlanExtras } from './schedule/TrainingPlanExtras'
+import { TrainingPlanExtras } from './TrainingPlanExtras'
 import type { CommunityMember, PlannedTraining } from '@/types'
 import { Trash2, Clock, MapPin, Dumbbell, User, Share2, Pencil } from 'lucide-react'
 import { formatTrainingDate } from '@/lib/utils/trainingDateTime'

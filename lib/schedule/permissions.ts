@@ -1,36 +1,31 @@
 import type { MemberRole } from '@/types'
 
 /**
- * Capability matrix for the community schedule / coaching features.
+ * Capability matrix for the community Progress / coaching features.
  * Used by API routes (authoritative) and by the UI (to hide controls).
  * Keep in sync with firestore.rules (isCommunityStaff / isCommunityCoach).
  *
  *   Fondator (ADMIN)     — everything
  *   Antrenor (TRAINER)   — everything
- *   Voluntar (MODERATOR) — overview, attendance, reminders; no exercises/sessions/config/member file
- *   Membru (MEMBER)      — own data only; heatmap as numbers
+ *   Voluntar (MODERATOR) — attendance, reminders; no exercises/tips/config/member files
+ *   Membru (MEMBER)      — own data only
  */
 export type ScheduleAction =
-  | 'viewOverviewNames'   // see who is available in each slot + completion status
-  | 'sendReminders'
-  | 'configureSchedule'   // hour range, points, test metrics
-  | 'createSessions'
-  | 'manageTemplates'
+  | 'sendReminders'       // journal / progress-test reminders
+  | 'configureProgress'   // points, test metrics
   | 'markAttendance'
-  | 'assignExercises'
-  | 'viewMemberFile'      // full coaching file of any member
+  | 'assignExercises'     // extra exercises + coach tips
+  | 'viewMemberFile'      // full progress file of any member + Progress overview
 
 const MATRIX: Record<MemberRole, ReadonlySet<ScheduleAction>> = {
   ADMIN: new Set<ScheduleAction>([
-    'viewOverviewNames', 'sendReminders', 'configureSchedule', 'createSessions',
-    'manageTemplates', 'markAttendance', 'assignExercises', 'viewMemberFile',
+    'sendReminders', 'configureProgress', 'markAttendance', 'assignExercises', 'viewMemberFile',
   ]),
   TRAINER: new Set<ScheduleAction>([
-    'viewOverviewNames', 'sendReminders', 'configureSchedule', 'createSessions',
-    'manageTemplates', 'markAttendance', 'assignExercises', 'viewMemberFile',
+    'sendReminders', 'configureProgress', 'markAttendance', 'assignExercises', 'viewMemberFile',
   ]),
   MODERATOR: new Set<ScheduleAction>([
-    'viewOverviewNames', 'sendReminders', 'markAttendance',
+    'sendReminders', 'markAttendance',
   ]),
   MEMBER: new Set<ScheduleAction>(),
 }
@@ -41,7 +36,7 @@ export function can(role: MemberRole | null | undefined, action: ScheduleAction,
   return MATRIX[role]?.has(action) ?? false
 }
 
-/** A member may always edit their own schedule data; nobody edits someone else's. */
+/** A member may always edit their own progress data; nobody edits someone else's. */
 export function canEditOwnData(callerUid: string, targetUid: string, isMember: boolean): boolean {
   return isMember && callerUid === targetUid
 }

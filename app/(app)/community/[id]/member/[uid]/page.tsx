@@ -7,21 +7,14 @@ import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import type { CommunityMember, MemberRole, PlannedTraining } from '@/types'
-import { ROLE_LABELS } from '@/types'
 import { can } from '@/lib/schedule/permissions'
-import { RoleAvatar } from '../../_components/Avatars'
-import { ROLE_COLORS } from '../../_components/shared'
-import { AvailabilitySection } from './_components/AvailabilitySection'
-import { GoalsSection } from './_components/GoalsSection'
-import { ExtraExercisesSection } from './_components/ExtraExercisesSection'
-import { AttendanceSection } from './_components/AttendanceSection'
-import { JournalSection } from './_components/JournalSection'
-import { TestsSection } from './_components/TestsSection'
+import { MemberProgress } from './_components/MemberProgress'
 import { ArrowLeft, Lock } from 'lucide-react'
 
 /**
- * Fișa membrului — everything the coach used to track in the spreadsheet.
- * Visible to the member themself (as "Progresul meu") and to Fondator/Antrenor.
+ * Fișa membrului — the member's progress file (goals, coach tips, extra
+ * exercises, journal, tests). Visible to the member themself (as "Progresul
+ * meu") and to Fondator/Antrenor, who open it from the Progress tab.
  */
 export default function MemberFilePage() {
   const { user, isSuperAdmin, loading: authLoading } = useAuth()
@@ -87,29 +80,8 @@ export default function MemberFilePage() {
             <p className="text-sm text-white/50">Fișa membrului e vizibilă doar pentru el și pentru antrenori.</p>
           </div>
         ) : (
-          <>
-            {/* Header card */}
-            <div className="rounded-2xl p-4 flex items-center gap-3" style={{ backgroundColor: 'var(--app-surface)' }}>
-              <RoleAvatar photoUrl={member.photoUrl ?? ''} name={member.displayName} roleColor={ROLE_COLORS[member.role] ?? 'var(--accent)'} size={52} />
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-black text-white truncate">{member.displayName}</p>
-                <p className="text-xs" style={{ color: ROLE_COLORS[member.role] }}>{ROLE_LABELS[member.role]}</p>
-              </div>
-              <div className="text-right leading-tight">
-                <p className="text-xl font-medium text-brand-green">{member.trainingPoints ?? 0}</p>
-                <p className="text-[11px] text-white/35">puncte</p>
-              </div>
-            </div>
-
-            <GoalsSection communityId={communityId} uid={uid} isOwner={isOwner} isCoach={canAssign && !isOwner} />
-            <ExtraExercisesSection communityId={communityId} uid={uid} isOwner={isOwner} canAssign={canAssign}
-              coachUid={user?.uid ?? ''} coachName={myName || 'Antrenor'} />
-            <AttendanceSection communityId={communityId} uid={uid} trainings={trainings}
-              joinedAtMs={member.joinedAt?.toMillis?.() ?? null} />
-            <JournalSection communityId={communityId} uid={uid} isOwner={isOwner} trainings={trainings} />
-            <TestsSection communityId={communityId} uid={uid} isOwner={isOwner} />
-            <AvailabilitySection communityId={communityId} uid={uid} isOwner={isOwner} />
-          </>
+          <MemberProgress communityId={communityId} member={member} isOwner={isOwner} canAssign={canAssign}
+            coachUid={user?.uid ?? ''} coachName={myName || 'Antrenor'} trainings={trainings} />
         )}
       </div>
     </div>
