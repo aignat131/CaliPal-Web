@@ -265,27 +265,41 @@ function relativeFuture(ms: number): string {
 
 // ── Settings: points + progress tests ─────────────────────────────────────────
 
+interface LegacyHours { startHour: number; endHour: number }
+const DEFAULT_HOURS: LegacyHours = { startHour: 10, endHour: 24 }
+
+/** Keep a valid stored hour range, else the old default (rules require 0 ≤ start < end ≤ 24). */
+function legacyHours(data: Record<string, unknown> | undefined): LegacyHours {
+  const s = data?.startHour, e = data?.endHour
+  return Number.isInteger(s) && Number.isInteger(e) && (s as number) >= 0 && (e as number) <= 24 && (s as number) < (e as number)
+    ? { startHour: s as number, endHour: e as number }
+    : DEFAULT_HOURS
+}
+
 function ProgressSettings({ communityId, uid, onClose }: { communityId: string; uid: string; onClose: () => void }) {
   const { showToast } = useToast()
   const [loaded, setLoaded] = useState(false)
   const [points, setPoints] = useState<PlanPoints>(DEFAULT_POINTS)
   const [testCfg, setTestCfg] = useState<TestConfig>(sanitizeTestConfig(null))
+  const [hours, setHours] = useState<LegacyHours>(DEFAULT_HOURS)
 
   useEffect(() => onSnapshot(doc(db, 'communities', communityId, 'config', 'plan'), snap => {
+    setHours(legacyHours(snap.data()))
     setPoints(sanitizePoints(snap.data()?.points))
     setTestCfg(sanitizeTestConfig(snap.data()))
     setLoaded(true)
   }, () => setLoaded(true)), [communityId])
 
   if (!loaded) return <div className="h-40 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--app-surface)' }} />
-  return <SettingsForm communityId={communityId} uid={uid} points={points} testCfg={testCfg} onClose={onClose} showToast={showToast} />
+  return <SettingsForm communityId={communityId} uid={uid} points={points} testCfg={testCfg} hours={hours} onClose={onClose} showToast={showToast} />
 }
 
-function SettingsForm({ communityId, uid, points, testCfg, onClose, showToast }: {
+function SettingsForm({ communityId, uid, points, testCfg, hours, onClose, showToast }: {
   communityId: string
   uid: string
   points: PlanPoints
   testCfg: TestConfig
+  hours: LegacyHours
   onClose: () => void
   showToast: ReturnType<typeof useToast>['showToast']
 }) {
@@ -314,6 +328,9 @@ function SettingsForm({ communityId, uid, points, testCfg, onClose, showToast }:
     setSaving(true)
     try {
       await setDoc(doc(db, 'communities', communityId, 'config', 'plan'), {
+        // Legacy hour range (Orar was removed): older deployed rules still require it.
+        startHour: hours.startHour,
+        endHour: hours.endHour,
         points: { attendance: +attendancePts, goalAchieved: +goalPts },
         testIntervalWeeks: interval,
         testMetrics: metrics,

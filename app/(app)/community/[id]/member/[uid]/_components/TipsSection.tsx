@@ -1,27 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { collection, deleteDoc, doc, onSnapshot, updateDoc, type Timestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase/firestore'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useToast } from '@/lib/context/ToastContext'
 import { callApi, apiErrorMessage } from '@/lib/schedule/client'
 import { relativeTimeRo } from '@/lib/schedule/week'
 import {
-  isTipCategory, TIP_CATEGORIES, TIP_EMOJI, TIP_LABELS, TIP_MAX_LENGTH, type CoachTip, type TipCategory,
+  TIP_CATEGORIES, TIP_EMOJI, TIP_LABELS, TIP_MAX_LENGTH, type CoachTip, type TipCategory,
 } from '@/lib/schedule/tips'
 import { Section, areaCls } from './Section'
 import { Lightbulb, Plus, Send, Trash2 } from 'lucide-react'
-
-function toTip(id: string, x: Record<string, unknown>): CoachTip {
-  return {
-    id,
-    text: (x.text as string) ?? '',
-    category: isTipCategory(x.category) ? x.category : 'general',
-    authorName: (x.authorName as string) ?? '',
-    createdAtMs: (x.createdAt as Timestamp | undefined)?.toMillis?.() ?? null,
-    seen: x.seen === true,
-  }
-}
 
 const VISIBLE = 5
 
@@ -36,24 +23,28 @@ export function TipsSection({ communityId, uid, isOwner, canGive }: {
   const [composing, setComposing] = useState(false)
   const [showAll, setShowAll] = useState(false)
 
-  useEffect(() => {
-    return onSnapshot(collection(db, 'communities', communityId, 'memberPlans', uid, 'tips'), snap => {
-      setTips(snap.docs.map(d => toTip(d.id, d.data())).sort((a, b) => (b.createdAtMs ?? Infinity) - (a.createdAtMs ?? Infinity)))
-    }, () => setTips([]))
-  }, [communityId, uid])
+  const base = `/api/community/${communityId}/members/${uid}/tips`
+  const markedSeen = useRef(false)
 
-  // The member has now seen their new tips.
-  useEffect(() => {
-    if (!isOwner || !tips) return
-    for (const t of tips.filter(t => !t.seen)) {
-      updateDoc(doc(db, 'communities', communityId, 'memberPlans', uid, 'tips', t.id), { seen: true }).catch(() => undefined)
+  // Tips go through the API (Admin SDK), so they work whatever rules are deployed.
+  const load = useCallback(async () => {
+    const res = await callApi<{ tips: CoachTip[] }>(base)
+    const list = res.ok ? res.data.tips ?? [] : []
+    setTips(list)
+    // The member has now seen their new tips (the "NOU" badge stays for this visit).
+    if (isOwner && !markedSeen.current && list.some(t => !t.seen)) {
+      markedSeen.current = true
+      void callApi(base, { action: 'seen' })
     }
-  }, [isOwner, tips, communityId, uid])
+  }, [base, isOwner])
+
+  useEffect(() => { void load() }, [load])
 
   async function remove(t: CoachTip) {
     if (!confirm('Ștergi acest sfat?')) return
-    try { await deleteDoc(doc(db, 'communities', communityId, 'memberPlans', uid, 'tips', t.id)) }
-    catch { showToast('Nu am putut șterge.', 'error') }
+    const res = await callApi(`${base}/${t.id}`, undefined, 'DELETE')
+    if (!res.ok) { showToast(apiErrorMessage(res.reason, 'Nu am putut șterge.'), 'error'); return }
+    setTips(prev => prev?.filter(x => x.id !== t.id) ?? prev)
   }
 
   const shown = showAll ? tips ?? [] : (tips ?? []).slice(0, VISIBLE)
@@ -66,7 +57,7 @@ export function TipsSection({ communityId, uid, isOwner, canGive }: {
         </button>
       ) : undefined}>
       {composing && (
-        <TipForm communityId={communityId} uid={uid} onDone={() => setComposing(false)} />
+        <TipForm communityId={communityId} uid={uid} onDone={sent => { setComposing(false); if (sent) void load() }} />
       )}
       {tips === null ? (
         <div className="h-16 rounded-xl bg-white/5 animate-pulse" />
@@ -108,7 +99,7 @@ export function TipsSection({ communityId, uid, isOwner, canGive }: {
   )
 }
 
-function TipForm({ communityId, uid, onDone }: { communityId: string; uid: string; onDone: () => void }) {
+function TipForm({ communityId, uid, onDone }: { communityId: string; uid: string; onDone: (sent: boolean) => void }) {
   const { showToast } = useToast()
   const [category, setCategory] = useState<TipCategory>('warmup')
   const [text, setText] = useState('')
@@ -121,7 +112,7 @@ function TipForm({ communityId, uid, onDone }: { communityId: string; uid: strin
     setSending(false)
     if (!res.ok) { showToast(apiErrorMessage(res.reason), 'error'); return }
     showToast('Sfat trimis', 'success')
-    onDone()
+    onDone(true)
   }
 
   return (
@@ -140,7 +131,7 @@ function TipForm({ communityId, uid, onDone }: { communityId: string; uid: strin
         placeholder="Ex: Înainte de tracțiuni, 2 serii de scapula pull-ups și rotiri de umeri — 5 min de încălzire în plus."
         className={areaCls} />
       <div className="flex gap-2">
-        <button onClick={onDone} className="flex-1 h-10 rounded-xl border border-white/15 text-sm text-white/60">Anulează</button>
+        <button onClick={() => onDone(false)} className="flex-1 h-10 rounded-xl border border-white/15 text-sm text-white/60">Anulează</button>
         <button onClick={() => void send()} disabled={sending || !text.trim()}
           className="flex-1 h-10 rounded-xl bg-brand-green text-black text-sm font-black disabled:opacity-40 flex items-center justify-center gap-1.5">
           <Send size={13} /> {sending ? 'Se trimite…' : 'Trimite'}

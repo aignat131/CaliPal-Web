@@ -13,7 +13,7 @@ export interface ApiResult<T = Record<string, unknown>> {
 export async function callApi<T = Record<string, unknown>>(
   path: string,
   body?: unknown,
-  method: 'GET' | 'POST' = body === undefined ? 'GET' : 'POST',
+  method: 'GET' | 'POST' | 'DELETE' = body === undefined ? 'GET' : 'POST',
 ): Promise<ApiResult<T>> {
   try {
     const token = await auth.currentUser?.getIdToken()
