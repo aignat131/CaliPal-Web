@@ -562,11 +562,11 @@ export default function CommunityDetailPage() {
   // Tabs available to non-members: only Membri
   const visibleTabs = isMember
     ? [
-        { label: 'Feed', Icon: MessageSquare },
-        { label: 'Antrenamente', Icon: Dumbbell },
-        { label: 'Membri', Icon: Users },
+        { label: t('comm_detail.tab_feed'), Icon: MessageSquare },
+        { label: t('comm_detail.tab_trainings'), Icon: Dumbbell },
+        { label: t('comm_detail.tab_members'), Icon: Users },
       ]
-    : [{ label: 'Membri', Icon: Users }]
+    : [{ label: t('comm_detail.tab_members'), Icon: Users }]
 
   // For non-members, always show tab index 0 (Membri → effectiveTab 2)
   const effectiveTab = isMember ? tab : 2
@@ -1101,10 +1101,10 @@ export default function CommunityDetailPage() {
             {isMember && user && (
               <div className="flex flex-col gap-2 mb-4">
                 <ProgressLink href={`/community/${id}/member/${user.uid}`} title="Planul meu"
-                  sub="Goals, sfaturi și exerciții de la antrenor" />
+                  sub="Obiective, sfaturi și exerciții de la antrenor" />
                 {can(myRole, 'viewMemberFile', isSuperAdmin) && (
                   <ProgressLink href={`/community/${id}/progress`} title="Progresul membrilor"
-                    sub="Cine are nevoie de goals sau exerciții" />
+                    sub="Cine are nevoie de obiective sau exerciții" />
                 )}
               </div>
             )}

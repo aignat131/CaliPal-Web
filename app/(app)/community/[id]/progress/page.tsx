@@ -128,7 +128,7 @@ function MembersOverview({ communityId, myUid }: { communityId: string; myUid: s
           className={`self-start h-8 px-3 rounded-full text-xs font-bold flex items-center gap-1.5 border ${
             onlyAttention ? 'border-[#FFB800]/60 bg-[#FFB800]/10 text-[#FFB800]' : 'border-white/10 text-white/55'
           }`}>
-          <AlertCircle size={12} /> Fără goals sau exerciții ({attentionCount})
+          <AlertCircle size={12} /> Fără obiective sau exerciții ({attentionCount})
         </button>
       )}
 
@@ -163,7 +163,7 @@ function MemberRow({ row: r, communityId, isMe }: { row: MemberProgressRow; comm
               <span className="truncate">{firstGoal.skill}{firstGoal.target && <span className="text-white/40"> → {firstGoal.target}</span>}</span>
               {r.activeGoals.length > 1 && <span className="text-white/35 flex-shrink-0">+{r.activeGoals.length - 1}</span>}
             </>
-          ) : <span className="text-[#FFB800]/80">Niciun goal activ</span>}
+          ) : <span className="text-[#FFB800]/80">Niciun obiectiv activ</span>}
           {r.achievedGoals > 0 && <span className="text-[#E3B24C] flex-shrink-0 ml-1">🏆 {r.achievedGoals}</span>}
         </p>
 

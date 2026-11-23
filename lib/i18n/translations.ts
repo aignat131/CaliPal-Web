@@ -367,6 +367,7 @@ const T: Record<string, { RO: string; EN: string }> = {
 
   // ── Community Detail (community/[id]) ────────────────────────────────────────
   'comm_detail.tab_home':      { RO: 'Acasă',       EN: 'Home' },
+  'comm_detail.tab_feed':      { RO: 'Noutăți',     EN: 'Feed' },
   'comm_detail.tab_trainings': { RO: 'Antrenamente', EN: 'Trainings' },
   'comm_detail.tab_members':   { RO: 'Membri',       EN: 'Members' },
   'comm_detail.tab_leaderboard':{ RO: 'Clasament',   EN: 'Leaderboard' },
