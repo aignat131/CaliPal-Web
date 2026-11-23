@@ -7,25 +7,23 @@ import type { MemberRole } from '@/types'
  *
  *   Fondator (ADMIN)     — everything
  *   Antrenor (TRAINER)   — everything
- *   Voluntar (MODERATOR) — attendance, reminders; no exercises/tips/config/member files
+ *   Voluntar (MODERATOR) — attendance; no exercises/tips/member files
  *   Membru (MEMBER)      — own data only
  */
 export type ScheduleAction =
-  | 'sendReminders'       // journal / progress-test reminders
-  | 'configureProgress'   // points, test metrics
   | 'markAttendance'
   | 'assignExercises'     // extra exercises + coach tips
-  | 'viewMemberFile'      // full progress file of any member + Progress overview
+  | 'viewMemberFile'      // full progress file of any member + members' progress page
 
 const MATRIX: Record<MemberRole, ReadonlySet<ScheduleAction>> = {
   ADMIN: new Set<ScheduleAction>([
-    'sendReminders', 'configureProgress', 'markAttendance', 'assignExercises', 'viewMemberFile',
+    'markAttendance', 'assignExercises', 'viewMemberFile',
   ]),
   TRAINER: new Set<ScheduleAction>([
-    'sendReminders', 'configureProgress', 'markAttendance', 'assignExercises', 'viewMemberFile',
+    'markAttendance', 'assignExercises', 'viewMemberFile',
   ]),
   MODERATOR: new Set<ScheduleAction>([
-    'sendReminders', 'markAttendance',
+    'markAttendance',
   ]),
   MEMBER: new Set<ScheduleAction>(),
 }

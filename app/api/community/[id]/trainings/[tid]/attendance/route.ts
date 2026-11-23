@@ -3,11 +3,10 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { parseBody } from '@/lib/api/parseBody'
 import { getCommunityCaller } from '@/lib/server/communityAuth'
-import { loadPlanConfig } from '@/lib/server/planConfig'
 import { can } from '@/lib/schedule/permissions'
 import { parseTrainingMs } from '@/lib/schedule/week'
 import {
-  canCheckIn, canEditAttendance, diffAwards, legacyAwards, targetAwards,
+  canCheckIn, canEditAttendance, diffAwards, legacyAwards, targetAwards, NO_POINTS,
 } from '@/lib/schedule/attendance'
 
 export const dynamic = 'force-dynamic'
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const db = adminDb()
     const base = db.collection('communities').doc(communityId)
     const ref = base.collection('trainings').doc(tid)
-    const { points } = await loadPlanConfig(db, communityId)
+    const points = NO_POINTS
 
     const result = await db.runTransaction(async tx => {
       const [snap, membersSnap] = await Promise.all([tx.get(ref), tx.get(base.collection('members'))])

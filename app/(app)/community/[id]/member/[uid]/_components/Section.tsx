@@ -2,12 +2,25 @@
 
 import type { ReactNode } from 'react'
 
-export function Section({ title, icon, action, children }: {
+export function Section({ title, icon, action, inline, children }: {
   title: string
   icon?: ReactNode
   action?: ReactNode
+  /** Render as a sub-section inside another card (no card of its own). */
+  inline?: boolean
   children: ReactNode
 }) {
+  if (inline) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-bold text-white/60 flex items-center gap-1.5 flex-1">{icon}{title}</p>
+          {action}
+        </div>
+        {children}
+      </div>
+    )
+  }
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center gap-2 px-1">

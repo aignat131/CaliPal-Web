@@ -1083,7 +1083,7 @@ export default function PublicTrainingPage() {
               </div>
               <p className="text-xs text-white/45 mb-4">
                 {training.isClosed
-                  ? 'Selectează membri care au participat — li se vor acorda puncte.'
+                  ? 'Selectează membrii care au participat.'
                   : 'Selectează membri care vor participa la antrenament.'}
               </p>
 
@@ -1101,7 +1101,7 @@ export default function PublicTrainingPage() {
               {/* Member list */}
               <div className="flex flex-col gap-2 mb-5">
                 {[...members]
-                  .sort((a, b) => (b.trainingPoints ?? 0) - (a.trainingPoints ?? 0))
+                  .sort((a, b) => a.displayName.localeCompare(b.displayName, 'ro'))
                   .filter(m => m.displayName.toLowerCase().includes(addMembersSearch.toLowerCase()))
                   .map(m => {
                     const checked = selectedMemberUids.has(m.userId)

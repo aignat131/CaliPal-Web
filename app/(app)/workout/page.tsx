@@ -26,7 +26,6 @@ import { ActiveWorkoutView } from './_components/ActiveWorkoutView'
 import { PostWorkoutDetails, type WorkoutMeta } from './_components/PostWorkoutDetails'
 import VoiceLogSheet from '@/components/workout/VoiceLogSheet'
 import { WorkoutSummaryCard } from './_components/WorkoutSummaryCard'
-import { QuickRepCounterView } from './_components/QuickRepCounterView'
 import { SpidermanChallenge } from './_components/SpidermanChallenge'
 import type { SpidermanResult, SpidermanMode } from './_components/SpidermanChallenge'
 import HoldTimerModal, { HOLD_SESSION_KEY } from '@/components/workout/HoldTimerModal'
@@ -42,7 +41,7 @@ import type { HoldSession, StretchSession } from '@/types'
 
 const AUTH_REDIRECT_KEY = 'calipal_auth_redirect'
 
-type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'quickcount' | 'autocount' | 'spiderman' | 'holdtimer' | 'stretchtimer'
+type Screen = 'home' | 'active' | 'postdetails' | 'summary' | 'autocount' | 'spiderman' | 'holdtimer' | 'stretchtimer'
 
 const PENDING_WORKOUT_KEY = 'calipal_pending_workout'
 
@@ -311,11 +310,6 @@ export default function WorkoutPage() {
   // ── Workout flow ────────────────────────────────────────────────────────────
 
   function startWorkout() { ctxStart([]); setScreen('active') }
-
-  function startQuickCount() {
-    if (isActive) return
-    setScreen('quickcount')
-  }
 
   function saveQuickCountAsWorkout(exercises: WorkoutExercise[], seconds: number) {
     const startedAtMs = Date.now() - seconds * 1000
@@ -840,18 +834,6 @@ export default function WorkoutPage() {
         />
       )}
 
-      {screen === 'quickcount' && (
-        <QuickRepCounterView
-          catalogue={catalogue}
-          onSaveAsWorkout={saveQuickCountAsWorkout}
-          onContinueToWorkout={(exs) => {
-            ctxStart(exs)
-            setScreen('active')
-          }}
-          onCancel={() => setScreen('home')}
-        />
-      )}
-
       {screen === 'spiderman' && (
         <SpidermanChallenge
           mode={spidermanMode}
@@ -967,11 +949,8 @@ export default function WorkoutPage() {
           onTabChange={setTab}
           history={history}
           historyLoading={historyLoading}
-          challenge={challenge}
-          challengeProgress={challengeProgress}
           profile={profile}
           onStartWorkout={startWorkout}
-          onCountReps={startQuickCount}
           onDeleteWorkout={async (wid) => {
             if (!user) return
             await deleteDoc(doc(db, 'users', user.uid, 'workouts', wid))
@@ -983,7 +962,6 @@ export default function WorkoutPage() {
           onStretchTimer={() => setShowStretchPicker(true)}
           onVoiceLog={() => setVoiceMode('home')}
           isActive={isActive}
-          lastExerciseName={exercises.length > 0 ? exercises[exercises.length - 1].name : null}
           onQuickRecord={handleQuickRecord}
         />
       )}

@@ -9,11 +9,8 @@ import {
 import { db } from '@/lib/firebase/firestore'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
-import type {
-  UserDoc, CommunityDoc, WeeklyChallenge, UserChallengeProgress,
-  PlannedTraining, CommunityChallenge, UserCommunityChallengeProgress,
-} from '@/types'
-import { Trophy, Star, X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, MessageSquarePlus, Calendar } from 'lucide-react'
+import type { UserDoc, CommunityDoc, PlannedTraining } from '@/types'
+import { X, ChevronLeft, ChevronRight, Check, HelpCircle, MapPin, Clock, Users, Shield, Calendar } from 'lucide-react'
 import { NotificationBell } from '@/components/layout/NotificationPanel'
 import { useT } from '@/lib/context/LanguageContext'
 import { parseTrainingDateTime, formatTrainingDate, compareTrainingDatesAsc } from '@/lib/utils/trainingDateTime'
@@ -25,15 +22,9 @@ export default function HomePage() {
   const t = useT()
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null)
   const [joinedCommunities, setJoinedCommunities] = useState<CommunityDoc[]>([])
-  const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null)
-  const [challengeProgress, setChallengeProgress] = useState<UserChallengeProgress | null>(null)
-  const [commChallenge, setCommChallenge] = useState<CommunityChallenge | null>(null)
-  const [commChallengeProgress, setCommChallengeProgress] = useState<UserCommunityChallengeProgress | null>(null)
   const [showStreakCalendar, setShowStreakCalendar] = useState(false)
   const [workoutDates, setWorkoutDates] = useState<Set<string>>(new Set())
   const [latestFavTraining, setLatestFavTraining] = useState<PlannedTraining | null>(null)
-  // Ref for nested community challenge progress subscription (B1-4)
-  const unsubCommProgressRef = useRef<(() => void) | null>(null)
 
   // Live user doc
   useEffect(() => {
@@ -57,10 +48,10 @@ export default function HomePage() {
     })
   }, [user, showStreakCalendar])
 
-  // Latest training + community challenge from favorite community
+  // Next training from favorite community
   useEffect(() => {
     const favId = userDoc?.favoriteCommunityId
-    if (!favId) { setLatestFavTraining(null); setCommChallenge(null); return }
+    if (!favId) { setLatestFavTraining(null); return }
 
     const unsubTraining = onSnapshot(
       query(collection(db, 'communities', favId, 'trainings'), orderBy('timeStart', 'desc'), limit(30)),
@@ -80,49 +71,8 @@ export default function HomePage() {
       () => setLatestFavTraining(null)
     )
 
-    const unsubChallenge = onSnapshot(
-      query(collection(db, 'communities', favId, 'challenges'), orderBy('endsAt', 'desc'), limit(1)),
-      snap => {
-        if (snap.empty) { setCommChallenge(null); return }
-        const c = { id: snap.docs[0].id, ...snap.docs[0].data() } as CommunityChallenge
-        setCommChallenge(c)
-        if (user) {
-          if (unsubCommProgressRef.current) unsubCommProgressRef.current()
-          unsubCommProgressRef.current = onSnapshot(
-            doc(db, 'users', user.uid, 'community_challenge_progress', c.id),
-            ps => setCommChallengeProgress(ps.exists() ? ps.data() as UserCommunityChallengeProgress : null)
-          )
-        }
-      },
-      () => setCommChallenge(null)
-    )
-
-    return () => { unsubTraining(); unsubChallenge(); unsubCommProgressRef.current?.() }
-  }, [userDoc?.favoriteCommunityId, user])
-
-  // Weekly challenge + live progress
-  useEffect(() => {
-    if (!user) return
-    let unsubProgress: (() => void) | null = null
-    const unsubChallenge = onSnapshot(
-      query(collection(db, 'weekly_challenges'), orderBy('endsAt', 'desc'), limit(1)),
-      snap => {
-        if (!snap.empty) {
-          const c = { id: snap.docs[0].id, ...snap.docs[0].data() } as WeeklyChallenge
-          setChallenge(c)
-          // Live progress so the bar updates as the user finishes workouts
-          if (unsubProgress) unsubProgress()
-          unsubProgress = onSnapshot(
-            doc(db, 'users', user.uid, 'challenge_progress', c.id),
-            ps => {
-              setChallengeProgress(ps.exists() ? (ps.data() as UserChallengeProgress) : null)
-            }
-          )
-        }
-      }
-    )
-    return () => { unsubChallenge(); if (unsubProgress) unsubProgress() }
-  }, [user])
+    return unsubTraining
+  }, [userDoc?.favoriteCommunityId])
 
   // Joined communities
   useEffect(() => {
@@ -204,28 +154,7 @@ export default function HomePage() {
           />
         )}
 
-        {/* Favorite community — compact strip */}
-        {userDoc?.favoriteCommunityId && (() => {
-          const fav = joinedCommunities.find(c => c.id === userDoc.favoriteCommunityId)
-          if (!fav) return null
-          return (
-            <Link href={`/community/${fav.id}`}>
-              <div className="rounded-xl py-2 px-3 flex items-center gap-2 mb-3 border border-white/8"
-                style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-                <div className="relative w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
-                  style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.13)' }}>
-                  {fav.imageUrl
-                    ? <Image src={fav.imageUrl} alt="" fill sizes="28px" className="object-cover rounded-lg" />
-                    : <span className="text-xs font-black text-brand-green">{fav.name.charAt(0)}</span>}
-                </div>
-                <p className="text-sm font-bold text-white truncate flex-1">{fav.name}</p>
-                <Star size={11} fill="#FFB800" className="text-yellow-400 flex-shrink-0" />
-              </div>
-            </Link>
-          )
-        })()}
-
-        {/* Challenges / leaderboards shortcuts + friends activity */}
+        {/* Friends activity (incl. friend challenges shortcut) */}
         {user && <FriendsActivity uid={user.uid} />}
 
         {/* Feed */}
@@ -240,92 +169,6 @@ export default function HomePage() {
           />
         )}
 
-        {/* Challenges section (replaces recent activity) */}
-        <div>
-          <p className="text-[11px] font-bold text-white/40 tracking-widest mb-2">{t('home.challenges')}</p>
-          <div className="flex flex-col gap-3">
-            {challenge && (
-              <Link href="/workout">
-                <ChallengeCard
-                  label={t('home.weekly_challenge')}
-                  title={challenge.title}
-                  exerciseName={challenge.exerciseName}
-                  targetReps={challenge.targetReps}
-                  current={challengeProgress?.currentReps ?? 0}
-                  completed={challengeProgress?.completed ?? false}
-                />
-              </Link>
-            )}
-            {commChallenge && userDoc?.favoriteCommunityId && (
-              <Link href="/community">
-                <ChallengeCard
-                  label={t('home.community_challenge')}
-                  title={commChallenge.title}
-                  exerciseName={commChallenge.exerciseName}
-                  targetReps={commChallenge.targetReps}
-                  current={commChallengeProgress?.currentReps ?? 0}
-                  completed={commChallengeProgress?.completed ?? false}
-
-
-                />
-              </Link>
-            )}
-            {!challenge && !commChallenge && (
-              <div className="app-card p-6 flex flex-col items-center gap-2 text-center">
-                <Trophy size={28} className="text-white/20" />
-                <p className="text-sm text-white/40">{t('home.no_challenges')}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Feedback CTA */}
-        <Link href="/feedback" className="block mt-6">
-          <div className="app-card flex items-center gap-3 cursor-pointer hover:border-brand-green/30 transition-colors">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.08)', border: '1px solid rgba(var(--accent-rgb), 0.15)' }}>
-              <MessageSquarePlus size={18} className="text-brand-green" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-white text-sm">{t('home.feedback_title')}</p>
-              <p className="text-xs text-white/40 mt-0.5">{t('home.feedback_desc')}</p>
-            </div>
-            <ChevronRight size={16} className="text-white/25 flex-shrink-0" />
-          </div>
-        </Link>
-
-      </div>
-    </div>
-  )
-}
-
-function ChallengeCard({
-  label, title, exerciseName, targetReps, current, completed,
-}: {
-  label: string
-  title: string
-  exerciseName: string
-  targetReps: number
-  current: number
-  completed: boolean
-
-}) {
-  const t = useT()
-  const pct = Math.min(100, Math.round((current / targetReps) * 100))
-  return (
-    <div className="app-card">
-      <div className="flex items-center gap-2 mb-2">
-        <Trophy size={14} className="text-yellow-400" />
-        <p className="text-xs font-bold text-white/45 tracking-widest">{label}</p>
-        {completed && <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-green/20 text-brand-green">{t('common.completed')}</span>}
-      </div>
-      <p className="font-black text-white text-sm mb-0.5">{title}</p>
-      <div className="text-xs text-white/40 mb-1.5">
-        <span>{current} / {targetReps} {exerciseName}</span>
-      </div>
-      <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-        <div className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, backgroundColor: completed ? 'var(--accent)' : 'rgba(var(--accent-rgb), 0.55)' }} />
       </div>
     </div>
   )

@@ -26,11 +26,6 @@ function toGoal(id: string, x: Record<string, unknown>): Goal {
   }
 }
 
-const NO_REWARD_MSG: Record<string, string> = {
-  'too-new': 'Felicitări! Punctele bonus se acordă doar pentru goals mai vechi de 7 zile.',
-  limit: 'Felicitări! Ai atins limita de puncte bonus pentru goals în ultimele 30 de zile.',
-}
-
 export function GoalsSection({ communityId, uid, isOwner, isCoach }: {
   communityId: string
   uid: string
@@ -51,16 +46,14 @@ export function GoalsSection({ communityId, uid, isOwner, isCoach }: {
   }, [communityId, uid])
 
   async function achieve(g: Goal) {
-    const res = await callApi<{ rewarded: number; noRewardReason?: string }>(
-      `/api/community/${communityId}/goals/${g.id}/achieve`, isOwner ? {} : { uid })
+    const res = await callApi(`/api/community/${communityId}/goals/${g.id}/achieve`, isOwner ? {} : { uid })
     if (!res.ok) { showToast(apiErrorMessage(res.reason), 'error'); return }
-    if (res.data.rewarded > 0) showToast(`🏆 Goal atins! +${res.data.rewarded} puncte`, 'success')
-    else showToast(NO_REWARD_MSG[res.data.noRewardReason ?? ''] ?? '🏆 Goal atins!', 'success')
+    showToast('🏆 Obiectiv atins!', 'success')
   }
 
   async function reopen(g: Goal) {
     try { await updateDoc(doc(col, g.id), { status: 'IN_PROGRESS', updatedAt: serverTimestamp() }) }
-    catch { showToast('Nu am putut actualiza goal-ul.', 'error') }
+    catch { showToast('Nu am putut actualiza obiectivul.', 'error') }
   }
 
   async function remove(g: Goal) {
@@ -69,7 +62,7 @@ export function GoalsSection({ communityId, uid, isOwner, isCoach }: {
   }
 
   return (
-    <Section title="Goals" icon={<Target size={11} />}
+    <Section title="Obiective" icon={<Target size={11} />}
       action={isOwner && !editing ? (
         <button onClick={() => setEditing('new')} className="text-xs font-bold text-brand-green flex items-center gap-0.5">
           <Plus size={12} /> Adaugă
@@ -83,7 +76,7 @@ export function GoalsSection({ communityId, uid, isOwner, isCoach }: {
         <div className="h-16 rounded-xl bg-white/5 animate-pulse" />
       ) : goals.length === 0 && !editing ? (
         <p className="text-xs text-white/40">
-          {isOwner ? 'Adaugă skill-urile pe care vrei să le înveți (muscle-up, front lever…) și urmărește-ți progresul.' : 'Niciun goal setat încă.'}
+          {isOwner ? 'Adaugă skill-urile pe care vrei să le înveți (muscle-up, front lever…) și urmărește-ți progresul.' : 'Niciun obiectiv setat încă.'}
         </p>
       ) : (
         <div className="flex flex-col divide-y divide-white/8">
@@ -174,7 +167,7 @@ function GoalForm({ communityId, uid, initial, onDone }: {
       else await addDoc(col, { ...data, status: 'IN_PROGRESS', createdAt: serverTimestamp() })
       onDone()
     } catch {
-      showToast('Nu am putut salva goal-ul.', 'error')
+      showToast('Nu am putut salva obiectivul.', 'error')
     } finally {
       setSaving(false)
     }

@@ -12,7 +12,6 @@ import { db } from '@/lib/firebase/firestore'
 import { auth } from '@/lib/firebase/auth'
 import { uploadPostPhoto } from '@/lib/firebase/storage'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { useTheme } from '@/lib/hooks/useTheme'
 import { useMyProfile } from '@/lib/hooks/useMyProfile'
 import { usePushNotifications } from '@/lib/hooks/usePushNotifications'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
@@ -29,15 +28,14 @@ import {
   Clock, Dumbbell, Users,
   X, LogOut, UserX, Share2,
   Pencil, Info, Mail, MailX, History, ImagePlus,
-  ChevronDown, ChevronUp, ShieldCheck, TrendingUp,
+  ChevronDown, ChevronUp, ShieldCheck, ClipboardList, ChevronRight,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useT } from '@/lib/context/LanguageContext'
 import { useToast } from '@/lib/context/ToastContext'
 import { SkeletonCard, SkeletonTrainingRow } from '@/components/ui/SkeletonLoaders'
 import TrainingPhotoCard from '@/components/training/TrainingPhotoCard'
-import { ProgressTab } from './_components/progress/ProgressTab'
-import { ROLE_COLORS, ROLE_TEXT_COLORS, MEDAL_STYLES } from './_components/shared'
+import { ROLE_COLORS, ROLE_TEXT_COLORS } from './_components/shared'
 import { AddTrainingForm } from './_components/AddTrainingForm'
 import { MemberAvatar, RoleAvatar } from './_components/Avatars'
 import { EditCommunityModal } from './_components/EditCommunityModal'
@@ -58,7 +56,6 @@ import {
 
 export default function CommunityDetailPage() {
   const { user, isSuperAdmin } = useAuth()
-  const { theme } = useTheme()
   const { displayName: myName, photoUrl: myPhoto } = useMyProfile()
   const { requestPermission } = usePushNotifications(user?.uid)
   const t = useT()
@@ -75,10 +72,10 @@ export default function CommunityDetailPage() {
   const [myRole, setMyRole] = useState<MemberRole>('MEMBER')
   const [myEmailNotifications, setMyEmailNotifications] = useState(true)
   const [tab, setTab] = useState(1) // always default: Antrenamente
-  // Deep link: /community/{id}?tab=progress (used by reminders / coach tips; `orar` kept for old notifications)
+  // Deep link: /community/{id}?tab=membri (`progress` / `orar` from old notifications land on Membri)
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab')
-    const map: Record<string, number> = { feed: 0, antrenamente: 1, membri: 2, progress: 3, orar: 3 }
+    const map: Record<string, number> = { feed: 0, antrenamente: 1, membri: 2, progress: 2, orar: 2 }
     if (t && t in map) setTab(map[t])
   }, [])
   const [loading, setLoading] = useState(true)
@@ -555,24 +552,21 @@ export default function CommunityDetailPage() {
     </div>
   )
 
-  const _sortedMembers = [...members].sort((a, b) => {
-    const order = ['ADMIN', 'MODERATOR', 'TRAINER', 'MEMBER']
-    return order.indexOf(a.role) - order.indexOf(b.role)
-  })
-
-  const membersByPoints = [...members].sort((a, b) => (b.trainingPoints ?? 0) - (a.trainingPoints ?? 0))
+  // Staff first (Fondator, Antrenor, Voluntar), then members; alphabetical within a role
+  const ROLE_ORDER = ['ADMIN', 'TRAINER', 'MODERATOR', 'MEMBER']
+  const sortedMembers = [...members].sort((a, b) =>
+    ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.displayName.localeCompare(b.displayName, 'ro'))
 
 
 
   // Tabs available to non-members: only Membri
   const visibleTabs = isMember
     ? [
-        { label: 'Feed', Icon: MessageSquare },
-        { label: 'Antrenamente', Icon: Dumbbell },
-        { label: 'Membri', Icon: Users },
-        { label: 'Progress', Icon: TrendingUp },
+        { label: t('comm_detail.tab_feed'), Icon: MessageSquare },
+        { label: t('comm_detail.tab_trainings'), Icon: Dumbbell },
+        { label: t('comm_detail.tab_members'), Icon: Users },
       ]
-    : [{ label: 'Membri', Icon: Users }]
+    : [{ label: t('comm_detail.tab_members'), Icon: Users }]
 
   // For non-members, always show tab index 0 (Membri → effectiveTab 2)
   const effectiveTab = isMember ? tab : 2
@@ -1103,15 +1097,25 @@ export default function CommunityDetailPage() {
           </div>
         ) : (
           <div className="flex flex-col">
-            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-4">CLASAMENT · {members.length} MEMBRI</p>
-            {membersByPoints.map((m, index) => {
+            {/* Progress links: own plan for everyone, members' overview for coaches */}
+            {isMember && user && (
+              <div className="flex flex-col gap-2 mb-4">
+                <ProgressLink href={`/community/${id}/member/${user.uid}`} title="Planul meu"
+                  sub="Obiective, sfaturi și exerciții de la antrenor" />
+                {can(myRole, 'viewMemberFile', isSuperAdmin) && (
+                  <ProgressLink href={`/community/${id}/progress`} title="Progresul membrilor"
+                    sub="Cine are nevoie de obiective sau exerciții" />
+                )}
+              </div>
+            )}
+
+            <p className="text-[10px] font-bold text-white/35 tracking-widest mb-2 px-4">{members.length} MEMBRI</p>
+            {sortedMembers.map((m, index) => {
               const roleColor = ROLE_COLORS[m.role as MemberRole] ?? 'var(--accent)'
               const roleTextColor = ROLE_TEXT_COLORS[m.role as MemberRole] ?? '#7E8A84'
               const isMe = m.userId === user?.uid
               const livePhoto = (isMe ? (myPhoto || m.photoUrl) : m.photoUrl) || memberPhotos[m.userId] || ''
               const liveName = (isMe ? (myName || m.displayName) : m.displayName) || memberNames[m.userId] || m.displayName
-              const isTopThree = index < 3
-              const medal = isTopThree ? MEDAL_STYLES[index] : null
 
               return (
                 <div
@@ -1124,28 +1128,13 @@ export default function CommunityDetailPage() {
                   onClick={() => setMemberSheetTarget(m)}
                 >
                   {/* Hairline divider (inset under name) */}
-                  {index < membersByPoints.length - 1 && (
-                    <span className="absolute bottom-0 right-0 h-px" style={{ left: 88, background: 'var(--app-divider)' }} />
+                  {index < sortedMembers.length - 1 && (
+                    <span className="absolute bottom-0 right-0 h-px" style={{ left: 64, background: 'var(--app-divider)' }} />
                   )}
-
-                  {/* Rank */}
-                  <div className="w-6 flex-shrink-0 flex items-center justify-center">
-                    {medal ? (
-                      <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-xs font-semibold"
-                        style={{ background: medal.bg, color: medal.color }}>{index + 1}</span>
-                    ) : (
-                      <span className={`text-[13px] font-medium ${
-                        (m.trainingPoints ?? 0) === 0
-                          ? (theme === 'light' ? 'text-[#bbbbbb]' : 'text-white/15')
-                          : 'text-white/25'
-                      }`}>{index + 1}</span>
-                    )}
-                  </div>
 
                   {/* Avatar */}
                   <div className="relative flex-shrink-0">
-                    <RoleAvatar photoUrl={livePhoto} name={liveName} roleColor={roleColor}
-                      goldRing={index === 0} />
+                    <RoleAvatar photoUrl={livePhoto} name={liveName} roleColor={roleColor} />
                   </div>
 
                   {/* Info */}
@@ -1161,31 +1150,12 @@ export default function CommunityDetailPage() {
                       {ROLE_LABELS[m.role as MemberRole]}
                     </span>
                   </div>
-
-                  {/* Points */}
-                  <div className="flex flex-col items-end flex-shrink-0 leading-tight">
-                    <span className={`text-[17px] font-medium ${
-                      (m.trainingPoints ?? 0) === 0
-                        ? (theme === 'light' ? 'text-[#cccccc]' : 'text-white/25')
-                        : 'text-brand-green'
-                    }`}>{m.trainingPoints ?? 0}</span>
-                    <span className={`text-[11px] mt-0.5 ${
-                      (m.trainingPoints ?? 0) === 0
-                        ? (theme === 'light' ? 'text-[#cccccc]' : 'text-white/20')
-                        : 'text-white/25'
-                    }`}>pts</span>
-                  </div>
                 </div>
               )
             })}
           </div>
         ))}
 
-        {/* ── Progress (goals, exerciții extra, sfaturi de la antrenor) ── */}
-        {effectiveTab === 3 && user && (
-          <ProgressTab communityId={id} uid={user.uid} role={myRole} isSuperAdmin={isSuperAdmin}
-            members={members} trainings={trainings} myName={myName} />
-        )}
 
       </div>
 
@@ -1255,5 +1225,21 @@ export default function CommunityDetailPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function ProgressLink({ href, title, sub }: { href: string; title: string; sub: string }) {
+  return (
+    <Link href={href} className="rounded-2xl p-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform"
+      style={{ backgroundColor: 'var(--app-surface)' }}>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.12)' }}>
+        <ClipboardList size={18} className="text-brand-green" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-white">{title}</p>
+        <p className="text-[11px] text-white/40 truncate">{sub}</p>
+      </div>
+      <ChevronRight size={16} className="text-white/25 flex-shrink-0" />
+    </Link>
   )
 }

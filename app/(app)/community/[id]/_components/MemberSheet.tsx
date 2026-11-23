@@ -145,8 +145,6 @@ export function MemberSheet({
               style={{ backgroundColor: `${roleColor}20`, color: roleColor }}>
               {ROLE_LABELS[member.role as MemberRole]}
             </span>
-            <span className="text-xs text-white/35">•</span>
-            <span className="text-xs text-white/50">{member.trainingPoints ?? 0} pts</span>
             {daysSinceJoin !== null && (
               <>
                 <span className="text-xs text-white/35">•</span>
@@ -160,7 +158,7 @@ export function MemberSheet({
         <div className="px-5 flex flex-col gap-2">
           {fileHref && (
             <Link href={fileHref} className="h-12 rounded-2xl flex items-center justify-center gap-2 font-black text-sm bg-brand-green text-black active:scale-95 transition-transform">
-              <ClipboardList size={16} /> {isMe ? 'Progresul meu' : 'Fișa membrului'}
+              <ClipboardList size={16} /> {isMe ? 'Planul meu' : 'Fișa membrului'}
             </Link>
           )}
           {!isMe && (

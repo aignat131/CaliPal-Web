@@ -108,7 +108,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         title: `${TIP_EMOJI[tip.category]} Sfat nou (${TIP_LABELS[tip.category]}) · ${(communitySnap.data()?.name as string) || 'Comunitate'}`,
         body: preview,
         relatedId: communityId,
-        url: `/community/${communityId}?tab=progress`,
+        url: `/community/${communityId}/member/${uid}`,
       }).catch(e => console.error('[tips notify]', e))
     }
 
