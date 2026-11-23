@@ -1,17 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles, Swords, Trophy, Heart, Mic } from 'lucide-react'
-import type { WeeklyChallenge, UserChallengeProgress, WorkoutDoc, UserDoc } from '@/types'
+import { Play, Zap, BookOpen, ChevronRight, Camera, Clock, Sparkles, Swords, Trophy, Heart, Mic, MoreHorizontal, X } from 'lucide-react'
+import type { WorkoutDoc, UserDoc } from '@/types'
 import type { ExerciseType } from '@/lib/ml/form-coach'
 import FirstTimeHint from '@/components/ui/FirstTimeHint'
 import { useT } from '@/lib/context/LanguageContext'
 import { PushUpIcon, PullUpIcon, SquatIcon } from '@/components/icons'
-import { ChallengeCard } from './ChallengeCard'
 import { WorkoutHistory } from './WorkoutHistory'
-import { formatDate, formatDuration, getExerciseType } from '../_helpers'
+import { getExerciseType } from '../_helpers'
 
 const EXERCISE_ICONS: Record<string, React.ComponentType<{ width?: number; height?: number; className?: string }>> = {
   'Flotări': PushUpIcon,
@@ -39,16 +38,15 @@ function getEmojiForExercise(name: string): string {
   return '🔥'
 }
 
+type Sheet = 'camera' | 'more' | null
+
 export function WorkoutHomeTab({
   tab,
   onTabChange,
   history,
   historyLoading,
-  challenge,
-  challengeProgress,
   profile,
   onStartWorkout,
-  onCountReps,
   onDeleteWorkout,
   onQuickExercise,
   onAutoCount,
@@ -57,38 +55,52 @@ export function WorkoutHomeTab({
   onStretchTimer,
   onVoiceLog,
   isActive,
-  lastExerciseName,
   onQuickRecord,
 }: {
   tab: number
   onTabChange: (t: number) => void
   history: WorkoutDoc[]
   historyLoading: boolean
-  challenge: WeeklyChallenge | null
-  challengeProgress: UserChallengeProgress | null
   profile: UserDoc | null
   onStartWorkout: () => void
-  onCountReps: () => void
   onDeleteWorkout: (id: string) => Promise<void>
   onQuickExercise: (name: string, type: ExerciseType) => void
-  onAutoCount?: () => void
-  onSpidermanChallenge?: () => void
-  onHoldTimer?: () => void
-  onStretchTimer?: () => void
-  onVoiceLog?: () => void
+  onAutoCount: () => void
+  onSpidermanChallenge: () => void
+  onHoldTimer: () => void
+  onStretchTimer: () => void
+  onVoiceLog: () => void
   isActive?: boolean
-  lastExerciseName?: string | null
   onQuickRecord?: (name: string, type: ExerciseType) => void
 }) {
-  // Suppress unused lint — onCountReps kept in interface for backwards compat
-  void onCountReps
-  void lastExerciseName
   const t = useT()
   const [fabOpen, setFabOpen] = useState(false)
+  const [sheet, setSheet] = useState<Sheet>(null)
+
+  // Close the sheet on Android/browser back press
+  useEffect(() => {
+    if (!sheet) return
+    window.history.pushState({ modal: `workout-${sheet}` }, '')
+    const handlePop = () => setSheet(null)
+    window.addEventListener('popstate', handlePop)
+    return () => window.removeEventListener('popstate', handlePop)
+  }, [sheet])
+
+  // Camera-countable favourites, else the defaults
+  const cameraFavorites = (profile?.favoriteExercises ?? [])
+    .filter(name => getExerciseType(name) !== null)
+    .map(name => ({ name, emoji: getEmojiForExercise(name) }))
+  const quickExercises = cameraFavorites.length > 0 ? cameraFavorites.slice(0, 4) : DEFAULT_QUICK_EXERCISES
+
+  function pick(action: () => void) {
+    setSheet(null)
+    action()
+  }
+
   return (
     <div className="max-w-lg mx-auto px-4 pt-8 pb-8">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-black text-white">Antrenament</h1>
+        <h1 className="text-2xl font-black text-white">{t('workout.title')}</h1>
       </div>
 
       {/* Tabs */}
@@ -102,16 +114,16 @@ export function WorkoutHomeTab({
       </div>
 
       {tab === 0 && (
-        <div>
-          {/* Start workout CTA */}
+        <div className="flex flex-col gap-3">
+          {/* Start workout */}
           <div className="relative">
             <button
               onClick={onStartWorkout}
-              className="w-full h-16 rounded-2xl mb-4 flex items-center justify-center gap-3 font-black text-lg text-black"
+              className="w-full h-16 rounded-2xl flex items-center justify-center gap-3 font-black text-lg text-black"
               style={{ backgroundColor: 'var(--accent)' }}
             >
               <Play size={22} className="text-black fill-black" />
-              Începe antrenamentul
+              {t('workout.start')}
             </button>
             {history.length === 0 && (
               <FirstTimeHint storageKey="calipal_hint_first_workout">
@@ -120,257 +132,20 @@ export function WorkoutHomeTab({
             )}
           </div>
 
-          {/* Quick exercises — single row */}
-          {(() => {
-            const favorites = profile?.favoriteExercises ?? []
-            const cameraFavorites = favorites
-              .filter(name => getExerciseType(name) !== null)
-              .map(name => ({ name, emoji: getEmojiForExercise(name) }))
-            const quickExercises = cameraFavorites.length > 0
-              ? cameraFavorites.slice(0, 4)
-              : DEFAULT_QUICK_EXERCISES
-
-            return (
-              <div className="mb-5">
-                <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2.5">EXERCIȚII RAPIDE</p>
-                <div className="flex gap-2">
-                  {quickExercises.map(ex => {
-                    const exType = getExerciseType(ex.name)
-                    if (!exType) return null
-                    const IconComponent = EXERCISE_ICONS[ex.name]
-                    return (
-                      <button
-                        key={ex.name}
-                        onClick={() => onQuickExercise(ex.name, exType)}
-                        className="flex-1 rounded-2xl py-3 flex flex-col items-center gap-1 active:scale-[0.97] transition-transform"
-                        style={{ backgroundColor: 'var(--app-surface)', border: '1px solid rgba(255,255,255,0.06)' }}
-                      >
-                        {IconComponent
-                          ? <IconComponent width={32} height={32} />
-                          : <span className="text-2xl">{ex.emoji}</span>
-                        }
-                        <span className="font-bold text-white text-xs">{ex.name}</span>
-                        <Camera size={12} className="text-brand-green" />
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })()}
-
-          {/* Dictate a workout */}
-          {onVoiceLog && (
-            <button
-              onClick={onVoiceLog}
-              className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-              style={{
-                background: 'linear-gradient(135deg, rgba(30,215,95,0.12), rgba(59,130,246,0.08))',
-                border: '1px solid rgba(30,215,95,0.25)',
-              }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'rgba(30,215,95,0.15)' }}>
-                <Mic size={20} className="text-brand-green" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-black text-white text-sm">{t('voice.title')}</p>
-                <p className="text-[11px] text-white/40 mt-0.5">{t('voice.home_desc')}</p>
-              </div>
-              <ChevronRight size={16} className="text-brand-green/60 flex-shrink-0" />
-            </button>
-          )}
-
-          {/* Auto-detect counter */}
-          {onAutoCount && (
-            <button
-              onClick={onAutoCount}
-              className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-              style={{
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(30,215,95,0.08))',
-                border: '1px solid rgba(99,102,241,0.25)',
-              }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'rgba(99,102,241,0.15)' }}>
-                <Sparkles size={20} className="text-indigo-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-black text-white text-sm">Numără automat</p>
-                <p className="text-[11px] text-white/40 mt-0.5">Detectează exercițiul automat cu AI</p>
-              </div>
-              <Camera size={16} className="text-indigo-400 flex-shrink-0" />
-            </button>
-          )}
-
-          {/* Static Holds */}
-          {onHoldTimer && (
-            <button
-              onClick={onHoldTimer}
-              className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-              style={{
-                background: 'linear-gradient(135deg, rgba(6,182,212,0.12), rgba(30,215,95,0.08))',
-                border: '1px solid rgba(6,182,212,0.25)',
-              }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'rgba(6,182,212,0.15)' }}>
-                <Clock size={20} className="text-cyan-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-black text-white text-sm">Exerciții statice</p>
-                <p className="text-[11px] text-white/40 mt-0.5">Cronometru cu cameră pentru hold-uri</p>
-              </div>
-              <Camera size={16} className="text-cyan-400 flex-shrink-0" />
-            </button>
-          )}
-
-          {/* Stretching */}
-          {onStretchTimer && (
-            <button
-              onClick={onStretchTimer}
-              className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-              style={{
-                background: 'linear-gradient(135deg, rgba(236,72,153,0.12), rgba(168,85,247,0.08))',
-                border: '1px solid rgba(236,72,153,0.25)',
-              }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'rgba(236,72,153,0.15)' }}>
-                <Heart size={20} className="text-pink-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-black text-white text-sm">Stretching</p>
-                <p className="text-[11px] text-white/40 mt-0.5">Flexibilitate cu tracking profunzime</p>
-              </div>
-              <Camera size={16} className="text-pink-400 flex-shrink-0" />
-            </button>
-          )}
-
-          {/* Battle Mode entry */}
-          <Link
-            href="/battle"
-            className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-            style={{
-              background: 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(249,115,22,0.08))',
-              border: '1px solid rgba(239,68,68,0.25)',
-            }}
-          >
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: 'rgba(239,68,68,0.15)' }}>
-              <Swords size={20} className="text-red-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-black text-white text-sm">{t('battle.title')}</p>
-              <p className="text-[11px] text-white/40 mt-0.5">{t('battle.create_sub')}</p>
-            </div>
-            <ChevronRight size={16} className="text-red-400/60 flex-shrink-0" />
-          </Link>
-
-          {/* Event Mode entry */}
-          <Link
-            href="/event"
-            className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-            style={{
-              background: 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.08))',
-              border: '1px solid rgba(251,191,36,0.25)',
-            }}
-          >
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: 'rgba(251,191,36,0.15)' }}>
-              <Trophy size={20} className="text-amber-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-black text-white text-sm">{t('event.title')}</p>
-              <p className="text-[11px] text-white/40 mt-0.5">{t('event.subtitle')}</p>
-            </div>
-            <ChevronRight size={16} className="text-amber-400/60 flex-shrink-0" />
-          </Link>
-
-          {/* Spiderman Challenge */}
-          {onSpidermanChallenge && (
-            <button
-              onClick={onSpidermanChallenge}
-              className="w-full rounded-2xl p-4 mb-4 flex items-center gap-4 active:scale-[0.98] transition-transform text-left"
-              style={{
-                background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(239,68,68,0.08))',
-                border: '1px solid rgba(139,92,246,0.25)',
-              }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'rgba(139,92,246,0.15)' }}>
-                <Image src="/icons/marvel.png" alt="Spiderman" width={28} height={28} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-black text-white text-sm">{t('spiderman.title')}</p>
-                <p className="text-[11px] text-white/40 mt-0.5">{t('spiderman.subtitle')}</p>
-              </div>
-              <ChevronRight size={16} className="text-purple-400/60 flex-shrink-0" />
-            </button>
-          )}
-
-          {/* Last workout + AI Analysis — side by side */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            {/* Last workout preview */}
-            {history[0] ? (
-              <div className="rounded-2xl p-3.5 border border-white/8" style={{ backgroundColor: 'var(--app-surface)' }}>
-                <div className="flex items-center gap-1.5 mb-2.5">
-                  <Clock size={13} className="text-white/40" />
-                  <p className="text-[10px] font-bold text-white/40 tracking-widest">ULTIMUL</p>
-                </div>
-                <p className="text-sm font-bold text-white mb-1.5">
-                  {history[0].exercises.length} exerciții
-                </p>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] text-white/50">⏱ {formatDuration(history[0].durationSeconds)}</span>
-                  <span className="text-[11px] text-white/50">🔁 {history[0].totalReps} rep</span>
-                </div>
-                <p className="text-[10px] text-white/25 mt-2">{formatDate(history[0].createdAt)}</p>
-              </div>
-            ) : (
-              <div className="rounded-2xl p-3.5 border border-white/8" style={{ backgroundColor: 'var(--app-surface)' }}>
-                <div className="flex items-center gap-1.5 mb-2.5">
-                  <Clock size={13} className="text-white/40" />
-                  <p className="text-[10px] font-bold text-white/40 tracking-widest">ULTIMUL</p>
-                </div>
-                <p className="text-xs text-white/30 mt-2">Niciun antrenament încă</p>
-              </div>
-            )}
-
-            {/* Form Analysis card */}
-            <Link href="/workout/form-check">
-              <div className="rounded-2xl p-3.5 h-full flex flex-col border border-brand-green/20 hover:border-brand-green/40 transition-colors"
-                style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.05)' }}>
-                <div className="flex items-center gap-1.5 mb-2.5">
-                  <Zap size={13} className="text-brand-green" />
-                  <p className="text-[10px] font-bold text-brand-green/70 tracking-widest">ANALIZĂ AI</p>
-                </div>
-                <p className="text-sm font-bold text-white mb-1">Analiză formă</p>
-                <p className="text-[11px] text-white/40 mt-auto">AI în timp real</p>
-              </div>
-            </Link>
+          {/* Log afterwards / count with the camera */}
+          <div className="grid grid-cols-2 gap-3">
+            <Tile icon={<Mic size={20} className="text-brand-green" />} title={t('workout.log_title')} sub={t('workout.log_sub')} onClick={onVoiceLog} />
+            <Tile icon={<Camera size={20} className="text-brand-green" />} title={t('workout.camera_title')} sub={t('workout.camera_sub')} onClick={() => setSheet('camera')} />
           </div>
 
-          {/* Programs card — compact */}
-          <Link href="/training/programs">
-            <div className="rounded-2xl p-3.5 mb-4 border border-blue-500/15 hover:border-blue-500/30 transition-colors" style={{ backgroundColor: 'rgba(59,130,246,0.04)' }}>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                  <BookOpen size={16} className="text-blue-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white">Programe Structurate</p>
-                  <p className="text-[11px] text-white/40 mt-0.5">Planuri de 4 săptămâni</p>
-                </div>
-                <ChevronRight size={16} className="text-white/20 flex-shrink-0" />
-              </div>
-            </div>
-          </Link>
-
-          {/* Weekly challenge */}
-          {challenge && (
-            <ChallengeCard challenge={challenge} progress={challengeProgress} />
-          )}
+          {/* Everything else */}
+          <button
+            onClick={() => setSheet('more')}
+            className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold text-white/60 active:scale-[0.98] transition-transform"
+            style={{ backgroundColor: 'var(--app-surface)' }}
+          >
+            <MoreHorizontal size={16} /> {t('workout.more')}
+          </button>
         </div>
       )}
 
@@ -380,6 +155,44 @@ export function WorkoutHomeTab({
           loading={historyLoading}
           onDelete={onDeleteWorkout}
         />
+      )}
+
+      {/* Camera sheet */}
+      {sheet === 'camera' && (
+        <BottomSheet title={t('workout.camera_title')} onClose={() => setSheet(null)}>
+          <p className="text-[10px] font-bold text-white/40 tracking-widest mb-2">{t('workout.camera_count_reps')}</p>
+          <div className="flex gap-2 mb-4">
+            {quickExercises.map(ex => {
+              const exType = getExerciseType(ex.name)
+              if (!exType) return null
+              const IconComponent = EXERCISE_ICONS[ex.name]
+              return (
+                <button
+                  key={ex.name}
+                  onClick={() => pick(() => onQuickExercise(ex.name, exType))}
+                  className="flex-1 rounded-2xl py-3 flex flex-col items-center gap-1 active:scale-[0.97] transition-transform bg-white/5"
+                >
+                  {IconComponent ? <IconComponent width={32} height={32} /> : <span className="text-2xl">{ex.emoji}</span>}
+                  <span className="font-bold text-white text-xs">{ex.name}</span>
+                </button>
+              )
+            })}
+          </div>
+          <SheetRow icon={<Sparkles size={18} className="text-indigo-400" />} title={t('workout.auto_count')} sub={t('workout.auto_count_sub')} onClick={() => pick(onAutoCount)} />
+          <SheetRow icon={<Clock size={18} className="text-cyan-400" />} title={t('workout.holds')} sub={t('workout.holds_sub')} onClick={() => pick(onHoldTimer)} />
+          <SheetRow icon={<Heart size={18} className="text-pink-400" />} title={t('workout.stretching')} sub={t('workout.stretching_sub')} onClick={() => pick(onStretchTimer)} />
+        </BottomSheet>
+      )}
+
+      {/* More sheet */}
+      {sheet === 'more' && (
+        <BottomSheet title={t('workout.more')} onClose={() => setSheet(null)}>
+          <SheetRow icon={<BookOpen size={18} className="text-blue-400" />} title={t('workout.programs')} sub={t('workout.programs_sub')} href="/training/programs" />
+          <SheetRow icon={<Zap size={18} className="text-brand-green" />} title={t('workout.form_analysis')} sub={t('workout.form_analysis_sub')} href="/workout/form-check" />
+          <SheetRow icon={<Swords size={18} className="text-red-400" />} title={t('battle.title')} sub={t('battle.create_sub')} href="/battle" />
+          <SheetRow icon={<Trophy size={18} className="text-amber-400" />} title={t('event.title')} sub={t('event.subtitle')} href="/event" />
+          <SheetRow icon={<Image src="/icons/marvel.png" alt="" width={20} height={20} />} title={t('spiderman.title')} sub={t('spiderman.subtitle')} onClick={() => pick(onSpidermanChallenge)} />
+        </BottomSheet>
       )}
 
       {/* Floating record FAB when workout is active */}
@@ -422,4 +235,62 @@ export function WorkoutHomeTab({
       )}
     </div>
   )
+}
+
+function Tile({ icon, title, sub, onClick }: { icon: ReactNode; title: string; sub: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-2xl p-4 flex flex-col items-start gap-2 text-left active:scale-[0.98] transition-transform"
+      style={{ backgroundColor: 'var(--app-surface)' }}
+    >
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(var(--accent-rgb), 0.12)' }}>
+        {icon}
+      </div>
+      <div>
+        <p className="font-black text-white text-sm">{title}</p>
+        <p className="text-[11px] text-white/40 mt-0.5 leading-snug">{sub}</p>
+      </div>
+    </button>
+  )
+}
+
+function BottomSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-[55] bg-black/70 flex items-end justify-center" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={e => e.stopPropagation()}
+        className="w-full max-w-md rounded-t-3xl px-5 pt-4 animate-slide-up"
+        style={{ backgroundColor: 'var(--app-surface)', paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <p className="font-black text-white text-base">{title}</p>
+          <button onClick={onClose} aria-label="Închide" className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center">
+            <X size={14} className="text-white/60" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-2">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function SheetRow({ icon, title, sub, onClick, href }: { icon: ReactNode; title: string; sub: string; onClick?: () => void; href?: string }) {
+  const content = (
+    <>
+      <div className="w-10 h-10 rounded-xl bg-white/6 flex items-center justify-center flex-shrink-0">{icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-white text-sm">{title}</p>
+        <p className="text-[11px] text-white/40 mt-0.5 truncate">{sub}</p>
+      </div>
+      <ChevronRight size={16} className="text-white/25 flex-shrink-0" />
+    </>
+  )
+  const cls = 'w-full rounded-2xl p-3 flex items-center gap-3 text-left bg-white/4 active:scale-[0.98] transition-transform'
+  return href
+    ? <Link href={href} className={cls}>{content}</Link>
+    : <button onClick={onClick} className={cls}>{content}</button>
 }
