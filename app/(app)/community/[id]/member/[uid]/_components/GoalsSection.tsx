@@ -26,11 +26,6 @@ function toGoal(id: string, x: Record<string, unknown>): Goal {
   }
 }
 
-const NO_REWARD_MSG: Record<string, string> = {
-  'too-new': 'Felicitări! Punctele bonus se acordă doar pentru goals mai vechi de 7 zile.',
-  limit: 'Felicitări! Ai atins limita de puncte bonus pentru goals în ultimele 30 de zile.',
-}
-
 export function GoalsSection({ communityId, uid, isOwner, isCoach }: {
   communityId: string
   uid: string
@@ -51,11 +46,9 @@ export function GoalsSection({ communityId, uid, isOwner, isCoach }: {
   }, [communityId, uid])
 
   async function achieve(g: Goal) {
-    const res = await callApi<{ rewarded: number; noRewardReason?: string }>(
-      `/api/community/${communityId}/goals/${g.id}/achieve`, isOwner ? {} : { uid })
+    const res = await callApi(`/api/community/${communityId}/goals/${g.id}/achieve`, isOwner ? {} : { uid })
     if (!res.ok) { showToast(apiErrorMessage(res.reason), 'error'); return }
-    if (res.data.rewarded > 0) showToast(`🏆 Goal atins! +${res.data.rewarded} puncte`, 'success')
-    else showToast(NO_REWARD_MSG[res.data.noRewardReason ?? ''] ?? '🏆 Goal atins!', 'success')
+    showToast('🏆 Goal atins!', 'success')
   }
 
   async function reopen(g: Goal) {

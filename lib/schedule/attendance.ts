@@ -13,6 +13,8 @@ export interface PlanPoints {
 }
 
 export const DEFAULT_POINTS: PlanPoints = { attendance: 10, goalAchieved: 25 }
+/** Training points are retired: attendance and goals are still tracked, but award nothing. */
+export const NO_POINTS: PlanPoints = { attendance: 0, goalAchieved: 0 }
 export const MAX_POINTS = 1000
 
 /** How long after closing staff can still correct attendance. */

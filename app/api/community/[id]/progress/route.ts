@@ -14,7 +14,7 @@ const ms = (v: unknown) => (v as Timestamp | undefined)?.toMillis?.() ?? null
 /**
  * GET /api/community/{id}/progress
  * Fondator/Antrenor: one progress summary row per member (goals, extra
- * exercises, journal, tips) for the "Progress" tab.
+ * exercises, tips) for the "Progresul membrilor" page.
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -32,10 +32,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const members = await Promise.all(membersSnap.docs.map(async m => {
       const plan = base.collection('memberPlans').doc(m.id)
-      const [goals, exercises, journal, tips] = await Promise.all([
+      const [goals, exercises, tips] = await Promise.all([
         plan.collection('goals').get(),
         plan.collection('extraExercises').get(),
-        plan.collection('journal').select().get(),
         plan.collection('tips').select('createdAt').get(),
       ])
       const d = m.data()
@@ -44,7 +43,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         name: (d.displayName as string) || 'Membru',
         photoUrl: (d.photoUrl as string) || null,
         role: ((d.role as MemberRole) ?? 'MEMBER'),
-        points: (d.trainingPoints as number) ?? 0,
         goals: goals.docs.map(g => {
           const x = g.data()
           return {
@@ -63,7 +61,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             checks: (x.checks as Record<string, number>) ?? {},
           }
         }),
-        journalWeeks: journal.docs.map(j => j.id),
         tipTimesMs: tips.docs.map(t => ms(t.data().createdAt) ?? 0),
       }, week)
     }))

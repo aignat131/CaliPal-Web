@@ -29,13 +29,14 @@ function toExercise(id: string, x: Record<string, unknown>): ExtraExercise {
   }
 }
 
-export function ExtraExercisesSection({ communityId, uid, isOwner, canAssign, coachUid, coachName }: {
+export function ExtraExercisesSection({ communityId, uid, isOwner, canAssign, coachUid, coachName, inline }: {
   communityId: string
   uid: string
   isOwner: boolean
   canAssign: boolean
   coachUid: string
   coachName: string
+  inline?: boolean
 }) {
   const { showToast } = useToast()
   const [list, setList] = useState<ExtraExercise[] | null>(null)
@@ -74,7 +75,7 @@ export function ExtraExercisesSection({ communityId, uid, isOwner, canAssign, co
   const archived = list?.filter(e => !e.active) ?? []
 
   return (
-    <Section title="Exerciții extra de la antrenor" icon={<ClipboardList size={11} />}
+    <Section title={inline ? 'Exerciții extra' : 'Exerciții extra de la antrenor'} icon={<ClipboardList size={11} />} inline={inline}
       action={canAssign && !editing ? (
         <button onClick={() => setEditing('new')} className="text-xs font-bold text-brand-green flex items-center gap-0.5">
           <Plus size={12} /> Atribuie

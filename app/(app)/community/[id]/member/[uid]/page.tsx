@@ -13,8 +13,8 @@ import { ArrowLeft, Lock } from 'lucide-react'
 
 /**
  * Fișa membrului — the member's progress file (goals, coach tips, extra
- * exercises, journal, tests). Visible to the member themself (as "Progresul
- * meu") and to Fondator/Antrenor, who open it from the Progress tab.
+ * exercises, attendance). Visible to the member themself (as "Planul meu")
+ * and to Fondator/Antrenor (from "Progresul membrilor" or the member sheet).
  */
 export default function MemberFilePage() {
   const { user, isSuperAdmin, loading: authLoading } = useAuth()
@@ -65,7 +65,7 @@ export default function MemberFilePage() {
             <ArrowLeft size={17} className="text-white/70" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-black text-white truncate">{isOwner ? 'Progresul meu' : 'Fișa membrului'}</h1>
+            <h1 className="text-base font-black text-white truncate">{isOwner ? 'Planul meu' : 'Fișa membrului'}</h1>
             {communityName && <p className="text-[11px] text-white/40 truncate">{communityName}</p>}
           </div>
         </div>

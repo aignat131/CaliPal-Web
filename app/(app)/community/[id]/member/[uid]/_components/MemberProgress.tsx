@@ -8,12 +8,11 @@ import { TipsSection } from './TipsSection'
 import { GoalsSection } from './GoalsSection'
 import { ExtraExercisesSection } from './ExtraExercisesSection'
 import { AttendanceSection } from './AttendanceSection'
-import { JournalSection } from './JournalSection'
+import { GraduationCap } from 'lucide-react'
 
 /**
- * A member's whole progress file: coach tips, goals, extra exercises,
- * attendance, journal. Shown on the member file page and, for the
- * member themself, directly in the community's Progress tab.
+ * A member's progress file: goals, what the coach gave them (tips + extra
+ * exercises) and attendance. Shown to the member themself and to coaches.
  */
 export function MemberProgress({ communityId, member, isOwner, canAssign, coachUid, coachName, trainings }: {
   communityId: string
@@ -34,19 +33,25 @@ export function MemberProgress({ communityId, member, isOwner, canAssign, coachU
           <p className="text-base font-black text-white truncate">{member.displayName}</p>
           <p className="text-xs" style={{ color: ROLE_COLORS[member.role] }}>{ROLE_LABELS[member.role]}</p>
         </div>
-        <div className="text-right leading-tight">
-          <p className="text-xl font-medium text-brand-green">{member.trainingPoints ?? 0}</p>
-          <p className="text-[11px] text-white/35">puncte</p>
-        </div>
       </div>
 
       <GoalsSection communityId={communityId} uid={uid} isOwner={isOwner} isCoach={canAssign && !isOwner} />
-      <TipsSection communityId={communityId} uid={uid} isOwner={isOwner} canGive={canAssign} />
-      <ExtraExercisesSection communityId={communityId} uid={uid} isOwner={isOwner} canAssign={canAssign}
-        coachUid={coachUid} coachName={coachName} />
+
+      {/* From the coach: tips + extra exercises in one card */}
+      <section className="flex flex-col gap-2">
+        <p className="text-[10px] font-bold text-white/35 tracking-widest flex items-center gap-1.5 px-1">
+          <GraduationCap size={11} />DE LA ANTRENOR
+        </p>
+        <div className="rounded-2xl p-4 flex flex-col gap-5" style={{ backgroundColor: 'var(--app-surface)' }}>
+          <TipsSection communityId={communityId} uid={uid} isOwner={isOwner} canGive={canAssign} inline />
+          <div className="h-px bg-white/8" />
+          <ExtraExercisesSection communityId={communityId} uid={uid} isOwner={isOwner} canAssign={canAssign}
+            coachUid={coachUid} coachName={coachName} inline />
+        </div>
+      </section>
+
       <AttendanceSection communityId={communityId} uid={uid} trainings={trainings}
         joinedAtMs={member.joinedAt?.toMillis?.() ?? null} />
-      <JournalSection communityId={communityId} uid={uid} isOwner={isOwner} trainings={trainings} />
     </>
   )
 }

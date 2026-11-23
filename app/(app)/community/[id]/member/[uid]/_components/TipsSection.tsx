@@ -12,11 +12,12 @@ import { Lightbulb, Plus, Send, Trash2 } from 'lucide-react'
 
 const VISIBLE = 5
 
-export function TipsSection({ communityId, uid, isOwner, canGive }: {
+export function TipsSection({ communityId, uid, isOwner, canGive, inline }: {
   communityId: string
   uid: string
   isOwner: boolean
   canGive: boolean
+  inline?: boolean
 }) {
   const { showToast } = useToast()
   const [tips, setTips] = useState<CoachTip[] | null>(null)
@@ -50,7 +51,7 @@ export function TipsSection({ communityId, uid, isOwner, canGive }: {
   const shown = showAll ? tips ?? [] : (tips ?? []).slice(0, VISIBLE)
 
   return (
-    <Section title="Sfaturi de la antrenor" icon={<Lightbulb size={11} />}
+    <Section title={inline ? 'Sfaturi' : 'Sfaturi de la antrenor'} icon={<Lightbulb size={11} />} inline={inline}
       action={canGive && !composing ? (
         <button onClick={() => setComposing(true)} className="text-xs font-bold text-brand-green flex items-center gap-0.5">
           <Plus size={12} /> Sfat nou

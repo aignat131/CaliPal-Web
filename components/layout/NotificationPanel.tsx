@@ -51,7 +51,7 @@ function notifIcon(type: AppNotification['type']) {
   }
 }
 
-function notifRoute(notif: AppNotification): string | null {
+function notifRoute(notif: AppNotification, myUid: string): string | null {
   switch (notif.type) {
     case 'NEW_MESSAGE': return notif.relatedId ? `/chat/${notif.relatedId}` : '/chat'
     case 'FRIEND_REQUEST': return '/profile/friends'
@@ -77,8 +77,8 @@ function notifRoute(notif: AppNotification): string | null {
     case 'EVENT_INVITE': return notif.relatedId ? `/event/${notif.relatedId}` : '/event'
     case 'EVENT_RESULT': return notif.relatedId ? `/event/${notif.relatedId}` : '/event'
     case 'AVAILABILITY_REMINDER':
-    case 'PLAN_REMINDER':
-    case 'COACH_TIP': return notif.relatedId ? `/community/${notif.relatedId}?tab=progress` : '/community'
+    case 'PLAN_REMINDER': return notif.relatedId ? `/community/${notif.relatedId}` : '/community'
+    case 'COACH_TIP': return notif.relatedId ? `/community/${notif.relatedId}/member/${myUid}` : '/community'
     default: return null
   }
 }
@@ -147,7 +147,7 @@ function NotificationPanel({ uid, onClose }: { uid: string; onClose: () => void 
   }, [onClose])
 
   function handleNotifClick(notif: AppNotification) {
-    const route = notifRoute(notif)
+    const route = notifRoute(notif, uid)
     if (route) {
       onClose()
       router.push(route)

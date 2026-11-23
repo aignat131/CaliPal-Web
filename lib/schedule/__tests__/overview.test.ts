@@ -4,8 +4,8 @@ import { buildMemberRow, type RawMemberData } from '../overview'
 const week = '2026-11-16'
 
 const base: RawMemberData = {
-  uid: 'u1', name: 'Ana', photoUrl: null, role: 'MEMBER', points: 40,
-  goals: [], exercises: [], journalWeeks: [], tipTimesMs: [],
+  uid: 'u1', name: 'Ana', photoUrl: null, role: 'MEMBER',
+  goals: [], exercises: [], tipTimesMs: [],
 }
 
 describe('progress overview row', () => {
@@ -13,7 +13,6 @@ describe('progress overview row', () => {
     const r = buildMemberRow(base, week)
     expect(r.needsAttention).toBe(true)
     expect(r.exercises).toEqual({ count: 0, doneThisWeek: 0, expectedThisWeek: 0, ratio4w: null })
-    expect(r.lastJournalWeek).toBeNull()
   })
 
   it('summarises goals, newest active first', () => {
@@ -44,14 +43,11 @@ describe('progress overview row', () => {
     expect(r.exercises.ratio4w).toBeCloseTo(4 / 20)
   })
 
-  it('reads journal and tips', () => {
+  it('reads tips', () => {
     const r = buildMemberRow({
       ...base,
-      journalWeeks: ['2026-11-02', week],
       tipTimesMs: [10, 30, 20],
     }, week)
-    expect(r.journalThisWeek).toBe(true)
-    expect(r.lastJournalWeek).toBe(week)
     expect(r.tips).toBe(3)
     expect(r.lastTipMs).toBe(30)
   })

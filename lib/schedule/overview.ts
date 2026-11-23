@@ -10,14 +10,11 @@ export interface MemberProgressRow {
   name: string
   photoUrl: string | null
   role: MemberRole
-  points: number
   /** In-progress goals, newest first (skill + target only). */
   activeGoals: { skill: string; target: string; deadline: string | null }[]
   achievedGoals: number
   /** Active extra exercises: ticks done / expected this week, and 4-week ratio. */
   exercises: { count: number; doneThisWeek: number; expectedThisWeek: number; ratio4w: number | null }
-  journalThisWeek: boolean
-  lastJournalWeek: string | null
   tips: number
   lastTipMs: number | null
   /** Needs the coach's attention: no goals, no exercises, or overdue stuff. */
@@ -35,10 +32,8 @@ export interface RawMemberData {
   name: string
   photoUrl: string | null
   role: MemberRole
-  points: number
   goals: { skill: string; target: string; deadline: string | null; status: string; createdAtMs: number | null }[]
   exercises: { active: boolean; perWeek: number; checks: Record<string, number> }[]
-  journalWeeks: string[]
   tipTimesMs: number[]
 }
 
@@ -56,7 +51,6 @@ export function buildMemberRow(raw: RawMemberData, week: string): MemberProgress
     done4 += c.done
     exp4 += c.expected
   }
-  const journalWeeks = [...raw.journalWeeks].sort()
   const lastTipMs = raw.tipTimesMs.length ? Math.max(...raw.tipTimesMs) : null
 
   return {
@@ -64,12 +58,9 @@ export function buildMemberRow(raw: RawMemberData, week: string): MemberProgress
     name: raw.name,
     photoUrl: raw.photoUrl,
     role: raw.role,
-    points: raw.points,
     activeGoals: active.slice(0, 5).map(g => ({ skill: g.skill, target: g.target, deadline: g.deadline })),
     achievedGoals: raw.goals.length - active.length,
     exercises: { count: ex.length, doneThisWeek, expectedThisWeek, ratio4w: exp4 > 0 ? done4 / exp4 : null },
-    journalThisWeek: journalWeeks.includes(week),
-    lastJournalWeek: journalWeeks.pop() ?? null,
     tips: raw.tipTimesMs.length,
     lastTipMs,
     needsAttention: active.length === 0 || ex.length === 0,
