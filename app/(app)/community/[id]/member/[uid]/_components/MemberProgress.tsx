@@ -9,11 +9,10 @@ import { GoalsSection } from './GoalsSection'
 import { ExtraExercisesSection } from './ExtraExercisesSection'
 import { AttendanceSection } from './AttendanceSection'
 import { JournalSection } from './JournalSection'
-import { TestsSection } from './TestsSection'
 
 /**
  * A member's whole progress file: coach tips, goals, extra exercises,
- * attendance, journal, tests. Shown on the member file page and, for the
+ * attendance, journal. Shown on the member file page and, for the
  * member themself, directly in the community's Progress tab.
  */
 export function MemberProgress({ communityId, member, isOwner, canAssign, coachUid, coachName, trainings }: {
@@ -48,7 +47,6 @@ export function MemberProgress({ communityId, member, isOwner, canAssign, coachU
       <AttendanceSection communityId={communityId} uid={uid} trainings={trainings}
         joinedAtMs={member.joinedAt?.toMillis?.() ?? null} />
       <JournalSection communityId={communityId} uid={uid} isOwner={isOwner} trainings={trainings} />
-      <TestsSection communityId={communityId} uid={uid} isOwner={isOwner} />
     </>
   )
 }

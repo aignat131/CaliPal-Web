@@ -4,7 +4,6 @@
  */
 import type { MemberRole } from '@/types'
 import { exerciseCompletion } from './goals'
-import { testStatus } from './progress'
 
 export interface MemberProgressRow {
   uid: string
@@ -19,8 +18,6 @@ export interface MemberProgressRow {
   exercises: { count: number; doneThisWeek: number; expectedThisWeek: number; ratio4w: number | null }
   journalThisWeek: boolean
   lastJournalWeek: string | null
-  lastTest: string | null
-  testDue: boolean
   tips: number
   lastTipMs: number | null
   /** Needs the coach's attention: no goals, no exercises, or overdue stuff. */
@@ -42,11 +39,10 @@ export interface RawMemberData {
   goals: { skill: string; target: string; deadline: string | null; status: string; createdAtMs: number | null }[]
   exercises: { active: boolean; perWeek: number; checks: Record<string, number> }[]
   journalWeeks: string[]
-  testDates: string[]
   tipTimesMs: number[]
 }
 
-export function buildMemberRow(raw: RawMemberData, week: string, today: string, testIntervalWeeks: number): MemberProgressRow {
+export function buildMemberRow(raw: RawMemberData, week: string): MemberProgressRow {
   const active = raw.goals
     .filter(g => g.status !== 'ACHIEVED')
     .sort((a, b) => (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0))
@@ -61,7 +57,6 @@ export function buildMemberRow(raw: RawMemberData, week: string, today: string, 
     exp4 += c.expected
   }
   const journalWeeks = [...raw.journalWeeks].sort()
-  const test = testStatus(raw.testDates.map(date => ({ date, values: {} })), testIntervalWeeks, today)
   const lastTipMs = raw.tipTimesMs.length ? Math.max(...raw.tipTimesMs) : null
 
   return {
@@ -75,8 +70,6 @@ export function buildMemberRow(raw: RawMemberData, week: string, today: string, 
     exercises: { count: ex.length, doneThisWeek, expectedThisWeek, ratio4w: exp4 > 0 ? done4 / exp4 : null },
     journalThisWeek: journalWeeks.includes(week),
     lastJournalWeek: journalWeeks.pop() ?? null,
-    lastTest: test.last,
-    testDue: test.due,
     tips: raw.tipTimesMs.length,
     lastTipMs,
     needsAttention: active.length === 0 || ex.length === 0,
