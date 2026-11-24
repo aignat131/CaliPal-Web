@@ -11,20 +11,11 @@ import { getCategory, getMetric, groupByCategoryByCatalogue, type CatalogueEntry
 import { parseWorkoutText, type ParsedExercise, type ParsedWorkout } from '@/lib/voice/parse-workout'
 
 /**
- * MIX: Romanian and English in the same sentence ("cinci push ups"). The browser can only
- * listen in one language, so it listens in Romanian (sentence + numbers) and the parser
- * recognises the English exercise names by sound ("pușaps", "pulaps").
+ * People dictate in Romanian with English exercise names mixed in ("cinci push ups").
+ * The browser listens in one language only, so it listens in Romanian (sentence +
+ * numbers) and the parser recognises the English names by sound ("pușaps", "pulaps").
  */
-type VoiceLang = 'MIX' | 'RO' | 'EN'
-const VOICE_LANGS: VoiceLang[] = ['MIX', 'RO', 'EN']
-const VOICE_LANG_KEY = 'calipal_voice_lang'
-
-function storedVoiceLang(): VoiceLang | null {
-  try {
-    const v = localStorage.getItem(VOICE_LANG_KEY)
-    return v === 'MIX' || v === 'RO' || v === 'EN' ? v : null
-  } catch { return null }
-}
+const SPEECH_LANG = 'ro-RO'
 
 async function parseRemote(text: string, catalogue: CatalogueEntry[]): Promise<ParsedWorkout> {
   const cat = catalogue.map(e => ({ name: e.name, metric: e.metric }))
@@ -57,14 +48,7 @@ export default function VoiceLogSheet({
   onClose: () => void
 }) {
   const { t } = useLanguage()
-  // Dictation language is independent of the app language (people mix RO speech with EN names)
-  const [voiceLang, setVoiceLang] = useState<VoiceLang>(() => storedVoiceLang() ?? 'MIX')
-  const speech = useSpeechRecognition(voiceLang === 'EN' ? 'en-US' : 'ro-RO')
-
-  function pickVoiceLang(l: VoiceLang) {
-    setVoiceLang(l)
-    try { localStorage.setItem(VOICE_LANG_KEY, l) } catch { /* storage blocked */ }
-  }
+  const speech = useSpeechRecognition(SPEECH_LANG)
   const [phase, setPhase] = useState<'input' | 'parsing' | 'review'>('input')
   const [items, setItems] = useState<ParsedExercise[]>([])
   const [unrecognized, setUnrecognized] = useState<string[]>([])
@@ -174,25 +158,6 @@ export default function VoiceLogSheet({
 
         {phase !== 'review' && (
           <div className="flex-1 overflow-y-auto px-5 pt-5">
-            {speech.supported && (
-              <div className="flex items-center justify-center gap-2 mb-1" role="radiogroup" aria-label={t('voice.lang_label')}>
-                <span className="text-[11px] text-white/40 mr-1">{t('voice.lang_label')}</span>
-                {VOICE_LANGS.map(l => (
-                  <button key={l} role="radio" aria-checked={voiceLang === l} disabled={speech.listening}
-                    onClick={() => pickVoiceLang(l)}
-                    className={`h-8 px-3 rounded-full text-xs font-bold border transition-colors disabled:opacity-50 ${
-                      voiceLang === l ? 'bg-brand-green/15 border-brand-green/50 text-brand-green' : 'border-white/10 text-white/45'
-                    }`}>
-                    {l === 'MIX' ? t('voice.lang_mix') : l === 'RO' ? 'Română' : 'English'}
-                  </button>
-                ))}
-              </div>
-            )}
-            {speech.supported && (
-              <p className="text-[11px] text-white/35 text-center mb-4">
-                {voiceLang === 'MIX' ? t('voice.lang_mix_hint') : '\u00a0'}
-              </p>
-            )}
             {speech.supported ? (
               <div className="flex flex-col items-center mb-5">
                 <button
