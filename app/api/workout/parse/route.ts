@@ -3,7 +3,7 @@ import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { parseBody } from '@/lib/api/parseBody'
 import {
-  parseWorkoutText, sanitizeParsedWorkout,
+  mergeAlternatives, parseWorkoutText, sanitizeParsedWorkout,
   type ParseCatalogueEntry, type ParsedWorkout,
 } from '@/lib/voice/parse-workout'
 
@@ -23,6 +23,7 @@ const RESPONSE_SCHEMA = {
         type: 'OBJECT',
         properties: {
           name: { type: 'STRING' },
+          alternatives: { type: 'ARRAY', items: { type: 'STRING' } },
           sets: {
             type: 'ARRAY',
             items: {
@@ -50,7 +51,9 @@ function buildPrompt(text: string, catalogue: ParseCatalogueEntry[]): string {
     'You convert a calisthenics athlete\'s spoken workout log (Romanian or English, possibly with speech-recognition errors) into JSON.',
     'Rules:',
     '- Map every exercise to EXACTLY one name from the catalogue below (copy the name verbatim). Push ups = Flotări, pull ups = Tracțiuni, squats = Squaturi.',
-    '- Romanian speech recognition mangles English exercise names; match by sound. E.g. "masă lapuri" / "mascăl ap" = Muscle-Up.',
+    '- Always pick the MOST SPECIFIC catalogue exercise: "pistol squats" = Pistol Squat (not Squaturi), "diamond push ups" = Diamond Push-up (not Flotări).',
+    '- Romanian speech recognition mangles English exercise names; match by sound. E.g. "masă lapuri" / "mascăl ap" = Muscle-Up, "pușapuri" = Flotări, "scuați" = Squaturi.',
+    '- If you are not sure which catalogue exercise was meant (it sounds like several, or a qualifier like "pistol" was half-heard), put your best guess in "name" and up to 2 other catalogue names in "alternatives". Otherwise leave "alternatives" empty.',
     '- Emit one entry in "sets" per set. "3 sets of 50" → three sets with reps 50. "10, 8, 6 pull ups" → three sets with reps 10, 8, 6.',
     '- For (reps) exercises fill "reps"; for (seconds) exercises fill "durationSeconds". Convert minutes to seconds.',
     '- If the number of reps/seconds was not said, still emit the sets but leave reps/durationSeconds out. Never invent numbers.',
@@ -129,7 +132,8 @@ export async function POST(req: NextRequest) {
           { merge: true },
         )
         try {
-          const parsed = await parseWithGemini(text, catalogue, apiKey)
+          // The rules parser's sound-alike matching adds "did you mean" choices the AI missed
+          const parsed = mergeAlternatives(await parseWithGemini(text, catalogue, apiKey), parseWorkoutText(text, catalogue))
           return NextResponse.json({ ok: true, engine: 'ai', parsed })
         } catch (e) {
           console.error('[workout/parse] AI parse failed, using rules', e)

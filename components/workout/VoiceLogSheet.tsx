@@ -1,14 +1,24 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { X, Mic, Square, Plus, Trash2, Check, Loader2, RotateCcw } from 'lucide-react'
+import { X, Mic, Square, Plus, Trash2, Check, Loader2, RotateCcw, ChevronDown } from 'lucide-react'
 import type { WorkoutExercise } from '@/types'
 import { auth } from '@/lib/firebase/auth'
 import { useLanguage } from '@/lib/context/LanguageContext'
 import { useSpeechRecognition } from '@/lib/hooks/useSpeechRecognition'
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap'
-import { getCategory, getMetric, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
+import { getCategory, getMetric, groupByCategoryByCatalogue, type CatalogueEntry } from '@/lib/data/exercise-catalogue'
 import { parseWorkoutText, type ParsedExercise, type ParsedWorkout } from '@/lib/voice/parse-workout'
+
+type VoiceLang = 'RO' | 'EN'
+const VOICE_LANG_KEY = 'calipal_voice_lang'
+
+function storedVoiceLang(): VoiceLang | null {
+  try {
+    const v = localStorage.getItem(VOICE_LANG_KEY)
+    return v === 'RO' || v === 'EN' ? v : null
+  } catch { return null }
+}
 
 async function parseRemote(text: string, catalogue: CatalogueEntry[]): Promise<ParsedWorkout> {
   const cat = catalogue.map(e => ({ name: e.name, metric: e.metric }))
@@ -41,7 +51,14 @@ export default function VoiceLogSheet({
   onClose: () => void
 }) {
   const { lang, t } = useLanguage()
-  const speech = useSpeechRecognition(lang === 'EN' ? 'en-US' : 'ro-RO')
+  // Dictation language is independent of the app language (people mix RO speech with EN names)
+  const [voiceLang, setVoiceLang] = useState<VoiceLang>(() => storedVoiceLang() ?? lang)
+  const speech = useSpeechRecognition(voiceLang === 'EN' ? 'en-US' : 'ro-RO')
+
+  function pickVoiceLang(l: VoiceLang) {
+    setVoiceLang(l)
+    try { localStorage.setItem(VOICE_LANG_KEY, l) } catch { /* storage blocked */ }
+  }
   const [phase, setPhase] = useState<'input' | 'parsing' | 'review'>('input')
   const [items, setItems] = useState<ParsedExercise[]>([])
   const [unrecognized, setUnrecognized] = useState<string[]>([])
@@ -95,9 +112,26 @@ export default function VoiceLogSheet({
       .map((ex, i) => i !== ei ? ex : { ...ex, sets: ex.sets.filter((_, j) => j !== si) })
       .filter(ex => ex.sets.length > 0))
   }
+  /** Switch an item to another catalogue exercise, keeping the numbers the user said. */
+  function changeExercise(ei: number, name: string) {
+    setItems(prev => prev.map((ex, i) => {
+      if (i !== ei || ex.name === name) return ex
+      const from = valueKey(ex.name)
+      const to = valueKey(name)
+      const sets = from === to ? ex.sets : ex.sets.map(s => {
+        const { [from]: value, ...rest } = s
+        return value !== undefined ? { ...rest, [to]: value } : rest
+      })
+      const alternatives = [ex.name, ...(ex.alternatives ?? [])].filter(n => n !== name).slice(0, 3)
+      return { ...ex, name, sets, alternatives, uncertain: false }
+    }))
+  }
+
   function removeExercise(ei: number) {
     setItems(prev => prev.filter((_, i) => i !== ei))
   }
+
+  const exerciseGroups = groupByCategoryByCatalogue(catalogue)
 
   const incomplete = items.some(ex => ex.sets.some(s => !(s[valueKey(ex.name)] ?? 0)))
 
@@ -134,6 +168,20 @@ export default function VoiceLogSheet({
 
         {phase !== 'review' && (
           <div className="flex-1 overflow-y-auto px-5 pt-5">
+            {speech.supported && (
+              <div className="flex items-center justify-center gap-2 mb-4" role="radiogroup" aria-label={t('voice.lang_label')}>
+                <span className="text-[11px] text-white/40 mr-1">{t('voice.lang_label')}</span>
+                {(['RO', 'EN'] as const).map(l => (
+                  <button key={l} role="radio" aria-checked={voiceLang === l} disabled={speech.listening}
+                    onClick={() => pickVoiceLang(l)}
+                    className={`h-8 px-3 rounded-full text-xs font-bold border transition-colors disabled:opacity-50 ${
+                      voiceLang === l ? 'bg-brand-green/15 border-brand-green/50 text-brand-green' : 'border-white/10 text-white/45'
+                    }`}>
+                    {l === 'RO' ? 'Română' : 'English'}
+                  </button>
+                ))}
+              </div>
+            )}
             {speech.supported ? (
               <div className="flex flex-col items-center mb-5">
                 <button
@@ -182,8 +230,21 @@ export default function VoiceLogSheet({
               return (
                 <div key={`${ex.name}-${ei}`} className="rounded-2xl mb-3 p-4" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="min-w-0">
-                      <p className="font-bold text-white text-sm">{ex.name}</p>
+                    <div className="min-w-0 flex-1">
+                      {/* Tap the name to switch to any catalogue exercise */}
+                      <label className="relative inline-flex items-center gap-1 max-w-full">
+                        <span className="font-bold text-white text-sm truncate">{ex.name}</span>
+                        <ChevronDown size={13} className="text-white/40 flex-shrink-0" />
+                        <select value={ex.name} onChange={e => changeExercise(ei, e.target.value)}
+                          aria-label={t('voice.change_exercise')}
+                          className="absolute inset-0 opacity-0 cursor-pointer">
+                          {exerciseGroups.map(g => (
+                            <optgroup key={g.category} label={g.category}>
+                              {g.exercises.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </label>
                       <p className="text-[10px] text-white/35">
                         {getCategory(ex.name, catalogue)} · {key === 'reps' ? t('voice.unit_reps') : t('voice.unit_secs')}
                       </p>
@@ -193,6 +254,23 @@ export default function VoiceLogSheet({
                       <Trash2 size={13} />
                     </button>
                   </div>
+                  {((ex.alternatives?.length ?? 0) > 0 || ex.uncertain) && (
+                    <div className="rounded-xl px-3 py-2 mb-2 border border-amber-400/25 bg-amber-400/5">
+                      <p className="text-[11px] font-bold text-amber-400 mb-1.5">
+                        {(ex.alternatives?.length ?? 0) > 0 ? t('voice.did_you_mean') : t('voice.check_exercise')}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[ex.name, ...(ex.alternatives ?? [])].map(n => (
+                          <button key={n} onClick={() => changeExercise(ei, n)}
+                            className={`h-7 px-2.5 rounded-full text-xs font-bold border flex items-center gap-1 ${
+                              n === ex.name ? 'bg-brand-green/15 border-brand-green/50 text-brand-green' : 'border-white/15 text-white/70'
+                            }`}>
+                            {n === ex.name && <Check size={11} />}{n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {ex.sets.map((s, si) => {
                     const val = s[key]
                     const missing = !(val ?? 0)

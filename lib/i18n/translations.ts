@@ -1096,6 +1096,10 @@ const T: Record<string, { RO: string; EN: string }> = {
   'voice.retry':          { RO: 'Înregistrează din nou',              EN: 'Record again' },
   'voice.confirm':        { RO: 'Adaugă ({n} exerciții)',             EN: 'Add ({n} exercises)' },
   'voice.confirm_one':    { RO: 'Adaugă (1 exercițiu)',               EN: 'Add (1 exercise)' },
+  'voice.lang_label':     { RO: 'Vorbesc în',                         EN: 'I speak' },
+  'voice.did_you_mean':   { RO: 'Ai vrut?',                           EN: 'Did you mean?' },
+  'voice.check_exercise': { RO: 'Nu sunt sigur — e corect exercițiul?', EN: 'Not sure — is this the right exercise?' },
+  'voice.change_exercise':{ RO: 'Schimbă exercițiul',                 EN: 'Change exercise' },
   'voice.not_counted':    { RO: 'Seturile dictate apar doar în istoricul antrenamentelor, nu în clasamente sau provocări.', EN: 'Dictated sets only appear in your workout history, not in leaderboards or challenges.' },
 
   // ── Post-workout date / duration ─────────────────────────────────────────────
