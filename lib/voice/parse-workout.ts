@@ -83,6 +83,10 @@ const ALIASES: Record<string, string> = {
   'front liver': 'Front Lever', 'frant lever': 'Front Lever',
   'ded heng': 'Dead Hang', 'ded hang': 'Dead Hang',
   'flotari diamond': 'Diamond Push-up', 'diamond': 'Diamond Push-up',
+  // English names with a Romanian plural ("push-uri", "pull-uri")
+  'push uri': 'Flotări', 'pushuri': 'Flotări', 'push upuri': 'Flotări',
+  'pull uri': 'Tracțiuni', 'pulluri': 'Tracțiuni', 'pull upuri': 'Tracțiuni',
+  'chin uri': 'Chin-up', 'chin upuri': 'Chin-up', 'muscle upuri': 'Muscle-Up',
 }
 
 interface Matcher { phrase: string; name: string; re: RegExp }
@@ -229,12 +233,15 @@ const UNITS: Record<string, number> = {
   // Spoken forms ("unșpe", "cinșpe", "douășpe")
   unspe: 11, doispe: 12, douaspe: 12, treispe: 13, paispe: 14, cinspe: 15, cincispe: 15,
   saispe: 16, saptispe: 17, saptespe: 17, optispe: 18, optspe: 18, nouaspe: 19,
+  // English numbers as ro-RO recognition spells them ("faiv push ups")
+  uan: 1, tri: 3, faiv: 5, fiv: 5, sics: 6, sevan: 7, eit: 8, nain: 9, tuelv: 12,
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
   eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
 }
 const TENS: Record<string, number> = {
   douazeci: 20, treizeci: 30, patruzeci: 40, cincizeci: 50, saizeci: 60, saptezeci: 70, optzeci: 80, nouazeci: 90,
   twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  tuenti: 20, terti: 30, forti: 40, fifti: 50,
 }
 const HUNDRED = new Set(['suta', 'sute', 'hundred'])
 // "o serie", "un set", "one minute" — articles only count as 1 before these words

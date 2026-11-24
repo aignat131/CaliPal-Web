@@ -85,3 +85,26 @@ describe('merging AI and rule results', () => {
     expect(merged.exercises[0].alternatives).toEqual(['Pistol Squat'])
   })
 })
+
+describe('Romanian + English in one sentence', () => {
+  it('reads Romanian numbers with English names, however recognition spells them', () => {
+    expect(parse('cinci push ups').exercises).toEqual([{ name: 'Flotări', sets: [{ reps: 5 }] }])
+    expect(parse('cinci pușaps').exercises[0].name).toBe('Flotări')
+    expect(parse('cinci push-uri').exercises).toEqual([{ name: 'Flotări', sets: [{ reps: 5 }] }])
+    expect(parse('trei seturi de zece pull ups').exercises[0].sets).toHaveLength(3)
+    expect(parse('trei serii a câte cinșpe pulaps').exercises[0]).toMatchObject({ name: 'Tracțiuni', sets: [{ reps: 15 }, { reps: 15 }, { reps: 15 }] })
+  })
+
+  it('reads English numbers with Romanian names, and English numbers spelled the Romanian way', () => {
+    expect(parse('four sets de doișpe flotări').exercises[0].sets).toEqual(Array(4).fill({ reps: 12 }))
+    expect(parse('faiv pușaps').exercises).toEqual([{ name: 'Flotări', sets: [{ reps: 5 }] }])
+  })
+
+  it('handles several mixed exercises', () => {
+    expect(parse('zece dips și douăzeci de squats, plank un minut').exercises).toEqual([
+      { name: 'Dips', sets: [{ reps: 10 }] },
+      { name: 'Squaturi', sets: [{ reps: 20 }] },
+      { name: 'Plank', sets: [{ durationSeconds: 60 }] },
+    ])
+  })
+})
