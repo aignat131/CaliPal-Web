@@ -48,7 +48,7 @@ const RESPONSE_SCHEMA = {
 function buildPrompt(text: string, catalogue: ParseCatalogueEntry[]): string {
   const list = catalogue.map(e => `- ${e.name} (${e.metric === 'reps' ? 'reps' : 'seconds'})`).join('\n')
   return [
-    'You convert a calisthenics athlete\'s spoken workout log (Romanian or English, possibly with speech-recognition errors) into JSON.',
+    'You convert a calisthenics athlete\'s spoken workout log into JSON. It is in Romanian, English or — most often — both mixed in one sentence ("cinci push ups", "3 serii de 10 pull ups"), possibly with speech-recognition errors.',
     'Rules:',
     '- Map every exercise to EXACTLY one name from the catalogue below (copy the name verbatim). Push ups = Flotări, pull ups = Tracțiuni, squats = Squaturi.',
     '- Always pick the MOST SPECIFIC catalogue exercise: "pistol squats" = Pistol Squat (not Squaturi), "diamond push ups" = Diamond Push-up (not Flotări).',
