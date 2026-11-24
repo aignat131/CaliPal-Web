@@ -13,6 +13,8 @@ export interface ParsedExercise {
   name: string                       // catalogue name
   sets: ParsedSet[]
   missing?: 'reps' | 'duration'      // e.g. "5 serii de tracțiuni" — reps not said
+  alternatives?: string[]            // other catalogue names it may have meant — the user picks
+  uncertain?: boolean                // matched by sound only; ask the user to confirm
 }
 
 export interface ParsedWorkout {
@@ -66,6 +68,21 @@ const ALIASES: Record<string, string> = {
   'burpee': 'Burpees', 'burpees': 'Burpees',
   'dead hang': 'Dead Hang', 'atarnat': 'Dead Hang',
   'handstand': 'Handstand Hold', 'l sit': 'L-Sit',
+  // How ro-RO speech recognition tends to spell English exercise names
+  'pusap': 'Flotări', 'pus ap': 'Flotări', 'pusapuri': 'Flotări', 'pus apuri': 'Flotări',
+  'pulap': 'Tracțiuni', 'pul ap': 'Tracțiuni', 'pulapuri': 'Tracțiuni', 'pul apuri': 'Tracțiuni',
+  'cin ap': 'Chin-up', 'cinap': 'Chin-up', 'cin apuri': 'Chin-up',
+  'scuat': 'Squaturi', 'scuati': 'Squaturi', 'scuaturi': 'Squaturi', 'scuoturi': 'Squaturi',
+  'pistol scuat': 'Pistol Squat', 'pistol scuati': 'Pistol Squat', 'pistol scuaturi': 'Pistol Squat',
+  'dipsuri': 'Dips', 'dipuri': 'Dips',
+  'planc': 'Plank', 'plancuri': 'Plank',
+  'burpi': 'Burpees', 'barpi': 'Burpees', 'burpiuri': 'Burpees',
+  'lanjuri': 'Lunges', 'lanj': 'Lunges',
+  'hendstend': 'Handstand Hold', 'hand stand': 'Handstand Hold',
+  'el sit': 'L-Sit', 'elsit': 'L-Sit',
+  'front liver': 'Front Lever', 'frant lever': 'Front Lever',
+  'ded heng': 'Dead Hang', 'ded hang': 'Dead Hang',
+  'flotari diamond': 'Diamond Push-up', 'diamond': 'Diamond Push-up',
 }
 
 interface Matcher { phrase: string; name: string; re: RegExp }
@@ -92,12 +109,126 @@ export function resolveExerciseName(raw: string, catalogue: ParseCatalogueEntry[
   return matchers.find(m => m.phrase === n)?.name ?? matchers.find(m => m.re.test(n))?.name ?? null
 }
 
+// ── Matching by sound ────────────────────────────────────────────────────────
+
+// Words that are never part of an exercise name (units, counts, filler)
+const STOP_WORDS = new Set([
+  'am', 'facut', 'fac', 'si', 'de', 'cu', 'a', 'cate', 'la', 'pe', 'in', 'un', 'o', 'una', 'mai', 'apoi', 'dupa', 'care',
+  'aceea', 'serii', 'serie', 'seturi', 'set', 'sets', 'runde', 'runda', 'rounds', 'round', 'rep', 'reps', 'repetari',
+  'repetare', 'repetitions', 'bucati', 'secunde', 'secunda', 'sec', 's', 'seconds', 'second', 'minute', 'minut', 'min',
+  'minutes', 'kg', 'kile', 'kilograme', 'x', 'ori', 'times', 'by', 'i', 'did', 'of', 'and', 'then', 'the', 'with', 'plus',
+])
+
+/**
+ * Rough pronunciation key, so "pușap" ≈ "push up", "scuați" ≈ "squats", "bărpi" ≈ "burpees":
+ * drop plural endings, fold letters that sound alike, collapse vowel runs.
+ */
+export function phoneticKey(words: string): string {
+  return words.split(' ')
+    .map(w => (w.length > 4 ? w.replace(/(urile|uri|ul|s)$/, '') : w))
+    .join('')
+    .replace(/[^a-z]/g, '')
+    .replace(/ph/g, 'f')
+    .replace(/([sc])h/g, '$1')
+    .replace(/ck|[kq]/g, 'c')
+    .replace(/w/g, 'u')
+    .replace(/y/g, 'i')
+    .replace(/x/g, 'cs')
+    .replace(/z/g, 's')
+    .replace(/j/g, 'g')
+    .replace(/[aeiou]+/g, 'a')
+    .replace(/(.)\1+/g, '$1')
+}
+
+function levenshtein(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    }
+    prev = cur
+  }
+  return prev[b.length]
+}
+
+interface SoundKey { key: string; name: string; span: number }
+
+function buildSoundKeys(matchers: Matcher[]): SoundKey[] {
+  const seen = new Set<string>()
+  const out: SoundKey[] = []
+  for (const m of matchers) {
+    const key = phoneticKey(m.phrase)
+    if (key.length < 3 || seen.has(`${key}|${m.name}`)) continue
+    seen.add(`${key}|${m.name}`)
+    out.push({ key, name: m.name, span: m.phrase.split(' ').length })
+  }
+  return out
+}
+
+const SOUND_MATCH = 0.8      // similarity to accept a sound-alike name
+const SOUND_ALTERNATIVE = 0.75
+
+/** Best sound-alike catalogue names for a clause: name → { similarity, words covered }. */
+function soundMatches(text: string, keys: SoundKey[]): Map<string, { sim: number; span: number }> {
+  const words = text.split(' ').filter(w => w && !/\d/.test(w) && !STOP_WORDS.has(w))
+  const best = new Map<string, { sim: number; span: number }>()
+  for (let n = 1; n <= Math.min(4, words.length); n++) {
+    for (let i = 0; i + n <= words.length; i++) {
+      const k = phoneticKey(words.slice(i, i + n).join(' '))
+      if (k.length < 3) continue
+      for (const sk of keys) {
+        if (Math.abs(k.length - sk.key.length) > 3) continue
+        const sim = 1 - levenshtein(k, sk.key) / Math.max(k.length, sk.key.length)
+        if (sim < SOUND_ALTERNATIVE) continue
+        const cur = best.get(sk.name)
+        if (!cur || sim > cur.sim || (sim === cur.sim && n > cur.span)) best.set(sk.name, { sim, span: n })
+      }
+    }
+  }
+  return best
+}
+
+interface Detection { name: string; alternatives: string[]; uncertain: boolean }
+
+/**
+ * Which exercise a clause names. Exact names/aliases win; a sound-alike that covers more
+ * words ("pistolul squat" vs "squat") takes over and the generic one becomes an alternative.
+ * With no exact hit, the closest sound-alike is used and flagged as uncertain.
+ */
+function detectExercise(text: string, matchers: Matcher[], keys: SoundKey[]): Detection | null {
+  const padded = ` ${text} `
+  const exact = matchers.filter(m => m.re.test(padded))           // longest phrase first
+  const sounds = [...soundMatches(text, keys)]
+    .map(([name, v]) => ({ name, ...v }))
+    .sort((a, b) => b.sim - a.sim || b.span - a.span)
+  const uniq = (names: string[], not: string) => [...new Set(names)].filter(n => n !== not).slice(0, 3)
+
+  if (exact.length > 0) {
+    const top = exact[0]
+    const topSpan = top.phrase.split(' ').length
+    // Other exact hits that aren't just part of the top phrase ("squat" inside "pistol squat")
+    const otherExact = exact.slice(1).filter(m => m.name !== top.name && !top.phrase.includes(m.phrase)).map(m => m.name)
+    const moreSpecific = sounds.filter(c => c.name !== top.name && c.sim >= SOUND_MATCH && c.span > topSpan)
+    if (moreSpecific.length > 0) {
+      return { name: moreSpecific[0].name, alternatives: uniq([top.name, ...moreSpecific.slice(1).map(c => c.name), ...otherExact], moreSpecific[0].name), uncertain: false }
+    }
+    return { name: top.name, alternatives: uniq(otherExact, top.name), uncertain: false }
+  }
+
+  if (sounds.length === 0 || sounds[0].sim < SOUND_MATCH) return null
+  return { name: sounds[0].name, alternatives: uniq(sounds.slice(1).map(c => c.name), sounds[0].name), uncertain: true }
+}
+
 // ── Number words → digits (RO + EN) ──────────────────────────────────────────
 
 const UNITS: Record<string, number> = {
   zero: 0, unu: 1, una: 1, doi: 2, doua: 2, trei: 3, patru: 4, cinci: 5, sase: 6, sapte: 7, opt: 8, noua: 9, zece: 10,
   unsprezece: 11, doisprezece: 12, douasprezece: 12, treisprezece: 13, paisprezece: 14, cincisprezece: 15,
   saisprezece: 16, saptesprezece: 17, optsprezece: 18, nouasprezece: 19,
+  // Spoken forms ("unșpe", "cinșpe", "douășpe")
+  unspe: 11, doispe: 12, douaspe: 12, treispe: 13, paispe: 14, cinspe: 15, cincispe: 15,
+  saispe: 16, saptispe: 17, saptespe: 17, optispe: 18, optspe: 18, nouaspe: 19,
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
   eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
 }
@@ -144,6 +275,8 @@ export function wordsToDigits(text: string): string {
 interface Clause {
   text: string
   exercise: string | null
+  alternatives: string[]
+  uncertain: boolean
   hasNumbers: boolean
 }
 
@@ -233,6 +366,9 @@ function mergeByName(list: ParsedExercise[]): ParsedExercise[] {
     existing.sets.push(...ex.sets)
     existing.sets = existing.sets.slice(0, MAX_SETS)
     if (ex.missing) existing.missing = ex.missing
+    if (ex.uncertain) existing.uncertain = true
+    const alts = [...new Set([...(existing.alternatives ?? []), ...(ex.alternatives ?? [])])].filter(n => n !== existing.name)
+    if (alts.length) existing.alternatives = alts.slice(0, 3)
   }
   return out
 }
@@ -269,6 +405,7 @@ function splitMultiExercise(text: string, matchers: Matcher[]): string[] {
 /** Deterministic rule-based parser. Handles RO + EN, digits or number words. */
 export function parseWorkoutText(input: string, catalogue: ParseCatalogueEntry[]): ParsedWorkout {
   const matchers = buildMatchers(catalogue)
+  const keys = buildSoundKeys(matchers)
   const metricOf = (name: string) => catalogue.find(e => e.name === name)?.metric ?? 'reps'
   const text = wordsToDigits(normalizeText(input))
 
@@ -276,7 +413,10 @@ export function parseWorkoutText(input: string, catalogue: ParseCatalogueEntry[]
     .map(s => s?.trim() ?? '')
     .filter(Boolean)
     .flatMap(s => splitMultiExercise(s, matchers))
-    .map(s => ({ text: s, exercise: matchers.find(m => m.re.test(` ${s} `))?.name ?? null, hasNumbers: /\d/.test(s) }))
+    .map(s => {
+      const d = detectExercise(s, matchers, keys)
+      return { text: s, exercise: d?.name ?? null, alternatives: d?.alternatives ?? [], uncertain: d?.uncertain ?? false, hasNumbers: /\d/.test(s) }
+    })
 
   // Glue "flotări, 3 serii de 50" / "3 serii de 50, flotări" back together
   const groups: Clause[] = []
@@ -288,7 +428,11 @@ export function parseWorkoutText(input: string, catalogue: ParseCatalogueEntry[]
       (c.exercise && !c.hasNumbers && !prev.exercise && prev.hasNumbers)
     )) {
       prev.text = `${prev.text} ${c.text}`
-      prev.exercise = prev.exercise ?? c.exercise
+      if (!prev.exercise) {
+        prev.exercise = c.exercise
+        prev.alternatives = c.alternatives
+        prev.uncertain = c.uncertain
+      }
       prev.hasNumbers = true
       continue
     }
@@ -299,9 +443,32 @@ export function parseWorkoutText(input: string, catalogue: ParseCatalogueEntry[]
   const unrecognized: string[] = []
   for (const g of groups) {
     if (!g.exercise) { if (g.hasNumbers || g.text.split(' ').length > 1) unrecognized.push(g.text); continue }
-    exercises.push(parseClause(g.text, g.exercise, metricOf(g.exercise)))
+    exercises.push({
+      ...parseClause(g.text, g.exercise, metricOf(g.exercise)),
+      ...(g.alternatives.length > 0 && { alternatives: g.alternatives }),
+      ...(g.uncertain && { uncertain: true }),
+    })
   }
   return { exercises: mergeByName(exercises), unrecognized }
+}
+
+/**
+ * Add the rule parser's "did you mean" hints to another result (the AI's): same-name
+ * alternatives are merged, and a name the rules picked instead of the AI's (e.g. Pistol
+ * Squat where the AI said Squaturi) is offered as an alternative to that exercise.
+ */
+export function mergeAlternatives(primary: ParsedWorkout, hints: ParsedWorkout): ParsedWorkout {
+  const names = new Set(primary.exercises.map(e => e.name))
+  const exercises = primary.exercises.map(ex => {
+    const extra: string[] = []
+    for (const h of hints.exercises) {
+      if (h.name === ex.name) extra.push(...(h.alternatives ?? []))
+      else if (!names.has(h.name) && (h.alternatives ?? []).includes(ex.name)) extra.push(h.name)
+    }
+    const alternatives = [...new Set([...(ex.alternatives ?? []), ...extra])].filter(n => n !== ex.name).slice(0, 3)
+    return alternatives.length > 0 ? { ...ex, alternatives } : ex
+  })
+  return { ...primary, exercises }
 }
 
 // ── Sanitizing untrusted structured output (LLM / client) ────────────────────
@@ -318,7 +485,7 @@ export function sanitizeParsedWorkout(raw: unknown, catalogue: ParseCatalogueEnt
     : []
   const exercises: ParsedExercise[] = []
   for (const item of Array.isArray(obj.exercises) ? obj.exercises.slice(0, 30) : []) {
-    const ex = (item && typeof item === 'object' ? item : {}) as { name?: unknown; sets?: unknown }
+    const ex = (item && typeof item === 'object' ? item : {}) as { name?: unknown; sets?: unknown; alternatives?: unknown }
     if (typeof ex.name !== 'string') continue
     const name = resolveExerciseName(ex.name, catalogue)
     if (!name) { unrecognized.push(ex.name.slice(0, 120)); continue }
@@ -340,7 +507,11 @@ export function sanitizeParsedWorkout(raw: unknown, catalogue: ParseCatalogueEnt
     const missing = metric === 'reps'
       ? (sets.some(s => s.reps === undefined) ? 'reps' as const : undefined)
       : (sets.some(s => s.durationSeconds === undefined) ? 'duration' as const : undefined)
-    exercises.push({ name, sets, ...(missing && { missing }) })
+    const alternatives = [...new Set((Array.isArray(ex.alternatives) ? ex.alternatives : [])
+      .filter((a): a is string => typeof a === 'string')
+      .map(a => resolveExerciseName(a, catalogue))
+      .filter((a): a is string => !!a && a !== name))].slice(0, 3)
+    exercises.push({ name, sets, ...(missing && { missing }), ...(alternatives.length > 0 && { alternatives }) })
   }
   return { exercises: mergeByName(exercises), unrecognized }
 }
