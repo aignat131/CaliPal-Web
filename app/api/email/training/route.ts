@@ -145,7 +145,8 @@ export async function POST(req: NextRequest) {
   const startTime = timeStart.slice(-5)
   const endTime = timeEnd ? timeEnd.slice(-5) : ''
   const timeLabel = endTime ? `${startTime} – ${endTime}` : startTime
-  const trainingUrl = `${APP_URL}/community/${communityId}`
+  // Straight to the training: it's public, so it works even when the mail is opened logged out
+  const trainingUrl = `${APP_URL}/training/${encodeURIComponent(communityId)}/${encodeURIComponent(trainingId)}`
 
   // ── 8. Send emails in batches of 50 (Resend batch limit) ──────────────────
   const MAIL_BATCH = 50

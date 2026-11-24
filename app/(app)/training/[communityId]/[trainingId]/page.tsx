@@ -95,6 +95,11 @@ function isPast(training: PlannedTraining): boolean {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+/** Login/register read this key and send the user back here afterwards. */
+function rememberReturnPath() {
+  try { sessionStorage.setItem('calipal_auth_redirect', window.location.pathname) } catch { /* storage blocked */ }
+}
+
 export default function PublicTrainingPage() {
   const { user, isSuperAdmin } = useAuth()
   const { displayName: myDisplayName, photoUrl: myPhotoUrl } = useMyProfile()
@@ -862,12 +867,12 @@ export default function PublicTrainingPage() {
                   )}
                   <p className="text-[11px] text-white/30 text-center mt-3">sau</p>
                   <div className="flex gap-2 mt-3">
-                    <Link href="/login" className="flex-1">
+                    <Link href="/login" className="flex-1" onClick={rememberReturnPath}>
                       <span className="flex items-center justify-center h-10 rounded-xl border border-white/15 text-sm text-white/60 font-semibold">
                         Intru în cont
                       </span>
                     </Link>
-                    <Link href="/register" className="flex-1">
+                    <Link href="/register" className="flex-1" onClick={rememberReturnPath}>
                       <span className="flex items-center justify-center h-10 rounded-xl bg-brand-green text-black text-sm font-black">
                         Creează cont
                       </span>
